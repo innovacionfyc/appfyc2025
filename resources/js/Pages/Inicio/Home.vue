@@ -1,29 +1,20 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 
-defineProps({
-    canLogin: {
-        type: Boolean,
-    },
-    canRegister: {
-        type: Boolean,
-    },
-    laravelVersion: {
-        type: String,
-        required: true,
-    },
-    phpVersion: {
-        type: String,
-        required: true,
-    },
-});
+// ... tus props si las tienes
 </script>
 
 <template>
-    <Head title="Bienvenido" />
-    <div class="p-6">
-        <h1 class="">¡Bienvenido a Inertia con Laravel!</h1>
-        <p>Versión de Laravela: {{ laravelVersion }}</p>
-        <p>Versión de PHP: {{ phpVersion }}</p>
+    <Head title="Bienvenido con Tailwind" />
+
+    <div class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="p-8 bg-white rounded-lg shadow-lg text-center">
+            <h1 class="text-4xl font-bold text-blue-600">
+                ¡Bienvenido a Inertia y Tailwind!
+            </h1>
+            <p class="mt-4 text-gray-700">
+                Ahora estás usando clases de utilidad de Tailwind CSS.
+            </p>
+        </div>
     </div>
 </template>
