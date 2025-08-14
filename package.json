@@ -1,5 +1,4 @@
 {
-    "$schema": "https://json.schemastore.org/package.json",
     "private": true,
     "type": "module",
     "scripts": {
@@ -7,11 +6,36 @@
         "dev": "vite"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.0.0",
-        "axios": "^1.11.0",
+        "@inertiajs/vue3": "^2.1.1",
+        "@tailwindcss/forms": "^0.5.3",
+        "@tailwindcss/vite": "^4.0.12",
+        "@vitejs/plugin-vue": "^5.2.4",
+        "autoprefixer": "^10.4.21",
+        "axios": "^1.9.0",
         "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^2.0.0",
-        "tailwindcss": "^4.0.0",
-        "vite": "^7.0.4"
+        "laravel-echo": "^2.1.7",
+        "laravel-vite-plugin": "^1.2.0",
+        "postcss": "^8.5.3",
+        "pusher-js": "^8.4.0",
+        "tailwindcss": "^3.4.17",
+        "vite": "^6.0.11",
+        "vue": "^3.5.18"
+    },
+    "dependencies": {
+        "@inertiajs/inertia": "^0.11.1",
+        "@inertiajs/inertia-vue3": "^0.6.0",
+        "@inertiajs/progress": "^0.2.7",
+        "dayjs": "^1.11.13",
+        "events": "^3.3.0",
+        "jsbarcode": "^3.11.6",
+        "mitt": "^3.0.1",
+        "pinia": "^3.0.3",
+        "qrcode": "^1.5.4",
+        "socialite": "^1.0.0",
+        "socket.io-client": "^4.8.1",
+        "vue-router": "^4.5.0",
+        "xlsx": "^0.18.5",
+        "ziggy": "^2.4.0",
+        "ziggy-js": "^2.5.2"
     }
 }
