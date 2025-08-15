@@ -15,6 +15,7 @@ import { Head } from '@inertiajs/vue3';
             <p class="mt-4 text-gray-700">
                 Ahora estás usando clases de utilidad de Tailwind CSS.
             </p>
+            <p class="text-universal-naranja">prueba color</p>
         </div>
     </div>
 </template>
