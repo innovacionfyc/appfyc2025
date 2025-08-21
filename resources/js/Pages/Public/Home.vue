@@ -1,7 +1,6 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
 
-// ... tus props si las tienes
 </script>
 
 <template>
