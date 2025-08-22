@@ -32,13 +32,6 @@ module.exports = {
           gris2: '#58636D',
           toronja2: '#9B9900'
         },
-        gradient: {
-          vinotinto: 'bg-gradient-to-r from-[#D32F57] to-[#942934]',
-          verde: 'bg-gradient-to-r from-[#A08E43] to-[#685F2F]',
-          naranja: 'bg-gradient-to-r from-[#F39322] to-[#E96510]',
-          gris: 'bg-gradient-to-r from-[#58636D] to-[#36474F]',
-          toronja: 'bg-gradient-to-r from-[#9B9900] to-[#CCC715]'
-        },
         semaforo: {
           verde: '#16C47F',
           amarillo: '#FCC61D',
@@ -52,7 +45,14 @@ module.exports = {
           light: '#98A1BC',
           opacity: 'rgba(26, 33, 48, 0.479)'
         }
-      }
+      },
+      backgroundImage: {
+        'gradient-vinotinto': 'linear-gradient(to right, #D32F57, #942934)',
+        'gradient-verde': 'linear-gradient(to right, #A08E43, #685F2F)',
+        'gradient-naranja': 'linear-gradient(to right, #F39322, #E96510)',
+        'gradient-gris': 'linear-gradient(to right, #58636D, #36474F)',
+        'gradient-toronja': 'linear-gradient(to right, #9B9900, #CCC715)',
+      },
     },
   },
   plugins: [],
