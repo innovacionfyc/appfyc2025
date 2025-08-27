@@ -1,11 +1,13 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
-
+import { Head } from "@inertiajs/vue3";
+/* const props=defineProps{[
+usuarios=usuarios
+]}; */
 // ... tus props si las tienes
 </script>
 
 <template>
-    <Head title="Bienvenido con Tailwind" />
+    <Head title="index" />
 
     <div class="flex items-center justify-center min-h-screen bg-gray-100">
         <div class="p-8 bg-white rounded-lg shadow-lg text-center">
@@ -15,6 +17,7 @@ import { Head } from '@inertiajs/vue3';
             <p class="mt-4 text-gray-700">
                 Ahora estás usando clases de utilidad de Tailwind CSS.
             </p>
+            <!-- <p>{{ props.usuarios?.personal ||  'no hay usuarios'}}</p> -->
             <p class="text-universal-naranja">prueba color</p>
         </div>
     </div>
