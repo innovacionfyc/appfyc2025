@@ -19,16 +19,8 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        $manifestPath = public_path('build/manifest.json');
-
-        if (file_exists($manifestPath)) {
-            return md5_file($manifestPath);
-        }
-
-        return null;
+        return parent::version($request);
     }
-
-
 
     /**
      * Define the props that are shared by default.
@@ -37,23 +29,22 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        return array_merge(parent::share($request), [
+        return [
+            ...parent::share($request),
+           // AÑADE ESTO:
             'auth' => [
-                'user' => $request->user()
-                    ? $request->user()->load('establecimiento', 'rol')
-                    : null,
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'role' => $request->user()->role->name, // Compartimos el nombre del rol
+                ] : null,
             ],
-    
-            'currentRoute' => $request->route()?->getName(),
-    
-            // ✅ Usa `session()->get()` para asegurar que se retiene el valor
-            'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
-            ],
-        ]);
+            // AÑADE ESTE BLOQUE:
+        'flash' => [
+            'success' => fn () => $request->session()->get('success'),
+            'error' => fn () => $request->session()->get('error'),
+        ],
+        ];
     }
-    
-
-
 }
