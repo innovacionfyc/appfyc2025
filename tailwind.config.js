@@ -1,13 +1,21 @@
-module.exports = {
-  content: [
-    "./resources/**/*.blade.php",
-    "./resources/**/*.js",
-    "./resources/**/*.vue",
-  ],
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
+import defaultTheme from 'tailwindcss/defaultTheme';
+import forms from '@tailwindcss/forms';
+
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: [
+        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
+        './storage/framework/views/*.php',
+        './resources/views/**/*.blade.php',
+        './resources/js/**/*.vue',
+    ],
+
+    theme: {
+        extend: {
+            fontFamily: {
+                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+            },
+             colors: {
         mono: {
           blanco: '#F5F7F8',
           blanco_opacity: '#f5f7f873',
@@ -53,7 +61,8 @@ module.exports = {
         'gradient-gris': 'linear-gradient(to right, #58636D, #36474F)',
         'gradient-toronja': 'linear-gradient(to right, #9B9900, #CCC715)',
       },
+        },
     },
-  },
-  plugins: [],
-}
+
+    plugins: [forms],
+};
