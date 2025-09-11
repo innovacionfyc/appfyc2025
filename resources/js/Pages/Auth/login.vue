@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+<script setup></script>
+<template>
+
+    <h1>Login</h1>
+</template>
+=======
 <script setup>
 import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
@@ -98,3 +105,4 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+>>>>>>> main

@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+<script setup></script>
+<template>
+
+    <h1 class="text-xl">register</h1>
+</template>
+=======
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -113,3 +120,4 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+>>>>>>> main
