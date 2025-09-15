@@ -7,12 +7,8 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createPinia } from 'pinia'; // <-- 1. Importa Pinia
 
-<<<<<<< HEAD
 const appName = import.meta.env.VITE_APP_NAME || 'F&C Consultores';
-=======
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pinia = createPinia(); // <-- 2. Crea una instancia
->>>>>>> main
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
