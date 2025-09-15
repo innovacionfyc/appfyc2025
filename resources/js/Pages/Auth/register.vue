@@ -1,8 +1,3 @@
-<script setup></script>
-<template>
-
-    <h1 class="text-xl">register</h1>
-</template>
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -16,7 +11,6 @@ const form = useForm({
     email: '',
     password: '',
     password_confirmation: '',
-    role_id: 1,
 });
 
 const submit = () => {
@@ -113,7 +107,6 @@ const submit = () => {
                 >
                     Register
                 </PrimaryButton>
-                <p class="text-primary-vinotinto">prueba color</p>
             </div>
         </form>
     </GuestLayout>

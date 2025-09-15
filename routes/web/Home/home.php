@@ -1,9 +1,12 @@
 <?php
 
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\HomeController;
 
-Route::get('/', function () {
-    return Inertia::render('Public/Home');
+Route::get('/', [HomeController::class, 'show'])->name('home.index');
+
+
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 });

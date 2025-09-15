@@ -1,9 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { useAuthStore } from '@/stores/auth'; // Importa el store
-
-const auth = useAuthStore(); // Usa el store
 </script>
 
 <template>
@@ -24,7 +21,7 @@ const auth = useAuthStore(); // Usa el store
                     class="overflow-hidden bg-white shadow-sm sm:rounded-lg"
                 >
                     <div class="p-6 text-gray-900">
-                       ¡Bienvenido de nuevo, {{ auth.userName }}! Este es tu panel de administración.
+                        You're logged in!
                     </div>
                 </div>
             </div>
