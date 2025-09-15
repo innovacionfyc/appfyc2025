@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 
 
-Route::get('/register', [RegisterController::class, 'show'])->name('home.register');
+Route::get('/register', [\App\Http\Controllers\RegisterController::class, 'show'])->name('home.register');
 Route::middleware('auth')->group(function () {
 
 });
