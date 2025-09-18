@@ -9,6 +9,7 @@ import HeaderNav from '@/Components/HeaderNav.vue'
   <!-- Header -->
   <HeaderNav />
 
+<h1 class="text-center my-5 text-2xl">Severaaaa mi bro!!!</h1>
   <!-- Tu contenido existente del Home (hero + cards) -->
   <!-- ... lo que ya tienes ... -->
 </template>

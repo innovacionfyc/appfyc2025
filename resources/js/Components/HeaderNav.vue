@@ -38,7 +38,7 @@ const nav = [
          text-[16px] md:text-[17px] font-semibold md:font-bold tracking-wide
          text-primary-vinotinto
          transition-colors duration-200
-         hover:text-secondary-vinotinto2 hover:text-mono-blanco hover:bg-secondary-vinotinto2/90
+       hover:text-mono-blanco hover:bg-secondary-vinotinto2
          focus:outline-none focus-visible:ring-2 focus-visible:ring-extra-light">Inicio</Link>
                 <Link href="/oferta" class="px-3 py-2 rounded-lg
          text-[16px] md:text-[17px] font-semibold md:font-bold tracking-wide
