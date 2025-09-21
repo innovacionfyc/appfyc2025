@@ -1,6 +1,7 @@
 <script setup>
 import { Head } from '@inertiajs/vue3'
 import HeaderNav from '@/Components/HeaderNav.vue'
+import HeroShowcase from '@/Components/HeroShowcase.vue'
 </script>
 
 <template>
@@ -9,7 +10,7 @@ import HeaderNav from '@/Components/HeaderNav.vue'
   <!-- Header -->
   <HeaderNav />
 
-<h1 class="text-center my-5 text-2xl">Severaaaa mi bro!!!</h1>
-  <!-- Tu contenido existente del Home (hero + cards) -->
-  <!-- ... lo que ya tienes ... -->
+   <!-- HERO inmersivo -->
+    <HeroShowcase />
+    <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
 </template>
