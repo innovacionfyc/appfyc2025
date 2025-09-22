@@ -34,7 +34,7 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="sticky top-5 z-50 transition-all duration-300 ease-in-out"
+    class="sticky top-5 z-50 transition-all duration-300 ease-in-out bg-mono-blanco_opacity"
     :class="{
       'mx-4 rounded-2xl backdrop-blur-lg shadow-lg ring-1 ring-black/5': isScrolled,
       'mx-1': !isScrolled
