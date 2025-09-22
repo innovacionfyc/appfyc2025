@@ -13,4 +13,5 @@ import HeroShowcase from '@/Components/HeroShowcase.vue'
    <!-- HERO inmersivo -->
     <HeroShowcase />
     <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
+    <p>hola</p>
 </template>
