@@ -7,11 +7,11 @@ const props = defineProps({
   events: {
     type: Array,
     default: () => ([
-      { id: 1, title: 'Contratación para regímenes especiales', subtitle: 'Seminario de actualización', date: '21–22 Agosto 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/1.jpg', imageBg: '/images/eventos/1-hero.jpg', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=regimenes-especiales', badge: 'Presencial', rating: 5 },
-      { id: 2, title: 'Gestión de riesgos en el sector público', subtitle: 'Congreso Nacional', date: '4–6 Septiembre 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/2.jpg', imageBg: '/images/eventos/2-hero.jpg', cta_text: 'Ver detalles', cta_url: '/eventos/gestion-riesgos', badge: 'Destacado', rating: 4 },
-      { id: 3, title: 'Archivo y transparencia', subtitle: 'Workshop intensivo', date: 'Octubre 2025', city: 'Híbrido', imageThumb: '/images/eventos/3.jpg', imageBg: '/images/eventos/3-hero.jpg', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=archivo-transparencia', badge: 'Híbrido', rating: 4 },
-      { id: 4, title: 'Control interno y auditoría', subtitle: 'Diplomado especializado', date: 'Noviembre 2025', city: 'Virtual', imageThumb: '/images/eventos/4.jpg', imageBg: '/images/eventos/4-hero.jpg', cta_text: 'Más información', cta_url: '/eventos/control-interno', badge: 'Virtual', rating: 5 },
-      { id: 5, title: 'Innovación en la gestión pública', subtitle: 'Foro Internacional', date: 'Diciembre 2025', city: 'Cartagena', imageThumb: '/images/eventos/5.jpg', imageBg: '/images/eventos/5-hero.jpg', cta_text: 'Reservar cupo', cta_url: '/inscripcion?e=innovacion-publica', badge: 'Imperdible', rating: 5 },
+      { id: 1, title: 'Contratación para regímenes especiales', subtitle: 'Seminario de actualización', date: '21–22 Agosto 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/1.webp', imageBg: '/images/eventos/1-hero.webp', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=regimenes-especiales', badge: 'Presencial', rating: 5 },
+      { id: 2, title: 'Gestión de riesgos en el sector público', subtitle: 'Congreso Nacional', date: '4–6 Septiembre 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/2.webp', imageBg: '/images/eventos/2-hero.webp', cta_text: 'Ver detalles', cta_url: '/eventos/gestion-riesgos', badge: 'Destacado', rating: 4 },
+      { id: 3, title: 'Archivo y transparencia', subtitle: 'Workshop intensivo', date: 'Octubre 2025', city: 'Híbrido', imageThumb: '/images/eventos/3.webp', imageBg: '/images/eventos/3-hero.webp', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=archivo-transparencia', badge: 'Híbrido', rating: 4 },
+      { id: 4, title: 'Control interno y auditoría', subtitle: 'Diplomado especializado', date: 'Noviembre 2025', city: 'Virtual', imageThumb: '/images/eventos/4.webp', imageBg: '/images/eventos/4-hero.webp', cta_text: 'Más información', cta_url: '/eventos/control-interno', badge: 'Virtual', rating: 5 },
+      { id: 5, title: 'Innovación en la gestión pública', subtitle: 'Foro Internacional', date: 'Diciembre 2025', city: 'Cartagena', imageThumb: '/images/eventos/5.webp', imageBg: '/images/eventos/5-hero.webp', cta_text: 'Reservar cupo', cta_url: '/inscripcion?e=innovacion-publica', badge: 'Imperdible', rating: 5 },
     ])
   },
   autoplay: { type: Boolean, default: true },
@@ -62,16 +62,6 @@ function stopAutoplay() { if (timer) { clearInterval(timer); timer = null } }
 
 onMounted(() => {
   startAutoplay()
-
-
-  if (props.events.length > 1) {
-    props.events.slice(1).forEach(event => {
-      if (event.imageBg) {
-        const img = new Image()
-        img.src = event.imageBg
-      }
-    })
-  }
 })
 onBeforeUnmount(stopAutoplay)
 watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
@@ -83,16 +73,21 @@ watch(() => props.intervalMs, () => { if (props.autoplay) startAutoplay() })
     
     
     <div class="absolute inset-0">
-      <transition name="fade" mode="out-in">
-        <div
-          class="ken-burns absolute inset-0 bg-cover bg-center"
-          :key="active"
-          :style="current ? `background-image:url('${current.imageBg || current.imageThumb}')` : ''"
-        />
-      </transition>
-      <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
-      <div class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/50 to-transparent"></div>
-    </div>
+  <div
+    v-for="(event, index) in events"
+    :key="event.id"
+    class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out"
+    :class="{
+      'opacity-100': index === active,
+      'opacity-0': index !== active,
+      'ken-burns': index === active  // El efecto Ken Burns solo se aplica a la imagen activa
+    }"
+    :style="{ backgroundImage: `url('${event.imageBg}')` }"
+  />
+  
+  <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
+  <div class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/50 to-transparent"></div>
+</div>
 
     <div class="relative z-10 w-full px-4 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 lg:grid-cols-12 lg:gap-8 items-center">
