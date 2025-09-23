@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3'
 import HeaderNav from '@/Components/HeaderNav.vue'
 import HeroShowcase from '@/Components/HeroShowcase.vue'
+import ConfidenceStrip from '@/Components/ConfidenceStrip.vue'
 </script>
 
 <template>
@@ -10,8 +11,9 @@ import HeroShowcase from '@/Components/HeroShowcase.vue'
   <!-- Header -->
   <HeaderNav />
 
-   <!-- HERO inmersivo -->
-    <HeroShowcase />
-    <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
-    <p>hola</p>
+  <!-- HERO inmersivo -->
+  <HeroShowcase />
+
+  <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
+  <ConfidenceStrip />
 </template>
