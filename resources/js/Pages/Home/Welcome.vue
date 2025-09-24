@@ -15,5 +15,7 @@ import ConfidenceStrip from '@/Components/ConfidenceStrip.vue'
   <HeroShowcase />
 
   <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
-  <ConfidenceStrip />
+<ConfidenceStrip/>
+
+
 </template>

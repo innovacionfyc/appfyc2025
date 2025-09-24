@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watchEffect } from 'vue'
+import EyesGridBackground from '@/Components/EyesGridBackground.vue'
+import LogosCarousel from '@/Components/LogosCarousel.vue'
 
 const props = defineProps({
   stats: {
@@ -22,8 +24,22 @@ const props = defineProps({
       '/images/logos/aliado-6.png',
       '/images/logos/aliado-7.png',
       '/images/logos/aliado-8.png',
+      '/images/logos/aliado-9.png',
+      '/images/logos/aliado-10.png',
+      '/images/logos/aliado-11.png',
+      '/images/logos/aliado-12.png',
+      '/images/logos/aliado-13.png',
+      '/images/logos/aliado-14.png',
+      '/images/logos/aliado-15.png',
+      '/images/logos/aliado-16.png',
     ]
   },
+  bgVariant: { type: String, default: 'none' }, // 'none' | 'gradient' | 'image'
+  bgImage:   { type: String, default: '' },
+  overlay:   { type: Boolean, default: true },
+  gradientFrom: { type: String, default: 'from-primary-vinotinto/5' },
+  gradientVia:  { type: String, default: 'via-primary-naranja/5' },
+  gradientTo:   { type: String, default: 'to-primary-verde/5' },
 })
 
 /* ---- fade-up al entrar en viewport ---- */
@@ -49,9 +65,7 @@ onBeforeUnmount(() => observer?.disconnect())
 /* ---- count-up de cifras ---- */
 const animatedValues = props.stats.map(() => ref(0))
 let rafId
-
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3) }
-
 function startCounters() {
   const duration = 1200
   const start = performance.now()
@@ -69,14 +83,36 @@ watchEffect(() => { if (inView.value) startCounters() })
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full py-12 md:py-16 lg:py-20 bg-mono-blanco">
-    <!-- fondo suave -->
-    <div class="pointer-events-none absolute inset-0">
-      <div class="absolute inset-0 bg-gradient-to-b from-extra-opacity/30 to-transparent"></div>
-      <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-extra-opacity/40 to-transparent"></div>
+  <section ref="rootEl" class="relative isolate w-full py-12 md:py-16 lg:py-20 overflow-hidden">
+    <!-- 1) Fondo base (imagen/gradiente/none) -->
+    <div class="absolute inset-0 z-0">
+      <div
+        v-if="props.bgVariant === 'image' && props.bgImage"
+        class="absolute inset-0 bg-cover bg-center"
+        :style="`background-image:url('${props.bgImage}')`"
+      />
+      <div
+        v-else-if="props.bgVariant === 'gradient'"
+        class="absolute inset-0 bg-gradient-to-br"
+        :class="[props.gradientFrom, props.gradientVia, props.gradientTo]"
+      />
+      <div v-else class="absolute inset-0 bg-mono-blanco" />
     </div>
 
-    <div class="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <!-- 2) Overlay por encima del fondo -->
+    <div v-if="props.overlay" class="absolute inset-0 z-10 bg-white/65 backdrop-blur-[2px]" />
+
+    <!-- 3) Búhos siguiendo el mouse -->
+    <EyesGridBackground
+      :rows="5"
+      :cols="10"
+      :cell="120"
+      :opacity="0.22"
+      class="absolute inset-0 z-20"
+    />
+
+    <!-- 4) Contenido -->
+    <div class="relative z-30 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <!-- encabezado -->
       <div
         class="text-center mb-10 md:mb-12"
@@ -86,8 +122,10 @@ watchEffect(() => { if (inView.value) startCounters() })
         <span class="inline-block rounded-full bg-primary-vinotinto/10 text-primary-vinotinto text-xl font-semibold px-3 py-1">
           Somos F&C Consultores
         </span>
-        <h2 class="mt-3 text-3xl md:text-2xl font-extrabold text-mono-negro">
-            Una empresa privada con una trayectoria de más de 15 años, experta en el diseño y ejecución de programas académicos especializados para el sector público, que le apuesta a la generación y gestión del conocimiento de los servidores públicos como pilar fundamental para la construcción de un mejor país.
+        <h2 class="mt-3 text-2xl md:text-3xl lg:text-4xl font-extrabold text-mono-negro">
+          Una empresa privada con una trayectoria de más de 15 años, experta en el diseño y ejecución de programas
+          académicos especializados para el sector público, que le apuesta a la generación y gestión del conocimiento
+          de los servidores públicos como pilar fundamental para la construcción de un mejor país.
         </h2>
         <p class="mt-2 text-mono-negro/70">
           Confían en nosotros servidores, entidades y aliados en todo el país.
@@ -129,32 +167,16 @@ watchEffect(() => { if (inView.value) startCounters() })
 
         <!-- Logos de aliados -->
         <div class="lg:col-span-6">
-          <div
-            class="rounded-2xl bg-white/70 backdrop-blur ring-1 ring-black/5 shadow-sm p-4 md:p-6"
-            :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'"
-            style="transition: all .6s ease .15s"
-          >
-            <!-- fila scrollable en mobile, grid en desktop -->
-            <div class="no-scrollbar -mx-2 px-2 overflow-x-auto">
-              <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 md:gap-6 min-w-[560px] md:min-w-0">
-                <div
-                  v-for="(src, idx) in props.logos"
-                  :key="src + idx"
-                  class="flex items-center justify-center h-16 rounded-xl ring-1 ring-black/5 bg-white/80"
-                >
-                  <img
-                    :src="src"
-                    :alt="'Logo ' + (idx+1)"
-                    class="max-h-10 md:max-h-12 w-auto opacity-70 grayscale hover:opacity-100 hover:grayscale-0 transition"
-                    loading="lazy"
-                  />
-                </div>
-              </div>
-            </div>
-            <p class="mt-4 text-center text-xs text-mono-negro/60">
-              * Los logos son de referencia; cada aliado mantiene sus respectivos derechos.
-            </p>
-          </div>
+          <LogosCarousel
+            :logos="props.logos"
+            :cols="5"
+            :rows="3"
+            :speed="18"
+            :pauseOnHover="true"
+            :itemHeight="120"
+            :cardWidth="120"
+            :gap="18"
+          />
         </div>
       </div>
     </div>
