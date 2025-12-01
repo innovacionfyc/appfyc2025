@@ -29,16 +29,22 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- Header “contenedor” (no tiene fondo, solo posiciona la tarjeta) -->
   <header
-    class="sticky top-5 z-50 transition-all duration-300 ease-in-out"
-    :class="isScrolled
-      ? 'mx-4 rounded-2xl bg-mono-blanco/95 backdrop-blur-lg shadow-lg ring-1 ring-black/5'
-      : 'mx-1 bg-transparent'"
+    class="sticky z-50 transition-all duration-300 ease-in-out pointer-events-none"
+    :class="isScrolled ? 'top-0' : 'top-5'"
   >
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="flex h-20 items-center justify-between">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pointer-events-auto">
+      <!-- Tarjeta del navbar -->
+      <div
+        class="flex h-20 items-center justify-between rounded-3xl px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-in-out"
+        :class="isScrolled
+          ? 'bg-mono-blanco/95 backdrop-blur-lg shadow-lg ring-1 ring-black/5'
+          : 'bg-mono-blanco/30 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.30)]'
+        "
+      >
         <!-- Logo -->
-        <Link href="/" class="shrink-0">
+        <Link href="/" class="shrink-0 flex items-center">
           <img
             src="/images/logo-fyc.png"
             alt="F&C Consultores"
@@ -55,18 +61,18 @@ onUnmounted(() => {
             <li v-for="item in nav" :key="item.href">
               <Link
                 :href="item.href"
-                class="rounded-md px-3 py-2 text-[16px] font-medium transition-all duration-300 ease-out"
+                class="rounded-full px-3 py-2 text-[16px] transition-all duration-300 ease-out"
                 :class="[
                   page.url === item.href
                     ? (
                         isScrolled
                           ? 'bg-primary-vinotinto text-white font-semibold tracking-wide'
-                          : 'bg-mono-blanco/20 text-mono-blanco font-medium tracking-normal'
+                          : 'bg-white/20 text-white font-semibold tracking-wide'
                       )
                     : (
                         isScrolled
                           ? 'text-primary-vinotinto hover:bg-gray-100 hover:text-gray-900 font-semibold tracking-wide'
-                          : 'text-mono-blanco hover:bg-mono-blanco/10 font-medium tracking-normal'
+                          : 'text-white/90 hover:text-white font-medium tracking-wide'
                       ),
                   isScrolled ? 'text-[14px]' : 'text-[16px]'
                 ]"
@@ -92,7 +98,7 @@ onUnmounted(() => {
           <div class="md:hidden">
             <button
               @click="isMenuOpen = !isMenuOpen"
-              class="inline-flex items-center justify-center rounded-md p-2 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-vinotinto"
+              class="inline-flex items-center justify-center rounded-md p-2 text-primary-vinotinto transition hover:bg-primary-vinotinto/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-vinotinto"
               aria-expanded="false"
             >
               <span class="sr-only">Abrir menú principal</span>
@@ -133,30 +139,32 @@ onUnmounted(() => {
       leave-from-class="opacity-100 translate-y-0"
       leave-to-class="opacity-0 translate-y-1"
     >
-      <div v-if="isMenuOpen" class="md:hidden" id="mobile-menu">
-        <div class="space-y-1 px-2 pb-3 pt-2 sm:px-3 bg-mono-blanco/95 backdrop-blur">
-          <Link
-            v-for="item in nav"
-            :key="'m-' + item.href"
-            :href="item.href"
-            @click="isMenuOpen = false"
-            class="block rounded-md px-3 py-2 text-base font-medium"
-            :class="{
-              'bg-primary-vinotinto/10 text-primary-vinotinto': page.url === item.href,
-              'text-gray-700 hover:bg-gray-100 hover:text-gray-900': page.url !== item.href
-            }"
-          >
-            {{ item.label }}
-          </Link>
-
-          <div class="pt-4">
+      <div v-if="isMenuOpen" class="md:hidden mt-2 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl rounded-2xl bg-mono-blanco/95 backdrop-blur shadow-lg ring-1 ring-black/5">
+          <div class="space-y-1 px-3 pb-3 pt-2">
             <Link
-              href="/contacto"
+              v-for="item in nav"
+              :key="'m-' + item.href"
+              :href="item.href"
               @click="isMenuOpen = false"
-              class="block w-full text-center rounded-xl bg-primary-naranja px-5 py-3 font-semibold text-white shadow-md transition-all duration-200 hover:bg-secondary-naranja2 hover:shadow-lg"
+              class="block rounded-md px-3 py-2 text-base font-medium"
+              :class="{
+                'bg-primary-vinotinto/10 text-primary-vinotinto': page.url === item.href,
+                'text-gray-700 hover:bg-gray-100 hover:text-gray-900': page.url !== item.href
+              }"
             >
-              Contáctenos →
+              {{ item.label }}
             </Link>
+
+            <div class="pt-4">
+              <Link
+                href="/contacto"
+                @click="isMenuOpen = false"
+                class="block w-full text-center rounded-xl bg-primary-naranja px-5 py-3 font-semibold text-white shadow-md transition-all duration-200 hover:bg-secondary-naranja2 hover:shadow-lg"
+              >
+                Contáctenos →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
