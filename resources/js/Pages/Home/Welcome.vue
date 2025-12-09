@@ -6,25 +6,46 @@ import ConfidenceStrip from '@/Components/ConfidenceStrip.vue'
 import OfferGrid from '@/Components/OfferGrid.vue'
 import ProgramCtaStrip from '@/Components/ProgramCtaStrip.vue'
 import SiteFooter from '@/Components/SiteFooter.vue'
+import RevealSection from '@/Components/RevealSection.vue'
 </script>
 
 <template>
   <Head title="Bienvenido a F&C Consultores" />
 
-  <!-- Header -->
-  <HeaderNav />
+  <div class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white dark:bg-[#0B192C]">
+    
+    <HeaderNav />
 
-  <!-- HERO inmersivo -->
-  <HeroShowcase />
+    <RevealSection class="snap-start h-dvh w-full">
+      <HeroShowcase />
+    </RevealSection>
 
-  <!-- Si tienes datos: <HeroShowcase :events="events" /> -->
-  <ConfidenceStrip/>
+    <RevealSection :repeat="true" class="snap-start min-h-dvh w-full flex items-center bg-white z-10 relative">
+      <ConfidenceStrip />
+    </RevealSection>
 
-  <OfferGrid class="mt-0 mb-0" />
+    <RevealSection :repeat="true" class="snap-start min-h-dvh w-full flex items-center bg-[#FAFAFA] z-20 relative">
+      <OfferGrid />
+    </RevealSection>
 
-  <ProgramCtaStrip class="mt-0 mb-0" />
+    <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
+      <ProgramCtaStrip />
+    </RevealSection>
 
-  <SiteFooter />
+    <RevealSection class="snap-end w-full z-40 relative">
+      <SiteFooter />
+    </RevealSection>
 
-
+  </div>
 </template>
+
+<style>
+/* Ocultar barra de scroll para inmersión total */
+div::-webkit-scrollbar {
+  display: none;
+}
+div {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

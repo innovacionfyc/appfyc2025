@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
+import BtnUniversal from './BtnUniversal.vue'
 
 const isMenuOpen = ref(false)
 const isScrolled = ref(false)
-
 const page = usePage()
 
 const nav = [
@@ -19,6 +19,10 @@ const handleScroll = () => {
   isScrolled.value = window.scrollY > 20
 }
 
+const toggleMenu = () => {
+  isMenuOpen.value = !isMenuOpen.value
+}
+
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
 })
@@ -29,145 +33,79 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- Header “contenedor” (no tiene fondo, solo posiciona la tarjeta) -->
-  <header
-    class="sticky z-50 transition-all duration-300 ease-in-out pointer-events-none"
-    :class="isScrolled ? 'top-0' : 'top-5'"
-  >
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pointer-events-auto">
-      <!-- Tarjeta del navbar -->
-      <div
-        class="flex h-20 items-center justify-between rounded-3xl px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-in-out"
-        :class="isScrolled
-          ? 'bg-mono-blanco/95 backdrop-blur-lg shadow-lg ring-1 ring-black/5'
-          : 'bg-mono-blanco/30 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.30)]'
-        "
-      >
-        <!-- Logo -->
-        <Link href="/" class="shrink-0 flex items-center">
-          <img
-            src="/images/logo-fyc.png"
-            alt="F&C Consultores"
-            :class="[
-              'w-auto select-none transition-all duration-300 ease-in-out hover:scale-105',
-              isScrolled ? 'h-12' : 'h-16'
-            ]"
-          />
+  <header class="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-in-out border-b" :class="[
+    isScrolled || isMenuOpen
+      ? 'bg-white shadow-sm border-gray-100 py-2'
+      : 'bg-transparent border-transparent py-4'
+  ]">
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12">
+      <div class="flex items-center justify-between">
+
+        <Link href="/" class="shrink-0 flex items-center z-50">
+          <img src="/images/logo-fyc.png" alt="F&C Consultores"
+            class="w-auto object-contain transition-all duration-300"
+            :class="isScrolled ? 'h-10 md:h-12' : 'h-12 md:h-16'" />
         </Link>
 
-        <!-- Navegación desktop -->
-        <nav class="hidden md:flex">
-          <ul class="flex items-center space-x-2 lg:space-x-4">
-            <li v-for="item in nav" :key="item.href">
-              <Link
-                :href="item.href"
-                class="rounded-full px-3 py-2 text-[16px] transition-all duration-300 ease-out"
-                :class="[
-                  page.url === item.href
-                    ? (
-                        isScrolled
-                          ? 'bg-primary-vinotinto text-white font-semibold tracking-wide'
-                          : 'bg-white/20 text-white font-semibold tracking-wide'
-                      )
-                    : (
-                        isScrolled
-                          ? 'text-primary-vinotinto hover:bg-gray-100 hover:text-gray-900 font-semibold tracking-wide'
-                          : 'text-white/90 hover:text-white font-medium tracking-wide'
-                      ),
-                  isScrolled ? 'text-[14px]' : 'text-[16px]'
-                ]"
-              >
-                {{ item.label }}
-              </Link>
-            </li>
-          </ul>
+        <nav class="hidden md:flex items-center gap-8">
+          <Link v-for="item in nav" :key="item.href" :href="item.href"
+            class="font-bold transition-colors duration-200 relative group" :class="page.url === item.href
+              ? 'bg-primary-vinotinto py-2 px-4 rounded-full text-mono-blanco font-bold'
+              : isScrolled ? ' hover:text-primary-vinotinto' : 'text-mono-blanco'">
+            {{ item.label }}
+            <span
+              class="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-vinotinto transition-all duration-300 group-hover:w-full"></span>
+          </Link>
         </nav>
 
-        <!-- Botón + menú móvil -->
-        <div class="flex items-center gap-4">
-          <!-- Botón contacto desktop -->
-          <Link
-            href="/contacto"
-            class="hidden md:inline-flex items-center gap-2 rounded-xl bg-primary-naranja px-5 py-3 font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary-naranja2 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-          >
-            Contáctenos
-            <span class="text-lg transition-transform duration-200 group-hover:translate-x-1">→</span>
+        <div class="hidden md:flex items-center">
+          <Link href="/contacto">
+            <BtnUniversal label="Contáctenos" icon="rocket_launch" icon-position="right" size="md" />
           </Link>
-
-          <!-- Botón hamburguesa -->
-          <div class="md:hidden">
-            <button
-              @click="isMenuOpen = !isMenuOpen"
-              class="inline-flex items-center justify-center rounded-md p-2 text-primary-vinotinto transition hover:bg-primary-vinotinto/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-vinotinto"
-              aria-expanded="false"
-            >
-              <span class="sr-only">Abrir menú principal</span>
-              <svg
-                v-if="!isMenuOpen"
-                class="h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              <svg
-                v-else
-                class="h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
         </div>
+
+        <div class="md:hidden flex items-center z-50">
+          <button @click="toggleMenu"
+            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus:outline-none transition-colors">
+            <span class="sr-only">Menú</span>
+            <div class="w-6 h-5 relative flex flex-col justify-between">
+              <span class="w-full h-0.5 bg-current rounded-full transition-transform duration-300 origin-center"
+                :class="isMenuOpen ? 'rotate-45 translate-y-2.5' : ''"></span>
+              <span class="w-full h-0.5 bg-current rounded-full transition-opacity duration-300"
+                :class="isMenuOpen ? 'opacity-0' : 'opacity-100'"></span>
+              <span class="w-full h-0.5 bg-current rounded-full transition-transform duration-300 origin-center"
+                :class="isMenuOpen ? '-rotate-45 -translate-y-2' : ''"></span>
+            </div>
+          </button>
+        </div>
+
       </div>
     </div>
 
-    <!-- Menú móvil -->
-    <transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="opacity-0 translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition ease-in duration-150"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-1"
-    >
-      <div v-if="isMenuOpen" class="md:hidden mt-2 px-4 sm:px-6 lg:px-8">
-        <div class="mx-auto max-w-7xl rounded-2xl bg-mono-blanco/95 backdrop-blur shadow-lg ring-1 ring-black/5">
-          <div class="space-y-1 px-3 pb-3 pt-2">
-            <Link
-              v-for="item in nav"
-              :key="'m-' + item.href"
-              :href="item.href"
-              @click="isMenuOpen = false"
-              class="block rounded-md px-3 py-2 text-base font-medium"
-              :class="{
-                'bg-primary-vinotinto/10 text-primary-vinotinto': page.url === item.href,
-                'text-gray-700 hover:bg-gray-100 hover:text-gray-900': page.url !== item.href
-              }"
-            >
+    <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="-translate-y-full opacity-0"
+      enter-to-class="translate-y-0 opacity-100" leave-active-class="transition duration-200 ease-in"
+      leave-from-class="translate-y-0 opacity-100" leave-to-class="-translate-y-full opacity-0">
+      <div v-if="isMenuOpen"
+        class="md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl">
+        <div class="px-5 py-6 space-y-4">
+          <nav class="flex flex-col gap-2">
+            <Link v-for="item in nav" :key="item.href" :href="item.href" @click="isMenuOpen = false"
+              class="block px-4 py-3 rounded-lg text-lg font-medium transition-colors" :class="page.url === item.href
+                ? 'bg-primary-vinotinto/10 text-primary-vinotinto font-bold'
+                : 'text-gray-600 hover:bg-gray-50'">
               {{ item.label }}
             </Link>
+          </nav>
 
-            <div class="pt-4">
-              <Link
-                href="/contacto"
-                @click="isMenuOpen = false"
-                class="block w-full text-center rounded-xl bg-primary-naranja px-5 py-3 font-semibold text-white shadow-md transition-all duration-200 hover:bg-secondary-naranja2 hover:shadow-lg"
-              >
-                Contáctenos →
-              </Link>
-            </div>
+          <div class="pt-4 border-t border-gray-100">
+            <Link href="/contacto" @click="isMenuOpen = false"
+              class="flex w-full items-center justify-center px-4 py-3 text-base font-bold text-white bg-primary-naranja rounded-lg shadow hover:bg-secondary-naranja2 transition-all">
+              Contáctenos
+            </Link>
           </div>
         </div>
       </div>
-    </transition>
+    </Transition>
+
   </header>
 </template>

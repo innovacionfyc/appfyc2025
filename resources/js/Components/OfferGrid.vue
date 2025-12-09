@@ -8,233 +8,169 @@ const props = defineProps({
     default: () => ([
       {
         id: 'contratacion',
-        badge: 'Contratación y compras públicas',
-        title: 'Contratación estatal y régimen jurídico',
-        level: 'Nivel intermedio / avanzado',
-        summary: 'Seminarios, diplomados y talleres prácticos sobre SECOP, planeación contractual y manejo de riesgos en la contratación estatal.',
-        color: 'from-primary-vinotinto via-primary-naranja to-primary-verde',
+        icon: 'gavel',
+        badge: 'Legal & Normativa',
+        title: 'Contratación Estatal',
+        summary: 'Domina el SECOP II y blinda jurídicamente tus procesos de compra pública.',
+       
+        gradient: 'from-blue-600 to-indigo-600',
+        shadow: 'shadow-blue-500/20',
+        text: 'text-blue-600',
+        bg: 'bg-blue-50',
         ctaUrl: '/oferta/contratacion'
       },
       {
         id: 'riesgo',
-        badge: 'Gestión del riesgo y control interno',
-        title: 'Control interno y gestión de riesgos',
-        level: 'Aplicado al sector público',
-        summary: 'Programas orientados al fortalecimiento del MECI, MIPG, mapas de riesgos y control interno contable y auditoría.',
-        color: 'from-primary-naranja via-primary-vinotinto to-primary-verde',
+        icon: 'shield_lock', 
+        badge: 'Control Interno',
+        title: 'Gestión del Riesgo',
+        summary: 'Metodologías MECI y MIPG para entidades seguras y eficientes.',
+        gradient: 'from-orange-500 to-red-500',
+        shadow: 'shadow-orange-500/20',
+        text: 'text-orange-600',
+        bg: 'bg-orange-50',
         ctaUrl: '/oferta/control-interno-riesgo'
       },
       {
         id: 'archivo',
-        badge: 'Archivo y gestión documental',
-        title: 'Archivo, transparencia y gobierno abierto',
-        level: 'Normativa y práctica',
-        summary: 'Capacitaciones en archivo, gestión documental, transparencia, acceso a la información y rendición de cuentas.',
-        color: 'from-primary-verde via-primary-naranja to-primary-vinotinto',
+        icon: 'inventory_2',
+        badge: 'Transparencia',
+        title: 'Gestión Documental',
+        summary: 'Organización de archivos y estrategias de gobierno abierto.',
+        gradient: 'from-emerald-500 to-teal-500',
+        shadow: 'shadow-emerald-500/20',
+        text: 'text-emerald-600',
+        bg: 'bg-emerald-50',
         ctaUrl: '/oferta/archivo'
       },
       {
         id: 'finanzas',
-        badge: 'Finanzas públicas y otros temas',
-        title: 'Finanzas públicas y temática especializada',
-        level: 'Programas a la medida',
-        summary: 'Espacios académicos en finanzas públicas, presupuesto, control fiscal y temas especializados según las necesidades de cada entidad.',
-        color: 'from-primary-vinotinto via-primary-verde to-primary-naranja',
+        icon: 'account_balance_wallet',
+        badge: 'Hacienda Pública',
+        title: 'Finanzas y Presupuesto',
+        summary: 'Control fiscal y manejo eficiente de recursos territoriales.',
+        gradient: 'from-purple-600 to-fuchsia-600',
+        shadow: 'shadow-purple-500/20',
+        text: 'text-purple-600',
+        bg: 'bg-purple-50',
         ctaUrl: '/oferta/finanzas'
       },
     ])
   }
 })
 
-// animación al entrar en viewport
 const rootEl = ref(null)
 const inView = ref(false)
 let observer = null
 
-// refs para mobile
-const mobileScroll = ref(null)
-const showScrollHint = ref(true)
-
 onMounted(() => {
-  // IntersectionObserver para fade-up
-  observer = new IntersectionObserver(
-    ([entry]) => {
-      if (entry.isIntersecting) {
-        inView.value = true
-        if (observer) observer.disconnect()
-      }
-    },
-    { threshold: 0.15, rootMargin: '0px 0px -10% 0px' }
-  )
-
-  if (rootEl.value) {
-    observer.observe(rootEl.value)
-  }
-
-  // pequeño "nudge" al carrusel mobile para indicar que se puede deslizar
-  if (mobileScroll.value) {
-    setTimeout(() => {
-      mobileScroll.value.scrollTo({ left: 24, behavior: 'smooth' })
-      setTimeout(() => {
-        mobileScroll.value.scrollTo({ left: 0, behavior: 'smooth' })
-      }, 400)
-    }, 500)
-  }
-
-  // ocultar el texto "desliza →" después de unos segundos
-  if (showScrollHint.value) {
-    setTimeout(() => {
-      showScrollHint.value = false
-    }, 3500)
-  }
+  observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      inView.value = true
+      observer?.disconnect()
+    }
+  }, { threshold: 0.1 })
+  if (rootEl.value) observer.observe(rootEl.value)
 })
-
-onBeforeUnmount(() => {
-  if (observer) observer.disconnect()
-})
+onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full py-10 md:py-14">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  <section ref="rootEl" class="relative w-full py-20 lg:py-32 bg-[#FAFAFA] overflow-hidden">
+    
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+      <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-primary-vinotinto/5 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3"></div>
+      <div class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary-naranja/5 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3"></div>
+    </div>
 
-      <!-- GRID DESKTOP / TABLET -->
-      <div
-        class="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8"
-        :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'"
-        style="transition: all .6s ease"
-      >
-        <article
-          v-for="block in props.blocks"
-          :key="block.id"
-          class="group relative rounded-3xl bg-white shadow-lg ring-1 ring-black/5 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+    <div class="relative z-10 mx-auto max-w-7xl px-6 lg:px-8">
+      
+      <div class=" mb-16 lg:mb-24">
+        <span 
+          class="inline-block py-1 px-3 rounded-full bg-white border border-gray-200 shadow-sm text-xs font-bold uppercase tracking-widest text-gray-500 mb-6 transition-all duration-700 transform"
+          :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'"
         >
-          <!-- borde superior degradado -->
-          <div class="h-1 w-full bg-gradient-to-r" :class="block.color"></div>
-
-          <div class="p-6 lg:p-7 space-y-3">
-            <!-- categoría -->
-            <div class="flex items-center justify-between text-[11px] uppercase tracking-wide">
-              <p class="font-semibold text-primary-vinotinto/80">
-                {{ block.badge }}
-              </p>
-              <span
-                class="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-primary-vinotinto/5 text-primary-vinotinto text-xs font-semibold"
-              >
-                {{ (block.id || '').charAt(0).toUpperCase() || 'F' }}
-              </span>
-            </div>
-
-            <!-- título -->
-            <h3 class="text-xl lg:text-2xl font-extrabold text-mono-negro leading-snug">
-              {{ block.title }}
-            </h3>
-
-            <!-- nivel -->
-            <p class="text-xs font-semibold text-primary-vinotinto/80">
-              {{ block.level }}
-            </p>
-
-            <!-- descripción -->
-            <p class="text-sm text-mono-negro/70 leading-relaxed">
-              {{ block.summary }}
-            </p>
-
-            <!-- footer -->
-            <div class="pt-4 flex items-center justify-between gap-4">
-              <Link
-                :href="block.ctaUrl"
-                class="inline-flex items-center gap-2 rounded-xl bg-primary-vinotinto px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-secondary-vinotinto2 hover:shadow-lg"
-              >
-                Ver programas
-                <span class="text-base group-hover:translate-x-0.5 transition-transform">→</span>
-              </Link>
-
-              <button
-                type="button"
-                class="text-xs font-medium text-mono-negro/60 inline-flex items-center gap-1 hover:text-primary-vinotinto"
-              >
-                Ver detalle rápido
-                <span>↗</span>
-              </button>
-            </div>
-          </div>
-        </article>
+          Nuestra Especialidad
+        </span>
+        <h2 
+          class="text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1] mb-6 transition-all duration-700 delay-100 transform"
+          :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+        >
+          Formación de <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">Alto Impacto</span>.
+        </h2>
+        <p 
+          class="text-lg text-gray-600 leading-relaxed transition-all duration-700 delay-200 transform"
+          :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
+        >
+          Eleva el nivel de tu entidad con programas diseñados para los retos reales del sector público moderno.
+        </p>
       </div>
 
-      <!-- MOBILE: carrusel horizontal con indicador de scroll -->
-      <div
-        class="mt-4 md:hidden relative"
-        :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'"
-        style="transition: all .6s ease .1s"
-      >
-        <!-- Indicador "desliza →" -->
-        <div
-          v-if="showScrollHint"
-          class="absolute right-4 top-4 z-20 pointer-events-none"
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        
+        <article 
+          v-for="(block, index) in props.blocks" 
+          :key="block.id"
+          class="group relative h-full bg-white rounded-[2.5rem] p-8 lg:p-10 border border-gray-100 overflow-hidden transition-all duration-500 hover:border-transparent hover:-translate-y-2"
+          :class="[
+            inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12',
+            block.shadow
+          ]"
+          :style="{ transitionDelay: `${index * 150}ms` }"
         >
-          <div class="flex items-center gap-1 text-primary-vinotinto/70 text-xs animate-pulse">
-            desliza
-            <span class="text-lg">→</span>
-          </div>
-        </div>
+          <div 
+            class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br"
+            :class="[block.gradient, 'bg-opacity-5']"
+            style="opacity: 0;" 
+          ></div>
+          <div class="absolute inset-0 bg-white transition-opacity duration-300 group-hover:opacity-95 z-0"></div>
+          <div class="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500 z-0" :class="block.gradient"></div>
 
-        <!-- sombras laterales -->
-        <div class="absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-mono-blanco to-transparent pointer-events-none z-10"></div>
-        <div class="absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-mono-blanco to-transparent pointer-events-none z-10"></div>
 
-        <div
-          ref="mobileScroll"
-          class="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory px-1 pb-3"
-          style="scroll-behavior: smooth;"
-        >
-          <article
-            v-for="block in props.blocks"
-            :key="'m-' + block.id"
-            class="snap-center flex-shrink-0 w-[86%] rounded-2xl bg-white shadow-lg ring-1 ring-black/5 overflow-hidden transition-all duration-300 hover:-translate-y-1"
-          >
-            <!-- borde superior degradado -->
-            <div class="h-1 w-full bg-gradient-to-r" :class="block.color"></div>
+          <div class="relative z-10 flex flex-col h-full">
+            
+            <div class="flex justify-between items-start mb-8">
+              <div 
+                class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl text-white shadow-lg transform transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3"
+                :class="`bg-gradient-to-br ${block.gradient}`"
+              >
+                <span class="material-symbols-rounded">{{ block.icon }}</span>
+              </div>
 
-            <div class="p-5 space-y-3">
-              <p class="text-[11px] uppercase font-semibold text-primary-vinotinto/80 tracking-wide">
-                {{ block.badge }}
-              </p>
-
-              <h3 class="text-lg font-extrabold text-mono-negro leading-snug">
-                {{ block.title }}
-              </h3>
-
-              <p class="text-xs font-semibold text-primary-vinotinto/80">
-                {{ block.level }}
-              </p>
-
-              <p class="text-sm text-mono-negro/70 line-clamp-4">
-                {{ block.summary }}
-              </p>
-
-              <div class="pt-3 flex items-center justify-between">
-                <Link
-                  :href="block.ctaUrl"
-                  class="inline-flex items-center gap-2 rounded-xl bg-primary-vinotinto px-4 py-2 text-xs font-semibold text-white shadow-md hover:bg-secondary-vinotinto2 transition"
-                >
-                  Ver programas →
-                </Link>
+              <div 
+                class="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-gray-300 transition-all duration-300 group-hover:bg-black group-hover:border-black group-hover:text-white"
+              >
+                <span class="material-symbols-rounded text-xl -rotate-45 group-hover:rotate-0 transition-transform duration-300">arrow_forward</span>
               </div>
             </div>
-          </article>
-        </div>
+
+            <div class="flex-grow">
+              <span 
+                class="inline-block px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider mb-4 transition-colors duration-300"
+                :class="[block.bg, block.text]"
+              >
+                {{ block.badge }}
+              </span>
+              
+              <h3 class="text-2xl lg:text-3xl font-bold text-gray-900 mb-4 leading-tight group-hover:text-black transition-colors">
+                {{ block.title }}
+              </h3>
+              
+              <p class="text-gray-500 leading-relaxed mb-6 group-hover:text-gray-600">
+                {{ block.summary }}
+              </p>
+            </div>
+
+            <div class="h-1 w-12 rounded-full bg-gray-200 mt-auto transition-all duration-500 group-hover:w-full"
+                 :class="`group-hover:bg-gradient-to-r ${block.gradient}`">
+            </div>
+
+            <Link :href="block.ctaUrl" class="absolute inset-0 z-20 focus:outline-none focus:ring-4 focus:ring-primary-vinotinto/20 rounded-[2.5rem]"></Link>
+          </div>
+        </article>
+
       </div>
+
     </div>
   </section>
 </template>
-
-<style scoped>
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-</style>
