@@ -73,19 +73,32 @@ const steps = [
             ]"
             :style="{ transitionDelay: `${index * 150}ms` }"
           >
-            <!-- “Imagen” abstracta -->
-            <div class="absolute -top-10 -right-10 w-48 h-48 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-              <svg viewBox="0 0 200 200" class="w-full h-full">
+            <!-- “Imagen” abstracta flotante -->
+            <div
+              class="absolute -top-12 -right-12 w-48 h-48
+                     opacity-0 scale-95
+                     group-hover:opacity-100 group-hover:scale-100
+                     group-hover:translate-x-2 group-hover:-translate-y-2
+                     transition-all duration-700 ease-out
+                     pointer-events-none z-10"
+            >
+              <svg viewBox="0 0 200 200" class="w-full h-full blur-[1px]">
                 <defs>
                   <linearGradient :id="`g-${s.n}`" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#D32F57" stop-opacity="0.25"/>
-                    <stop offset="55%" stop-color="#E96510" stop-opacity="0.18"/>
-                    <stop offset="100%" stop-color="#A08E43" stop-opacity="0.18"/>
+                    <stop offset="0%" stop-color="#D32F57" stop-opacity="0.28" />
+                    <stop offset="55%" stop-color="#E96510" stop-opacity="0.22" />
+                    <stop offset="100%" stop-color="#A08E43" stop-opacity="0.22" />
                   </linearGradient>
                 </defs>
-                <path :fill="`url(#g-${s.n})`" d="M45.5,-58.6C58.7,-52.2,69.5,-39.3,75.3,-24.4C81.1,-9.5,81.9,7.4,77.2,24.1C72.6,40.9,62.4,57.6,48,66.7C33.6,75.8,16.8,77.4,1.2,75.8C-14.4,74.1,-28.8,69.2,-41.8,60.5C-54.7,51.9,-66.2,39.5,-71,24.7C-75.9,10,-74.1,-7.1,-68.1,-22C-62.1,-36.9,-51.8,-49.5,-38.9,-56.6C-26,-63.8,-10.5,-65.4,3.7,-70.4C17.9,-75.4,35.8,-83.9,45.5,-58.6Z" transform="translate(100 100)"/>
+
+                <path
+                  :fill="`url(#g-${s.n})`"
+                  d="M45.5,-58.6C58.7,-52.2,69.5,-39.3,75.3,-24.4C81.1,-9.5,81.9,7.4,77.2,24.1C72.6,40.9,62.4,57.6,48,66.7C33.6,75.8,16.8,77.4,1.2,75.8C-14.4,74.1,-28.8,69.2,-41.8,60.5C-54.7,51.9,-66.2,39.5,-71,24.7C-75.9,10,-74.1,-7.1,-68.1,-22C-62.1,-36.9,-51.8,-49.5,-38.9,-56.6C-26,-63.8,-10.5,-65.4,3.7,-70.4C17.9,-75.4,35.8,-83.9,45.5,-58.6Z"
+                  transform="translate(100 100)"
+                />
               </svg>
             </div>
+
 
             <div class="flex items-start justify-between gap-4 mb-6 relative z-10">
               <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-3xl
