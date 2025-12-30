@@ -7,10 +7,10 @@ const props = defineProps({
   stats: {
     type: Array,
     default: () => [
-      { label: 'Participantes capacitados', value: 12000, suffix: '+', icon: 'groups' },
-      { label: 'Entidades atendidas', value: 200, suffix: '+', icon: 'account_balance' },
-      { label: 'Eventos organizados', value: 350, suffix: '+', icon: 'event' },
-      { label: 'Ciudades de presencia', value: 5, suffix: '', icon: 'public' },
+      { label: 'Servidores públicos formados', value: 160000, suffix: '+', icon: 'groups' },
+      { label: 'Años de experiencia', value: 16, suffix: '+', icon: 'history_edu' },
+      { label: 'Programas con impacto real', value: 350, suffix: '+', icon: 'event' },
+      { label: 'Cobertura nacional', value: 32, suffix: '', icon: 'public' },
     ]
   },
   logos: {
@@ -92,23 +92,28 @@ watchEffect(() => { if (inView.value) startCounters() })
         <div class="flex flex-col justify-center space-y-8">
           <div class="transition-all duration-1000 transform ease-out"
             :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'">
+
             <span
               class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-vinotinto/5 text-primary-vinotinto text-sm font-bold uppercase tracking-widest mb-6">
               <span class="w-2 h-2 rounded-full bg-primary-vinotinto"></span>
-              Sobre Nosotros
+              Nuestra experiencia
             </span>
 
             <h2 class="text-4xl lg:text-5xl font-black text-gray-900 leading-[1.1] mb-6 tracking-tight">
-              Más de <span
-                class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">15
-                años</span> construyendo un mejor país.
+              Somos sus aliados estratégicos en la
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">
+                generación y gestión del conocimiento
+              </span>.
             </h2>
 
             <p class="text-lg text-gray-600 leading-relaxed max-w-xl">
-              Somos una empresa privada experta en el diseño y ejecución de programas académicos especializados para el
-              sector público.
-              Apostamos por la <strong class="text-gray-900 font-semibold">generación y gestión del
-                conocimiento</strong> de los servidores públicos como pilar fundamental.
+              Durante más de <strong class="text-gray-900 font-semibold">16 años</strong>, F&amp;C Consultores ha acompañado a
+              entidades públicas y mixtas del país en el fortalecimiento de capacidades, diseñando y ejecutando
+              <strong class="text-gray-900 font-semibold">programas académicos especializados</strong> que generan impacto real
+              en la gestión institucional.
+              Hemos formado a más de <strong class="text-gray-900 font-semibold">160.000 servidores públicos</strong> en todo el territorio nacional,
+              consolidándonos como un aliado estratégico <strong class="text-gray-900 font-semibold">confiable, pertinente</strong> y alineado con las
+              políticas públicas de formación y capacitación del Estado.
             </p>
           </div>
         </div>
@@ -120,6 +125,7 @@ watchEffect(() => { if (inView.value) startCounters() })
               inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16',
               index % 2 !== 0 ? 'lg:translate-y-12' : ''
             ]" :style="{ transitionDelay: `${index * 150}ms` }">
+
             <div
               class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 group-hover:bg-primary-vinotinto/10 group-hover:text-primary-vinotinto transition-all duration-300 text-gray-400">
               <span class="material-symbols-rounded">{{ stat.icon }}</span>
@@ -158,13 +164,20 @@ watchEffect(() => { if (inView.value) startCounters() })
             <div
               class="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none">
             </div>
-            <LogosCarousel :logos="props.logos" :rows="1" :speed="50" :itemHeight="140" :cardWidth="260" :gap="40"
-              class="opacity-100" />
+
+            <LogosCarousel
+              :logos="props.logos"
+              :rows="1"
+              :speed="50"
+              :itemHeight="140"
+              :cardWidth="260"
+              :gap="40"
+              class="opacity-100"
+            />
+
             <div
               class="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none">
             </div>
-
-            
           </div>
         </div>
       </div>
