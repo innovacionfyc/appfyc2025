@@ -33,3 +33,14 @@ import UsApproach from '@/Components/Us/UsApproach.vue'
 
   <SiteFooter />
 </template>
+
+<style>
+/* Ocultar barra de scroll para inmersión total */
+div::-webkit-scrollbar {
+  display: none;
+}
+div {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

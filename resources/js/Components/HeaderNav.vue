@@ -43,7 +43,7 @@ const isActive = (item) => {
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onUnmounted(() => {
@@ -53,25 +53,33 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-in-out border-b"
+    class="fixed top-0 left-0 right-0 z-50 w-full border-b transition-all duration-300 ease-in-out"
     :class="[
-      isScrolled || isMenuOpen
-        ? 'bg-white shadow-sm border-gray-100 py-2'
-        : 'bg-transparent border-transparent py-4'
+      (isScrolled || isMenuOpen)
+        ? 'py-2 border-gray-200/60 shadow-sm'
+        : 'py-3 border-white/10'
     ]"
   >
-    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12">
+    <!-- Fondo animado (siempre) -->
+    <div
+      class="header-bg absolute inset-0 pointer-events-none"
+      :class="(isScrolled || isMenuOpen) ? 'header-bg--solid' : 'header-bg--float'"
+    ></div>
+
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 relative">
       <div class="flex items-center justify-between">
 
+        <!-- Logo -->
         <Link href="/" class="shrink-0 flex items-center z-50">
           <img
             src="/images/logo-fyc.png"
             alt="F&C Consultores"
             class="w-auto object-contain transition-all duration-300"
-            :class="isScrolled ? 'h-10 md:h-12' : 'h-12 md:h-16'"
+            :class="(isScrolled || isMenuOpen) ? 'h-10 md:h-12' : 'h-12 md:h-16'"
           />
         </Link>
 
+        <!-- Nav desktop -->
         <nav class="hidden md:flex items-center gap-8">
           <Link
             v-for="item in nav"
@@ -79,8 +87,10 @@ onUnmounted(() => {
             :href="item.href"
             class="font-bold transition-colors duration-200 relative group"
             :class="isActive(item)
-              ? 'bg-primary-vinotinto py-2 px-4 rounded-full text-mono-blanco font-bold'
-              : isScrolled ? 'text-gray-900 hover:text-primary-vinotinto' : 'text-mono-blanco hover:text-white/90'"
+              ? 'bg-primary-vinotinto py-2 px-4 rounded-full text-white'
+              : ((isScrolled || isMenuOpen)
+                  ? 'text-gray-900 hover:text-primary-vinotinto'
+                  : 'text-gray-900/90 hover:text-gray-900')"
           >
             {{ item.label }}
             <span
@@ -89,16 +99,18 @@ onUnmounted(() => {
           </Link>
         </nav>
 
+        <!-- Botón contacto desktop -->
         <div class="hidden md:flex items-center">
           <Link href="/contacto">
             <BtnUniversal label="Contáctenos" icon="rocket_launch" icon-position="right" size="md" />
           </Link>
         </div>
 
+        <!-- Menú móvil botón -->
         <div class="md:hidden flex items-center z-50">
           <button
             @click="toggleMenu"
-            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus:outline-none transition-colors"
+            class="p-2 rounded-lg focus:outline-none transition-colors text-gray-800 hover:bg-black/5"
           >
             <span class="sr-only">Menú</span>
             <div class="w-6 h-5 relative flex flex-col justify-between">
@@ -121,6 +133,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Menú móvil -->
     <Transition
       enter-active-class="transition duration-300 ease-out"
       enter-from-class="-translate-y-full opacity-0"
@@ -131,7 +144,7 @@ onUnmounted(() => {
     >
       <div
         v-if="isMenuOpen"
-        class="md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl"
+        class="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xl"
       >
         <div class="px-5 py-6 space-y-4">
           <nav class="flex flex-col gap-2">
@@ -143,7 +156,7 @@ onUnmounted(() => {
               class="block px-4 py-3 rounded-lg text-lg font-medium transition-colors"
               :class="isActive(item)
                 ? 'bg-primary-vinotinto/10 text-primary-vinotinto font-bold'
-                : 'text-gray-600 hover:bg-gray-50'"
+                : 'text-gray-700 hover:bg-gray-50'"
             >
               {{ item.label }}
             </Link>
@@ -161,6 +174,62 @@ onUnmounted(() => {
         </div>
       </div>
     </Transition>
-
   </header>
 </template>
+
+<style scoped>
+/* Capa de fondo: animación sutil + glass */
+.header-bg{
+  z-index: 0;
+  background:
+    radial-gradient(900px 220px at 15% 0%, rgba(211,47,87,0.12), transparent 55%),
+    radial-gradient(700px 220px at 85% 0%, rgba(243,147,34,0.12), transparent 55%),
+    linear-gradient(90deg,
+      rgba(255,255,255,0.55),
+      rgba(255,255,255,0.35),
+      rgba(255,255,255,0.55)
+    );
+  background-size: 140% 140%, 140% 140%, 220% 100%;
+  animation: headerGlow 18s ease-in-out infinite;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: opacity .25s ease, background .25s ease, backdrop-filter .25s ease;
+}
+
+/* Modo flotante (arriba): un toque más suave */
+.header-bg--float{
+  opacity: 0.55;
+}
+
+/* Modo sólido (scroll o menú abierto): más legible */
+.header-bg--solid{
+  opacity: 0.88;
+}
+
+/* Hover: “enfoque” para resaltar texto */
+header:hover .header-bg{
+  opacity: 0.95;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background:
+    radial-gradient(900px 220px at 15% 0%, rgba(211,47,87,0.16), transparent 55%),
+    radial-gradient(700px 220px at 85% 0%, rgba(243,147,34,0.16), transparent 55%),
+    linear-gradient(90deg,
+      rgba(255,255,255,0.72),
+      rgba(255,255,255,0.52),
+      rgba(255,255,255,0.72)
+    );
+}
+
+@keyframes headerGlow{
+  0%   { background-position: 0% 0%,   100% 0%, 0% 0%; }
+  50%  { background-position: 20% 20%, 80% 10%, 100% 0%; }
+  100% { background-position: 0% 0%,   100% 0%, 0% 0%; }
+}
+
+/* Importantísimo: el contenido del header por encima */
+header > *:not(.header-bg){
+  position: relative;
+  z-index: 10;
+}
+</style>
