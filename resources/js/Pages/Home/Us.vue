@@ -4,10 +4,10 @@ import HeaderNav from '@/Components/HeaderNav.vue'
 import SiteFooter from '@/Components/SiteFooter.vue'
 import RevealSection from '@/Components/RevealSection.vue'
 
-import UsHero from '@/Components/Us/UsHero.vue'
-import UsStory from '@/Components/Us/UsStory.vue'
-import UsValues from '@/Components/Us/UsValues.vue'
-import UsApproach from '@/Components/Us/UsApproach.vue'
+import UsHistory from '@/Components/Us/UsHistory.vue'
+import UsTeam from '@/Components/Us/UsTeam.vue'
+import UsModalities from '@/Components/Us/UsModalities.vue'
+import UsMethodologies from '@/Components/Us/UsMethodologies.vue'
 </script>
 
 <template>
@@ -16,25 +16,27 @@ import UsApproach from '@/Components/Us/UsApproach.vue'
   <HeaderNav />
 
   <main class="min-h-screen pt-24">
-    <UsHero />
-
     <RevealSection>
-      <UsStory />
+      <UsHistory />
     </RevealSection>
 
     <RevealSection>
-      <UsValues />
+      <UsTeam />
     </RevealSection>
 
     <RevealSection>
-      <UsApproach />
+      <UsModalities />
+    </RevealSection>
+
+    <RevealSection>
+      <UsMethodologies />
     </RevealSection>
   </main>
 
   <SiteFooter />
 </template>
 
-<style>
+<!-- <style>
 /* Ocultar barra de scroll para inmersión total */
 div::-webkit-scrollbar {
   display: none;
@@ -43,4 +45,4 @@ div {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-</style>
+</style> -->
