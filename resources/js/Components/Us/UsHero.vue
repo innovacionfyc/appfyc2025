@@ -21,8 +21,12 @@ import { Link } from '@inertiajs/vue3'
             <span class="text-sm font-bold tracking-wide text-gray-700">SOBRE F&amp;C CONSULTORES</span>
           </div>
 
+          <!-- Título con degradado corporativo -->
           <h1 class="mt-6 text-4xl md:text-5xl font-black tracking-tight text-gray-900 leading-tight">
-            Rigor técnico, lenguaje claro y resultados que sí se pueden sostener.
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">
+              Rigor técnico
+            </span>
+            , lenguaje claro y resultados que sí se pueden sostener.
           </h1>
 
           <p class="mt-5 text-lg text-gray-600 leading-relaxed">
@@ -65,7 +69,13 @@ import { Link } from '@inertiajs/vue3'
               </div>
             </div>
 
-            <h3 class="mt-6 text-2xl font-black text-gray-900">Lo que hacemos, sin adornos</h3>
+            <h3 class="mt-6 text-2xl font-black text-gray-900">
+              Lo que hacemos,
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">
+                sin adornos
+              </span>
+            </h3>
+
             <p class="mt-3 text-gray-600">
               Fortalecemos capacidades con formación, acompañamiento y consultoría. El objetivo es que tu equipo
               salga con claridad, decisiones mejor soportadas y un plan ejecutable.
