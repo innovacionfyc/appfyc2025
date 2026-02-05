@@ -13,7 +13,7 @@ class LoginController extends Controller
 {
     public function showLoginForm(): Response
     {
-        return Inertia::render('Auth/Login');
+        return Inertia::render('Auth/login');
     }
 
     public function login(Request $request)
@@ -24,7 +24,7 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            
+
             if (!Auth::user()->is_active) {
                 Auth::logout();
                 throw ValidationException::withMessages([
@@ -43,7 +43,7 @@ class LoginController extends Controller
         ]);
     }
 
-   
+
     public function redirectByRole()
     {
         $user = Auth::user();
@@ -53,10 +53,10 @@ class LoginController extends Controller
         }
 
         return match ($user->role->name) {
-            'super-admin'   => redirect()->route('admin.dashboard'),
-            'comercial'     => redirect()->route('commercial.dashboard'),
+            'super-admin' => redirect()->route('admin.dashboard'),
+            'comercial' => redirect()->route('commercial.dashboard'),
             'conferencista' => redirect()->route('speaker.dashboard'),
-            default         => redirect()->route('home.index'),
+            default => redirect()->route('home.index'),
         };
     }
 
