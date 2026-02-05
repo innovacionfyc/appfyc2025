@@ -115,7 +115,7 @@ onBeforeUnmount(() => observer?.disconnect())
         </h2>
 
         <p
-          class="text-base lg:text-lg text-gray-600 leading-relaxed max-w-3xl transition-all duration-700 delay-200"
+          class="text-base lg:text-lg text-gray-600 leading-relaxed max-w-3xl transition-all duration-700 delay-200 text-justify"
           :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
           Para 2026, segmentamos nuestra oferta académica de acuerdo con la naturaleza jurídica de las entidades
@@ -171,7 +171,7 @@ onBeforeUnmount(() => observer?.disconnect())
                 {{ block.title }}
               </h3>
 
-              <p class="text-gray-500 leading-relaxed text-[15px] mb-5">
+              <p class="text-gray-500 leading-relaxed text-[15px] mb-5 text-justify">
                 {{ block.summary }}
               </p>
             </div>

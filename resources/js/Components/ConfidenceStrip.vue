@@ -10,7 +10,7 @@ const props = defineProps({
       { label: 'Servidores públicos formados', value: 160000, suffix: '+', icon: 'groups' },
       { label: 'Años de experiencia', value: 17, suffix: '+', icon: 'history_edu' },
       { label: 'Programas con impacto real', value: 350, suffix: '+', icon: 'event' },
-      { label: 'Cobertura nacional', value: 32, suffix: '', icon: 'public' },
+      { label: 'Expertos forman parte de nuestro equipo académico ', value: 195, suffix: '', icon: 'public' },
     ]
   },
   logos: {
@@ -97,7 +97,7 @@ watchEffect(() => { if (inView.value) startCounters() })
             <span
               class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-vinotinto/5 text-primary-vinotinto text-sm font-bold uppercase tracking-widest mb-6">
               <span class="w-2 h-2 rounded-full bg-primary-vinotinto"></span>
-              Nuestra experiencia
+              Nuestros Resultados 
             </span>
 
             <h2 class="text-4xl lg:text-5xl font-black text-gray-900 leading-[1.1] mb-6 tracking-tight">
@@ -108,7 +108,7 @@ watchEffect(() => { if (inView.value) startCounters() })
             </h2>
 
             <p class="text-lg text-gray-600 leading-relaxed max-w-xl text-justify">
-              Durante más de <strong class="text-gray-900 font-semibold">16 años</strong>, F&amp;C Consultores ha acompañado a
+              Durante más de <strong class="text-gray-900 font-semibold">17 años</strong>, F&amp;C Consultores ha acompañado a
               entidades públicas y mixtas del país en el fortalecimiento de capacidades, diseñando y ejecutando
               <strong class="text-gray-900 font-semibold">programas académicos especializados</strong> que generan impacto real
               en la gestión institucional.

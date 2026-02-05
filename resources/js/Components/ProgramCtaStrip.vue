@@ -55,16 +55,23 @@ onBeforeUnmount(() => {
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
               </span>
-              <span class="text-xs font-bold tracking-widest text-white uppercase">Modalidades de formación</span>
+                <span class="text-[11px] font-bold tracking-widest text-white uppercase">
+                Línea de formación institucional
+              </span>
             </div>
 
-            <h2 class="text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight drop-shadow-sm">
-              Elige la modalidad que mejor se adapte a tu entidad <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-white">y a tu equipo</span>.
+              <h2 class="text-2xl md:text-3xl lg:text-3xl font-black text-white leading-tight drop-shadow-sm">
+              ¿Cuál de nuestras líneas de negocio se ajusta mejor a las necesidades de su entidad
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-white">
+                y de su equipo de trabajo
+              </span>?
             </h2>
 
-            <p class="text-lg text-white/90 font-medium leading-relaxed max-w-xl">
-              Diseñamos programas que se ajustan a tu realidad: cobertura, tiempos y presupuesto.
-              Con Ovi y nuestro equipo académico, la experiencia queda sólida y práctica.
+              <p class="text-base text-white/90 font-medium leading-relaxed max-w-xl text-justify">
+              Diseñamos programas académicos que se ajustan a la realidad institucional de cada entidad,
+              considerando su cobertura, tiempos y presupuesto.
+              Con el acompañamiento de nuestro equipo académico y de Ovi, la experiencia formativa
+              se consolida como sólida, práctica y pertinente.
             </p>
 
             <!-- Lista de modalidades -->
@@ -72,7 +79,7 @@ onBeforeUnmount(() => {
               <div class="rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md p-4">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="material-symbols-rounded text-white text-xl">location_city</span>
-                  <span class="text-white font-extrabold">Presencial</span>
+                  <span class="text-white font-bold text-sm">Presencial</span>
                 </div>
                 <p class="text-white/85 text-sm leading-relaxed">
                   Principalmente en Bogotá D.C. y otras ciudades capitales del país.
@@ -82,20 +89,22 @@ onBeforeUnmount(() => {
               <div class="rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md p-4">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="material-symbols-rounded text-white text-xl">videocam</span>
-                  <span class="text-white font-extrabold">Virtual</span>
+                  <span class="text-white font-bold text-sm">Virtual</span>
                 </div>
-                <p class="text-white/85 text-sm leading-relaxed">
-                  Programas sincrónicos y en vivo: participación, interacción y optimización de costos.
+                  <p class="text-white/85 text-[13px] leading-relaxed">
+                  Programas sincrónicos y en vivo que promueven la participación, la interacción
+                  y la optimización de costos.
                 </p>
               </div>
 
               <div class="rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md p-4">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="material-symbols-rounded text-white text-xl">merge</span>
-                  <span class="text-white font-extrabold">Híbrida</span>
+                  <span class="text-white font-bold text-sm">Híbrida</span>
                 </div>
-                <p class="text-white/85 text-sm leading-relaxed">
-                  Alternativa eficiente para diplomados/cursos largos o entidades con sedes y regionales.
+                  <p class="text-white/85 text-[13px] leading-relaxed">
+                  Alternativa eficiente para diplomados, cursos de mayor duración
+                  o entidades con presencia regional.
                 </p>
               </div>
             </div>

@@ -47,7 +47,7 @@ const policies = [
             </span>
           </div>
 
-          <p class="text-sm text-mono-blanco/75 leading-relaxed max-w-md">
+          <p class="text-sm text-mono-blanco/75 leading-relaxed max-w-md text-justify">
             Somos aliados estratégicos en la generación y gestión del conocimiento,
             diseñando programas académicos para fortalecer el sector público.
           </p>

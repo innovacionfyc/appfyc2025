@@ -9,9 +9,10 @@ const page = usePage()
 
 const nav = [
   { label: 'Inicio', href: '/', match: '/' },
-  { label: 'Oferta', href: '/oferta', match: '/oferta' },
+  { label: 'Líneas de negocio', href: '/oferta', match: '/oferta' },
   { label: 'Nosotros', href: '/nosotros', match: '/nosotros' },
-  { label: 'Responsabilidad social', href: '/responsabilidad-social', match: '/responsabilidad-social' },
+  { label: 'Publicaciones', href: '/responsabilidad-social', match: '/responsabilidad-social' },
+  { label: 'Rincón del cliente', href: '/rincon-del-cliente', match: '/rincon-del-cliente' },
   { label: 'Blog', href: '/blog', match: '/blog' },
 ]
 
@@ -70,7 +71,6 @@ onUnmounted(() => {
         class="absolute left-4 sm:left-6 lg:left-12 top-12 -translate-y-1/2 z-[80]"
       >
         <div class="relative inline-block">
-          <!-- Glow blanco fuerte (corregido el span que estaba roto) -->
           <span
             class="absolute inset-[-10px] -z-10 rounded-3xl bg-white blur-3xl opacity-100"
           ></span>
@@ -80,7 +80,7 @@ onUnmounted(() => {
             alt="F&C Consultores"
             class="w-auto object-contain transition-all duration-300 drop-shadow-lg"
             :class="(isScrolled || isMenuOpen)
-              ? 'h-16 md:h-18'
+              ? 'h-16 md:h-20'
               : 'h-20 md:h-24'"
           />
         </div>
@@ -88,7 +88,6 @@ onUnmounted(() => {
 
       <!-- Contenido navbar: 3 columnas (izq vacío para el logo / centro menú / der botón) -->
       <div class="grid grid-cols-[1fr_auto_1fr] items-center">
-        <!-- Columna izquierda (espacio del logo para no montar) -->
         <div class="hidden md:block"></div>
 
         <!-- Menú centrado real -->
@@ -104,8 +103,7 @@ onUnmounted(() => {
                   ? 'text-gray-900 hover:text-primary-vinotinto'
                   : 'text-gray-900/90 hover:text-gray-900')"
           >
-          
-              <span class="nav-pill__inner inline-flex items-center gap-0">
+            <span class="nav-pill__inner inline-flex items-center gap-0">
               <span>{{ item.label }}</span>
               <img
                 src="/images/aliado-8.png"
@@ -130,7 +128,6 @@ onUnmounted(() => {
 
         <!-- Menú móvil botón -->
         <div class="md:hidden flex items-center justify-between">
-          <!-- Espacio para que el botón no se monte raro en móvil -->
           <div class="w-1"></div>
 
           <button
@@ -203,7 +200,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Capa de fondo: animación sutil + glass */
 .header-bg{
   z-index: 0;
   background:
@@ -221,13 +217,9 @@ onUnmounted(() => {
   transition: opacity .25s ease, background .25s ease, backdrop-filter .25s ease;
 }
 
-/* Modo flotante (arriba): un toque más suave */
 .header-bg--float{ opacity: 0.55; }
-
-/* Modo sólido (scroll o menú abierto): más legible */
 .header-bg--solid{ opacity: 0.88; }
 
-/* Hover: “enfoque” para resaltar texto */
 header:hover .header-bg{
   opacity: 0.95;
   backdrop-filter: blur(14px);
@@ -248,35 +240,33 @@ header:hover .header-bg{
   100% { background-position: 0% 0%,   100% 0%, 0% 0%; }
 }
 
-/* Importantísimo: el contenido del header por encima */
 header > *:not(.header-bg){
   position: relative;
   z-index: 10;
 }
 
-  /* Ovi NO ocupa espacio cuando está oculto */
-  .ovi-hover{
-    width: 0px;
-    height: 26px;            /* tamaño final */
-    margin-left: 0px;
-    opacity: 0;
-    overflow: hidden;
-    object-fit: contain;
-    pointer-events: none;
+/* Ovi NO ocupa espacio cuando está oculto */
+.ovi-hover{
+  width: 0px;
+  height: 26px;
+  margin-left: 0px;
+  opacity: 0;
+  overflow: hidden;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translateX(6px) scale(0.9);
+  transition:
+    width .18s ease,
+    margin-left .18s ease,
+    opacity .18s ease,
+    transform .18s ease;
+}
 
-    transform: translateX(6px) scale(0.9);
-    transition:
-      width .18s ease,
-      margin-left .18s ease,
-      opacity .18s ease,
-      transform .18s ease;
-  }
-
-  /* En hover: aparece y “abre” espacio a la derecha */
-  .group:hover .ovi-hover{
-    width: 26px;
-    margin-left: 8px;        /* separación respecto al texto */
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
+/* En hover: aparece y “abre” espacio a la derecha */
+.group:hover .ovi-hover{
+  width: 26px;
+  margin-left: 8px;
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
 </style>
