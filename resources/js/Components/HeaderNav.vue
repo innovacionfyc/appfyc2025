@@ -23,16 +23,12 @@ const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
 }
 
-// Normaliza la URL actual (sin querystring y sin slash final)
 const currentPath = () => {
   const raw = page.url || '/'
   const path = raw.split('?')[0]
   return path !== '/' ? path.replace(/\/+$/, '') : '/'
 }
 
-// Activo robusto:
-// - Home solo activo en "/"
-// - Resto activo si estás en la ruta exacta o dentro de ella (/blog/loquesea)
 const isActive = (item) => {
   const cur = currentPath()
   const base = (item.match || item.href)
@@ -67,50 +63,79 @@ onUnmounted(() => {
     ></div>
 
     <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 relative">
-      <div class="flex items-center justify-between">
 
-        <!-- Logo -->
-        <Link href="/" class="shrink-0 flex items-center z-50">
+      <!-- Logo grande flotando -->
+      <Link
+        href="/"
+        class="absolute left-4 sm:left-6 lg:left-12 top-12 -translate-y-1/2 z-[80]"
+      >
+        <div class="relative inline-block">
+          <!-- Glow blanco fuerte (corregido el span que estaba roto) -->
+          <span
+            class="absolute inset-[-10px] -z-10 rounded-3xl bg-white blur-3xl opacity-100"
+          ></span>
+
           <img
             src="/images/logo-fyc.png"
             alt="F&C Consultores"
-            class="w-auto object-contain transition-all duration-300"
-            :class="(isScrolled || isMenuOpen) ? 'h-10 md:h-12' : 'h-12 md:h-16'"
+            class="w-auto object-contain transition-all duration-300 drop-shadow-lg"
+            :class="(isScrolled || isMenuOpen)
+              ? 'h-16 md:h-18'
+              : 'h-20 md:h-24'"
           />
-        </Link>
+        </div>
+      </Link>
 
-        <!-- Nav desktop -->
-        <nav class="hidden md:flex items-center gap-8">
+      <!-- Contenido navbar: 3 columnas (izq vacío para el logo / centro menú / der botón) -->
+      <div class="grid grid-cols-[1fr_auto_1fr] items-center">
+        <!-- Columna izquierda (espacio del logo para no montar) -->
+        <div class="hidden md:block"></div>
+
+        <!-- Menú centrado real -->
+        <nav class="hidden md:flex items-center justify-center gap-8">
           <Link
             v-for="item in nav"
             :key="item.href"
             :href="item.href"
-            class="font-bold transition-colors duration-200 relative group"
+            class="nav-pill font-extrabold tracking-wide transition-colors duration-200 relative group text-justify"
             :class="isActive(item)
               ? 'bg-primary-vinotinto py-2 px-4 rounded-full text-white'
               : ((isScrolled || isMenuOpen)
                   ? 'text-gray-900 hover:text-primary-vinotinto'
                   : 'text-gray-900/90 hover:text-gray-900')"
           >
-            {{ item.label }}
+          
+              <span class="nav-pill__inner inline-flex items-center gap-0">
+              <span>{{ item.label }}</span>
+              <img
+                src="/images/aliado-8.png"
+                alt=""
+                class="ovi-hover"
+                aria-hidden="true"
+              />
+            </span>
+
             <span
               class="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-vinotinto transition-all duration-300 group-hover:w-full"
             ></span>
           </Link>
         </nav>
 
-        <!-- Botón contacto desktop -->
-        <div class="hidden md:flex items-center">
+        <!-- Botón contacto a la derecha -->
+        <div class="hidden md:flex items-center justify-end">
           <Link href="/contacto">
             <BtnUniversal label="Contáctenos" icon="rocket_launch" icon-position="right" size="md" />
           </Link>
         </div>
 
         <!-- Menú móvil botón -->
-        <div class="md:hidden flex items-center z-50">
+        <div class="md:hidden flex items-center justify-between">
+          <!-- Espacio para que el botón no se monte raro en móvil -->
+          <div class="w-1"></div>
+
           <button
             @click="toggleMenu"
-            class="p-2 rounded-lg focus:outline-none transition-colors text-gray-800 hover:bg-black/5"
+            class="p-2 rounded-lg focus:outline-none transition-colors text-gray-800 hover:bg-black/5 z-50"
           >
             <span class="sr-only">Menú</span>
             <div class="w-6 h-5 relative flex flex-col justify-between">
@@ -153,9 +178,9 @@ onUnmounted(() => {
               :key="item.href"
               :href="item.href"
               @click="isMenuOpen = false"
-              class="block px-4 py-3 rounded-lg text-lg font-medium transition-colors"
+              class="block px-4 py-3 rounded-lg text-lg font-semibold tracking-wide transition-colors text-justify"
               :class="isActive(item)
-                ? 'bg-primary-vinotinto/10 text-primary-vinotinto font-bold'
+                ? 'bg-primary-vinotinto/10 text-primary-vinotinto font-extrabold'
                 : 'text-gray-700 hover:bg-gray-50'"
             >
               {{ item.label }}
@@ -166,7 +191,7 @@ onUnmounted(() => {
             <Link
               href="/contacto"
               @click="isMenuOpen = false"
-              class="flex w-full items-center justify-center px-4 py-3 text-base font-bold text-white bg-primary-naranja rounded-lg shadow hover:bg-secondary-naranja2 transition-all"
+              class="flex w-full items-center justify-center px-4 py-3 text-base font-extrabold tracking-wide text-white bg-primary-naranja rounded-lg shadow hover:bg-secondary-naranja2 transition-all text-justify"
             >
               Contáctenos
             </Link>
@@ -197,14 +222,10 @@ onUnmounted(() => {
 }
 
 /* Modo flotante (arriba): un toque más suave */
-.header-bg--float{
-  opacity: 0.55;
-}
+.header-bg--float{ opacity: 0.55; }
 
 /* Modo sólido (scroll o menú abierto): más legible */
-.header-bg--solid{
-  opacity: 0.88;
-}
+.header-bg--solid{ opacity: 0.88; }
 
 /* Hover: “enfoque” para resaltar texto */
 header:hover .header-bg{
@@ -232,4 +253,30 @@ header > *:not(.header-bg){
   position: relative;
   z-index: 10;
 }
+
+  /* Ovi NO ocupa espacio cuando está oculto */
+  .ovi-hover{
+    width: 0px;
+    height: 26px;            /* tamaño final */
+    margin-left: 0px;
+    opacity: 0;
+    overflow: hidden;
+    object-fit: contain;
+    pointer-events: none;
+
+    transform: translateX(6px) scale(0.9);
+    transition:
+      width .18s ease,
+      margin-left .18s ease,
+      opacity .18s ease,
+      transform .18s ease;
+  }
+
+  /* En hover: aparece y “abre” espacio a la derecha */
+  .group:hover .ovi-hover{
+    width: 26px;
+    margin-left: 8px;        /* separación respecto al texto */
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 </style>
