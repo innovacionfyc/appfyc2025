@@ -8,7 +8,7 @@ const props = defineProps({
     type: Array,
     default: () => [
       { label: 'Servidores públicos formados', value: 160000, suffix: '+', icon: 'groups' },
-      { label: 'Años de experiencia', value: 16, suffix: '+', icon: 'history_edu' },
+      { label: 'Años de experiencia', value: 17, suffix: '+', icon: 'history_edu' },
       { label: 'Programas con impacto real', value: 350, suffix: '+', icon: 'event' },
       { label: 'Cobertura nacional', value: 32, suffix: '', icon: 'public' },
     ]
@@ -48,6 +48,7 @@ onMounted(() => {
 onBeforeUnmount(() => observer?.disconnect())
 
 const animatedValues = props.stats.map(() => ref(0))
+const isFeatured = (stat) => stat.label === 'Servidores públicos formados'
 let rafId
 
 function easeOutExpo(x) {
@@ -73,7 +74,7 @@ watchEffect(() => { if (inView.value) startCounters() })
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full py-20 lg:py-32 overflow-hidden bg-white">
+    <section ref="rootEl" class="relative w-full py-16 lg:py-24 overflow-hidden bg-white">
 
     <div class="absolute inset-0 z-0 pointer-events-none">
       <div
@@ -87,7 +88,7 @@ watchEffect(() => { if (inView.value) startCounters() })
 
     <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 flex flex-col h-full justify-center">
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-20 lg:mb-32">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-14 lg:mb-4">
 
         <div class="flex flex-col justify-center space-y-8">
           <div class="transition-all duration-1000 transform ease-out"
@@ -106,7 +107,7 @@ watchEffect(() => { if (inView.value) startCounters() })
               </span>.
             </h2>
 
-            <p class="text-lg text-gray-600 leading-relaxed max-w-xl">
+            <p class="text-lg text-gray-600 leading-relaxed max-w-xl text-justify">
               Durante más de <strong class="text-gray-900 font-semibold">16 años</strong>, F&amp;C Consultores ha acompañado a
               entidades públicas y mixtas del país en el fortalecimiento de capacidades, diseñando y ejecutando
               <strong class="text-gray-900 font-semibold">programas académicos especializados</strong> que generan impacto real
@@ -119,12 +120,20 @@ watchEffect(() => { if (inView.value) startCounters() })
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
-          <div v-for="(stat, index) in props.stats" :key="index"
-            class="relative group p-8 rounded-[2rem] bg-white border border-gray-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500 ease-out"
-            :class="[
-              inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16',
-              index % 2 !== 0 ? 'lg:translate-y-12' : ''
-            ]" :style="{ transitionDelay: `${index * 150}ms` }">
+            <div
+              v-for="(stat, index) in props.stats"
+              :key="index"
+              class="relative group rounded-[2rem] border transition-all duration-500 ease-out"
+              :class="[
+                inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16',
+                index % 2 !== 0 ? 'lg:translate-y-12' : '',
+                isFeatured(stat)
+                ? 'p-10 bg-gradient-to-br from-primary-vinotinto/10 to-primary-naranja/10 border-primary-naranja/30 shadow-[0_25px_80px_-30px_rgba(211,47,87,0.35)] hover:shadow-[0_30px_90px_-35px_rgba(211,47,87,0.45)] hover:-translate-y-1'
+                : 'p-8 bg-white border-gray-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] hover:-translate-y-1'
+              ]"
+              :style="{ transitionDelay: `${index * 150}ms` }"
+            >
+
 
             <div
               class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 group-hover:bg-primary-vinotinto/10 group-hover:text-primary-vinotinto transition-all duration-300 text-gray-400">
@@ -133,7 +142,10 @@ watchEffect(() => { if (inView.value) startCounters() })
 
             <div class="space-y-1">
               <div class="flex items-baseline gap-1">
-                <span class="text-5xl font-black text-gray-900 tracking-tighter tabular-nums">
+                <span
+                  class="text-5xl font-black tracking-tighter tabular-nums"
+                  :class="isFeatured(stat) ? 'text-primary-vinotinto' : 'text-gray-900'"
+                >
                   {{ animatedValues[index].value.toLocaleString('es-CO') }}
                 </span>
                 <span class="text-3xl font-bold text-primary-naranja">
@@ -153,7 +165,7 @@ watchEffect(() => { if (inView.value) startCounters() })
 
       </div>
 
-      <div class="w-full pt-10 border-t border-gray-100 transition-all duration-1000 delay-300 transform ease-out"
+        <div class="w-full pt-6 border-t border-gray-100 transition-all duration-1000 delay-300 transform ease-out"
         :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'">
         <div class="flex flex-col items-center">
           <p class="text-sm font-bold text-gray-400 uppercase tracking-[0.2em] mb-8 text-center">
