@@ -50,145 +50,141 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="fixed top-0 left-0 right-0 z-50 w-full border-b transition-all duration-300 ease-in-out"
+    class="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ease-out"
     :class="[
       (isScrolled || isMenuOpen)
-        ? 'py-2 border-gray-200/60 shadow-sm'
-        : 'py-3 border-white/10'
+        ? 'py-3 bg-white/70 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_30px_rgba(0,0,0,0.04)]'
+        : 'py-5 bg-transparent border-b border-transparent'
     ]"
   >
-    <!-- Fondo animado (siempre) -->
     <div
-      class="header-bg absolute inset-0 pointer-events-none"
-      :class="(isScrolled || isMenuOpen) ? 'header-bg--solid' : 'header-bg--float'"
+      class="header-bg absolute inset-0 pointer-events-none transition-opacity duration-500"
+      :class="(isScrolled || isMenuOpen) ? 'opacity-100' : 'opacity-40'"
     ></div>
 
-    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 relative">
-
-      <!-- Logo grande flotando -->
-      <Link
-        href="/"
-        class="absolute left-4 sm:left-6 lg:left-12 top-12 -translate-y-1/2 z-[80]"
-      >
-        <div class="relative inline-block">
-          <span
-            class="absolute inset-[-10px] -z-10 rounded-3xl bg-white blur-3xl opacity-100"
-          ></span>
-
-          <img
-            src="/images/logo-fyc.png"
-            alt="F&C Consultores"
-            class="w-auto object-contain transition-all duration-300 drop-shadow-lg"
-            :class="(isScrolled || isMenuOpen)
-              ? 'h-16 md:h-20'
-              : 'h-20 md:h-24'"
-          />
-        </div>
-      </Link>
-
-      <!-- Contenido navbar: 3 columnas (izq vacío para el logo / centro menú / der botón) -->
-      <div class="grid grid-cols-[1fr_auto_1fr] items-center">
-        <div class="hidden md:block"></div>
-
-        <!-- Menú centrado real -->
-        <nav class="hidden md:flex items-center justify-center gap-8">
-          <Link
-            v-for="item in nav"
-            :key="item.href"
-            :href="item.href"
-            class="nav-pill font-extrabold tracking-wide transition-colors duration-200 relative group text-justify"
-            :class="isActive(item)
-              ? 'bg-primary-vinotinto py-2 px-4 rounded-full text-white'
-              : ((isScrolled || isMenuOpen)
-                  ? 'text-gray-900 hover:text-primary-vinotinto'
-                  : 'text-gray-900/90 hover:text-gray-900')"
-          >
-            <span class="nav-pill__inner inline-flex items-center gap-0">
-              <span>{{ item.label }}</span>
-              <img
-                src="/images/aliado-8.png"
-                alt=""
-                class="ovi-hover"
-                aria-hidden="true"
-              />
-            </span>
-
-            <span
-              class="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-vinotinto transition-all duration-300 group-hover:w-full"
-            ></span>
-          </Link>
-        </nav>
-
-        <!-- Botón contacto a la derecha -->
-        <div class="hidden md:flex items-center justify-end">
-          <Link href="/contacto">
-            <BtnUniversal label="Contáctenos" icon="rocket_launch" icon-position="right" size="md" />
-          </Link>
-        </div>
-
-        <!-- Menú móvil botón -->
-        <div class="md:hidden flex items-center justify-between">
-          <div class="w-1"></div>
-
-          <button
-            @click="toggleMenu"
-            class="p-2 rounded-lg focus:outline-none transition-colors text-gray-800 hover:bg-black/5 z-50"
-          >
-            <span class="sr-only">Menú</span>
-            <div class="w-6 h-5 relative flex flex-col justify-between">
-              <span
-                class="w-full h-0.5 bg-current rounded-full transition-transform duration-300 origin-center"
-                :class="isMenuOpen ? 'rotate-45 translate-y-2.5' : ''"
-              ></span>
-              <span
-                class="w-full h-0.5 bg-current rounded-full transition-opacity duration-300"
-                :class="isMenuOpen ? 'opacity-0' : 'opacity-100'"
-              ></span>
-              <span
-                class="w-full h-0.5 bg-current rounded-full transition-transform duration-300 origin-center"
-                :class="isMenuOpen ? '-rotate-45 -translate-y-2' : ''"
-              ></span>
-            </div>
-          </button>
-        </div>
-
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative flex items-center justify-between">
+      
+      <div class="relative z-20 flex-shrink-0">
+        <Link href="/" class="group flex items-center outline-none">
+          <div class="relative inline-block transition-transform duration-300 group-active:scale-95">
+            <div class="absolute inset-[-15px] -z-10 rounded-full bg-white/90 blur-2xl transition-opacity duration-300" 
+                 :class="(isScrolled || isMenuOpen) ? 'opacity-100' : 'opacity-60'"></div>
+            <img
+              src="/images/logo-fyc.png"
+              alt="F&C Consultores"
+              class="w-auto object-contain transition-all duration-500 drop-shadow-sm"
+              :class="(isScrolled || isMenuOpen) ? 'h-12 md:h-16' : 'h-16 md:h-20'"
+            />
+          </div>
+        </Link>
       </div>
+
+      <nav 
+        class="hidden xl:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 p-1.5 rounded-2xl transition-all duration-500 z-20"
+        :class="isScrolled 
+          ? 'bg-white/50 backdrop-blur-md border border-white/60 shadow-sm' 
+          : 'bg-white/30 backdrop-blur-sm border border-white/40'"
+      >
+        <Link
+          v-for="item in nav"
+          :key="item.href"
+          :href="item.href"
+          class="nav-pill group relative flex items-center px-4 py-2.5 rounded-xl text-sm 2xl:text-base font-bold tracking-wide transition-all duration-300 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50"
+          :class="isActive(item)
+            ? 'bg-primary-vinotinto text-mono-blanco shadow-md shadow-primary-vinotinto/20 scale-100'
+            : 'text-gray-700 hover:bg-white/60 hover:text-primary-vinotinto hover:shadow-sm hover:scale-[1.02] active:scale-95'"
+        >
+          <span class="relative z-10 flex items-center justify-center">
+            <span>{{ item.label }}</span>
+            <img
+              src="/images/aliado-8.png"
+              alt=""
+              class="ovi-hover drop-shadow-md"
+              aria-hidden="true"
+            />
+          </span>
+          <span v-if="isActive(item)" class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></span>
+        </Link>
+      </nav>
+
+      <div class="hidden md:flex items-center justify-end gap-6 z-20">
+        <Link 
+          href="/login" 
+          class="text-sm font-bold text-gray-700 hover:text-primary-naranja transition-colors duration-300 outline-none focus-visible:text-primary-naranja relative group"
+        >
+          Iniciar Sesión
+          <span class="absolute -bottom-1 left-0 w-0 h-[2px] rounded-full bg-primary-naranja transition-all duration-300 group-hover:w-full"></span>
+        </Link>
+        <Link href="/contacto" class="group transition-transform active:scale-95 outline-none">
+          <BtnUniversal 
+            label="Contáctenos" 
+            icon="rocket_launch" 
+            icon-position="right" 
+            size="md" 
+            class="shadow-lg shadow-primary-naranja/20 group-hover:shadow-primary-naranja/40 transition-shadow duration-300"
+          />
+        </Link>
+      </div>
+
+      <div class="xl:hidden flex items-center z-20">
+        <button
+          @click="toggleMenu"
+          class="relative p-3 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 shadow-sm text-gray-800 hover:bg-white/80 transition-all duration-300 focus:outline-none"
+          :aria-expanded="isMenuOpen"
+        >
+          <span class="sr-only">Menú</span>
+          <div class="w-5 h-4 relative flex flex-col justify-between">
+            <span class="w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-left" :class="isMenuOpen ? 'rotate-45 translate-x-0.5 -translate-y-0.5' : ''"></span>
+            <span class="w-full h-[2px] bg-current rounded-full transition-all duration-300" :class="isMenuOpen ? 'opacity-0 translate-x-3' : 'opacity-100'"></span>
+            <span class="w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-left" :class="isMenuOpen ? '-rotate-45 translate-x-0.5 translate-y-0.5' : ''"></span>
+          </div>
+        </button>
+      </div>
+
     </div>
 
-    <!-- Menú móvil -->
     <Transition
-      enter-active-class="transition duration-300 ease-out"
-      enter-from-class="-translate-y-full opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-200 ease-in"
-      leave-from-class="translate-y-0 opacity-100"
-      leave-to-class="-translate-y-full opacity-0"
+      enter-active-class="transition duration-400 ease-out"
+      enter-from-class="-translate-y-4 opacity-0 scale-95"
+      enter-to-class="translate-y-0 opacity-100 scale-100"
+      leave-active-class="transition duration-300 ease-in"
+      leave-from-class="translate-y-0 opacity-100 scale-100"
+      leave-to-class="-translate-y-4 opacity-0 scale-95"
     >
       <div
         v-if="isMenuOpen"
-        class="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xl"
+        class="xl:hidden absolute top-full left-4 right-4 mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden z-40"
       >
-        <div class="px-5 py-6 space-y-4">
-          <nav class="flex flex-col gap-2">
+        <div class="p-5 flex flex-col gap-2">
+          <nav class="flex flex-col gap-1">
             <Link
               v-for="item in nav"
               :key="item.href"
               :href="item.href"
               @click="isMenuOpen = false"
-              class="block px-4 py-3 rounded-lg text-lg font-semibold tracking-wide transition-colors text-justify"
+              class="flex items-center px-4 py-3.5 rounded-xl text-base font-bold tracking-wide transition-all duration-200 active:scale-[0.98]"
               :class="isActive(item)
-                ? 'bg-primary-vinotinto/10 text-primary-vinotinto font-extrabold'
-                : 'text-gray-700 hover:bg-gray-50'"
+                ? 'bg-primary-vinotinto text-white shadow-md shadow-primary-vinotinto/20'
+                : 'text-gray-700 hover:bg-gray-100/80'"
             >
               {{ item.label }}
             </Link>
           </nav>
 
-          <div class="pt-4 border-t border-gray-100">
+          <div class="w-full h-px bg-gray-200/60 my-2"></div>
+
+          <div class="flex flex-col gap-3">
+            <Link
+              href="/login"
+              @click="isMenuOpen = false"
+              class="flex items-center justify-center w-full px-4 py-3 rounded-xl text-base font-bold text-gray-700 bg-gray-100/50 hover:bg-gray-100 transition-colors active:scale-[0.98]"
+            >
+              Iniciar Sesión
+            </Link>
             <Link
               href="/contacto"
               @click="isMenuOpen = false"
-              class="flex w-full items-center justify-center px-4 py-3 text-base font-extrabold tracking-wide text-white bg-primary-naranja rounded-lg shadow hover:bg-secondary-naranja2 transition-all text-justify"
+              class="flex items-center justify-center w-full px-4 py-3 rounded-xl text-base font-extrabold tracking-wide text-white bg-primary-naranja shadow-lg shadow-primary-naranja/20 hover:bg-secondary-naranja2 transition-all active:scale-[0.98]"
             >
               Contáctenos
             </Link>
@@ -200,73 +196,43 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.header-bg{
+.header-bg {
   z-index: 0;
   background:
-    radial-gradient(900px 220px at 15% 0%, rgba(211,47,87,0.12), transparent 55%),
-    radial-gradient(700px 220px at 85% 0%, rgba(243,147,34,0.12), transparent 55%),
-    linear-gradient(90deg,
-      rgba(255,255,255,0.55),
-      rgba(255,255,255,0.35),
-      rgba(255,255,255,0.55)
-    );
-  background-size: 140% 140%, 140% 140%, 220% 100%;
-  animation: headerGlow 18s ease-in-out infinite;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: opacity .25s ease, background .25s ease, backdrop-filter .25s ease;
+    radial-gradient(800px 300px at 15% -20%, rgba(211,47,87,0.08), transparent 60%),
+    radial-gradient(800px 300px at 85% -20%, rgba(243,147,34,0.08), transparent 60%);
+  background-size: 100% 100%;
+  animation: headerPulse 15s ease-in-out infinite alternate;
 }
 
-.header-bg--float{ opacity: 0.55; }
-.header-bg--solid{ opacity: 0.88; }
-
-header:hover .header-bg{
-  opacity: 0.95;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background:
-    radial-gradient(900px 220px at 15% 0%, rgba(211,47,87,0.16), transparent 55%),
-    radial-gradient(700px 220px at 85% 0%, rgba(243,147,34,0.16), transparent 55%),
-    linear-gradient(90deg,
-      rgba(255,255,255,0.72),
-      rgba(255,255,255,0.52),
-      rgba(255,255,255,0.72)
-    );
+@keyframes headerPulse {
+  0%   { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.05); }
 }
 
-@keyframes headerGlow{
-  0%   { background-position: 0% 0%,   100% 0%, 0% 0%; }
-  50%  { background-position: 20% 20%, 80% 10%, 100% 0%; }
-  100% { background-position: 0% 0%,   100% 0%, 0% 0%; }
-}
-
-header > *:not(.header-bg){
-  position: relative;
-  z-index: 10;
-}
-
-/* Ovi NO ocupa espacio cuando está oculto */
-.ovi-hover{
+/* Ovi - Transición suave y rebotante */
+.ovi-hover {
   width: 0px;
-  height: 26px;
+  height: 24px;
   margin-left: 0px;
   opacity: 0;
   overflow: hidden;
   object-fit: contain;
   pointer-events: none;
-  transform: translateX(6px) scale(0.9);
-  transition:
-    width .18s ease,
-    margin-left .18s ease,
-    opacity .18s ease,
-    transform .18s ease;
+  transform: translateX(-10px) scale(0.8) rotate(-10deg);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Efecto spring/rebote */
 }
 
-/* En hover: aparece y “abre” espacio a la derecha */
-.group:hover .ovi-hover{
-  width: 26px;
+/* En hover: aparece, empuja el texto y rota levemente a su posición original */
+.group:hover .ovi-hover {
+  width: 24px;
   margin-left: 8px;
   opacity: 1;
-  transform: translateX(0) scale(1);
+  transform: translateX(0) scale(1) rotate(0deg);
+}
+
+/* Anular efecto si el elemento ya está activo (opcional) */
+.group.bg-primary-vinotinto .ovi-hover {
+  filter: brightness(0) invert(1); /* Pone a Ovi blanco si el fondo es oscuro */
 }
 </style>
