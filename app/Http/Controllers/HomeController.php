@@ -22,4 +22,13 @@ class HomeController extends Controller
             'phpVersion' => PHP_VERSION,
         ]);
     }
+
+    public function showPlantilla()
+    {
+        // La función Inertia::render() reemplaza a la función view() de Blade.
+        // El primer parámetro 'Welcome' corresponde al archivo .vue en resources/js/Pages/Welcome.vue
+        return Inertia::render('Home/Plantilla', [
+
+        ]);
+    }
 }

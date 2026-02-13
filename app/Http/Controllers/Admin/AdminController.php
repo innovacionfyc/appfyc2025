@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 class AdminController extends Controller{
  public function show(): Response
     {
-        return Inertia::render('Dashboard/superAdmin');
+        return Inertia::render('Dashboard/SuperAdmin');
     }
 
 }

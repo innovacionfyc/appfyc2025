@@ -13,7 +13,7 @@ class LoginController extends Controller
 {
     public function showLoginForm(): Response
     {
-        return Inertia::render('Auth/login');
+        return Inertia::render('Auth/Login');
     }
 
     public function login(Request $request)

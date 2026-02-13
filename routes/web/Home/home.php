@@ -10,3 +10,5 @@ Route::get('/', [HomeController::class, 'show'])->name('home.index');
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 });
+
+Route::get('/plantilla', [HomeController::class, 'showPlantilla'])->name('plantilla.index');

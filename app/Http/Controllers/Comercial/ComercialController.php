@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 class ComercialController extends Controller{
  public function show(): Response
     {
-        return Inertia::render('Dashboard/comercial');
+        return Inertia::render('Dashboard/Comercial');
     }
 
 }
