@@ -1,12 +1,6 @@
 <script setup>
 import { Head } from '@inertiajs/vue3'
 import HeaderNav from '@/Components/HeaderNav.vue'
-import HeroShowcase from '@/Components/HeroShowcase.vue'
-import ConfidenceStrip from '@/Components/ConfidenceStrip.vue'
-import OfferGrid from '@/Components/OfferGrid.vue'
-import ProgramCtaStrip from '@/Components/ProgramCtaStrip.vue'
-import SiteFooter from '@/Components/SiteFooter.vue'
-import RevealSection from '@/Components/RevealSection.vue'
 import SectionPlantilla from '@/Components/SectionPlantilla.vue'
 </script>
 
@@ -25,7 +19,6 @@ import SectionPlantilla from '@/Components/SectionPlantilla.vue'
 </template>
 
 <style>
-/* Ocultar barra de scroll para inmersión total */
 div::-webkit-scrollbar {
   display: none;
 }

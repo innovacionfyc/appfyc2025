@@ -1,25 +1,29 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
-import { Link } from '@inertiajs/vue3';
-import { LogOut } from 'lucide-vue-next';
+import Sidebar from "@/Components/Sidebar/Sidebar.vue";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
+import { Head } from "@inertiajs/vue3";
+import { Link } from "@inertiajs/vue3";
+import { LogOut } from "lucide-vue-next";
+
+const props = defineProps({
+  auth: {
+    type: Object,
+  },
+});
 </script>
 
 <template>
-    <Head title="Dashboard" />
+  <Head title="Dashboard" />
 
-    <AuthenticatedLayout>
+  <AuthenticatedLayout>
+    <Sidebar :auth="auth" />
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div
-                    class="overflow-hidden bg-white shadow-sm sm:rounded-lg"
-                >
-                    <div class="p-6 text-gray-900">
-                    Eres super admin!
-                    </div>
-                </div>
-                  <Link
+    <div class="py-12">
+      <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+          <div class="p-6 text-gray-900">{{ auth.user.role.display_name }} <br> {{ auth.user.role.description }}</div>
+        </div>
+        <Link
           :href="route('logout')"
           method="post"
           as="button"
@@ -30,7 +34,11 @@ import { LogOut } from 'lucide-vue-next';
           />
           Finalizar Sesión
         </Link>
-            </div>
-        </div>
-    </AuthenticatedLayout>
+
+        <pre>
+        {{ auth }}
+        </pre>
+      </div>
+    </div>
+  </AuthenticatedLayout>
 </template>
