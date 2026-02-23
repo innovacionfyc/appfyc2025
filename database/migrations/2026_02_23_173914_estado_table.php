@@ -10,16 +10,15 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('speakers', function (Blueprint $table) {
+        Schema::create('estados', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid')->unique();
-            $table->string('full_name')->index();
-            $table->string('email')->unique();
-            $table->string('specialty');
-            $table->text('bio');
-            $table->string('profile_photo')->nullable();
-            $table->json('social_links')->nullable();
+            $table->string('tipo_estado');
+            $table->string('categoria_estado');
+
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('update_by')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -28,6 +27,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        //
+         Schema::dropIfExists('estados');
     }
 };

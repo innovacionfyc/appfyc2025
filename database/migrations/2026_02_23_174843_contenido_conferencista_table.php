@@ -10,11 +10,10 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('roles', function (Blueprint $table) {
+        Schema::create('contenido_conferencista', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique(); // 'admin', 'comercial', 'conferencista'
-            $table->string('display_name');  // 'Administrador de Sistema'
-            $table->text('description')->nullable();
+            $table->foreignId('contenido_tematico_id')->constrained('contenidos_tematicos')->onDelete('cascade');
+            $table->foreignId('conferencista_id')->constrained('perfil_conferencistas')->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -24,6 +23,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('contenido_conferencista');
     }
 };
