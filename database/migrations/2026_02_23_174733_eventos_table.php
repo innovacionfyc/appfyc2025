@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->foreignId('contenido_tematico_id')->constrained('contenidos_tematicos')->onDelete('restrict');
             $table->foreignId('estado_id')->constrained('estados')->onDelete('restrict');
             $table->foreignId('area_formacion_id')->constrained('areas_formacion')->onDelete('restrict');
+            $table->foreignId('formulario_base_id')->constrained('formularios_base')->onDelete('restrict');
 
             $table->string('titulo');
             $table->string('subtitulo')->nullable();

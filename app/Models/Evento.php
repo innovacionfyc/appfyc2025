@@ -14,7 +14,7 @@ class Evento extends Model
 
     protected $fillable = [
         'organizador_id',
-        'formulario_inscripcion_id',
+        'formulario_base_id',
         'contenido_tematico_id',
         'estado_id',
         'area_formacion_id',
@@ -70,4 +70,9 @@ class Evento extends Model
     public function areaFormacion() {
         return $this->belongsTo(AreaFormacion::class, 'area_formacion_id');
     }
+
+    public function formularioBase() {
+        return $this->belongsTo(FormularioBase::class, 'formulario_base_id');
+    }
+
 }

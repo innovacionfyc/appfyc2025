@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::middleware(['role:super-admin'])->prefix('admin')->group(function () {
+    Route::middleware(['rol:super-admin'])->prefix('admin')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'show'])->name('admin.dashboard');
     });
 });

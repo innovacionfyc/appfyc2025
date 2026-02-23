@@ -30,19 +30,31 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        $usuario = $request->user();
+        $rol = null;
 
-        // Cargamos el árbol completo de relaciones si hay un usuario autenticado
-        if ($user) {
-            $user->load([
-                'role',
-                'managedEvents.speakers' // Carga los eventos Y los speakers de esos eventos
+        if ($usuario) {
+            $usuario->loadMissing([
+                'estado',
+                'perfilOrganizador.rol',
+                'perfilOrganizador.equipo',
+                'perfilOrganizador.areaEncargada',
+                'perfilOrganizador.tipoDocumento',
+                'perfilConferencista.areaEncargada',
             ]);
+
+            if ($usuario->perfilOrganizador && $usuario->perfilOrganizador->rol) {
+                $rol = $usuario->perfilOrganizador->rol->slug;
+            } elseif ($usuario->perfilConferencista) {
+                $rol = 'conferencista';
+            }
+
+            $usuario->rol = $rol;
         }
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $user,
+                'user' => $usuario,
             ],
             'ziggy' => fn() => [
                 ...(new Ziggy)->toArray(),

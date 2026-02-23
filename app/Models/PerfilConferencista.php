@@ -11,6 +11,22 @@ class PerfilConferencista extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'perfil_conferencistas';
 
+     protected $fillable = [
+        'usuario_id',
+        'primer_nombre',
+        'segundo_nombre',
+        'primer_apellido',
+        'segundo_apellido',
+        'foto',
+        'biografia',
+        'telefono',
+        'correo',
+        'url_hv',
+        'area_encargada_id',
+       
+    ];
+
+
     public function usuario() {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }

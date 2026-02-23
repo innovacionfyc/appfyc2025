@@ -11,7 +11,25 @@ class FormularioInscripcion extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'formularios_inscripcion';
 
-    public function eventos() {
+
+    protected $fillable = [
+        'tipo_persona',
+        'nombres',
+        'apellidos',
+        'cedula',
+        'cargo',
+        'entidad_empresa',
+        'celular',
+        'ciudad',
+        'correo_personal',
+        'correo_corporativo',
+        'modo_asistencia',
+        'politica_datos',
+        'medio_reconocimiento'
+    ];
+
+    public function eventos()
+    {
         return $this->hasMany(Evento::class, 'formulario_inscripcion_id');
     }
 }

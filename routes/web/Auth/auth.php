@@ -28,13 +28,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [LoginController::class, 'redirectByRole'])->name('dashboard');
 
     
-    Route::middleware(['role:super-admin'])
+    Route::middleware(['rol:super-admin'])
         ->prefix('admin') 
         ->group(function () {
             Route::get('/dashboard', [AdminController::class, 'show'])->name('admin.dashboard');
         });
 
-    Route::middleware(['role:comercial'])
+    Route::middleware(['rol:comercial'])
         ->prefix('comercial')
         ->group(function () {
             Route::get('/dashboard', [ComercialController::class, 'show'])->name('commercial.dashboard');

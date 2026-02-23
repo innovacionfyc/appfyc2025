@@ -16,8 +16,9 @@ return new class extends Migration {
             $table->boolean('perfil_completo')->default(false);
             $table->string('correo_principal')->unique();
             $table->string('numero_documento')->unique();
-            $table->string('contrasena'); // Equivalente a password
-            $table->rememberToken(); // recordar_contraseña
+            $table->string('contrasena'); 
+            $table->rememberToken();
+            $table->boolean('recordar')->default(false);
             $table->timestamp('ultima_sesion')->nullable();
 
             $table->unsignedBigInteger('created_by')->nullable();

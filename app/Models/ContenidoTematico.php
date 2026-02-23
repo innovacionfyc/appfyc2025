@@ -13,7 +13,10 @@ class ContenidoTematico extends Model
     protected $table = 'contenidos_tematicos';
 
     protected $fillable = [
-        'tema', 'subtemas', 'alcance', 'bg_estilo'
+        'tema',
+        'subtemas',
+        'alcance',
+        'bg_estilo'
     ];
 
     protected $casts = [
@@ -23,14 +26,15 @@ class ContenidoTematico extends Model
     public function equipoAcademico()
     {
         return $this->belongsToMany(
-            PerfilConferencista::class, 
-            'contenido_conferencista', 
-            'contenido_tematico_id', 
+            PerfilConferencista::class,
+            'contenido_conferencista',
+            'contenido_tematico_id',
             'conferencista_id'
         )->withTimestamps();
     }
 
-    public function eventos() {
+    public function eventos()
+    {
         return $this->hasMany(Evento::class, 'contenido_tematico_id');
     }
 }

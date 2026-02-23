@@ -3,17 +3,26 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\AreaFormacion;
+use App\Models\Estado;
+use App\Models\FormularioBase;
+use App\Models\PerfilConferencista;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Validation\ValidationException;
 
 
-class AdminController extends Controller{
- public function show(): Response
+class AdminController extends Controller
+{
+    public function show(): Response
     {
-        return Inertia::render('Dashboard/SuperAdmin');
+        $estados = Estado::where('categoria_estado', 'Activo')->get();
+        $areas = AreaFormacion::all();
+        return Inertia::render('Dashboard/SuperAdmin', [
+            'estados' => $estados,
+            'areas' => $areas,
+            'conferencistas' => PerfilConferencista::with('areaEncargada')->get(),
+            'formularios' => FormularioBase::all(),
+        ]);
     }
 
 }

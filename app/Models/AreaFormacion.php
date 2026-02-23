@@ -10,17 +10,28 @@ class AreaFormacion extends Model
 {
     use SoftDeletes, HasAuditFields;
     protected $table = 'areas_formacion';
+    protected $fillable = [
+        'nombre',
+        'imagen',
+        'color_hex_principal',
+        'color_hex_secundario',
+        'estado_id'
+    ];
 
-    public function estado() {
+    public function estado()
+    {
         return $this->belongsTo(Estado::class, 'estado_id');
     }
-    public function organizadores() {
+    public function organizadores()
+    {
         return $this->hasMany(PerfilOrganizador::class, 'area_encargada_id');
     }
-    public function conferencistas() {
+    public function conferencistas()
+    {
         return $this->hasMany(PerfilConferencista::class, 'area_encargada_id');
     }
-    public function eventos() {
+    public function eventos()
+    {
         return $this->hasMany(Evento::class, 'area_formacion_id');
     }
 }
