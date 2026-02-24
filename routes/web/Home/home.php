@@ -11,4 +11,5 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 });
 
-Route::get('/plantilla', [HomeController::class, 'showPlantilla'])->name('plantilla.index');
+// ¡ESTA ES LA RUTA DE LA PLANTILLA DEL EVENTO!
+Route::get('/evento/{id}', [HomeController::class, 'showPlantilla'])->name('evento.show');

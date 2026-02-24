@@ -11,6 +11,12 @@ class EquipoFyc extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'equipos_fyc';
 
+    protected $fillable = [
+        'nombre',
+        'slug',
+        'estado_id'
+    ];
+
     public function estado() {
         return $this->belongsTo(Estado::class, 'estado_id');
     }

@@ -42,6 +42,11 @@ class Evento extends Model
         return $this->belongsTo(Usuario::class, 'organizador_id');
     }
 
+    public function perfilOrganizador()
+    {
+        return $this->belongsTo(PerfilOrganizador::class, 'usuario_id');
+    }
+
     // Un evento pertenece a un estado
     public function estado()
     {
@@ -60,7 +65,7 @@ class Evento extends Model
     }
 
     public function formularioInscripcion() {
-        return $this->belongsTo(FormularioInscripcion::class, 'formulario_inscripcion_id');
+        return $this->belongsTo(FormularioInscripcion::class, 'formulario_base_id');
     }
 
     public function contenidoTematico() {

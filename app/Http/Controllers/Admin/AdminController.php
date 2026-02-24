@@ -15,7 +15,7 @@ class AdminController extends Controller
 {
     public function show(): Response
     {
-        $estados = Estado::where('categoria_estado', 'Activo')->get();
+        $estados = Estado::all();
         $areas = AreaFormacion::all();
         return Inertia::render('Dashboard/SuperAdmin', [
             'estados' => $estados,

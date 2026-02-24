@@ -40,7 +40,7 @@ class LoginController extends Controller
 
 
             $user->loadMissing('estado');
-            if ($user->estado && strtolower($user->estado->categoria_estado) !== 'activo') {
+            if ($user->estado && strtolower($user->estado->tipo_estado) !== 'activo') {
                 Auth::logout();
                 throw ValidationException::withMessages([
                     'correo_principal' => 'Esta cuenta se encuentra inactiva.',

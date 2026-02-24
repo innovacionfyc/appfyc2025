@@ -7,6 +7,13 @@ import OfferGrid from '@/Components/OfferGrid.vue'
 import ProgramCtaStrip from '@/Components/ProgramCtaStrip.vue'
 import SiteFooter from '@/Components/SiteFooter.vue'
 import RevealSection from '@/Components/RevealSection.vue'
+
+const props = defineProps({
+    eventosHero: {
+        type: Array,
+        default: () => []
+    }
+});
 </script>
 
 <template>
@@ -17,7 +24,7 @@ import RevealSection from '@/Components/RevealSection.vue'
     <HeaderNav />
 
     <RevealSection class="snap-start h-dvh w-full">
-      <HeroShowcase />
+     <HeroShowcase :events="eventosHero" />
     </RevealSection>
 
     <RevealSection :repeat="true" class="snap-start min-h-dvh w-full flex items-center bg-white z-10 relative">

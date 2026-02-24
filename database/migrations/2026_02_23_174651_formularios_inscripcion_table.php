@@ -12,6 +12,7 @@ return new class extends Migration {
     {
         Schema::create('formularios_inscripcion', function (Blueprint $table) {
             $table->id();
+            
             $table->string('tipo_persona');
             $table->string('nombres');
             $table->string('apellidos');

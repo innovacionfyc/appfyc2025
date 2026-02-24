@@ -11,6 +11,24 @@ class PerfilOrganizador extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'perfil_organizadores';
 
+    protected $fillable = [
+        'usuario_id',
+        'primer_nombre',
+        'segundo_nombre',
+        'primer_apellido',
+        'segundo_apellido',
+        'foto',
+        'telefono_corporativo',
+        'telefono_personal',
+        'correo_corporativo',
+        'cargo',
+        'tipo_documento_id',
+        'numero_documento',
+        'rol_id',
+        'area_encargada_id',
+        'equipo_id',
+    ];
+
     public function usuario() {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }

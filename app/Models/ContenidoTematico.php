@@ -13,14 +13,13 @@ class ContenidoTematico extends Model
     protected $table = 'contenidos_tematicos';
 
     protected $fillable = [
-        'tema',
-        'subtemas',
+        'modulos',
         'alcance',
         'bg_estilo'
     ];
 
     protected $casts = [
-        'subtemas' => 'array',
+        'modulos' => 'array',
     ];
 
     public function equipoAcademico()

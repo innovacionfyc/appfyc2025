@@ -44,20 +44,6 @@ const stats = [
     color: "text-indigo-600",
     bg: "bg-indigo-100",
   },
-  {
-    name: "Inscripciones Mes",
-    value: "1,240",
-    icon: TrendingUp,
-    color: "text-emerald-600",
-    bg: "bg-emerald-100",
-  },
-  {
-    name: "Ingresos Estimados",
-    value: "$45.2M",
-    icon: Activity,
-    color: "text-purple-600",
-    bg: "bg-purple-100",
-  },
 ];
 
 // LÓGICA REDUCIDA AL MÍNIMO

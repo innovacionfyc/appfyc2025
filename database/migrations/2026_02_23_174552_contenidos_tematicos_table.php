@@ -12,8 +12,7 @@ return new class extends Migration {
     {
         Schema::create('contenidos_tematicos', function (Blueprint $table) {
             $table->id();
-            $table->string('tema');
-            $table->json('subtemas')->nullable();
+            $table->json('modulos');
             $table->text('alcance')->nullable();
             $table->string('bg_estilo')->nullable();
 

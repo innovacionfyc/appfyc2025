@@ -13,7 +13,6 @@ return new class extends Migration {
         Schema::create('eventos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organizador_id')->constrained('usuarios')->onDelete('restrict');
-            $table->foreignId('formulario_inscripcion_id')->constrained('formularios_inscripcion')->onDelete('restrict');
             $table->foreignId('contenido_tematico_id')->constrained('contenidos_tematicos')->onDelete('restrict');
             $table->foreignId('estado_id')->constrained('estados')->onDelete('restrict');
             $table->foreignId('area_formacion_id')->constrained('areas_formacion')->onDelete('restrict');

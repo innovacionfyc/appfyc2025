@@ -1,114 +1,227 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { Link } from '@inertiajs/vue3'
-import BtnUniversal from './BtnUniversal.vue'
-
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
+import { Link } from "@inertiajs/vue3";
+import BtnUniversal from "./BtnUniversal.vue";
 
 const props = defineProps({
   events: {
     type: Array,
-    default: () => ([
-      { id: 1, title: 'Contratación para regímenes especiales', subtitle: 'Seminario de actualización', date: '21–22 Agosto 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/1.webp', imageBg: '/images/eventos/1-hero.webp', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=regimenes-especiales', badge: 'Presencial', rating: 5 },
-      { id: 2, title: 'Gestión de riesgos en el sector público', subtitle: 'Congreso Nacional', date: '4–6 Septiembre 2025', city: 'Bogotá D.C.', imageThumb: '/images/eventos/2.webp', imageBg: '/images/eventos/2-hero.webp', cta_text: 'Ver detalles', cta_url: '/eventos/gestion-riesgos', badge: 'Destacado', rating: 4 },
-      { id: 3, title: 'Archivo y transparencia', subtitle: 'Workshop intensivo', date: 'Octubre 2025', city: 'Híbrido', imageThumb: '/images/eventos/3.webp', imageBg: '/images/eventos/3-hero.webp', cta_text: 'Inscribirme', cta_url: '/inscripcion?e=archivo-transparencia', badge: 'Híbrido', rating: 4 },
-      { id: 4, title: 'Control interno y auditoría', subtitle: 'Diplomado especializado', date: 'Noviembre 2025', city: 'Virtual', imageThumb: '/images/eventos/4.webp', imageBg: '/images/eventos/4-hero.webp', cta_text: 'Más información', cta_url: '/eventos/control-interno', badge: 'Virtual', rating: 5 },
-      { id: 5, title: 'Innovación en la gestión pública', subtitle: 'Foro Internacional', date: 'Diciembre 2025', city: 'Cartagena', imageThumb: '/images/eventos/5.webp', imageBg: '/images/eventos/5-hero.webp', cta_text: 'Reservar cupo', cta_url: '/inscripcion?e=innovacion-publica', badge: 'Imperdible', rating: 5 },
-    ])
+    // Dejamos este default como "Fallback" por si la BD está vacía
+    default: () => [
+      {
+        id: 1,
+        title: "Contratación para regímenes especiales",
+        subtitle: "Seminario de actualización",
+        date: "21–22 Agosto 2026",
+        city: "Bogotá D.C.",
+        imageThumb: "/images/eventos/1.webp",
+        imageBg: "/images/eventos/1-hero.webp",
+        cta_text: "Inscribirme",
+        cta_url: "/inscripcion?e=regimenes-especiales",
+        badge: "Presencial",
+        rating: 5,
+      },
+      {
+        id: 2,
+        title: "Gestión de riesgos en el sector público",
+        subtitle: "Congreso Nacional",
+        date: "4–6 Septiembre 2026",
+        city: "Bogotá D.C.",
+        imageThumb: "/images/eventos/2.webp",
+        imageBg: "/images/eventos/2-hero.webp",
+        cta_text: "Ver detalles",
+        cta_url: "/eventos/gestion-riesgos",
+        badge: "Destacado",
+        rating: 4,
+      },
+      {
+        id: 3,
+        title: "Archivo y transparencia",
+        subtitle: "Workshop intensivo",
+        date: "Octubre 2026",
+        city: "Híbrido",
+        imageThumb: "/images/eventos/3.webp",
+        imageBg: "/images/eventos/3-hero.webp",
+        cta_text: "Inscribirme",
+        cta_url: "/inscripcion?e=archivo-transparencia",
+        badge: "Híbrido",
+        rating: 4,
+      },
+      {
+        id: 4,
+        title: "Control interno y auditoría",
+        subtitle: "Diplomado especializado",
+        date: "Noviembre 2026",
+        city: "Virtual",
+        imageThumb: "/images/eventos/4.webp",
+        imageBg: "/images/eventos/4-hero.webp",
+        cta_text: "Más información",
+        cta_url: "/eventos/control-interno",
+        badge: "Virtual",
+        rating: 5,
+      },
+      {
+        id: 5,
+        title: "Innovación en la gestión pública",
+        subtitle: "Foro Internacional",
+        date: "Diciembre 2026",
+        city: "Cartagena",
+        imageThumb: "/images/eventos/5.webp",
+        imageBg: "/images/eventos/5-hero.webp",
+        cta_text: "Reservar cupo",
+        cta_url: "/inscripcion?e=innovacion-publica",
+        badge: "Imperdible",
+        rating: 5,
+      },
+    ],
   },
   autoplay: { type: Boolean, default: true },
-  intervalMs: { type: Number, default: 6000 }
-})
+  intervalMs: { type: Number, default: 6000 },
+});
 
-const active = ref(0)
-const progressKey = ref(0)
-const rowRef = ref(null)
-let timer = null
+const active = ref(0);
+const progressKey = ref(0);
+const rowRef = ref(null);
+let timer = null;
 
-const current = computed(() => props.events?.[active.value] ?? props.events?.[0] ?? null)
-
+const current = computed(() => props.events?.[active.value] ?? props.events?.[0] ?? null);
 
 function setActive(i) {
-  if (!props.events?.length) return
-  active.value = (i + props.events.length) % props.events.length
-  progressKey.value++
+  if (!props.events?.length) return;
+  active.value = (i + props.events.length) % props.events.length;
+  progressKey.value++;
 
   nextTick(() => {
-    if (!rowRef.value) return
-    const activeCard = rowRef.value.children[active.value]
-    if (!activeCard) return
+    if (!rowRef.value) return;
+    const activeCard = rowRef.value.children[active.value];
+    if (!activeCard) return;
 
-    const scrollLeft = activeCard.offsetLeft - (rowRef.value.clientWidth / 2) + (activeCard.clientWidth / 2)
-    rowRef.value.scrollTo({ left: scrollLeft, behavior: 'smooth' })
-  })
+    const scrollLeft =
+      activeCard.offsetLeft - rowRef.value.clientWidth / 2 + activeCard.clientWidth / 2;
+    rowRef.value.scrollTo({ left: scrollLeft, behavior: "smooth" });
+  });
 }
 
 function startAutoplay() {
-  stopAutoplay()
-  if (!props.autoplay || !props.events?.length) return
-  timer = setInterval(() => { setActive(active.value + 1) }, props.intervalMs)
+  stopAutoplay();
+  if (!props.autoplay || !props.events?.length) return;
+  timer = setInterval(() => {
+    setActive(active.value + 1);
+  }, props.intervalMs);
 }
 
 function stopAutoplay() {
-  if (timer) { clearInterval(timer); timer = null }
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
 }
 
 const userInteracted = () => {
-  stopAutoplay()
-  setTimeout(() => { if (!timer && props.autoplay) startAutoplay() }, 8000)
-}
+  stopAutoplay();
+  setTimeout(() => {
+    if (!timer && props.autoplay) startAutoplay();
+  }, 8000);
+};
 
-onMounted(() => { startAutoplay() })
-onBeforeUnmount(stopAutoplay)
-watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
+onMounted(() => {
+  startAutoplay();
+});
+onBeforeUnmount(stopAutoplay);
+watch(
+  () => props.autoplay,
+  (v) => (v ? startAutoplay() : stopAutoplay())
+);
 </script>
 
 <template>
   <section
-    class="relative isolate w-full h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C] font-sans">
-
+    class="relative isolate w-full h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C] font-sans"
+  >
     <div class="absolute inset-0 z-0">
       <transition-group name="hero-fade">
-        <div v-for="(event, index) in events" :key="event.id" v-show="index === active"
+        <div
+          v-for="(event, index) in events"
+          :key="event.id"
+          v-show="index === active"
           class="absolute inset-0 bg-cover bg-center will-change-transform"
-          :class="{ 'animate-ken-burns': index === active }" :style="{ backgroundImage: `url('${event.imageBg}')` }" />
+          :class="{ 'animate-ken-burns': index === active }"
+          :style="{ backgroundImage: `url('${event.imageBg}')` }"
+        />
       </transition-group>
 
-      <div class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/70 to-transparent"></div>
-      <div class="absolute inset-0 bg-gradient-to-r from-[#0B192C]/90 via-transparent to-transparent"></div>
-      <div class="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none"></div>
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/70 to-transparent"
+      ></div>
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-[#0B192C]/90 via-transparent to-transparent"
+      ></div>
+      <div
+        class="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none"
+      ></div>
     </div>
 
     <div
-      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pb-10 lg:pb-16 flex flex-col lg:flex-row items-end gap-12">
-
+      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pb-10 lg:pb-16 flex flex-col lg:flex-row items-end gap-12"
+    >
       <aside class="w-full lg:w-5/12 mb-8 lg:mb-20">
         <transition name="content-slide" mode="out-in">
           <div :key="active" class="flex flex-col items-start text-left space-y-6">
-
             <div
-              class="flex items-center px-2 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in-up">
+              class="flex items-center px-2 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in-up"
+            >
               <span class="relative flex h-3 w-3">
                 <span
-                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-naranja opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-primary-naranja"></span>
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  :style="{
+                    background: current?.hex_principal,
+                  }"
+                ></span>
+                <span
+                  class="relative inline-flex rounded-full h-3 w-3"
+                  :style="{
+                    background: current?.hex_principal,
+                  }"
+                ></span>
               </span>
-              <span class="text-sm font-bold text-white tracking-wide uppercase">{{ current?.badge }}</span>
+              <span class="text-sm font-bold text-white tracking-wide uppercase">{{
+                current?.area
+              }}</span>
             </div>
 
             <h1
-              class="text-5xl lg:text-7xl font-black text-white leading-none tracking-tight drop-shadow-xl animate-fade-in-up delay-100">
+              class="text-5xl lg:text-7xl font-black text-white leading-none tracking-tight drop-shadow-xl animate-fade-in-up delay-100"
+            >
               {{ current?.title }}
             </h1>
 
-            <div class="space-y-2 border-l-2 border-primary-naranja pl-6 animate-fade-in-up delay-200">
-              <p class="text-2xl text-white font-medium leading-snug">{{ current?.subtitle }}</p>
+            <div
+              class="space-y-2 border-l-2 pl-6 animate-fade-in-up delay-200"
+              :style="{
+                borderLeftColor: current?.hex_principal,
+              }"
+            >
+              <p class="text-2xl text-white font-medium leading-snug">
+                {{ current?.subtitle }}
+              </p>
               <div class="flex items-center gap-4 text-gray-300">
                 <span class="flex items-center gap-2">
-                  <span class="material-symbols-rounded text-primary-naranja">calendar_today</span>
+                  <span
+                    class="material-symbols-rounded"
+                    :style="{
+                      color: current?.hex_principal,
+                    }"
+                    >calendar_today</span
+                  >
                   {{ current?.date }}
                 </span>
                 <span class="flex items-center gap-2">
-                  <span class="material-symbols-rounded text-primary-naranja">location_on</span>
+                  <span class="material-symbols-rounded"
+                   :style="{
+                      color: current?.hex_principal,
+                    }"
+                    >location_on</span
+                  >
                   {{ current?.city }}
                 </span>
               </div>
@@ -116,87 +229,121 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
 
             <div class="pt-4 animate-fade-in-up delay-300">
               <Link :href="current?.cta_url || '#'">
-                <BtnUniversal :label=current?.cta_text icon="arrow_forward_ios" icon-position="right" size="lg" />
+                <BtnUniversal
+                  :label="current?.cta_text"
+                  icon="arrow_forward_ios"
+                  icon-position="right"
+                  size="lg"
+                />
               </Link>
-
             </div>
-
           </div>
         </transition>
       </aside>
 
       <aside class="w-full lg:w-7/12 relative">
-
-        <div class="lg:hidden absolute -top-10 right-0 text-white/50 text-sm flex items-center gap-2 animate-pulse">
+        <div
+          class="lg:hidden absolute -top-10 right-0 text-white/50 text-sm flex items-center gap-2 animate-pulse"
+        >
           <span class="material-symbols-rounded">swipe_left</span> Desliza
         </div>
 
-        <div ref="rowRef" @mousedown="userInteracted" @touchstart="userInteracted" @wheel="userInteracted"
-          class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth py-10 px-4 lg:px-0 -mx-4 lg:mx-0 perspective-container">
-
-          <button v-for="(ev, i) in props.events" :key="ev.id || i" @click="setActive(i)"
+        <div
+          ref="rowRef"
+          @mousedown="userInteracted"
+          @touchstart="userInteracted"
+          @wheel="userInteracted"
+          class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth py-10 px-4 lg:px-0 -mx-4 lg:mx-0 perspective-container"
+        >
+          <button
+            v-for="(ev, i) in props.events"
+            :key="ev.id || i"
+            @click="setActive(i)"
             class="relative flex-none group rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] card-3d-wrapper outline-none"
-            :class="i === active
-              ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-primary-naranja/80 card-active'
-              : 'w-[260px] lg:w-[300px] h-[380px] lg:h-[420px] z-0 scale-90 opacity-50 grayscale-[30%] hover:opacity-80 hover:scale-95 hover:grayscale-0 card-inactive cursor-pointer'">
-
-            <img :src="ev.imageThumb" :alt="ev.title"
+            :class="
+              i === active
+                ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-primary-naranja/80 card-active'
+                : 'w-[260px] lg:w-[300px] h-[380px] lg:h-[420px] z-0 scale-90 opacity-50 grayscale-[30%] hover:opacity-80 hover:scale-95 hover:grayscale-0 card-inactive cursor-pointer'
+            "
+            
+          >
+            <img
+              :src="ev.imageThumb"
+              :alt="ev.title"
               class="absolute inset-0 h-full w-full object-cover transition-transform duration-1000"
-              :class="i === active ? 'scale-105 group-hover:scale-110' : 'scale-100'" loading="lazy" />
+              :class="i === active ? 'scale-105 group-hover:scale-110' : 'scale-100'"
+              loading="lazy"
+            />
 
-            <div class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/50 to-transparent opacity-90">
-            </div>
+            <div
+              class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/50 to-transparent opacity-90"
+            ></div>
 
             <div class="absolute bottom-0 inset-x-0 lg:p-6 z-20">
-
               <div
                 class="relative overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
-                :class="i === active
-                  ? 'bg-[#0B192C]/10 backdrop-blur-xl shadow-2xl translate-y-0'
-                  : 'bg-black/40 backdrop-blur-md border-white/5 translate-y-2'">
-
+                :class="
+                  i === active
+                    ? 'bg-[#0B192C]/10 backdrop-blur-xl shadow-2xl translate-y-0'
+                    : 'bg-black/40 backdrop-blur-md border-white/5 translate-y-2'
+                "
+              >
                 <div
                   class="absolute -top-10 -right-10 w-32 h-32 bg-primary-naranja/30 blur-[50px] rounded-full pointer-events-none transition-opacity duration-700"
-                  :class="i === active ? 'opacity-100' : 'opacity-0'"></div>
+                  :class="i === active ? 'opacity-100' : 'opacity-0'"
+                ></div>
 
                 <div class="relative p-5">
-
                   <div class="flex items-center justify-center mb-3">
                     <div class="flex items-center gap-1.5">
-                      <span class="material-symbols-rounded text-primary-naranja text-sm">location_on</span>
-                      <span class="text-xs font-bold uppercase tracking-widest text-gray-200">
+                      <span class="material-symbols-rounded text-primary-naranja text-sm"
+                        >location_on</span
+                      >
+                      <span
+                        class="text-xs font-bold uppercase tracking-widest text-gray-200"
+                      >
                         {{ ev.city }}
                       </span>
                     </div>
-
-                   
                   </div>
 
                   <h3
                     class="text-lg lg:text-2xl font-bold text-white leading-snug tracking-tight transition-all duration-300"
-                    :class="i !== active ? 'line-clamp-2 opacity-90' : 'line-clamp-none opacity-100'">
+                    :class="
+                      i !== active
+                        ? 'line-clamp-2 opacity-90'
+                        : 'line-clamp-none opacity-100'
+                    "
+                  >
                     {{ ev.title }}
                   </h3>
 
-                  <div class="grid transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
-                    :class="i === active ? 'grid-rows-[1fr] opacity-100 mt-3 pt-3 border-t border-white/10' : 'grid-rows-[0fr] opacity-0 mt-0'">
+                  <div
+                    class="grid transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
+                    :class="
+                      i === active
+                        ? 'grid-rows-[1fr] opacity-100 mt-3 pt-3 border-t border-white/10'
+                        : 'grid-rows-[0fr] opacity-0 mt-0'
+                    "
+                  >
                     <div class="overflow-hidden">
-                      <p class="text-xs lg:text-sm text-gray-300 font-medium leading-relaxed">
+                      <p
+                        class="text-xs lg:text-sm text-gray-300 font-medium leading-relaxed"
+                      >
                         {{ ev.subtitle }}
                       </p>
-
-                    
                     </div>
                   </div>
-
                 </div>
               </div>
             </div>
 
-            <div v-if="i === active && autoplay"
+            <div
+              v-if="i === active && autoplay"
               class="absolute bottom-0 left-0 h-[3px] bg-primary-naranja shadow-[0_0_10px_rgba(240,82,53,0.8)] z-30"
-              :key="progressKey" :style="{ animation: `progress ${intervalMs}ms linear forwards` }">
-            </div>
+              :key="progressKey"
+              :style="{ animation: `progress ${intervalMs}ms linear forwards` }"
+            ></div>
           </button>
 
           <div class="w-8 flex-none"></div>
@@ -207,7 +354,6 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
 </template>
 
 <style scoped>
-
 .hero-fade-enter-active,
 .hero-fade-leave-active {
   transition: opacity 1.5s ease-in-out;
@@ -276,7 +422,6 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
   }
 }
 
-
 .perspective-container {
   perspective: 1000px;
 }
@@ -290,16 +435,13 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
   transform: rotateY(15deg) translateZ(-50px) scale(0.9);
 }
 
-
 .card-active {
   transform: rotateY(0deg) translateZ(0) scale(1);
 }
 
-
 .card-inactive:hover {
   transform: rotateY(5deg) translateZ(-20px) scale(0.95);
 }
-
 
 @keyframes progress {
   from {
@@ -310,7 +452,6 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
     width: 100%;
   }
 }
-
 
 @keyframes shimmer {
   100% {
@@ -330,5 +471,4 @@ watch(() => props.autoplay, v => (v ? startAutoplay() : stopAutoplay()))
 .bg-noise {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
-
 </style>

@@ -11,8 +11,15 @@ class Rol extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'roles';
 
+    protected $fillable = [
+        'tipo_rol',
+        'slug',
+        'descripcion',
+        'permisos',
+    ];
+
     protected $casts = [
-        'permisos' => 'array', // Casteo del JSON a Array
+        'permisos' => 'array',
     ];
 
     public function organizadores() {

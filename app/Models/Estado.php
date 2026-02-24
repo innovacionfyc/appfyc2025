@@ -11,6 +11,11 @@ class Estado extends Model
     use SoftDeletes, HasAuditFields;
     protected $table = 'estados';
 
+    protected $fillable = [
+        'tipo_estado',
+        'categoria_estado',
+    ];
+
     public function areasFormacion() {
         return $this->hasMany(AreaFormacion::class, 'estado_id');
     }
