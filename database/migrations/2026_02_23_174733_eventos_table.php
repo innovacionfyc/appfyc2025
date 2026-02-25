@@ -24,7 +24,8 @@ return new class extends Migration {
             $table->string('modalidad');
             $table->string('url_folleto')->nullable();
             $table->string('ubicacion')->nullable();
-            $table->dateTime('fecha_hora');
+            $table->dateTime('fecha_hora_inicio');
+            $table->dateTime('fecha_hora_fin');
             $table->decimal('precio_jornada', 10, 2)->nullable();
             $table->decimal('precio_modulo', 10, 2)->nullable();
             $table->text('texto_dinamico')->nullable();

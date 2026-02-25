@@ -28,6 +28,7 @@ class Usuario extends Authenticatable
         'remember_token',
     ];
 
+    protected $appends = ['rol'];
     public function getAuthPassword()
     {
         return $this->contrasena;
@@ -48,7 +49,23 @@ class Usuario extends Authenticatable
     {
         return $this->hasMany(Evento::class, 'organizador_id');
     }
-    public function estado() {
+    public function estado()
+    {
         return $this->belongsTo(Estado::class, 'estado_id');
+    }
+
+    public function getRolAttribute()
+    {
+        // Verificamos si tiene perfil de organizador y retornamos el slug del rol
+        if ($this->perfilOrganizador && $this->perfilOrganizador->rol) {
+            return $this->perfilOrganizador->rol->slug;
+        }
+
+        // Si es conferencista, podrías retornar un string fijo o manejarlo según tu lógica
+        if ($this->perfilConferencista) {
+            return 'conferencista';
+        }
+
+        return null;
     }
 }

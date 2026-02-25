@@ -52,11 +52,18 @@ const form = useForm({
   soporte_asistencia: "",
   politica_datos: false,
   medio_reconocimiento: "",
+  medio_reconocimiento_otro: "",
 });
 
 const activeColor = computed(
   () => props.evento?.area_formacion?.color_hex_principal || "#f97316"
 );
+
+const areaEvento = computed(() => props.evento?.area_formacion?.nombre || "");
+
+const tituloEvento = computed(() => props.evento?.titulo || "");
+
+const subtituloEvento = computed(() => props.evento?.subtitulo || "");
 
 const nextStep = () => {
   if (currentStep.value < totalSteps) currentStep.value++;
@@ -82,6 +89,20 @@ const isStepValid = computed(() => {
   if (currentStep.value === 2) return form.correo_personal && form.ciudad;
   return form.politica_datos;
 });
+
+const getAreaTagImage = () => {
+  const areaName = areaEvento.value;
+
+  const imagenesPorArea = {
+    Jurídica: "/images/areasFormacion/form/j_form.png",
+    "Talento Humano": "/images/areasFormacion/form/th_form.png",
+    "Gestión y Políticas Públicas": "/images/areasFormacion/form/gpp_form.png",
+    "Enfoques Misionales": "/images/areasFormacion/form/em_form.png",
+    "Finanzas y Hacienda Pública": "/images/areasFormacion/form/fhp_form.png",
+  };
+
+  return imagenesPorArea[areaName] || "/images/areasFormacion/formacion_defecto_web.png";
+};
 </script>
 
 <template>
@@ -99,39 +120,34 @@ const isStepValid = computed(() => {
         class="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-950/40 backdrop-blur-xl"
       >
         <div
-          class="bg-white w-full max-w-5xl md:h-[700px] flex flex-col md:flex-row shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] md:rounded-[3rem] overflow-hidden relative"
+          class="bg-white w-full max-w-6xl h-auto flex flex-col md:flex-row shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] md:rounded-[3rem] overflow-hidden relative"
         >
           <div
-            class="hidden md:flex w-80 flex-col justify-between p-12 relative overflow-hidden shrink-0 text-white"
-            :style="{ background: activeColor }"
+            class="hidden md:flex w-[35%] gap-10 flex-col justify-between px-12 py-8 relative overflow-hidden shrink-0"
           >
-            <div class="absolute top-0 left-0 w-full h-full opacity-10">
-              <svg width="100%" height="100%">
-                <pattern
-                  id="pattern"
-                  x="0"
-                  y="0"
-                  width="40"
-                  height="40"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <circle cx="2" cy="2" r="1" fill="currentColor" />
-                </pattern>
-                <rect width="100%" height="100%" fill="url(#pattern)" />
-              </svg>
+            <div class="flex justify-center">
+              <img
+                :src="getAreaTagImage()"
+                :alt="areaEvento || 'Área de formación'"
+                class="h-20 md:h-28 w-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300"
+              />
             </div>
 
             <div class="relative z-10 space-y-12">
-              <div class="space-y-2">
-                <h2 class="text-3xl font-black leading-tight">
-                  Únete a la <br />Jornada
-                </h2>
-                <p class="text-white/70 text-sm font-medium">
-                  Completa estos tres pasos para asegurar tu lugar en el evento.
+              <div class="space-y-1">
+                <h2 class="text-[30px] font-extrabold">Inscripción al evento:</h2>
+                <p class="text-[16px] font-regular">
+                  {{ subtituloEvento }}
                 </p>
+                <h1
+                  class="text-[18px] leading-[1.1] uppercase font-extrabold"
+                  :style="{ color: activeColor }"
+                >
+                  {{ tituloEvento }}
+                </h1>
               </div>
 
-              <div class="space-y-8">
+              <div class="space-y-5">
                 <div
                   v-for="step in steps"
                   :key="step.id"
@@ -140,8 +156,10 @@ const isStepValid = computed(() => {
                 >
                   <div
                     class="w-10 h-10 rounded-2xl flex items-center justify-center border-2"
-                    :class="
-                      currentStep >= step.id ? 'bg-white border-white' : 'border-white/30'
+                    :style="
+                      currentStep >= step.id
+                        ? { borderBottom: activeColor }
+                        : 'border-white/30'
                     "
                   >
                     <component
@@ -165,15 +183,10 @@ const isStepValid = computed(() => {
             </div>
           </div>
 
-          <div class="flex-1 flex flex-col bg-white h-full overflow-hidden">
+          <div class="flex-1 flex flex-col h-auto overflow-hidden">
             <div
               class="px-8 py-6 flex justify-between items-center md:justify-end shrink-0"
             >
-              <div class="md:hidden">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest"
-                  >Paso {{ currentStep }} de 3</span
-                >
-              </div>
               <button
                 @click="$emit('close')"
                 class="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all"
@@ -182,9 +195,15 @@ const isStepValid = computed(() => {
               </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-8 md:px-16 py-4 custom-scroll">
-              <div class="max-w-xl mx-auto">
+            <div class="flex-1 overflow-y-auto px-8 md:px-10 py-4 custom-scroll">
+              <div class="max-w-auto mx-auto">
                 <form @submit.prevent="submit" class="space-y-8">
+                  <div class="">
+                    <span
+                      class="text-xs font-bold text-slate-400 uppercase tracking-widest"
+                      >Paso {{ currentStep }} de 3</span
+                    >
+                  </div>
                   <div
                     v-if="currentStep === 1"
                     class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700"
@@ -307,7 +326,6 @@ const isStepValid = computed(() => {
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     
                       <FormInput
                         label="Modo de Asistencia"
                         type="select"
@@ -317,27 +335,37 @@ const isStepValid = computed(() => {
                         :options="['Presencial', 'Virtual', 'Híbrido']"
                         required
                       />
-                     
-                      <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-400 uppercase ml-1"
-                          >¿Cómo nos conociste?</label
-                        >
-                        <select
-                          v-model="form.medio_reconocimiento"
-                          class="custom-input appearance-none cursor-pointer"
-                          :style="{ '--focus-color': activeColor }"
-                        >
-                          <option value="">Selecciona una opción</option>
-                          <option value="WhatsApp">WhatsApp</option>
-                          <option value="Redes Sociales">Redes Sociales</option>
-                          <option value="Correo">Correo Electrónico</option>
-                        </select>
-                      </div>
+
+                      <FormInput
+                        label="¿Cómo nos conociste"
+                        type="select"
+                        v-model="form.medio_reconocimiento"
+                        icon="globe_book"
+                        :activeColor="activeColor"
+                        :options="[
+                          'Correo Eléctronico',
+                          'WhatsApp',
+                          'Redes Sociales',
+                          'Llamada por ejecutivo de cuenta',
+                          'Otro',
+                        ]"
+                        required
+                      />
+
+                      <FormInput
+                        v-if="form.medio_reconocimiento === 'Otro'"
+                        label="¿Cual?"
+                        type="text"
+                        v-model="form.medio_reconocimiento_otro"
+                        icon="info"
+                        :activeColor="activeColor"
+                        placeholder="Ej: Consultor"
+                        required
+                        :max="50"
+                      />
                     </div>
 
-                    <div
-                      class="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 mt-10"
-                    >
+                    <div class="my-10">
                       <label class="flex items-start gap-4 cursor-pointer group">
                         <input
                           v-model="form.politica_datos"
@@ -347,10 +375,13 @@ const isStepValid = computed(() => {
                         <span class="text-xs text-slate-600 leading-relaxed">
                           Acepto la
                           <strong class="text-slate-900 underline"
-                            >Política de Tratamiento de Datos Personales</strong
+                            >vinculación del número celular aquí registrado</strong
                           >
-                          de F&C Consultores para efectos de registro y comunicaciones
-                          académicas.
+                          al grupo de WhatsApp que tendrá como única finalidad socializar
+                          toda la información relacionada con el evento, lo que incluye
+                          programación, recordatorios, capacitaciones y  <strong class="text-slate-900 underline"
+                            > demás
+                          comunicaciones pertinentes. </strong>
                         </span>
                       </label>
                     </div>

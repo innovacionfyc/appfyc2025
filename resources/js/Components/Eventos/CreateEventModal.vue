@@ -65,7 +65,8 @@ const form = useForm({
   area_formacion_id: "",
   estado_id: "",
   modalidad: "Presencial",
-  fecha_hora: "",
+  fecha_hora_inicio: "",
+  fecha_hora_fin: "",
   ubicacion: "",
   precio_jornada: "",
   precio_modulo: "",
@@ -323,12 +324,26 @@ const submit = () => {
                         >Fecha y Hora de Inicio *</label
                       >
                       <input
-                        v-model="form.fecha_hora"
+                        v-model="form.fecha_hora_inicio"
                         type="datetime-local"
                         class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-600 outline-none transition-all cursor-pointer"
                       />
-                      <p v-if="form.errors.fecha_hora" class="mt-1 text-xs text-red-600">
-                        {{ form.errors.fecha_hora }}
+                      <p v-if="form.errors.fecha_hora_inicio" class="mt-1 text-xs text-red-600">
+                        {{ form.errors.fecha_hora_inicio }}
+                      </p>
+                    </div>
+                    <div>
+                      <label
+                        class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide"
+                        >Fecha y Hora de fin *</label
+                      >
+                      <input
+                        v-model="form.fecha_hora_fin"
+                        type="datetime-local"
+                        class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-600 outline-none transition-all cursor-pointer"
+                      />
+                      <p v-if="form.errors.fecha_hora_fin" class="mt-1 text-xs text-red-600">
+                        {{ form.errors.fecha_hora_fin }}
                       </p>
                     </div>
                     <div>

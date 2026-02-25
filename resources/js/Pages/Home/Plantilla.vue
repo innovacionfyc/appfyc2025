@@ -62,7 +62,6 @@ const getAreaTagImage = () => {
 
 const showModal = ref(false);
 
-// Lógica del Contador
 const timeLeft = ref({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 let timer = null;
 
@@ -86,14 +85,28 @@ const startCountdown = () => {
     timeLeft.value.seconds = Math.floor((distance % (1000 * 60)) / 1000);
   }, 1000);
 };
+const isScrolled = ref(false);
+const scrollContainer = ref(null);
 
+const handleScroll = (e) => {
+  isScrolled.value = e.target.scrollTop > 300;
+};
 onMounted(() => {
   if (evento?.fecha_hora) startCountdown();
+
+  if (scrollContainer.value) {
+    scrollContainer.value.addEventListener("scroll", handleScroll);
+  }
 });
 
 onUnmounted(() => {
   clearInterval(timer);
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener("scroll", handleScroll);
+  }
 });
+
+
 </script>
 
 <template>
@@ -105,20 +118,45 @@ onUnmounted(() => {
   />
 
   <div
-    class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white"
+    ref="scrollContainer"
+    class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white relative"
   >
     <div class="fixed top-0 w-full z-50">
       <HeaderNav />
     </div>
 
-    <SectionPlantilla class="snap-start h-dvh w-full relative flex items-center justify-center overflow-hidden bg-[#0B192C]">
+    <div
+      class="fixed z-[55] pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.68,-0.55,0.27,1.55)]"
+      :class="[
+        isScrolled
+          ? '-bottom-14 right-0 w-40 md:w-[280px] rotate-[-10deg] -translate-x-2' 
+          : 'bottom-[-200px] md:bottom-[-250px] left-4 md:left-10 w-[300px] md:w-[500px] rotate-0',
+      ]"
+    >
+      <img
+        src="/images/buho_fyc.png"
+        alt="Búho F&C"
+        class="w-full h-auto drop-shadow-2xl transition-transform duration-700"
+        :class="{ 'scale-x-[-1]': !isScrolled }"
+      />
+    </div>
+
+    <SectionPlantilla
+      class="snap-start h-dvh w-full relative flex items-center justify-center overflow-hidden bg-[#0B192C]"
+    >
       <div class="absolute inset-0 z-0">
         <img
-          :src="evento?.imagen_relacionada ? '/storage/' + evento.imagen_relacionada : '/images/default-evento-bg.webp'"
+          :src="
+            evento?.imagen_relacionada
+              ? '/storage/' + evento.imagen_relacionada
+              : '/images/default-evento-bg.webp'
+          "
           class="w-full h-full object-cover opacity-30 mix-blend-overlay"
           :alt="evento?.titulo"
         />
-        <div class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/60 to-transparent"></div>
+        <div
+          class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/60 to-transparent"
+        ></div>
       </div>
 
       <div class="relative z-10 text-center px-6 max-w-5xl mx-auto mt-12 md:mt-16">
@@ -130,52 +168,69 @@ onUnmounted(() => {
           />
         </div>
 
- <p v-if="evento?.subtitulo" class="text-lg md:text-2xl text-slate-300 font-medium max-w-3xl mx-auto  md:mb-5">
+        <p
+          v-if="evento?.subtitulo"
+          class="text-lg md:text-2xl text-slate-300 font-medium max-w-3xl mx-auto md:mb-5"
+        >
           {{ evento.subtitulo }}
         </p>
-        <h1 class="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6 drop-shadow-2xl">
+        <h1
+          class="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6 drop-shadow-2xl"
+        >
           {{ evento?.titulo }}
         </h1>
 
-       
-
-        
-
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-white font-medium bg-black/30 w-full sm:w-fit mx-auto px-6 py-4 rounded-3xl backdrop-blur-md border border-white/10">
+        <div
+          class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-white font-medium bg-black/30 w-full sm:w-fit mx-auto px-6 py-4 rounded-3xl backdrop-blur-md border border-white/10"
+        >
           <span class="flex items-center gap-2 text-sm md:text-base">
-            <Calendar class="w-5 h-5" :style="{ color: evento?.area_formacion?.color_hex_principal || '#f97316' }" />
+            <Calendar
+              class="w-5 h-5"
+              :style="{ color: evento?.area_formacion?.color_hex_principal || '#f97316' }"
+            />
             {{ formatDate(evento?.fecha_hora) }}
           </span>
           <span class="flex items-center gap-2 text-sm md:text-base">
-            <MapPin class="w-5 h-5" :style="{ color: evento?.area_formacion?.color_hex_principal || '#f97316' }" />
+            <MapPin
+              class="w-5 h-5"
+              :style="{ color: evento?.area_formacion?.color_hex_principal || '#f97316' }"
+            />
             Modalidad {{ evento?.modalidad }}
           </span>
-          
         </div>
         <div class="relative flex justify-center gap-6 my-10">
-        <div v-for="(val, unit) in timeLeft" :key="unit" class="flex flex-col items-center ">
-                <div 
-                    class=" flex items-center justify-center "
-                >
-                    <div class="absolute top-0 left-0 w-auto h-1/2 bg-gradient-to-b from-white/5 to-transparent"></div>
-                    
-                    <span 
-                        class="text-3xl sm:text-5xl font-black text-mono-blanco tabular-nums"
-                        
-                    >
-                        {{ val < 10 ? '0' + val : val }}
-                    </span>
-                </div>
-                <span class=" text-[10px] sm:text-sm font-bold  text-slate-400">
-                    {{ unit === 'days' ? 'Días' : unit === 'hours' ? 'Horas' : unit === 'minutes' ? 'Min' : 'Seg' }}
-                </span>
+          <div
+            v-for="(val, unit) in timeLeft"
+            :key="unit"
+            class="flex flex-col items-center"
+          >
+            <div class="flex items-center justify-center">
+              <div
+                class="absolute top-0 left-0 w-auto h-1/2 bg-gradient-to-b from-white/5 to-transparent"
+              ></div>
+
+              <span class="text-3xl sm:text-5xl font-black text-mono-blanco tabular-nums">
+                {{ val < 10 ? "0" + val : val }}
+              </span>
             </div>
+            <span class="text-[10px] sm:text-sm font-bold text-slate-400">
+              {{
+                unit === "days"
+                  ? "Días"
+                  : unit === "hours"
+                  ? "Horas"
+                  : unit === "minutes"
+                  ? "Min"
+                  : "Seg"
+              }}
+            </span>
+          </div>
         </div>
-        
-        
       </div>
-     
-      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce text-white/50 hidden sm:flex">
+
+      <div
+        class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce text-white/50 hidden sm:flex"
+      >
         <span class="text-xs uppercase tracking-widest font-bold mb-2">Desliza</span>
         <ChevronDown class="w-6 h-6" />
       </div>
@@ -345,7 +400,8 @@ onUnmounted(() => {
                     <h4
                       class="font-bold text-slate-900 text-sm md:text-base leading-tight truncate"
                     >
-                      {{ speaker.primer_nombre }} {{ speaker.segundo_nombre }} {{ speaker.primer_apellido }}
+                      {{ speaker.primer_nombre }} {{ speaker.segundo_nombre }}
+                      {{ speaker.primer_apellido }}
                     </h4>
                     <p class="text-[11px] text-slate-500 line-clamp-2 italic font-medium">
                       "{{ speaker.biografia || "Especialista consultor." }}"
@@ -565,7 +621,7 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* Reset de scrollbars para limpieza visual */
+
 div::-webkit-scrollbar {
   display: none;
 }
@@ -574,7 +630,7 @@ div {
   scrollbar-width: none;
 }
 
-/* Scrollbar personalizado para áreas de contenido largo */
+
 .custom-scroll::-webkit-scrollbar {
   display: block;
   width: 5px;
@@ -587,10 +643,19 @@ div {
   border-radius: 20px;
 }
 
-/* Ajustes de Snap para móviles */
 @media (max-width: 1024px) {
   .snap-y {
-    scroll-snap-type: none; /* Desactivar snap en mobile para mejor fluidez si el contenido excede el alto */
+    scroll-snap-type: none;
   }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 12s linear infinite; }
+
+@media (max-width: 1024px) {
+  .snap-y { scroll-snap-type: none; }
 }
 </style>
