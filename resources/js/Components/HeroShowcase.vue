@@ -216,8 +216,9 @@ watch(
                   {{ current?.date }}
                 </span>
                 <span class="flex items-center gap-2">
-                  <span class="material-symbols-rounded"
-                   :style="{
+                  <span
+                    class="material-symbols-rounded"
+                    :style="{
                       color: current?.hex_principal,
                     }"
                     >location_on</span
@@ -234,6 +235,7 @@ watch(
                   icon="arrow_forward_ios"
                   icon-position="right"
                   size="lg"
+                  :activeColor="current?.hex_principal"
                 />
               </Link>
             </div>
@@ -262,10 +264,9 @@ watch(
             class="relative flex-none group rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] card-3d-wrapper outline-none"
             :class="
               i === active
-                ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-primary-naranja/80 card-active'
+                ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-rose-800/80 card-active'
                 : 'w-[260px] lg:w-[300px] h-[380px] lg:h-[420px] z-0 scale-90 opacity-50 grayscale-[30%] hover:opacity-80 hover:scale-95 hover:grayscale-0 card-inactive cursor-pointer'
             "
-            
           >
             <img
               :src="ev.imageThumb"
@@ -296,7 +297,10 @@ watch(
                 <div class="relative p-5">
                   <div class="flex items-center justify-center mb-3">
                     <div class="flex items-center gap-1.5">
-                      <span class="material-symbols-rounded text-primary-naranja text-sm"
+                      <span class="material-symbols-rounded text-sm"
+                       :style="{
+                      color: current?.hex_principal,
+                    }"
                         >location_on</span
                       >
                       <span

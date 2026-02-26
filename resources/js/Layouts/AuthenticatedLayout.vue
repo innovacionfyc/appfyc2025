@@ -4,6 +4,7 @@ import { watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { LogOut, Menu, User, LayoutDashboard, Users, Calendar, Megaphone } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
+import MensajesLayout from './MensajesLayout.vue';
 
 const page = usePage();
 const authStore = useAuthStore();
@@ -24,6 +25,7 @@ watch(
   <div>
     <main>
       <slot />
+      <MensajesLayout />
     </main>
   </div>
 </template>

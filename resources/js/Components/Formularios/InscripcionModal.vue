@@ -18,6 +18,8 @@ import {
   Smartphone,
 } from "lucide-vue-next";
 import FormInput from "../Shared/inputs/FormInput.vue";
+import BtnUniversal from "../BtnUniversal.vue";
+import BtnSecundario from "../Shared/buttons/btnSecundario.vue";
 
 const props = defineProps({
   show: Boolean,
@@ -31,7 +33,7 @@ const totalSteps = 3;
 
 // Etiquetas y descripciones para el Sidebar de progreso
 const steps = [
-  { id: 1, title: "Identidad", desc: "Tus datos básicos", icon: User },
+  { id: 1, title: "Identidad", desc: "Sus datos básicos", icon: User },
   { id: 2, title: "Perfil", desc: "Entorno profesional", icon: Building2 },
   { id: 3, title: "Finalizar", desc: "Preferencias de cupo", icon: Sparkles },
 ];
@@ -85,9 +87,13 @@ const submit = () => {
 
 const isStepValid = computed(() => {
   if (currentStep.value === 1)
+
     return form.nombres && form.apellidos && form.cedula && form.celular;
-  if (currentStep.value === 2) return form.correo_personal && form.ciudad;
-  return form.politica_datos;
+    
+  if (currentStep.value === 2) 
+    return form.correo_corporativo && form.ciudad && form.cargo && form.entidad_empresa;
+    
+  return form.politica_datos && form.modo_asistencia && form.medio_reconocimiento;
 });
 
 const getAreaTagImage = () => {
@@ -155,21 +161,17 @@ const getAreaTagImage = () => {
                   :class="currentStep === step.id ? 'translate-x-2' : 'opacity-50'"
                 >
                   <div
-                    class="w-10 h-10 rounded-2xl flex items-center justify-center border-2"
-                    :style="
-                      currentStep >= step.id
-                        ? { borderBottom: activeColor }
-                        : 'border-white/30'
-                    "
+                    class="w-10 h-10 rounded-xl flex items-center justify-center border-2"
+                     :style="{ borderBlockColor: currentStep === step.id ? activeColor : '' }"
                   >
                     <component
                       :is="step.icon"
                       class="w-5 h-5"
-                      :style="{ color: currentStep >= step.id ? activeColor : '#fff' }"
+                      :style="{ color: currentStep >= step.id ? activeColor : '' }"
                     />
                   </div>
                   <div>
-                    <h4 class="font-bold text-sm">{{ step.title }}</h4>
+                    <h4 class="font-bold text-sm"  :style="{ color: currentStep >= step.id ? activeColor : '' }">{{ step.title }}</h4>
                     <p class="text-[11px] font-medium opacity-80">{{ step.desc }}</p>
                   </div>
                 </div>
@@ -228,6 +230,7 @@ const getAreaTagImage = () => {
                         placeholder="Ej: Juan Andrés"
                         required
                         :max="30"
+                        :error="form.errors.nombres"
                       />
                       <FormInput
                         label="Apellidos"
@@ -238,6 +241,7 @@ const getAreaTagImage = () => {
                         placeholder="Ej: Gómez Polanco"
                         required
                         :max="30"
+                        :error="form.errors.apellidos"
                       />
 
                       <FormInput
@@ -249,6 +253,7 @@ const getAreaTagImage = () => {
                         placeholder="Cédula o NIT"
                         required
                         :max="24"
+                        :error="form.errors.cedula"
                       />
                       <FormInput
                         label="Número de celular"
@@ -259,8 +264,19 @@ const getAreaTagImage = () => {
                         placeholder="3XX XXX XXXX"
                         required
                         :max="10"
+                        :error="form.errors.celular"
                       />
                     </div>
+                    <FormInput
+                        label="Correo electrónico principal"
+                        type="email"
+                        v-model="form.correo_personal"
+                        icon="email"
+                        :activeColor="activeColor"
+                        placeholder="tu@correo.com"
+                      :error="form.errors.correo_personal"
+                        :max="60"
+                      />
                   </div>
 
                   <div
@@ -269,7 +285,7 @@ const getAreaTagImage = () => {
                   >
                     <div class="space-y-2">
                       <h3 class="text-2xl font-bold text-slate-900">
-                        Cuéntanos sobre tu labor
+                        Cuéntenos sobre su labor
                       </h3>
                       <p class="text-slate-500 text-sm">
                         Esta información nos ayuda a personalizar la experiencia
@@ -279,26 +295,39 @@ const getAreaTagImage = () => {
 
                     <div class="grid grid-cols-1 gap-6">
                       <FormInput
-                        label="Correo electrónico principal"
+                        label="Correo electrónico corporativo"
                         type="email"
-                        v-model="form.correo_personal"
+                        v-model="form.correo_corporativo"
                         icon="email"
                         :activeColor="activeColor"
-                        placeholder="tu@correo.com"
+                        placeholder="su@dominio-empresa.com"
                         required
                         :max="60"
+                        :error="form.errors.correo_corporativo"
                       />
                     </div>
-                    <div class="grid md:grid-cols-2 grid-cols-1 gap-6">
-                      <FormInput
+                     <FormInput
                         label="Ciudad"
                         type="text"
                         v-model="form.ciudad"
                         icon="add_location"
                         :activeColor="activeColor"
-                        placeholder="¿Dónde resides?"
+                        placeholder="¿Dónde reside?"
                         required
                         :max="60"
+                        :error="form.errors.ciudad"
+                      />
+                    <div class="grid md:grid-cols-2 grid-cols-1 gap-6">
+                      <FormInput
+                        label="Entidad / Empresa"
+                        type="text"
+                        v-model="form.entidad_empresa"
+                        icon="store"
+                        :activeColor="activeColor"
+                        placeholder="Ingrese donde labora"
+                        required
+                        :max="60"
+                        :error="form.errors.entidad_empresa"
                       />
 
                       <FormInput
@@ -310,6 +339,7 @@ const getAreaTagImage = () => {
                         placeholder="Ej: Consultor"
                         required
                         :max="50"
+                        :error="form.errors.cargo"
                       />
                     </div>
                   </div>
@@ -321,7 +351,7 @@ const getAreaTagImage = () => {
                     <div class="space-y-2">
                       <h3 class="text-2xl font-bold text-slate-900">¡Casi terminamos!</h3>
                       <p class="text-slate-500 text-sm">
-                        Confirma los detalles finales de tu participación.
+                        Confirme los detalles finales de su participación.
                       </p>
                     </div>
 
@@ -330,6 +360,7 @@ const getAreaTagImage = () => {
                         label="Modo de Asistencia"
                         type="select"
                         v-model="form.modo_asistencia"
+                        :error="form.errors.modo_asistencia"
                         icon="category"
                         :activeColor="activeColor"
                         :options="['Presencial', 'Virtual', 'Híbrido']"
@@ -337,7 +368,7 @@ const getAreaTagImage = () => {
                       />
 
                       <FormInput
-                        label="¿Cómo nos conociste"
+                        label="¿Cómo no conoció?"
                         type="select"
                         v-model="form.medio_reconocimiento"
                         icon="globe_book"
@@ -350,6 +381,7 @@ const getAreaTagImage = () => {
                           'Otro',
                         ]"
                         required
+                        :error="form.errors.medio_reconocimiento"
                       />
 
                       <FormInput
@@ -360,8 +392,9 @@ const getAreaTagImage = () => {
                         icon="info"
                         :activeColor="activeColor"
                         placeholder="Ej: Consultor"
-                        required
+                   
                         :max="50"
+                        :error="form.errors.medio_reconocimiento_otro"
                       />
                     </div>
 
@@ -379,9 +412,10 @@ const getAreaTagImage = () => {
                           >
                           al grupo de WhatsApp que tendrá como única finalidad socializar
                           toda la información relacionada con el evento, lo que incluye
-                          programación, recordatorios, capacitaciones y  <strong class="text-slate-900 underline"
-                            > demás
-                          comunicaciones pertinentes. </strong>
+                          programación, recordatorios, capacitaciones y
+                          <strong class="text-slate-900 underline">
+                            demás comunicaciones pertinentes.
+                          </strong>
                         </span>
                       </label>
                     </div>
@@ -393,44 +427,43 @@ const getAreaTagImage = () => {
             <div
               class="p-8 md:px-16 md:py-10 bg-white border-t border-slate-50 flex items-center justify-between shrink-0"
             >
-              <button
-                v-if="currentStep > 1"
-                @click="prevStep"
-                class="flex items-center gap-2 font-bold text-slate-400 hover:text-slate-900 transition-colors"
-              >
-                <ChevronLeft class="w-5 h-5" /> Anterior
-              </button>
-              <div v-else></div>
+              <div class="flex-1">
+                <BtnSecundario
+                  v-if="currentStep > 1"
+                  label="Anterior"
+                  icon="chevron_left"
+                  icon-position="left"
+                  :activeColor="activeColor"
+                  @click="prevStep"
+                />
+              </div>
 
-              <div class="flex gap-4">
-                <button
+              <div class="flex-[2] flex justify-end gap-4">
+                <BtnUniversal
                   v-if="currentStep < totalSteps"
-                  @click="nextStep"
+                  label="Siguiente"
+                  icon="chevron_right"
+                  icon-position="right"
+                  size="lg"
+                  :activeColor="activeColor"
                   :disabled="!isStepValid"
-                  class="px-10 py-4 rounded-2xl font-bold text-white transition-all shadow-xl disabled:opacity-30 disabled:grayscale flex items-center gap-3 active:scale-95"
-                  :style="{
-                    background: activeColor,
-                    boxShadow: `0 20px 40px -10px ${activeColor}40`,
-                  }"
-                >
-                  Siguiente <ChevronRight class="w-5 h-5" />
-                </button>
+                  @click="nextStep"
+                  process="Esperando campos..."
 
-                <button
+                />
+
+                <BtnUniversal
                   v-if="currentStep === totalSteps"
-                  @click="submit"
+                  label="Confirmar Cupo"
+                  icon="send"
+                  icon-position="right"
+                  size="lg"
+                  :activeColor="activeColor"
                   :disabled="form.processing || !isStepValid"
-                  class="px-10 py-4 rounded-2xl font-bold text-white transition-all shadow-xl disabled:opacity-30 flex items-center gap-3 active:scale-95"
-                  :style="{
-                    background: activeColor,
-                    boxShadow: `0 20px 40px -10px ${activeColor}40`,
-                  }"
-                >
-                  <Loader2 v-if="form.processing" class="w-5 h-5 animate-spin" />
-                  <span v-else class="flex items-center gap-3"
-                    ><Send class="w-5 h-5" /> Confirmar Cupo</span
-                  >
-                </button>
+                  :loading="form.processing"
+                  process="Inscribiendo..."
+                  @click="submit"
+                />
               </div>
             </div>
           </div>
