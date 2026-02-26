@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
+use App\Models\Evento;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class HomeController extends Controller
 {
@@ -13,13 +13,61 @@ class HomeController extends Controller
      */
     public function show()
     {
-        // La función Inertia::render() reemplaza a la función view() de Blade.
-        // El primer parámetro 'Welcome' corresponde al archivo .vue en resources/js/Pages/Welcome.vue
+
+        $eventosDb = Evento::with(['estado', 'areaFormacion'])
+            ->orderBy('fecha_hora', 'asc')
+            ->get();
+
+
+        $eventosMapeados = $eventosDb->map(function ($evento) {
+
+            $fecha = Carbon::parse($evento->fecha_hora)->locale('es')->isoFormat('D MMMM YYYY');
+            $fecha = ucfirst($fecha);
+
+            return [
+                'id'         => $evento->id,
+                'title'      => $evento->titulo,
+                'subtitle'   => $evento->subtitulo ?? $evento->areaFormacion->nombre,
+                'date'       => $fecha,
+                'city'       => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->ubicacion ?? 'Por definir'),
+               
+                'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento.jpg',
+                'imageBg'    => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento-bg.jpg',
+                'cta_text'   => 'Inscribirme',
+                'cta_url'    => route('evento.show', $evento->id),
+                'badge'      => $evento->modalidad,
+                'rating'     => 5,
+                'hex_principal' => $evento->areaFormacion->color_hex_principal,
+                'area' => $evento->areaFormacion->nombre
+            ];
+        });
+
+
+        if ($eventosMapeados->isEmpty()) {
+    
+             $eventosMapeados = []; 
+        }
+
         return Inertia::render('Home/Welcome', [
-            'canLogin' => Route::has('login'),
-            'canRegister' => Route::has('register'),
-            'laravelVersion' => Application::VERSION,
-            'phpVersion' => PHP_VERSION,
+            'eventosHero' => $eventosMapeados
+        ]);
+    }
+
+   public function showPlantilla($id)
+    {
+       
+        $evento = Evento::with([
+            'areaFormacion', 
+            'conferencistas', 
+            'contenidoTematico',
+            'formularioBase',
+            'organizador',
+            'organizador.perfilOrganizador'
+            
+        ])->findOrFail($id); 
+
+        return Inertia::render('Home/Plantilla', [
+            'evento' => $evento
         ]);
     }
 }

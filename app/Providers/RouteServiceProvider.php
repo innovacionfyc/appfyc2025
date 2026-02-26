@@ -34,15 +34,13 @@ class RouteServiceProvider extends ServiceProvider
         // Aquí cargamos TODO lo que necesita el middleware 'web' (sesiones, cookies, etc.)
         Route::middleware('web')
             ->group(function () {
-                // Carga las rutas generales (welcome, auth, etc.)
+                
                 require base_path('routes/web.php');
 
-                // Carga las rutas de tu módulo Core
-                // ASEGÚRATE DE QUE ESTA RUTA SEA LA CORRECTA PARA TU ARCHIVO
+               
                 require base_path('routes/web/Apps/Core/EstructuraRutas/Dashboard.php');
 
-                // Carga las rutas de tu módulo RePOS
-                // ASEGÚRATE DE QUE ESTA RUTA SEA LA CORRECTA
+              
                 require base_path('routes/web/Apps/RePOS/EstructuraRutas/Dashboard.php');
             });
     });
