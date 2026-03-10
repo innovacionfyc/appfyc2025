@@ -6,7 +6,6 @@ import BtnUniversal from "./BtnUniversal.vue";
 const props = defineProps({
   events: {
     type: Array,
-    // Dejamos este default como "Fallback" por si la BD está vacía
     default: () => [
       {
         id: 1,
@@ -19,58 +18,6 @@ const props = defineProps({
         cta_text: "Inscribirme",
         cta_url: "/inscripcion?e=regimenes-especiales",
         badge: "Presencial",
-        rating: 5,
-      },
-      {
-        id: 2,
-        title: "Gestión de riesgos en el sector público",
-        subtitle: "Congreso Nacional",
-        date: "4–6 Septiembre 2026",
-        city: "Bogotá D.C.",
-        imageThumb: "/images/eventos/2.webp",
-        imageBg: "/images/eventos/2-hero.webp",
-        cta_text: "Ver detalles",
-        cta_url: "/eventos/gestion-riesgos",
-        badge: "Destacado",
-        rating: 4,
-      },
-      {
-        id: 3,
-        title: "Archivo y transparencia",
-        subtitle: "Workshop intensivo",
-        date: "Octubre 2026",
-        city: "Híbrido",
-        imageThumb: "/images/eventos/3.webp",
-        imageBg: "/images/eventos/3-hero.webp",
-        cta_text: "Inscribirme",
-        cta_url: "/inscripcion?e=archivo-transparencia",
-        badge: "Híbrido",
-        rating: 4,
-      },
-      {
-        id: 4,
-        title: "Control interno y auditoría",
-        subtitle: "Diplomado especializado",
-        date: "Noviembre 2026",
-        city: "Virtual",
-        imageThumb: "/images/eventos/4.webp",
-        imageBg: "/images/eventos/4-hero.webp",
-        cta_text: "Más información",
-        cta_url: "/eventos/control-interno",
-        badge: "Virtual",
-        rating: 5,
-      },
-      {
-        id: 5,
-        title: "Innovación en la gestión pública",
-        subtitle: "Foro Internacional",
-        date: "Diciembre 2026",
-        city: "Cartagena",
-        imageThumb: "/images/eventos/5.webp",
-        imageBg: "/images/eventos/5-hero.webp",
-        cta_text: "Reservar cupo",
-        cta_url: "/inscripcion?e=innovacion-publica",
-        badge: "Imperdible",
         rating: 5,
       },
     ],
@@ -140,25 +87,23 @@ watch(
   >
     <div class="absolute inset-0 z-0">
       <transition-group name="hero-fade">
-        <div
-          v-for="(event, index) in events"
-          :key="event.id"
-          v-show="index === active"
-          class="absolute inset-0 bg-cover bg-center will-change-transform"
-          :class="{ 'animate-ken-burns': index === active }"
-          :style="{ backgroundImage: `url('${event.imageBg}')` }"
-        />
-      </transition-group>
+        <template v-if="events.length > 0">
+          <div
+            v-for="(event, index) in events"
+            :key="event.id"
+            v-show="index === active"
+            class="absolute inset-0 bg-cover bg-center will-change-transform"
+            :class="{ 'animate-ken-burns': index === active }"
+            :style="{ backgroundImage: `url('${event.imageBg}')` }"
+          />
+        </template>
 
-      <div
-        class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/70 to-transparent"
-      ></div>
-      <div
-        class="absolute inset-0 bg-gradient-to-r from-[#0B192C]/90 via-transparent to-transparent"
-      ></div>
-      <div
-        class="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none"
-      ></div>
+        <div
+          v-else
+          class="absolute inset-0 bg-cover bg-center opacity-50"
+          style="background-image: url('/images/eventos/default-bg.webp')"
+        ></div>
+      </transition-group>
     </div>
 
     <div
@@ -166,7 +111,11 @@ watch(
     >
       <aside class="w-full lg:w-5/12 mb-8 lg:mb-20">
         <transition name="content-slide" mode="out-in">
-          <div :key="active" class="flex flex-col items-start text-left space-y-6">
+          <div
+            v-if="events.length > 0"
+            :key="active"
+            class="flex flex-col items-start text-left space-y-6"
+          >
             <div
               class="flex items-center px-2 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in-up"
             >
@@ -240,117 +189,145 @@ watch(
               </Link>
             </div>
           </div>
+          <div v-else key="empty" class="flex flex-col items-start text-left space-y-6">
+            <div
+              class="px-4 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md"
+            >
+              <span class="text-sm font-bold text-white uppercase tracking-widest"
+                >Próximamente</span
+              >
+            </div>
+            <h1 class="text-5xl lg:text-7xl font-black text-white leading-none">
+              Nuevos Eventos <br />
+              en camino
+            </h1>
+            <p class="text-2xl text-gray-300 border-l-2 border-primary-naranja pl-6">
+              Estamos preparando nuestras próximas experiencias formativas. ¡Vuelve
+              pronto!
+            </p>
+          </div>
         </transition>
       </aside>
 
       <aside class="w-full lg:w-7/12 relative">
-        <div
-          class="lg:hidden absolute -top-10 right-0 text-white/50 text-sm flex items-center gap-2 animate-pulse"
-        >
-          <span class="material-symbols-rounded">swipe_left</span> Desliza
-        </div>
-
-        <div
-          ref="rowRef"
-          @mousedown="userInteracted"
-          @touchstart="userInteracted"
-          @wheel="userInteracted"
-          class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth py-10 px-4 lg:px-0 -mx-4 lg:mx-0 perspective-container"
-        >
-          <button
-            v-for="(ev, i) in props.events"
-            :key="ev.id || i"
-            @click="setActive(i)"
-            class="relative flex-none group rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] card-3d-wrapper outline-none"
-            :class="
-              i === active
-                ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-rose-800/80 card-active'
-                : 'w-[260px] lg:w-[300px] h-[380px] lg:h-[420px] z-0 scale-90 opacity-50 grayscale-[30%] hover:opacity-80 hover:scale-95 hover:grayscale-0 card-inactive cursor-pointer'
-            "
+        <template v-if="events.length > 0">
+          <div
+            class="lg:hidden absolute -top-10 right-0 text-white/50 text-sm flex items-center gap-2 animate-pulse"
           >
-            <img
-              :src="ev.imageThumb"
-              :alt="ev.title"
-              class="absolute inset-0 h-full w-full object-cover transition-transform duration-1000"
-              :class="i === active ? 'scale-105 group-hover:scale-110' : 'scale-100'"
-              loading="lazy"
-            />
+            <span class="material-symbols-rounded">swipe_left</span> Desliza
+          </div>
 
-            <div
-              class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/50 to-transparent opacity-90"
-            ></div>
+          <div
+            ref="rowRef"
+            @mousedown="userInteracted"
+            @touchstart="userInteracted"
+            @wheel="userInteracted"
+            class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth py-10 px-4 lg:px-0 -mx-4 lg:mx-0 perspective-container"
+          >
+            <button
+              v-for="(ev, i) in props.events"
+              :key="ev.id || i"
+              @click="setActive(i)"
+              class="relative flex-none group rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] card-3d-wrapper outline-none"
+              :class="
+                i === active
+                  ? 'w-[300px] lg:w-[360px] h-[420px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-rose-800/80 card-active'
+                  : 'w-[260px] lg:w-[300px] h-[380px] lg:h-[420px] z-0 scale-90 opacity-50 grayscale-[30%] hover:opacity-80 hover:scale-95 hover:grayscale-0 card-inactive cursor-pointer'
+              "
+            >
+              <img
+                :src="ev.imageThumb"
+                :alt="ev.title"
+                class="absolute inset-0 h-full w-full object-cover transition-transform duration-1000"
+                :class="i === active ? 'scale-105 group-hover:scale-110' : 'scale-100'"
+                loading="lazy"
+              />
 
-            <div class="absolute bottom-0 inset-x-0 lg:p-6 z-20">
               <div
-                class="relative overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
-                :class="
-                  i === active
-                    ? 'bg-[#0B192C]/10 backdrop-blur-xl shadow-2xl translate-y-0'
-                    : 'bg-black/40 backdrop-blur-md border-white/5 translate-y-2'
-                "
-              >
+                class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/50 to-transparent opacity-90"
+              ></div>
+
+              <div class="absolute bottom-0 inset-x-0 lg:p-6 z-20">
                 <div
-                  class="absolute -top-10 -right-10 w-32 h-32 bg-primary-naranja/30 blur-[50px] rounded-full pointer-events-none transition-opacity duration-700"
-                  :class="i === active ? 'opacity-100' : 'opacity-0'"
-                ></div>
-
-                <div class="relative p-5">
-                  <div class="flex items-center justify-center mb-3">
-                    <div class="flex items-center gap-1.5">
-                      <span class="material-symbols-rounded text-sm"
-                       :style="{
-                      color: current?.hex_principal,
-                    }"
-                        >location_on</span
-                      >
-                      <span
-                        class="text-xs font-bold uppercase tracking-widest text-gray-200"
-                      >
-                        {{ ev.city }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <h3
-                    class="text-lg lg:text-2xl font-bold text-white leading-snug tracking-tight transition-all duration-300"
-                    :class="
-                      i !== active
-                        ? 'line-clamp-2 opacity-90'
-                        : 'line-clamp-none opacity-100'
-                    "
-                  >
-                    {{ ev.title }}
-                  </h3>
-
+                  class="relative overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
+                  :class="
+                    i === active
+                      ? 'bg-[#0B192C]/10 backdrop-blur-xl shadow-2xl translate-y-0'
+                      : 'bg-black/40 backdrop-blur-md border-white/5 translate-y-2'
+                  "
+                >
                   <div
-                    class="grid transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
-                    :class="
-                      i === active
-                        ? 'grid-rows-[1fr] opacity-100 mt-3 pt-3 border-t border-white/10'
-                        : 'grid-rows-[0fr] opacity-0 mt-0'
-                    "
-                  >
-                    <div class="overflow-hidden">
-                      <p
-                        class="text-xs lg:text-sm text-gray-300 font-medium leading-relaxed"
-                      >
-                        {{ ev.subtitle }}
-                      </p>
+                    class="absolute -top-10 -right-10 w-32 h-32 bg-primary-naranja/30 blur-[50px] rounded-full pointer-events-none transition-opacity duration-700"
+                    :class="i === active ? 'opacity-100' : 'opacity-0'"
+                  ></div>
+
+                  <div class="relative p-5">
+                    <div class="flex items-center justify-center mb-3">
+                      <div class="flex items-center gap-1.5">
+                        <span
+                          class="material-symbols-rounded text-sm"
+                          :style="{
+                            color: current?.hex_principal,
+                          }"
+                          >location_on</span
+                        >
+                        <span
+                          class="text-xs font-bold uppercase tracking-widest text-gray-200"
+                        >
+                          {{ ev.city }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3
+                      class="text-lg lg:text-2xl font-bold text-white leading-snug tracking-tight transition-all duration-300"
+                      :class="
+                        i !== active
+                          ? 'line-clamp-2 opacity-90'
+                          : 'line-clamp-none opacity-100'
+                      "
+                    >
+                      {{ ev.title }}
+                    </h3>
+
+                    <div
+                      class="grid transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
+                      :class="
+                        i === active
+                          ? 'grid-rows-[1fr] opacity-100 mt-3 pt-3 border-t border-white/10'
+                          : 'grid-rows-[0fr] opacity-0 mt-0'
+                      "
+                    >
+                      <div class="overflow-hidden">
+                        <p
+                          class="text-xs lg:text-sm text-gray-300 font-medium leading-relaxed"
+                        >
+                          {{ ev.subtitle }}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div
-              v-if="i === active && autoplay"
-              class="absolute bottom-0 left-0 h-[3px] bg-primary-naranja shadow-[0_0_10px_rgba(240,82,53,0.8)] z-30"
-              :key="progressKey"
-              :style="{ animation: `progress ${intervalMs}ms linear forwards` }"
-            ></div>
-          </button>
+              <div
+                v-if="i === active && autoplay"
+                class="absolute bottom-0 left-0 h-[3px] bg-primary-naranja shadow-[0_0_10px_rgba(240,82,53,0.8)] z-30"
+                :key="progressKey"
+                :style="{ animation: `progress ${intervalMs}ms linear forwards` }"
+              ></div>
+            </button>
 
-          <div class="w-8 flex-none"></div>
+            <div class="w-8 flex-none"></div>
+          </div>
+        </template>
+        <div
+          v-else
+          class="h-[60dvh] flex items-center justify-center border-2 border-dashed border-white/10 rounded-[2rem]"
+        >
+          <p class="text-white/30 font-medium italic">
+            No hay eventos programados por ahora...
+          </p>
         </div>
       </aside>
     </div>

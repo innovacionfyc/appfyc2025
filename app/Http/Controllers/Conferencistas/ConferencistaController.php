@@ -23,7 +23,8 @@ class ConferencistaController extends Controller
                 'area_encargada_id' => 'required|exists:areas_formacion,id',
                 'biografia' => 'nullable|string|max:1000',
                 'foto' => 'nullable|image|max:2048', 
-                'url_hv' => 'nullable|file|mimes:pdf|max:5120', 
+                // 'url_hv' => 'nullable|file|mimes:pdf|max:5120', 
+                'url_hv' => 'required|string|max:200', 
             ]);
 
             // Procesamiento de Archivos

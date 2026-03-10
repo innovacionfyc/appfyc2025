@@ -15,13 +15,13 @@ class HomeController extends Controller
     {
 
         $eventosDb = Evento::with(['estado', 'areaFormacion'])
-            ->orderBy('fecha_hora', 'asc')
+            ->orderBy('fecha_hora_inicio', 'asc')
             ->get();
 
 
         $eventosMapeados = $eventosDb->map(function ($evento) {
 
-            $fecha = Carbon::parse($evento->fecha_hora)->locale('es')->isoFormat('D MMMM YYYY');
+            $fecha = Carbon::parse($evento->fecha_hora_inicio)->locale('es')->isoFormat('D MMMM YYYY');
             $fecha = ucfirst($fecha);
 
             return [

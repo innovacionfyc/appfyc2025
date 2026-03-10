@@ -134,6 +134,7 @@ const submit = () => {
                 placeholder="Ingrese su correo asignado"
                 required
                 :max="50"
+                activeColor="#e11d48"
                 :error="form.errors.correo_principal"
               />
 
@@ -142,11 +143,11 @@ const submit = () => {
                 type="password"
                 v-model="form.contrasena"
                 icon="lock"
-                :activeColor="activeColor"
                 :error="form.errors.contrasena"
                 @clear-error="form.clearErrors('contrasena')"
                 placeholder="Ingresa tu clave"
                 required
+                activeColor="#e11d48"
               />
 
               <div class="flex justify-between mb-2 items-center">
