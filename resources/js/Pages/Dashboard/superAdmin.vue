@@ -118,7 +118,7 @@ const handleOpenDependency = (dependencyType) => {
   isCreateModalOpen.value = false;
   if (dependencyType === "conferencistas")
     setTimeout(() => (isSpeakerModalOpen.value = true), 300);
-  if (dependencyType === "formularios") isFormularioModalOpen.value = true;
+  // if (dependencyType === "formularios") isFormularioModalOpen.value = true;
 };
 </script>
 

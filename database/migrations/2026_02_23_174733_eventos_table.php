@@ -14,15 +14,18 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('organizador_id')->constrained('usuarios')->onDelete('restrict');
             $table->foreignId('contenido_tematico_id')->constrained('contenidos_tematicos')->onDelete('restrict');
-            $table->foreignId('estado_id')->constrained('estados')->onDelete('restrict');
+            $table->foreignId('estado_id')->default(1)->constrained('estados')->onDelete('restrict');
             $table->foreignId('area_formacion_id')->constrained('areas_formacion')->onDelete('restrict');
-            $table->foreignId('formulario_base_id')->constrained('formularios_base')->onDelete('restrict');
+            $table->foreignId('formulario_base_id')->nullable()->constrained('formularios_base')->onDelete('restrict');
 
+            $table->string('modo_evento');
             $table->string('titulo');
+            $table->string('slug')->unique();
             $table->string('subtitulo')->nullable();
             $table->string('imagen_relacionada')->nullable();
             $table->string('modalidad');
             $table->string('url_folleto')->nullable();
+            $table->string('url_formulario_inscripcion');
             $table->string('ubicacion')->nullable();
             $table->dateTime('fecha_hora_inicio');
             $table->dateTime('fecha_hora_fin');

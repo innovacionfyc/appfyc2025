@@ -20,7 +20,6 @@ import {
   Globe,
   Palette,
   Info,
-  Users,
 } from "lucide-vue-next";
 import BaseStepperModal from "../Modales/BaseStepperModal.vue";
 import FormInput from "../Shared/inputs/FormInput.vue";
@@ -36,8 +35,9 @@ const props = defineProps({
 const emit = defineEmits(["close", "openDependency", "success"]);
 
 // --- ESTADOS DE LA VISTA PREVIA ---
-const deviceMode = ref("desktop");
+const deviceMode = ref("desktop"); 
 const previewImageUrl = ref(null);
+
 
 const missingDependencies = computed(() => {
   const missing = [];
@@ -66,7 +66,6 @@ const missingDependencies = computed(() => {
 const form = useForm({
   linea_evento: "",
   titulo: "",
-  modo_evento: "",
   subtitulo: "",
   area_formacion_id: "",
   estado_id: "",
@@ -144,24 +143,20 @@ watch(
 );
 
 const submit = () => {
-  form
-    .transform((data) => ({
-      ...data,
-      fecha_hora_inicio: data.rango_fechas[0] ? data.rango_fechas[0] : null,
-
-      fecha_hora_fin: data.rango_fechas[1]
-        ? data.rango_fechas[1]
-        : data.rango_fechas[0] || null,
-    }))
-    .post(route("eventos.store"), {
-      forceFormData: true,
-      onSuccess: () => {
-        emit("success");
-        emit("close");
-        form.reset();
-        previewImageUrl.value = null;
-      },
-    });
+  form.transform((data) => ({
+    ...data,
+    fecha_hora_inicio: data.rango_fechas[0] ? data.rango_fechas[0] : null,
+    
+    fecha_hora_fin: data.rango_fechas[1] ? data.rango_fechas[1] : (data.rango_fechas[0] || null),
+  })).post(route("eventos.store"), {
+    forceFormData: true,
+    onSuccess: () => {
+      emit("success");
+      emit("close");
+      form.reset();
+      previewImageUrl.value = null;
+    },
+  });
 };
 
 const stepFields = [
@@ -170,22 +165,6 @@ const stepFields = [
   ["conferencistas", "contenido_tematico"],
   ["imagen_relacionada", "texto_dinamico"],
 ];
-
-const getAreaTagImage = () => {
-  const areaSeleccionada = props.areas.find((a) => a.id === form.area_formacion_id);
-
-  const areaName = areaSeleccionada?.nombre;
-
-  const imagenesPorArea = {
-    Jurídica: "/images/areasFormacion/juridica_web.png",
-    "Talento Humano": "/images/areasFormacion/talento_humano_web.png",
-    "Gestión y Políticas Públicas": "/images/areasFormacion/gestion_publica_web.png",
-    "Enfoques Misionales": "/images/areasFormacion/enfoque_misional_web.png",
-    "Finanzas y Hacienda Pública": "/images/areasFormacion/finanzas_publicas_web.png",
-  };
-
-  return imagenesPorArea[areaName] || "/images/areasFormacion/formacion_defecto_web.png";
-};
 </script>
 
 <template>
@@ -208,50 +187,43 @@ const getAreaTagImage = () => {
         <div class="w-full lg:w-5/12 space-y-6">
           <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
             <div v-if="currentStep === 1" class="space-y-5 animate-in">
-              <h4 class="text-[14px] font-medium text-slate-400 flex items-center gap-2">
+              <h4
+                class="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"
+              >
                 <Info class="w-3 h-3" /> Identidad del Evento
               </h4>
-
-              <FormInput
-                label="Línea de formación"
-                v-model="form.modo_evento"
-                placeholder="Ej: Seminario de actualización"
-                type="text"
-                icon="subtitles"
-                :activeColor="selectedArea.color_hex_principal"
-                :max="100"
-                :error="form.errors.modo_evento"
-              />
               <FormInput
                 label="Título Principal"
                 v-model="form.titulo"
-                placeholder="Ej: Gestión Financiera Pública"
-                type="text"
                 icon="title"
-                :activeColor="selectedArea.color_hex_principal"
-                :max="150"
-                :error="form.errors.titulo"
+                placeholder="Ej: Seminario de Contratación"
+                required
+                :max="80"
               />
               <FormInput
                 label="Subtítulo descriptivo"
                 v-model="form.subtitulo"
-                placeholder="Un eslogan llamativo o complemento del título"
-                type="text"
                 icon="subtitles"
-                :activeColor="selectedArea.color_hex_principal"
-                :max="200"
-                :error="form.errors.subtitulo"
+                placeholder="Un eslogan llamativo..."
               />
-
-              <FormInput
-                label="Área Académica"
-                type="select"
-                v-model="form.area_formacion_id"
-                :options="areas"
-                icon="category"
-                :activeColor="selectedArea.color_hex_principal"
-                required
-              />
+              <div class="grid grid-cols-2 gap-4">
+                <FormInput
+                  label="Área Académica"
+                  type="select"
+                  v-model="form.area_formacion_id"
+                  :options="areas"
+                  icon="category"
+                  required
+                />
+                <FormInput
+                  label="Estado"
+                  type="select"
+                  v-model="form.estado_id"
+                  :options="estados"
+                  icon="flag"
+                  required
+                />
+              </div>
             </div>
 
             <div v-if="currentStep === 2" class="space-y-5 animate-in">
@@ -260,23 +232,19 @@ const getAreaTagImage = () => {
               >
                 <Calendar class="w-3 h-3" /> Agenda y Costos
               </h4>
-
               <FormInput
                 label="Fechas del Evento"
                 type="date-range"
                 v-model="form.rango_fechas"
                 icon="event"
-                :activeColor="selectedArea.color_hex_principal"
                 required
               />
-
               <div class="grid grid-cols-2 gap-4">
                 <FormInput
                   label="Modalidad"
                   type="select"
                   v-model="form.modalidad"
                   :options="['Presencial', 'Virtual', 'Híbrido']"
-                  :activeColor="selectedArea.color_hex_principal"
                   icon="sensors"
                   required
                 />
@@ -284,29 +252,23 @@ const getAreaTagImage = () => {
                   label="Ubicación / Link"
                   v-model="form.ubicacion"
                   icon="map"
-                  :activeColor="selectedArea.color_hex_principal"
                   placeholder="Lugar del evento"
-                  required
                 />
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <FormInput
-                  label="Inversión Jornada"
-                  type="number"
+                  label="Inversión Total"
+                  type="price"
                   v-model="form.precio_jornada"
                   icon="payments"
-                  :max="20"
-                  :activeColor="selectedArea.color_hex_principal"
-                  required
+                  :max="12"
                 />
                 <FormInput
                   label="Inversión Módulo"
                   type="price"
                   v-model="form.precio_modulo"
                   icon="sell"
-                  :max="20"
-                  :activeColor="selectedArea.color_hex_principal"
-                  required
+                  :max="12"
                 />
               </div>
             </div>
@@ -496,7 +458,7 @@ const getAreaTagImage = () => {
                 <div
                   class="bg-slate-700/50 rounded-md px-3 py-1 text-[9px] text-slate-500 flex-1 mx-4 truncate tracking-wider"
                 >
-                  https://fycconsultores.com/eventos/{{
+                  https://fyc-consultores.com/eventos/{{
                     form.titulo.toLowerCase().replace(/\s+/g, "-")
                   }}
                 </div>
@@ -514,51 +476,30 @@ const getAreaTagImage = () => {
                     class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
                   />
                   <div class="relative z-10 text-center px-6">
-                    <div class="mb-6 md:mb-8 flex justify-center">
-                      <img
-                        :src="getAreaTagImage()"
-                        :alt="form.modo_evento || 'Área de formación'"
-                        class="h-10 md:h-14 w-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
                     <p
-                      class="text-sm md:text-md text-slate-400 font-medium max-w-xl mx-auto md:mb-2"
+                      class="text-[9px] font-black uppercase tracking-[0.3em] mb-3"
+                      :style="{ color: selectedArea.color_hex_principal }"
                     >
-                      · {{ form.modo_evento || "Sin línea de formación" }} ·
+                      {{ selectedArea.nombre }}
                     </p>
                     <h1
-                      class="font-black text-white leading-tight mb-1"
-                      :class="deviceMode === 'desktop' ? 'text-5xl' : 'text-xl'"
+                      class="font-black text-white leading-tight mb-4"
+                      :class="deviceMode === 'desktop' ? 'text-4xl' : 'text-xl'"
                     >
                       {{ form.titulo || "Sin título definido" }}
                     </h1>
-                    <p
-                      class="text-sm md:text-md text-white font-medium max-w-xl mx-auto md:mb-2"
-                    >
-                      {{ form.subtitulo || "Sin subtitulo definido" }}
-                    </p>
-
                     <div
-                      class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-white font-medium bg-black/30 w-full sm:w-fit mx-auto px-6 py-4 rounded-xl backdrop-blur-md border border-white/10"
+                      class="flex flex-wrap justify-center gap-3 text-white/70 text-[9px] font-bold"
                     >
-                      <span class="flex items-center gap-2 text-[10px]">
-                        <Calendar
-                          class="w-4 h-4"
-                          :style="{
-                            color: selectedArea.color_hex_principal || '#f97316',
-                          }"
-                        />
-                        {{ formatRangeFull(form.rango_fechas) }}
-                      </span>
-                      <span class="flex items-center gap-2 text-[10px]">
-                        <MapPin
-                          class="w-4 h-4"
-                          :style="{
-                            color: selectedArea.color_hex_principal || '#f97316',
-                          }"
-                        />
-                        Modalidad {{ form.modalidad }}
-                      </span>
+                      <span
+                        class="px-2 py-1 rounded-lg border border-white/10 bg-white/5 flex items-center gap-1"
+                        ><MapPin class="w-3 h-3" /> {{ form.modalidad }}</span
+                      >
+                      <span
+                        class="px-2 py-1 rounded-lg border border-white/10 bg-white/5 flex items-center gap-1"
+                        ><Calendar class="w-3 h-3" />
+                        {{ formatRangeFull(form.rango_fechas) }}</span
+                      >
                     </div>
                   </div>
                 </section>
@@ -655,86 +596,40 @@ const getAreaTagImage = () => {
                       </div>
                     </div>
 
- <div
-                class="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-6 shadow-lg flex-1 flex flex-col min-h-0 overflow-hidden group/box"
-              >
-                <div class="mb-4 md:mb-6 shrink-0 px-2">
-                  <div class="flex items-center justify-between mb-2">
-                    <h3
-                      class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"
-                    >
-                      <Users
-                        class="w-4 h-4"
-                        :style="{
-                          color: selectedArea.color_hex_principal || '#f97316',
-                        }"
-                      />
-                      Equipo Académico
-                    </h3>
-                    <span class="text-[10px] font-bold text-slate-400"
-                      >{{ form.conferencistas?.length }} Exp.</span
-                    >
-                  </div>
-                  <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full"
-                      :style="{
-                        background:
-                         selectedArea.color_hex_principal || '#f97316',
-                        width: '35%',
-                      }"
-                    ></div>
-                  </div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-                  <div class="space-y-3 pb-4">
-                    <div
-                       v-for="sid in form.conferencistas"
+                    <div class="space-y-4">
+                      <h4
+                        class="text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                      >
+                        Docentes
+                      </h4>
+                      <div
+                        v-for="sid in form.conferencistas"
                         :key="sid"
-                      class="group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-1 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-hidden shadow-sm"
-                    >
-                      <div class="relative shrink-0">
+                        class="flex items-center gap-3 p-2 bg-slate-50 rounded-xl"
+                      >
                         <img
                           :src="
                             conferencistas.find((s) => s.id === sid)?.foto ||
                             'https://ui-avatars.com/api/?name=C'
                           "
-                          class="relative w-14 h-14  rounded-2xl object-cover border-2 border-white shadow-sm z-10"
+                          class="w-10 h-10 rounded-full border border-white shadow-sm"
                         />
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        <span
-                          class="text-[10px] font-bold"
-                          :style="{
-                            color:
-                              selectedArea.color_hex_principal || '#f97316',
-                          }"
-                          >Consultor experto</span
-                        >
-                        <h4
-                          class="font-bold text-slate-900 text-sm md:text-base leading-tight truncate"
-                        >
-                         {{ conferencistas.find((s) => s.id === sid)?.primer_nombre }}
+                        <div>
+                          <p class="text-[10px] font-bold text-slate-800">
+                            {{ conferencistas.find((s) => s.id === sid)?.primer_nombre }}
                             {{
                               conferencistas.find((s) => s.id === sid)?.primer_apellido
                             }}
-                        </h4>
-                        <p
-                          class="text-[11px] text-slate-500 line-clamp-2 italic font-medium"
-                        >
-                         {{
+                          </p>
+                          <p class="text-[8px] text-slate-400 font-bold uppercase">
+                            {{
                               conferencistas.find((s) => s.id === sid)?.area_encargada
                                 ?.nombre
                             }}
-                        </p>
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-                   
                   </div>
                 </div>
 

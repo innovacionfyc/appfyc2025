@@ -1,8 +1,10 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from "vue";
+import "@vuepic/vue-datepicker/dist/main.css";
+import { VueDatePicker } from "@vuepic/vue-datepicker";
 
 const props = defineProps({
-  modelValue: [String, Number],
+  modelValue: [String, Number, Array], // Se añade Array para el rango de fechas
   type: { type: String, default: "text" },
   label: String,
   placeholder: String,
@@ -14,6 +16,7 @@ const props = defineProps({
   min: { type: Number, default: 4 },
   error: String,
   rows: { type: Number, default: 4 },
+  range: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "clearError"]);
@@ -26,6 +29,36 @@ const localError = ref(props.error);
 const dynamicStyle = computed(() => ({
   "--focused-color": props.activeColor || "#6366f1",
 }));
+
+const today = new Date();
+
+const formatRangeFull = (range) => {
+  if (!range || !range[0]) return "";
+
+  const start = new Date(range[0]);
+  const end = range[1] ? new Date(range[1]) : null;
+
+  const getDayName = (d) => d.toLocaleString("es-ES", { weekday: "long" });
+  const getDayNum = (d) => d.getDate();
+  const getMonth = (d) => d.toLocaleString("es-ES", { month: "long" });
+  const getYear = (d) => d.getFullYear();
+
+  if (!end || start.getTime() === end.getTime()) {
+    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
+      start
+    )} | todo el día`;
+  }
+
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(
+      end
+    )} de ${getMonth(start)} de ${getYear(start)}`;
+  }
+
+  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(
+    end
+  )} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+};
 
 watch(
   () => props.error,
@@ -56,28 +89,18 @@ const selectOption = (option) => {
         ? option.id
         : option.value
       : option;
-
   emit("update:modelValue", value);
   isOpen.value = false;
   isFocused.value = false;
 };
 
 const selectedLabel = computed(() => {
-  if (
-    props.modelValue === null ||
-    props.modelValue === undefined ||
-    props.modelValue === ""
-  )
-    return null;
-
+  if (!props.modelValue) return null;
   const found = props.options.find((opt) => {
     const val = typeof opt === "object" ? opt.id ?? opt.value : opt;
     return val == props.modelValue;
   });
-
-  if (!found) return null;
-
-  return typeof found === "object" ? found.nombre ?? found.label : found;
+  return found ? (typeof found === "object" ? found.nombre ?? found.label : found) : null;
 });
 
 const handleClickOutside = (event) => {
@@ -89,50 +112,47 @@ const handleClickOutside = (event) => {
 
 onMounted(() => document.addEventListener("click", handleClickOutside));
 onUnmounted(() => document.removeEventListener("click", handleClickOutside));
+
 const currentCount = computed(() => {
-  if (props.type === "select") {
-    return props.options?.length || 0;
+  if (props.type === "select") return props.options?.length || 0;
+
+  if (props.type === "date-range" && Array.isArray(props.modelValue)) {
+    const [start, end] = props.modelValue;
+    
+    if (!start) return 0;
+    if (!end) return 1;
+
+    const d1 = new Date(start);
+    d1.setHours(0, 0, 0, 0);
+    
+    const d2 = new Date(end);
+    d2.setHours(0, 0, 0, 0);
+
+    const diffTime = Math.abs(d2 - d1);
+    
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays + 1;
   }
+
   return props.modelValue?.toString().length || 0;
 });
 
 const onInput = (e) => {
   let value = e.target.value;
-
   if (localError.value) {
     localError.value = null;
     emit("clearError");
   }
-
+  
   if (value.length > props.max) {
     value = value.slice(0, props.max);
-    e.target.value = value; 
+    e.target.value = value;
   }
 
-  if (props.type === "text") {
-    value = value.charAt(0).toUpperCase() + value.slice(1);
-  } else if (props.type === "number") {
-    value = value.replace(/\D/g, "");
-  } else if (props.type === "price") {
-    let rawValue = value.replace(/\D/g, "");
-    
-    if (rawValue.length > props.max) {
-      rawValue = rawValue.slice(0, props.max);
-    }
-
-    if (rawValue) {
-      value = new Intl.NumberFormat("es-CO", {
-        style: "currency",
-        currency: "COP",
-        maximumFractionDigits: 0,
-      }).format(rawValue);
-    } else {
-      value = "";
-    }
-    emit("update:modelValue", rawValue);
-    return;
-  }
   
+  if (props.type === "text") value = value.charAt(0).toUpperCase() + value.slice(1);
+  else if (props.type === "number") value = value.replace(/\D/g, "");
   emit("update:modelValue", value);
 };
 
@@ -143,7 +163,7 @@ const isEmailValid = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-2 w-full group relative" ref="selectRef">
+  <div class="space-y-2 w-full group relative" ref="selectRef" :style="dynamicStyle">
     <div class="flex justify-between items-end px-1">
       <label
         v-if="label"
@@ -152,22 +172,30 @@ const isEmailValid = computed(() => {
       >
         {{ label }}: <span v-if="required" class="text-red-400">*</span>
       </label>
-      <span
-        class="text-[11px] font-bold transition-all"
-        :class="[
-          localError
-            ? 'text-red-400'
-            : type !== 'select' && currentCount >= max 
-            ? 'text-red-500 animate-pulse'
-            : 'text-slate-400',
-        ]"
-      >
-        <template v-if="type === 'select'">
-          {{ currentCount }} {{ currentCount === 1 ? "opción" : "opciones" }}
-        </template>
-
-        <template v-else> {{ currentCount }}/{{ max }} </template>
-      </span>
+     <span 
+  class="text-[11px] font-bold transition-all duration-300"
+  :class="[
+    localError ? 'text-red-400' : 
+    (type !== 'select' && currentCount >= max) ? 'text-red-500 animate-pulse' : 
+    'text-slate-400'
+  ]"
+  :style="[
+    // Si es rango de fecha y solo hay un día (proceso de selección)
+    (type === 'date-range' && modelValue && modelValue[0] && !modelValue[1]) 
+    ? { color: activeColor, textShadow: `0 0 10px ${activeColor}40`, transform: 'scale(1.1)' } 
+    : {}
+  ]"
+>
+  <template v-if="props.type === 'date-range'">
+    {{ currentCount }} {{ currentCount === 1 ? "día" : "días" }}
+  </template>
+  <template v-else-if="props.type === 'select'">
+    {{ currentCount }} opciones
+  </template>
+  <template v-else> 
+    {{ currentCount }}/{{ max }} 
+  </template>
+</span>
     </div>
 
     <div
@@ -175,8 +203,8 @@ const isEmailValid = computed(() => {
       class="relative flex gap-2 px-4 py-3 bg-slate-50 border-2 rounded-xl transition-all duration-300"
       :class="[
         { 'bg-white shadow-xl ring-4 ring-opacity-10': isFocused },
-        { 'cursor-pointer': type === 'select' },
-        { 'items-start': type === 'textarea' ? 'items-start' : 'items-center' },
+        { 'cursor-pointer': type === 'select' || type === 'date-range' },
+        type === 'textarea' ? 'items-start' : 'items-center',
       ]"
       :style="[
         localError
@@ -209,8 +237,58 @@ const isEmailValid = computed(() => {
         class="w-full bg-transparent border-none p-0 focus:ring-0 outline-none font-semibold text-slate-700 placeholder:text-slate-300 text-sm resize-none custom-scroll"
       ></textarea>
 
+      <div v-else-if="type === 'date-range'" class="w-full">
+        <vue-date-picker
+          :model-value="modelValue"
+          @update:model-value="(val) => emit('update:modelValue', val)"
+          range
+          :min-date="today"
+          :multi-calendars="{ solo: true }"
+          :teleport="true"
+          :enable-time-picker="false"
+          @open="isFocused = true"
+          @closed="isFocused = false"
+          auto-apply
+          :close-on-auto-apply="true"
+          hide-offset-dates
+          no-today
+          menu-class-name="fyc-datepicker-menu"
+        >
+          <template #trigger>
+            <div
+              class="font-semibold text-sm transition-colors w-full lowercase leading-tight"
+              :class="modelValue ? 'text-slate-700' : 'text-slate-300'"
+            >
+              <template v-if="modelValue && modelValue[0]">
+                {{ formatRangeFull(modelValue) }}
+              </template>
+              <template v-else>
+                {{ placeholder || "Seleccione fechas..." }}
+              </template>
+            </div>
+          </template>
+        </vue-date-picker>
+      </div>
+
+      <div
+        v-else-if="type === 'select'"
+        class="w-full flex items-center justify-between select-none"
+      >
+        <span
+          class="font-semibold text-sm transition-colors"
+          :class="selectedLabel ? 'text-slate-700' : 'text-slate-300'"
+        >
+          {{ selectedLabel || placeholder || "Seleccione..." }}
+        </span>
+        <span
+          class="material-symbols-rounded transition-transform duration-300 opacity-40"
+          :class="{ 'rotate-180': isOpen }"
+          >expand_more</span
+        >
+      </div>
+
       <input
-        v-else-if="type !== 'select'"
+        v-else
         :type="
           type === 'password'
             ? showPassword
@@ -229,26 +307,12 @@ const isEmailValid = computed(() => {
         class="w-full bg-transparent border-none p-0 focus:ring-0 outline-none font-semibold text-slate-700 placeholder:text-slate-300 text-sm"
       />
 
-      <div v-else class="w-full flex items-center justify-between select-none">
-        <span
-          class="font-semibold text-sm transition-colors"
-          :class="selectedLabel ? 'text-slate-700' : 'text-slate-300'"
-        >
-          {{ selectedLabel || placeholder || "Seleccione..." }}
-        </span>
-        <span
-          class="material-symbols-rounded transition-transform duration-300 opacity-40"
-          :class="{ 'rotate-180': isOpen }"
-          >expand_more</span
-        >
-      </div>
-
       <div class="flex items-center gap-2">
         <button
           v-if="type === 'password' && modelValue"
           type="button"
           @click.stop="togglePassword"
-          class="flex items-center justify-center hover:opacity-100 transition-opacity"
+          class="flex items-center justify-center transition-opacity"
           :class="showPassword ? 'opacity-100' : 'opacity-30'"
         >
           <span
@@ -258,7 +322,6 @@ const isEmailValid = computed(() => {
             {{ showPassword ? "visibility" : "visibility_off" }}
           </span>
         </button>
-
         <span
           v-if="localError"
           class="material-symbols-rounded text-red-500 animate-in zoom-in text-xl"
@@ -283,7 +346,7 @@ const isEmailValid = computed(() => {
     >
       <div
         v-if="isOpen && type === 'select'"
-        class="absolute left-0 right-0 mt-2 z-[110] bg-white border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[1.5rem] overflow-hidden p-1.5"
+        class="absolute left-0 right-0 mt-2 z-[110] bg-white border border-slate-100 shadow-2xl rounded-[1.5rem] overflow-hidden p-1.5"
       >
         <div class="max-h-[220px] overflow-y-auto custom-scroll">
           <div
@@ -308,14 +371,12 @@ const isEmailValid = computed(() => {
             >
               {{ typeof opt === "object" ? opt.nombre ?? opt.label : opt }}
             </span>
-
             <span
               v-if="modelValue === (typeof opt === 'object' ? opt.id ?? opt.value : opt)"
               class="material-symbols-rounded text-lg"
               :style="{ color: activeColor }"
+              >done</span
             >
-              done
-            </span>
           </div>
         </div>
       </div>
@@ -325,8 +386,71 @@ const isEmailValid = computed(() => {
       v-if="localError"
       class="mt-2 text-[12px] text-red-600 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-top-1"
     >
-      <span class="material-symbols-rounded text-sm">warning</span>
-      {{ localError }}
+      <span class="material-symbols-rounded text-sm">warning</span> {{ localError }}
     </p>
   </div>
 </template>
+
+<style>
+.fyc-datepicker-menu {
+  --dp-primary-color: var(--focused-color) !important;
+  --dp-menu-border-radius: 1.5rem !important;
+  --dp-border-color: transparent !important;
+  --dp-font-family: inherit !important;
+  border: none !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
+  padding: 10px !important;
+}
+
+/* EL RANGO: Pintarlo del mismo color sólido */
+.fyc-datepicker-menu .dp__range_between {
+  background: var(--focused-color) !important;
+  color: #ffffff !important;
+  opacity: 0.8;
+}
+
+.fyc-datepicker-menu .dp__range_start {
+  border-radius: 12px 0 0 12px !important;
+}
+.fyc-datepicker-menu .dp__range_end {
+  border-radius: 0 12px 12px 0 !important;
+}
+
+.fyc-datepicker-menu .dp__cell_inner {
+  border-radius: 10px !important;
+  transition: all 0.2s ease;
+}
+
+.fyc-datepicker-menu .dp__month_year_wrap {
+  font-weight: 800 !important;
+  color: #1e293b !important;
+}
+
+.fyc-datepicker-menu .dp__calendar_header_item {
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+}
+
+.fyc-datepicker-menu .dp__calendar_header_separator {
+  display: none !important;
+}
+.fyc-datepicker-menu .dp__action_row {
+  display: none !important;
+}
+</style>
+
+<style scoped>
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+:deep(.dp__main) {
+  width: 100%;
+}
+:deep(.dp__input_wrap) {
+  display: none;
+}
+</style>

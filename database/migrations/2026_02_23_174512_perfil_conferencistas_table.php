@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('perfil_conferencistas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->onDelete('cascade'); // Opcional si tienen acceso al sistema
+            $table->foreignId('usuario_id')->nullable()->constrained('usuarios')->onDelete('cascade');
             $table->string('primer_nombre');
             $table->string('segundo_nombre')->nullable();
             $table->string('primer_apellido');
