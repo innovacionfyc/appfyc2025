@@ -79,6 +79,34 @@ watch(
   () => props.autoplay,
   (v) => (v ? startAutoplay() : stopAutoplay())
 );
+
+const formatEventRange = (inicio, fin) => {
+  if (!inicio) return "Fecha por definir";
+
+  const start = new Date(inicio);
+  const end = fin ? new Date(fin) : null;
+
+  const getDayName = (d) => d.toLocaleString("es-ES", { weekday: "long" });
+  const getDayNum = (d) => d.getDate();
+  const getMonth = (d) => d.toLocaleString("es-ES", { month: "long" });
+  const getYear = (d) => d.getFullYear();
+
+  if (!end || start.toDateString() === end.toDateString()) {
+    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
+      start
+    )} | todo el día`;
+  }
+
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(
+      end
+    )} de ${getMonth(start)} de ${getYear(start)}`;
+  }
+
+  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(
+    end
+  )} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+};
 </script>
 
 <template>
@@ -92,10 +120,13 @@ watch(
             v-for="(event, index) in events"
             :key="event.id"
             v-show="index === active"
-            class="absolute inset-0 bg-cover bg-center will-change-transform"
+            class="absolute inset-0 bg-cover bg-center will-change-transform opacity-60"
             :class="{ 'animate-ken-burns': index === active }"
             :style="{ backgroundImage: `url('${event.imageBg}')` }"
           />
+          <div
+            class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/30 to-transparent"
+          ></div>
         </template>
 
         <div
@@ -117,7 +148,7 @@ watch(
             class="flex flex-col items-start text-left space-y-6"
           >
             <div
-              class="flex items-center px-2 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md animate-fade-in-up"
+              class="flex items-center px-2 py-1 gap-2 rounded-full bg-white/5 border border-white/20 backdrop-blur-md animate-fade-in-up"
             >
               <span class="relative flex h-3 w-3">
                 <span
@@ -150,6 +181,9 @@ watch(
                 borderLeftColor: current?.hex_principal,
               }"
             >
+              <p class="text-xl text-white font-normal leading-snug">
+                {{ current?.mode }}
+              </p>
               <p class="text-2xl text-white font-medium leading-snug">
                 {{ current?.subtitle }}
               </p>
@@ -162,7 +196,8 @@ watch(
                     }"
                     >calendar_today</span
                   >
-                  {{ current?.date }}
+
+                  {{ formatEventRange(current?.date_in, current?.date_on) }}
                 </span>
                 <span class="flex items-center gap-2">
                   <span
@@ -274,13 +309,18 @@ watch(
                         <span
                           class="text-xs font-bold uppercase tracking-widest text-gray-200"
                         >
-                          {{ ev.city }}
+                          {{ ev.mode_event }}
                         </span>
                       </div>
                     </div>
 
+                    <p
+                      class="text-xs lg:text-sm text-gray-300 font-medium leading-relaxed"
+                    >
+                      · {{ ev.mode }} ·
+                    </p>
                     <h3
-                      class="text-lg lg:text-2xl font-bold text-white leading-snug tracking-tight transition-all duration-300"
+                      class="text-lg lg:text-3xl font-bold text-white leading-snug tracking-tight transition-all duration-300"
                       :class="
                         i !== active
                           ? 'line-clamp-2 opacity-90'

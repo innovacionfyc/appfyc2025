@@ -1,3 +1,8 @@
+<script>
+export default {
+  inheritAttrs: false
+}
+</script>
 <script setup>
 import { ref, computed, watch } from "vue";
 import { X, ChevronRight, ChevronLeft, AlertCircle } from "lucide-vue-next";
@@ -11,10 +16,10 @@ const props = defineProps({
   icon: [Object, Function],
   activeColor: { type: String, default: "#E96510" },
   isDirty: Boolean,
-  isValid: { type: Boolean, default: true }, // Validación local (campos vacíos)
+  isValid: { type: Boolean, default: true }, 
   loading: Boolean,
-  errors: { type: Object, default: () => ({}) }, // Errores de Inertia: form.errors
-  stepFields: { type: Array, default: () => [] }, // Mapa de campos: [['name'], ['email']]
+  errors: { type: Object, default: () => ({}) }, 
+  stepFields: { type: Array, default: () => [] },
   submitLabel: { type: String, default: "Guardar" },
   processLabel: { type: String, default: "Procesando..." },
 });
@@ -22,18 +27,14 @@ const props = defineProps({
 const emit = defineEmits(["close", "submit", "step-change"]);
 const currentStep = ref(1);
 
-// LÓGICA: ¿Hay errores del servidor en el paso actual?
 const hasServerErrorsInCurrentStep = computed(() => {
   if (!props.stepFields.length || !props.errors) return false;
 
-  // Obtenemos los nombres de los campos del paso actual
   const fieldsInStep = props.stepFields[currentStep.value - 1] || [];
 
-  // Comprobamos si alguno de esos campos tiene un error activo en el objeto de Inertia
   return fieldsInStep.some((field) => Object.keys(props.errors).includes(field));
 });
 
-// El botón se deshabilita si: No es válido localmente O tiene errores de servidor
 const canContinue = computed(() => props.isValid && !hasServerErrorsInCurrentStep.value);
 
 const nextStep = () => {

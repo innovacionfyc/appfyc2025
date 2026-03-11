@@ -90,6 +90,7 @@ const submit = () => {
     forceFormData: true,
     onSuccess: () => {
       forceClose();
+      form.reset();
       emit("success");
     },
   });

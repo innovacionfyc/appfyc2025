@@ -4,7 +4,7 @@ import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
 
 const props = defineProps({
-  modelValue: [String, Number, Array], // Se añade Array para el rango de fechas
+  modelValue: [String, Number, Array],
   type: { type: String, default: "text" },
   label: String,
   placeholder: String,
@@ -118,20 +118,20 @@ const currentCount = computed(() => {
 
   if (props.type === "date-range" && Array.isArray(props.modelValue)) {
     const [start, end] = props.modelValue;
-    
+
     if (!start) return 0;
     if (!end) return 1;
 
     const d1 = new Date(start);
     d1.setHours(0, 0, 0, 0);
-    
+
     const d2 = new Date(end);
     d2.setHours(0, 0, 0, 0);
 
     const diffTime = Math.abs(d2 - d1);
-    
+
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays + 1;
   }
 
@@ -144,13 +144,12 @@ const onInput = (e) => {
     localError.value = null;
     emit("clearError");
   }
-  
+
   if (value.length > props.max) {
     value = value.slice(0, props.max);
     e.target.value = value;
   }
 
-  
   if (props.type === "text") value = value.charAt(0).toUpperCase() + value.slice(1);
   else if (props.type === "number") value = value.replace(/\D/g, "");
   emit("update:modelValue", value);
@@ -159,6 +158,74 @@ const onInput = (e) => {
 const isEmailValid = computed(() => {
   if (props.type !== "email" || !props.modelValue) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(props.modelValue);
+});
+
+const MAX_FILE_SIZE_MB = 16;
+
+const isFileTooHeavy = computed(() => {
+  if (props.type === "file" && props.modelValue instanceof File) {
+    return props.modelValue.size > MAX_FILE_SIZE_MB * 1024 * 1024;
+  }
+  return false;
+});
+
+const fileInputRef = ref(null);
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const triggerFileSelect = () => {
+  if (props.type === 'file') fileInputRef.value.click();
+};
+
+const onFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  if (localError.value) {
+    localError.value = null;
+    emit("clearError");
+  }
+  
+  emit("update:modelValue", file);
+};
+
+const clearFile = (e) => {
+  e.stopPropagation();
+  emit("update:modelValue", null);
+  if (fileInputRef.value) fileInputRef.value.value = '';
+};
+
+// Mejoramos el objeto de metadata para el diseño
+const fileMetadata = computed(() => {
+  if (props.type === "file" && props.modelValue instanceof File) {
+    const file = props.modelValue;
+    const extension = file.name.split(".").pop().toLowerCase();
+
+    const typeColors = {
+      pdf: "#ef4444",
+      png: "#3b82f6",
+      jpg: "#3b82f6",
+      jpeg: "#3b82f6",
+      zip: "#a855f7",
+      doc: "#2563eb",
+      docx: "#2563eb",
+    };
+
+    return {
+      name: file.name,
+      size: formatFileSize(file.size),
+      ext: extension,
+      color: typeColors[extension] || props.activeColor,
+      isImage: ["jpg", "jpeg", "png", "webp", "svg"].includes(extension),
+    };
+  }
+  return null;
 });
 </script>
 
@@ -172,30 +239,26 @@ const isEmailValid = computed(() => {
       >
         {{ label }}: <span v-if="required" class="text-red-400">*</span>
       </label>
-     <span 
-  class="text-[11px] font-bold transition-all duration-300"
-  :class="[
-    localError ? 'text-red-400' : 
-    (type !== 'select' && currentCount >= max) ? 'text-red-500 animate-pulse' : 
-    'text-slate-400'
-  ]"
-  :style="[
-    // Si es rango de fecha y solo hay un día (proceso de selección)
-    (type === 'date-range' && modelValue && modelValue[0] && !modelValue[1]) 
-    ? { color: activeColor, textShadow: `0 0 10px ${activeColor}40`, transform: 'scale(1.1)' } 
-    : {}
-  ]"
->
-  <template v-if="props.type === 'date-range'">
-    {{ currentCount }} {{ currentCount === 1 ? "día" : "días" }}
-  </template>
-  <template v-else-if="props.type === 'select'">
-    {{ currentCount }} opciones
-  </template>
-  <template v-else> 
-    {{ currentCount }}/{{ max }} 
-  </template>
-</span>
+      <span
+        class="text-[11px] font-bold transition-all duration-300"
+        :class="[localError || isFileTooHeavy ? 'text-red-400' : 'text-slate-400']"
+      >
+        <template v-if="type === 'file' && fileMetadata">
+          <span :class="{ 'animate-pulse text-red-500': isFileTooHeavy }">
+            {{ isFileTooHeavy ? "Archivo muy pesado" : fileMetadata.size }}
+          </span>
+        </template>
+
+        <template v-else-if="props.type === 'date-range'">
+          {{ currentCount }} {{ currentCount === 1 ? "día" : "días" }}
+        </template>
+
+        <template v-else-if="props.type === 'select'">
+          {{ currentCount }} opciones
+        </template>
+
+        <template v-else> {{ currentCount }}/{{ max }} </template>
+      </span>
     </div>
 
     <div
@@ -215,7 +278,7 @@ const isEmailValid = computed(() => {
       ]"
     >
       <span
-        v-if="icon"
+        v-if="icon && (type !== 'file' || !fileMetadata)"
         class="material-symbols-rounded shrink-0 transition-colors duration-300 select-none pointer-events-none"
         :style="{
           color: localError ? '#dc2626' : isFocused ? activeColor : '#cbd5e1',
@@ -285,6 +348,78 @@ const isEmailValid = computed(() => {
           :class="{ 'rotate-180': isOpen }"
           >expand_more</span
         >
+      </div>
+
+      <div
+        v-else-if="type === 'file'"
+        class="w-full flex items-center group/file"
+        @click="triggerFileSelect"
+      >
+        <input type="file" ref="fileInputRef" class="hidden" @change="onFileChange" />
+
+        <div class="flex-1 flex items-center gap-3 min-w-0">
+          <template v-if="fileMetadata">
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover/file:scale-110"
+              :style="{
+                backgroundColor: fileMetadata.color + '15',
+                color: fileMetadata.color,
+              }"
+            >
+              <span class="material-symbols-rounded">
+                {{
+                  fileMetadata.ext === "pdf"
+                    ? "picture_as_pdf"
+                    : fileMetadata.isImage
+                    ? "image"
+                    : "draft"
+                }}
+              </span>
+            </div>
+
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm font-bold text-slate-700 truncate tracking-tight">
+                {{ fileMetadata.name }}
+              </span>
+              <div class="flex items-center gap-2">
+                <span
+                  class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md border"
+                  :style="{
+                    borderColor: fileMetadata.color + '30',
+                    color: fileMetadata.color,
+                  }"
+                >
+                  {{ fileMetadata.ext }}
+                </span>
+                <span class="text-[10px] font-medium text-slate-400">{{
+                  fileMetadata.size
+                }}</span>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="flex flex-col">
+              <span
+                class="text-sm font-semibold text-slate-300 group-hover/file:text-slate-400 transition-colors"
+              >
+                {{ placeholder || "Haga clic para adjuntar archivo" }}
+              </span>
+              <span
+                class="text-[10px] font-medium text-slate-400 uppercase tracking-widest"
+                >Máximo {{ MAX_FILE_SIZE_MB }}MB</span
+              >
+            </div>
+          </template>
+        </div>
+
+        <button
+          v-if="fileMetadata"
+          @click.stop="clearFile"
+          class="ml-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all"
+        >
+          <span class="material-symbols-rounded text-lg font-bold">close</span>
+        </button>
       </div>
 
       <input

@@ -32,6 +32,7 @@ const props = defineProps({
   areas: Array,
   formularios: Array,
   conferencistas: Array,
+  organizador: Array,
   stats_counts: Object,
 });
 
@@ -322,6 +323,7 @@ const handleOpenDependency = (dependencyType) => {
         :show="isCreateModalOpen"
         :estados="estados"
         :areas="areas"
+        :organizador="organizador"
         :conferencistas="conferencistas"
         :formularios="formularios"
         @close="isCreateModalOpen = false"

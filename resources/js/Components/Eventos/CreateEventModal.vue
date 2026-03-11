@@ -30,6 +30,7 @@ const props = defineProps({
   estados: { type: Array, default: () => [] },
   areas: { type: Array, default: () => [] },
   formularios: { type: Array, default: () => [] },
+  organizador: { type: Array, default: () => [] },
   conferencistas: { type: Array, default: () => [] },
 });
 
@@ -73,7 +74,8 @@ const form = useForm({
   modalidad: "Presencial",
   fecha_hora_inicio: "",
   fecha_hora_fin: "",
-  ubicacion: "",
+  rango_fechas: [],
+  ubicacion: "Centro de convenciones CAFAM Floresta",
   precio_jornada: "",
   precio_modulo: "",
   formulario_base_id: "",
@@ -82,6 +84,8 @@ const form = useForm({
   texto_dinamico: "",
   imagen_relacionada: null,
   url_folleto: null,
+  url_formulario_inscripcion: null,
+  organizador_id: "",
 
   contenido_tematico: [{ tema: "", subtemas: [""] }],
 });
@@ -143,16 +147,24 @@ watch(
   }
 );
 
+// --- DENTRO DE TU FUNCIÓN SUBMIT ---
 const submit = () => {
   form
-    .transform((data) => ({
-      ...data,
-      fecha_hora_inicio: data.rango_fechas[0] ? data.rango_fechas[0] : null,
+    .transform((data) => {
+      const formatDate = (date) => {
+        if (!date) return null;
+        const d = new Date(date);
+        return d.toISOString().split('T')[0];
+      };
 
-      fecha_hora_fin: data.rango_fechas[1]
-        ? data.rango_fechas[1]
-        : data.rango_fechas[0] || null,
-    }))
+      return {
+        ...data,
+        fecha_hora_inicio: data.rango_fechas?.[0] ? formatDate(data.rango_fechas[0]) : null,
+        fecha_hora_fin: data.rango_fechas?.[1] 
+          ? formatDate(data.rango_fechas[1]) 
+          : (data.rango_fechas?.[0] ? formatDate(data.rango_fechas[0]) : null),
+      };
+    })
     .post(route("eventos.store"), {
       forceFormData: true,
       onSuccess: () => {
@@ -160,6 +172,9 @@ const submit = () => {
         emit("close");
         form.reset();
         previewImageUrl.value = null;
+      },
+      onError: (errors) => {
+        console.log("Errores detectados:", errors);
       },
     });
 };
@@ -221,6 +236,8 @@ const getAreaTagImage = () => {
                 :activeColor="selectedArea.color_hex_principal"
                 :max="100"
                 :error="form.errors.modo_evento"
+                  required
+
               />
               <FormInput
                 label="Título Principal"
@@ -231,6 +248,8 @@ const getAreaTagImage = () => {
                 :activeColor="selectedArea.color_hex_principal"
                 :max="150"
                 :error="form.errors.titulo"
+                  required
+
               />
               <FormInput
                 label="Subtítulo descriptivo"
@@ -247,6 +266,7 @@ const getAreaTagImage = () => {
                 label="Área Académica"
                 type="select"
                 v-model="form.area_formacion_id"
+                :error="form.errors.area_formacion_id"
                 :options="areas"
                 icon="category"
                 :activeColor="selectedArea.color_hex_principal"
@@ -265,24 +285,28 @@ const getAreaTagImage = () => {
                 label="Fechas del Evento"
                 type="date-range"
                 v-model="form.rango_fechas"
+                :error="form.errors.rango_fechas"
                 icon="event"
                 :activeColor="selectedArea.color_hex_principal"
                 required
               />
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="flex items-center justify-between gap-4">
                 <FormInput
                   label="Modalidad"
                   type="select"
                   v-model="form.modalidad"
+                  :error="form.errors.modalidad"
                   :options="['Presencial', 'Virtual', 'Híbrido']"
                   :activeColor="selectedArea.color_hex_principal"
                   icon="sensors"
                   required
                 />
                 <FormInput
+                  v-if="form.modalidad === 'Presencial'"
                   label="Ubicación / Link"
                   v-model="form.ubicacion"
+                  :error="form.errors.ubicacion"
                   icon="map"
                   :activeColor="selectedArea.color_hex_principal"
                   placeholder="Lugar del evento"
@@ -293,6 +317,7 @@ const getAreaTagImage = () => {
                 <FormInput
                   label="Inversión Jornada"
                   type="number"
+                  :error="form.errors.precio_jornada"
                   v-model="form.precio_jornada"
                   icon="payments"
                   :max="20"
@@ -303,6 +328,7 @@ const getAreaTagImage = () => {
                   label="Inversión Módulo"
                   type="price"
                   v-model="form.precio_modulo"
+                  :error="form.errors.precio_modulo"
                   icon="sell"
                   :max="20"
                   :activeColor="selectedArea.color_hex_principal"
@@ -320,54 +346,107 @@ const getAreaTagImage = () => {
                 </h4>
                 <button
                   @click="addTema"
-                  class="text-xs font-bold text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded-lg transition-all"
+                  class="text-xs font-bold flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded-lg transition-all"
+                  :style="{
+                    color: selectedArea.color_hex_principal || '#f97316',
+                  }"
                 >
                   <Plus class="w-3 h-3" /> Nuevo Módulo
                 </button>
               </div>
-              <div class="max-h-[300px] overflow-y-auto pr-2 custom-scroll space-y-4">
+              <div
+                class="max-h-[400px] overflow-y-auto pr-4 custom-scroll space-y-6 py-2"
+              >
                 <div
                   v-for="(modulo, ti) in form.contenido_tematico"
                   :key="ti"
-                  class="p-4 bg-slate-50 rounded-2xl relative group/item border border-slate-100"
+                  class="relative bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 group/item"
                 >
-                  <button
-                    v-if="form.contenido_tematico.length > 1"
-                    @click="removeTema(ti)"
-                    class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                  <div
+                    class="flex items-center justify-between px-5 py-3 bg-slate-50/50 rounded-t-[1.8rem] border-b border-slate-50"
                   >
-                    <Trash2 class="w-4 h-4" />
-                  </button>
-                  <FormInput
-                    :label="'Módulo ' + (ti + 1)"
-                    v-model="modulo.tema"
-                    placeholder="Título del tema..."
-                  />
-                  <div class="mt-3 pl-4 border-l-2 border-slate-200 space-y-2">
-                    <div
-                      v-for="(sub, si) in modulo.subtemas"
-                      :key="si"
-                      class="flex gap-2"
-                    >
-                      <input
-                        v-model="modulo.subtemas[si]"
-                        placeholder="Subtema..."
-                        class="flex-1 bg-white border-none rounded-lg text-xs py-1.5 focus:ring-1 focus:ring-blue-500 shadow-sm"
-                      />
-                      <button
-                        @click="removeSubtema(ti, si)"
-                        class="text-slate-300 hover:text-red-400"
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black text-white shadow-sm"
+                        :style="{ backgroundColor: selectedArea.color_hex_principal }"
                       >
-                        <X class="w-3 h-3" />
-                      </button>
+                        {{ ti + 1 }}
+                      </span>
+                      <span
+                        class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400"
+                        >Módulo Académico</span
+                      >
                     </div>
+
                     <button
-                      @click="addSubtema(ti)"
-                      class="text-[10px] font-bold text-blue-500 mt-1"
+                      v-if="form.contenido_tematico.length > 1"
+                      @click="removeTema(ti)"
+                      class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      title="Eliminar módulo"
                     >
-                      + Añadir punto
+                      <Trash2 class="w-4 h-4" />
                     </button>
                   </div>
+
+                  <div class="p-5 pt-4">
+                    <FormInput
+                      label="Tema"
+                      type="price"
+                      v-model="modulo.tema"
+                      icon="book"
+                      :max="200"
+                      :activeColor="selectedArea.color_hex_principal"
+                      required
+                      placeholder="Nombre del eje temático..."
+                    />
+
+                    <div
+                      class="mt-4 ml-2 pl-6 border-l-2 border-slate-100 space-y-3 relative"
+                    >
+                      <div
+                        v-for="(sub, si) in modulo.subtemas"
+                        :key="si"
+                        class="group/sub flex items-center gap-3 relative"
+                      >
+                        <div
+                          class="absolute -left-[31px] w-2 h-2 rounded-full bg-slate-200 group-focus-within/sub:scale-125 transition-transform"
+                          :style="{
+                            backgroundColor: modulo.subtemas[si]
+                              ? selectedArea.color_hex_principal
+                              : '',
+                          }"
+                        ></div>
+
+                        <input
+                          v-model="modulo.subtemas[si]"
+                          placeholder="Añadir subtema o punto clave..."
+                          class="flex-1 bg-transparent border-none p-0 text-sm font-medium text-slate-600 placeholder:text-slate-300 focus:ring-0 transition-colors"
+                        />
+
+                        <button
+                          v-if="modulo.subtemas.length > 1"
+                          @click="removeSubtema(ti, si)"
+                          class="opacity-0 group-hover/sub:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-opacity"
+                        >
+                          <X class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        @click="addSubtema(ti)"
+                        class="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-800 transition-colors pt-1"
+                      >
+                        <Plus class="w-3.5 h-3.5" />
+                        <span>Añadir punto</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="absolute left-0 top-10 bottom-10 w-1 rounded-r-full opacity-0 group-hover/item:opacity-100 transition-opacity"
+                    :style="{ backgroundColor: selectedArea.color_hex_principal }"
+                  ></div>
                 </div>
               </div>
               <h4
@@ -382,7 +461,7 @@ const getAreaTagImage = () => {
                   @click="toggleSpeaker(s.id)"
                   :class="
                     form.conferencistas.includes(s.id)
-                      ? 'border-blue-600 bg-blue-50'
+                      ? 'border-rose-600 bg-blue-50'
                       : 'border-slate-100 bg-white'
                   "
                   class="flex items-center gap-3 p-2 rounded-xl border-2 cursor-pointer transition-all"
@@ -395,21 +474,22 @@ const getAreaTagImage = () => {
                     "
                     class="w-8 h-8 rounded-full object-cover"
                   />
-                  <span class="text-[11px] font-bold text-slate-700 truncate"
-                    >{{ s.primer_nombre }} {{ s.primer_apellido }}</span
+                  <span class="text-[12px] font-bold text-slate-700"
+                    >{{ s.primer_nombre }} {{ s.primer_apellido }}
+                    <br>
+                    <p class="text-[11px] text-slate-700 truncate"
+                    :style="{color: selectedArea.color_hex_principal}"
+                    >{{ s.area_encargada.nombre }} </p
                   >
+                    </span
+                  >
+                  
+
                 </div>
               </div>
             </div>
 
             <div v-if="currentStep === 4" class="space-y-5 animate-in">
-              <FormInput
-                label="Descripción Landing Page"
-                type="textarea"
-                v-model="form.texto_dinamico"
-                :rows="5"
-                icon="article"
-              />
               <div class="grid grid-cols-2 gap-4 items-center">
                 <div
                   class="p-6 rounded-3xl border-2 border-dashed border-slate-200 text-center hover:bg-slate-50 transition-colors"
@@ -435,14 +515,39 @@ const getAreaTagImage = () => {
                   label="Color Identidad"
                   type="color"
                   v-model="form.color_hex_secundario"
+                  :activeColor="selectedArea.color_hex_principal"
                 />
               </div>
               <FormInput
-                label="Plantilla de Formulario"
+                label="Url de formulario de inscripción"
+                type="text"
+                v-model="form.url_formulario_inscripcion"
+                :error="form.errors.url_formulario_inscripcion"
+                icon="link"
+                placeholder="Ingrese el vinculo correspondiente."
+                :max="250"
+                :activeColor="selectedArea.color_hex_principal"
+                required
+              />
+              <FormInput
+                label="Documento soporte"
+                type="file"
+                v-model="form.url_folleto"
+                icon="upload_file"
+                activeColor="#4F46E5"
+                placeholder="Click para subir PDF o Imagen"
+                :error="form.errors.url_folleto"
+                :activeColor="selectedArea.color_hex_principal"
+              />
+
+               <FormInput
+                label="Comercial encargado"
                 type="select"
-                v-model="form.formulario_base_id"
-                :options="formularios"
-                icon="assignment"
+                v-model="form.organizador_id"
+                :error="form.errors.organizador_id"
+                :options="organizador"
+                icon="category"
+                :activeColor="selectedArea.color_hex_principal"
                 required
               />
             </div>
@@ -477,16 +582,16 @@ const getAreaTagImage = () => {
 
           <div class="flex-1 flex justify-center items-start overflow-hidden">
             <div
-              class="relative transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-slate-800 shadow-2xl border-[12px] border-slate-800 flex flex-col"
+              class="relative transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] bg-slate-800 shadow-2xl border-slate-800 flex flex-col"
               :class="
                 deviceMode === 'desktop'
-                  ? 'w-full h-full rounded-[2.5rem]'
+                  ? 'w-full h-full rounded-[20px]'
                   : 'w-[320px] h-[600px] rounded-[3rem]'
               "
             >
               <div
                 v-if="deviceMode === 'desktop'"
-                class="w-full h-8 bg-slate-800 flex items-center px-4 gap-2 border-b border-slate-700/50"
+                class="w-full h-8 bg-slate-800 flex items-center rounded-xl px-4 gap-2 border-b border-slate-700/50"
               >
                 <div class="flex gap-1.5">
                   <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
@@ -506,12 +611,12 @@ const getAreaTagImage = () => {
                 class="flex-1 bg-white overflow-y-auto custom-scroll relative pointer-events-none select-none"
               >
                 <section
-                  class="relative bg-[#0B192C] flex items-center justify-center overflow-hidden"
+                  class="relative bg-[#0b192cdc] flex items-center justify-center overflow-hidden"
                   :class="deviceMode === 'desktop' ? 'h-[300px]' : 'h-[250px]'"
                 >
                   <img
-                    :src="previewImageUrl || '/images/default-evento-bg.webp'"
-                    class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
+                    :src="previewImageUrl || '/images/default-bg.webp'"
+                    class="absolute inset-0 w-full h-full object-cover opacity-100 mix-blend-overlay"
                   />
                   <div class="relative z-10 text-center px-6">
                     <div class="mb-6 md:mb-8 flex justify-center">
@@ -630,111 +735,151 @@ const getAreaTagImage = () => {
                     class="space-y-6"
                   >
                     <div
-                      class="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden"
+                      class="relative overflow-hidden bg-gradient-to-br from-[#0B192C] to-[#081121] rounded-[20px] p-3 shadow-xl shrink-0 border border-white/10 isolate"
                     >
                       <div
-                        class="absolute -top-10 -right-10 w-32 h-32 blur-[50px] opacity-30 rounded-full"
-                        :style="{ background: selectedArea.color_hex_principal }"
-                      ></div>
-                      <p
-                        class="text-[9px] font-black text-white/50 uppercase mb-4 tracking-widest"
-                      >
-                        Registro Oficial
-                      </p>
-                      <h2 class="text-2xl font-black mb-1">
-                        {{ formatPrice(form.precio_jornada) }}
-                      </h2>
-                      <p class="text-[8px] font-bold text-slate-400 mb-6 uppercase">
-                        Iva incluido • Certificación digital
-                      </p>
-                      <div
-                        class="w-full py-3 rounded-xl text-[10px] font-black uppercase text-center"
-                        :style="{ backgroundColor: selectedArea.color_hex_principal }"
-                      >
-                        Inscribirme Ahora
-                      </div>
-                    </div>
-
- <div
-                class="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-6 shadow-lg flex-1 flex flex-col min-h-0 overflow-hidden group/box"
-              >
-                <div class="mb-4 md:mb-6 shrink-0 px-2">
-                  <div class="flex items-center justify-between mb-2">
-                    <h3
-                      class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"
-                    >
-                      <Users
-                        class="w-4 h-4"
+                        class="absolute -top-10 -right-10 w-48 h-48 opacity-20 blur-[60px] pointer-events-none"
                         :style="{
-                          color: selectedArea.color_hex_principal || '#f97316',
+                          background: selectedArea.color_hex_principal || '#f97316',
                         }"
-                      />
-                      Equipo Académico
-                    </h3>
-                    <span class="text-[10px] font-bold text-slate-400"
-                      >{{ form.conferencistas?.length }} Exp.</span
-                    >
-                  </div>
-                  <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full"
-                      :style="{
-                        background:
-                         selectedArea.color_hex_principal || '#f97316',
-                        width: '35%',
-                      }"
-                    ></div>
-                  </div>
-                </div>
+                      ></div>
 
-                <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-                  <div class="space-y-3 pb-4">
-                    <div
-                       v-for="sid in form.conferencistas"
-                        :key="sid"
-                      class="group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-1 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-hidden shadow-sm"
-                    >
-                      <div class="relative shrink-0">
-                        <img
-                          :src="
-                            conferencistas.find((s) => s.id === sid)?.foto ||
-                            'https://ui-avatars.com/api/?name=C'
-                          "
-                          class="relative w-14 h-14  rounded-2xl object-cover border-2 border-white shadow-sm z-10"
-                        />
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        <span
-                          class="text-[10px] font-bold"
-                          :style="{
-                            color:
-                              selectedArea.color_hex_principal || '#f97316',
-                          }"
-                          >Consultor experto</span
+                      <div class="relative z-10 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                          <div>
+                            <h3 class="text-xl font-black text-white tracking-tight">
+                              Asegura tu cupo
+                            </h3>
+                            <p
+                              class="text-[10px] text-slate-500 font-bold uppercase tracking-widest"
+                            >
+                              Inversión para esta fecha
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          class="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10"
                         >
-                        <h4
-                          class="font-bold text-slate-900 text-sm md:text-base leading-tight truncate"
+                          <MapPin
+                            class="w-3 h-3"
+                            :style="{
+                              color: selectedArea.color_hex_principal || '#f97316',
+                            }"
+                          />
+                          <span class="text-[10px] font-bold text-slate-300 uppercase">{{
+                            form.modalidad
+                          }}</span>
+                        </div>
+                        <div
+                          class="flex items-center justify-between py-4 border-y border-white/5"
                         >
-                         {{ conferencistas.find((s) => s.id === sid)?.primer_nombre }}
-                            {{
-                              conferencistas.find((s) => s.id === sid)?.primer_apellido
-                            }}
-                        </h4>
-                        <p
-                          class="text-[11px] text-slate-500 line-clamp-2 italic font-medium"
+                          <div class="flex flex-col">
+                            <p class="text-white text-3xl font-black tracking-tighter">
+                              {{ formatPrice(form.precio_jornada) }}
+                            </p>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase">
+                              Jornada Completa • IVA Incl.
+                            </p>
+                          </div>
+                          <div
+                            v-if="form.precio_modulo > 0"
+                            class="text-right border-l border-white/10 pl-4"
+                          >
+                            <p class="text-slate-300 text-lg font-bold">
+                              {{ formatPrice(form.precio_modulo) }}
+                            </p>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase">
+                              Por Módulo
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          class="w-full py-3 rounded-xl text-[10px] text-mono-blanco font-medium uppercase text-center"
+                          :style="{ backgroundColor: selectedArea.color_hex_principal }"
                         >
-                         {{
-                              conferencistas.find((s) => s.id === sid)?.area_encargada
-                                ?.nombre
-                            }}
-                        </p>
+                          Inscribirme Ahora
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
 
-                   
+                    <div
+                      class="bg-white border border-slate-200 rounded-[20px] p-3 shadow-lg flex-1 flex flex-col min-h-0 overflow-hidden group/box"
+                    >
+                      <div class="mb-4 md:mb-6 shrink-0 px-2">
+                        <div class="flex items-center justify-between mb-2">
+                          <h3
+                            class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"
+                          >
+                            <Users
+                              class="w-4 h-4"
+                              :style="{
+                                color: selectedArea.color_hex_principal || '#f97316',
+                              }"
+                            />
+                            Equipo Académico
+                          </h3>
+                          <span class="text-[10px] font-bold text-slate-400"
+                            >{{ form.conferencistas?.length }} Exp.</span
+                          >
+                        </div>
+                        <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            class="h-full rounded-full"
+                            :style="{
+                              background: selectedArea.color_hex_principal || '#f97316',
+                              width: '35%',
+                            }"
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div class="flex-1 overflow-y-auto custom-scroll pr-1">
+                        <div class="space-y-3 pb-4">
+                          <div
+                            v-for="sid in form.conferencistas"
+                            :key="sid"
+                            class="group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-hidden shadow-sm"
+                          >
+                            <div class="relative shrink-0">
+                              <img
+                                :src="
+                                  '/storage/' +
+                                    conferencistas.find((s) => s.id === sid)?.foto ||
+                                  'https://ui-avatars.com/api/?name=C'
+                                "
+                                class="relative w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm z-10"
+                              />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                              <span
+                                class="text-[10px] font-bold"
+                                :style="{
+                                  color: selectedArea.color_hex_principal || '#f97316',
+                                }"
+                                >Consultor experto</span
+                              >
+                              <h4 class="font-bold text-slate-900 text-[14px]">
+                                {{
+                                  conferencistas.find((s) => s.id === sid)?.primer_nombre
+                                }}
+                                {{
+                                  conferencistas.find((s) => s.id === sid)
+                                    ?.primer_apellido
+                                }}
+                              </h4>
+                              <p
+                                class="text-[11px] text-slate-500 line-clamp-2 italic font-medium"
+                              >
+                                {{
+                                  conferencistas.find((s) => s.id === sid)?.area_encargada
+                                    ?.nombre
+                                }}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
