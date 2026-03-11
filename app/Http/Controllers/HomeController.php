@@ -15,28 +15,34 @@ class HomeController extends Controller
     {
 
         $eventosDb = Evento::with(['estado', 'areaFormacion'])
-            ->orderBy('fecha_hora', 'asc')
+            ->orderBy('fecha_hora_inicio', 'asc')
             ->get();
 
 
         $eventosMapeados = $eventosDb->map(function ($evento) {
 
-            $fecha = Carbon::parse($evento->fecha_hora)->locale('es')->isoFormat('D MMMM YYYY');
-            $fecha = ucfirst($fecha);
+            $fecha_inicio = Carbon::parse($evento->fecha_hora_inicio)->locale('es')->isoFormat('D MMMM YYYY');
+            $fecha_inicio = ucfirst($fecha_inicio);
+
+            $fecha_fin = Carbon::parse($evento->fecha_hora_fin)->locale('es')->isoFormat('D MMMM YYYY');
+            $fecha_fin = ucfirst($fecha_fin);
 
             return [
-                'id'         => $evento->id,
-                'title'      => $evento->titulo,
-                'subtitle'   => $evento->subtitulo ?? $evento->areaFormacion->nombre,
-                'date'       => $fecha,
-                'city'       => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->ubicacion ?? 'Por definir'),
-               
+                'id' => $evento->id,
+                'title' => $evento->titulo,
+                'mode' => $evento->modo_evento,
+                'subtitle' => $evento->subtitulo ?? $evento->areaFormacion->nombre,
+                'date_in' => $fecha_inicio,
+                'date_on' => $fecha_fin,
+                'mode_event' => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->modalidad ?? 'Por definir'),
+                'city' => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->ubicacion ?? 'Por definir'),
+
                 'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento.jpg',
-                'imageBg'    => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento-bg.jpg',
-                'cta_text'   => 'Inscribirme',
-                'cta_url'    => route('evento.show', $evento->id),
-                'badge'      => $evento->modalidad,
-                'rating'     => 5,
+                'imageBg' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento-bg.jpg',
+                'cta_text' => 'Inscribirme',
+                'cta_url' => route('evento.show', $evento->id),
+                'badge' => $evento->modalidad,
+                'rating' => 5,
                 'hex_principal' => $evento->areaFormacion->color_hex_principal,
                 'area' => $evento->areaFormacion->nombre
             ];
@@ -44,8 +50,8 @@ class HomeController extends Controller
 
 
         if ($eventosMapeados->isEmpty()) {
-    
-             $eventosMapeados = []; 
+
+            $eventosMapeados = [];
         }
 
         return Inertia::render('Home/Welcome', [
@@ -53,18 +59,18 @@ class HomeController extends Controller
         ]);
     }
 
-   public function showPlantilla($id)
+    public function showPlantilla($id)
     {
-       
+
         $evento = Evento::with([
-            'areaFormacion', 
-            'conferencistas', 
+            'areaFormacion',
+            'conferencistas',
             'contenidoTematico',
             'formularioBase',
             'organizador',
             'organizador.perfilOrganizador'
-            
-        ])->findOrFail($id); 
+
+        ])->findOrFail($id);
 
         return Inertia::render('Home/Plantilla', [
             'evento' => $evento

@@ -42,7 +42,7 @@ const navItems = [
       { name: "Material", href: "/admin/material" },
     ],
   },
-  { name: "Usuarios", icon: Users, href: "/admin/usuarios" },
+  { name: "Usuarios", icon: Users, href: "/admin/usuarios_fyc" },
   { name: "Configuración", icon: Settings, href: "/admin/configuracion" },
 ];
 

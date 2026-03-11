@@ -12,17 +12,17 @@ const nav = [
   { label: "Inicio", href: "/", match: "/" },
   { label: "Líneas de negocio", href: "/oferta", match: "/oferta" },
   { label: "Nosotros", href: "/nosotros", match: "/nosotros" },
-  {
-    label: "Publicaciones",
-    href: "/responsabilidad-social",
-    match: "/responsabilidad-social",
-  },
-  {
-    label: "Rincón del cliente",
-    href: "/rincon-del-cliente",
-    match: "/rincon-del-cliente",
-  },
-  { label: "Blog", href: "/blog", match: "/blog" },
+  // {
+  //   label: "Publicaciones",
+  //   href: "/responsabilidad-social",
+  //   match: "/responsabilidad-social",
+  // },
+  // {
+  //   label: "Rincón del cliente",
+  //   href: "/rincon-del-cliente",
+  //   match: "/rincon-del-cliente",
+  // },
+  // { label: "Blog", href: "/blog", match: "/blog" },
 ];
 
 const handleScroll = () => {
@@ -129,16 +129,17 @@ onUnmounted(() => {
       </nav>
 
       <div class="hidden md:flex items-center justify-end gap-6 z-20">
-        <BtnSecundario
-          label="Iniciar Sesión"
-          href="/login"
-          :activeColor="current?.hex_principal"
-        />
+        <a href="https://evaluaciones.fycconsultores.com/" target="_blank">
+          <BtnSecundario
+            label="Certificados"
+            :activeColor="current?.hex_principal"
+            as="div"
+          />
+        </a>
         <Link
           href="/contacto"
           class="group transition-transform active:scale-95 outline-none"
         >
-          
           <BtnUniversal
             label="Contáctenos"
             icon="rocket_launch"

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import {
   UserPlus,
@@ -10,17 +10,27 @@ import {
   Camera,
   Phone,
   Mail,
-  AlertCircle
+  AlertCircle,
+  ChevronRight,
+  ChevronLeft,
+  Briefcase,
+  CheckCircle2,
 } from "lucide-vue-next";
+import FormInput from "../Shared/inputs/FormInput.vue";
+import BtnSecundario from "../Shared/buttons/btnSecundario.vue";
+import BtnUniversal from "../BtnUniversal.vue";
 
 const props = defineProps({
   show: { type: Boolean, default: false },
-  areas: { type: Array, default: () => [] }, 
+  areas: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["close", "success"]);
 
-// Variable reactiva para la previsualización de la imagen
+// --- ESTADO DE PASOS ---
+const currentStep = ref(1);
+const totalSteps = 3;
+
 const fotoPreview = ref(null);
 
 const form = useForm({
@@ -36,34 +46,42 @@ const form = useForm({
   url_hv: null,
 });
 
-// Función mejorada para manejar la selección de la foto
-const handleFotoUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // 1. Guardamos el archivo real en el form de Inertia
-  form.foto = file;
-
-  // 2. Creamos una URL temporal para mostrar la previsualización
-  fotoPreview.value = URL.createObjectURL(file);
+// --- LÓGICA DE CIERRE SEGURO ---
+const closeModal = () => {
+  if (form.isDirty) {
+    const confirmación = confirm(
+      "Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?"
+    );
+    if (!confirmación) return;
+  }
+  forceClose();
 };
 
-// Función para limpiar la previsualización si el usuario cancela
-const clearFoto = () => {
-    form.foto = null;
-    fotoPreview.value = null;
-    // Resetea el input file físicamente
-    const fileInput = document.getElementById('fotoInput');
-    if(fileInput) fileInput.value = '';
-}
-
-const closeModal = () => {
+const forceClose = () => {
   emit("close");
   setTimeout(() => {
     form.reset();
     form.clearErrors();
-    fotoPreview.value = null; // Limpiar la imagen temporal
+    fotoPreview.value = null;
+    currentStep.value = 1;
   }, 300);
+};
+
+// --- GESTIÓN DE PASOS ---
+const nextStep = () => {
+  if (currentStep.value < totalSteps) currentStep.value++;
+};
+
+const prevStep = () => {
+  if (currentStep.value > 1) currentStep.value--;
+};
+
+// --- ARCHIVOS ---
+const handleFotoUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  form.foto = file;
+  fotoPreview.value = URL.createObjectURL(file);
 };
 
 const submit = () => {
@@ -71,11 +89,23 @@ const submit = () => {
     preserveScroll: true,
     forceFormData: true,
     onSuccess: () => {
-      closeModal();
-      emit("success"); 
+      forceClose();
+      form.reset();
+      emit("success");
     },
   });
 };
+
+const isStepValid = computed(() => {
+  if (currentStep.value === 1)
+
+    return form.primer_nombre && form.primer_apellido;
+    
+  if (currentStep.value === 2) 
+    return form.correo && form.telefono && form.area_encargada_id;
+    
+  return form.biografia;
+});
 </script>
 
 <template>
@@ -90,159 +120,267 @@ const submit = () => {
     >
       <div
         v-if="show"
-        class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-md overflow-y-auto"
+        class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto"
       >
         <div class="absolute inset-0" @click="closeModal"></div>
 
         <div
-          class="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col"
+          class="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-500"
           @click.stop
         >
-          <div
-            class="px-8 py-6 border-b border-slate-100 bg-white flex justify-between items-center"
-          >
-            <div class="flex items-center gap-3">
-              <div
-                class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center"
+          <div class="px-10 pt-8 pb-6 border-b border-slate-100">
+            <div class="flex justify-between items-start mb-6">
+              <div class="flex items-center gap-4">
+                <div
+                  class="w-12 h-12 bg-primary-naranja text-primary-naranja rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200"
+                >
+                  <UserPlus class="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 class="text-2xl font-black text-slate-900 tracking-tight">
+                    Nuevo Conferencista
+                  </h2>
+                  <p class="text-slate-500 text-sm">
+                    Paso {{ currentStep }} de {{ totalSteps }}
+                  </p>
+                </div>
+              </div>
+              <button
+                @click="closeModal"
+                class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
               >
-                <UserPlus class="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <h2 class="text-xl font-bold text-slate-900">Registrar Conferencista</h2>
-                <p class="text-slate-500 text-xs mt-0.5">
-                  Añada un nuevo perfil al equipo académico de F&C Consultores.
-                </p>
-              </div>
+                <X class="w-6 h-6" />
+              </button>
             </div>
-            <button
-              @click="closeModal"
-              class="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition"
+
+            <div
+              class="flex gap-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"
             >
-              <X class="w-5 h-5" />
-            </button>
+              <div
+                v-for="step in totalSteps"
+                :key="step"
+                class="h-full transition-all duration-500 rounded-full"
+                :class="
+                  step <= currentStep
+                    ? 'bg-primary-naranja text-primary-naranja w-full'
+                    : 'bg-transparent w-1'
+                "
+              ></div>
+            </div>
           </div>
 
-         <div class="p-8 overflow-y-auto flex-1 custom-scrollbar bg-slate-50/50">
-            <form id="speakerForm" @submit.prevent="submit" class="space-y-6">
-              
-              <div v-if="Object.keys(form.errors).length > 0" class="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-                  <AlertCircle class="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                  <div>
-                      <h4 class="text-sm font-bold text-red-800">No se pudo guardar el perfil</h4>
-                      <ul class="mt-1 text-xs text-red-600 list-disc list-inside pl-4">
-                          <li v-for="(error, key) in form.errors" :key="key">{{ error }}</li>
-                      </ul>
-                  </div>
-              </div>
-
-              <div class="flex flex-col md:flex-row gap-8">
-                
-                <div class="w-full md:w-1/3 flex flex-col items-center justify-start space-y-4 pt-2">
-                    
+          <div class="p-10 bg-slate-50/30 overflow-y-auto max-h-[60vh] custom-scrollbar">
+            <form @submit.prevent="submit" id="speakerForm">
+              <transition name="fade-step" mode="out-in">
+                <div v-if="currentStep === 1" class="space-y-8">
+                  <div class="flex flex-col items-center">
                     <div class="relative group">
-                        <div class="w-40 h-40 rounded-full border-4 border-white shadow-xl bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0">
-                            <img v-if="fotoPreview" :src="fotoPreview" class="w-full h-full object-cover" />
-                            
-                            <template v-else>
-                                <img v-if="form.primer_nombre" :src="`https://ui-avatars.com/api/?name=${form.primer_nombre}+${form.primer_apellido}&background=4f46e5&color=fff&size=160`" class="w-full h-full object-cover opacity-50" />
-                                <Camera v-else class="w-12 h-12 text-slate-300" />
-                            </template>
-                        </div>
-                        
-                        <button v-if="fotoPreview" @click="clearFoto" type="button" class="absolute top-0 right-0 bg-red-500 text-white p-2 rounded-full shadow-md hover:bg-red-600 transition-colors tooltip" title="Quitar foto">
-                            <X class="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    <div class="w-full text-center">
-                        <label for="fotoInput" class="cursor-pointer inline-flex items-center justify-center px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors w-full shadow-sm">
-                            <Camera class="w-4 h-4 mr-2" />
-                            {{ fotoPreview ? 'Cambiar Fotografía' : 'Subir Foto de Perfil' }}
+                      <div
+                        class="w-32 h-32 rounded-full border-4 border-white shadow-xl bg-indigo-50 flex items-center justify-center overflow-hidden"
+                      >
+                        <img
+                          v-if="fotoPreview"
+                          :src="fotoPreview"
+                          class="w-full h-full object-cover"
+                        />
+                        <Camera v-else class="w-10 h-10 text-indigo-200" />
+                        <label
+                          class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Camera class="w-8 h-8 text-white" />
+                          <input
+                            type="file"
+                            @change="handleFotoUpload"
+                            accept="image/*"
+                            class="hidden"
+                          />
                         </label>
-                        <input id="fotoInput" @change="handleFotoUpload" type="file" accept="image/*" class="hidden" />
-                        <p class="text-[10px] text-slate-400 mt-2 font-medium">Recomendado: 1:1 (Cuadrada). Max 2MB.</p>
+                      </div>
                     </div>
-                </div>
-
-                <div class="w-full md:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Primer Nombre *</label>
-                    <input v-model="form.primer_nombre" type="text" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" :class="{ 'border-red-500': form.errors.primer_nombre }" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Segundo Nombre</label>
-                    <input v-model="form.segundo_nombre" type="text" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Primer Apellido *</label>
-                    <input v-model="form.primer_apellido" type="text" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" :class="{ 'border-red-500': form.errors.primer_apellido }" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Segundo Apellido</label>
-                    <input v-model="form.segundo_apellido" type="text" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" />
+                    <p
+                      class="mt-3 text-xs font-bold text-primary-naranja uppercase tracking-widest"
+                    >
+                      Foto de Perfil
+                    </p>
                   </div>
 
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Correo Electrónico *</label>
-                    <div class="relative">
-                      <Mail class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input v-model="form.correo" type="email" class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" :class="{ 'border-red-500': form.errors.correo }" />
-                    </div>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Teléfono Móvil *</label>
-                    <div class="relative">
-                      <Phone class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input v-model="form.telefono" type="tel" class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" :class="{ 'border-red-500': form.errors.telefono }" />
-                    </div>
-                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <FormInput
+                      label="Primer nombre"
+                      type="text"
+                      v-model="form.primer_nombre"
+                      icon="format_italic"
+                      activeColor="#E96510"
+                      placeholder="Ej: Juan"
+                      required
+                      :max="30"
+                      :error="form.errors.primer_nombre"
+                    />
+                    <FormInput
+                      label="Segundo nombre"
+                      v-model="form.segundo_nombre"
+                      placeholder="Opcional"
+                      type="text"
+                      icon="format_italic"
+                      activeColor="#E96510"
+                      :max="30"
+                      :error="form.errors.segundo_nombre"
+                    />
+                    <FormInput
+                      label="Primer apellido"
+                      v-model="form.primer_apellido"
+                      placeholder="Ej: Martínez"
+                      type="text"
+                      icon="format_italic"
+                      activeColor="#E96510"
+                      :max="30"
+                      :error="form.errors.primer_apellido"
+                      required
+                    />
 
-                  <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Área Encargada *</label>
-                    <select v-model="form.area_encargada_id" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all cursor-pointer" :class="{ 'border-red-500': form.errors.area_encargada_id }">
-                      <option value="" disabled>Seleccione el área académica...</option>
-                      <option v-for="area in areas" :key="area.id" :value="area.id">
-                        {{ area.nombre }}
-                      </option>
-                    </select>
-                  </div>
-
-                  <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Breve Biografía</label>
-                    <textarea v-model="form.biografia" rows="4" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all" placeholder="Perfil profesional que se mostrará a los asistentes en la página del evento..."></textarea>
-                  </div>
-
-                  <div class="md:col-span-2 bg-slate-100 p-4 rounded-xl border border-slate-200 border-dashed">
-                    <label class="block text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1"><FileText class="w-4 h-4 text-slate-400" /> Anexar Hoja de Vida Completa (Opcional)</label>
-                    <input @input="form.url_hv = $event.target.files[0]" type="file" accept=".pdf" class="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-white file:text-indigo-600 hover:file:bg-indigo-50 file:cursor-pointer file:transition-colors file:shadow-sm" />
+                    <FormInput
+                      label="Segundo apellido"
+                      v-model="form.segundo_apellido"
+                      placeholder="Opcional"
+                      type="text"
+                      icon="format_italic"
+                      activeColor="#E96510"
+                      :max="30"
+                      :error="form.errors.segundo_apellido"
+                    />
                   </div>
                 </div>
 
-              </div>
+                <div v-else-if="currentStep === 2" class="space-y-6">
+                  <div
+                    class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4"
+                  >
+                    <div class="flex items-center gap-2 text-primary-naranja mb-2">
+                      <Mail class="w-4 h-4" />
+                      <span class="text-xs font-bold uppercase">Datos de contacto</span>
+                    </div>
+
+                    <FormInput
+                      label="Correo electrónico"
+                      v-model="form.correo"
+                      placeholder="Ej: tucorreo@fyc.com"
+                      type="email"
+                      icon="email"
+                      activeColor="#E96510"
+                      :max="60"
+                      :error="form.errors.correo"
+                      required
+                    />
+
+                    <FormInput
+                      label="Teléfono"
+                      v-model="form.telefono"
+                      placeholder="Ej: 300 000 0000"
+                      type="number"
+                      icon="phone"
+                      activeColor="#E96510"
+                      :max="10"
+                      :error="form.errors.telefono"
+                      required
+                    />
+                  </div>
+
+                  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div class="flex items-center gap-2 text-primary-naranja mb-4">
+                      <Briefcase class="w-4 h-4" />
+                      <span class="text-xs font-bold uppercase"
+                        >Asignación Académica</span
+                      >
+                    </div>
+                    <label class="block text-xs font-bold text-slate-500 mb-2"
+                      >ÁREA ENCARGADA *</label
+                    >
+                    <FormInput
+                      label="Área encargada"
+                      type="select"
+                      v-model="form.area_encargada_id"
+                      :error="form.errors.area_encargada_id"
+                      icon="category"
+                      activeColor="#E96510"
+                      :options="areas"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div v-else-if="currentStep === 3" class="space-y-6">
+                  
+
+                  <FormInput
+                    label="Biografía Profesional"
+                    type="textarea"
+                    v-model="form.biografia"
+                    :max="500"
+                    :rows="10"
+                    icon="description"
+                    activeColor="#E96510"
+                    placeholder="Cuéntanos un poco sobre la trayectoria del conferencista..."
+                    :error="form.errors.biografia"
+                    required
+                  />
+
+                  <FormInput
+                    label="Url de hv en video"
+                    v-model="form.url_hv"
+                    placeholder="Ej: Copie el archivo de Drive o donde lo tenga alojado."
+                    type="text"
+                    icon="link"
+                    activeColor="#E96510"
+                    :max="200"
+                    :error="form.errors.url_hv"
+                  />
+                </div>
+              </transition>
             </form>
           </div>
 
-          <div
-            class="px-8 py-5 border-t border-slate-100 bg-white flex justify-end gap-3 rounded-b-3xl"
-          >
-            <button
-              type="button"
-              @click="closeModal"
-              class="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+         <div
+              class="p-8 md:px-16 md:py-10 bg-white border-t border-slate-50 flex items-center justify-between shrink-0"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form="speakerForm"
-              :disabled="form.processing"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all flex items-center disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
-            >
-              <Loader2 v-if="form.processing" class="w-4 h-4 mr-2 animate-spin" />
-              <Save v-else class="w-4 h-4 mr-2" />
-              Guardar Conferencista
-            </button>
-          </div>
+              <div class="flex-1">
+                <BtnSecundario
+                  v-if="currentStep > 1"
+                  label="Anterior"
+                  icon="chevron_left"
+                  icon-position="left"
+                  :activeColor="activeColor"
+                  @click="prevStep"
+                />
+              </div>
+
+              <div class="flex-[2] flex justify-end gap-4">
+                <BtnUniversal
+                  v-if="currentStep < totalSteps"
+                  label="Siguiente"
+                  icon="chevron_right"
+                  icon-position="right"
+                  size="md"
+                  :activeColor="activeColor"
+                  :disabled="!isStepValid"
+                  @click="nextStep"
+                  process="Esperando campos..."
+
+                />
+
+                <BtnUniversal
+                  v-if="currentStep === totalSteps"
+                  label="Añadir conferencista"
+                  icon="add"
+                  icon-position="right"
+                  size="md"
+                  :activeColor="activeColor"
+                  :disabled="form.processing || !isStepValid"
+                  :loading="form.processing"
+                  process="Inscribiendo..."
+                  @click="submit"
+                />
+              </div>
+            </div>
         </div>
       </div>
     </transition>
@@ -250,14 +388,41 @@ const submit = () => {
 </template>
 
 <style scoped>
+.fade-step-enter-active,
+.fade-step-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-step-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+.fade-step-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 20px;
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-in {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 </style>

@@ -24,6 +24,7 @@ import BtnSecundario from "@/Components/Shared/buttons/btnSecundario.vue";
 import RevealSection from "@/Components/RevealSection.vue";
 import MensajesLayout from "@/Layouts/MensajesLayout.vue";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
+import FormProvicionalModal from "@/Components/Formularios/FormProvicionalModal.vue";
 
 const { props } = usePage();
 const evento = props.evento;
@@ -71,7 +72,7 @@ const timeLeft = ref({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 let timer = null;
 
 const startCountdown = () => {
-  const targetDate = new Date(evento.fecha_hora).getTime();
+  const targetDate = new Date(evento.fecha_hora_inicio).getTime();
 
   timer = setInterval(() => {
     const now = new Date().getTime();
@@ -97,7 +98,7 @@ const handleScroll = (e) => {
   isScrolled.value = e.target.scrollTop > 300;
 };
 onMounted(() => {
-  if (evento?.fecha_hora) startCountdown();
+  if (evento?.fecha_hora_inicio) startCountdown();
 
   if (scrollContainer.value) {
     scrollContainer.value.addEventListener("scroll", handleScroll);
@@ -110,6 +111,28 @@ onUnmounted(() => {
     scrollContainer.value.removeEventListener("scroll", handleScroll);
   }
 });
+
+const formatEventRange = (inicio, fin) => {
+  if (!inicio) return "Fecha por definir";
+
+  const start = new Date(inicio);
+  const end = fin ? new Date(fin) : null;
+
+  const getDayName = (d) => d.toLocaleString("es-ES", { weekday: "long" });
+  const getDayNum = (d) => d.getDate();
+  const getMonth = (d) => d.toLocaleString("es-ES", { month: "long" });
+  const getYear = (d) => d.getFullYear();
+
+  if (!end || start.toDateString() === end.toDateString()) {
+    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} | todo el día`;
+  }
+
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
+  }
+
+  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(end)} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+};
 </script>
 
 <template>
@@ -154,7 +177,7 @@ onUnmounted(() => {
               :src="
                 evento?.imagen_relacionada
                   ? '/storage/' + evento.imagen_relacionada
-                  : '/images/default-evento-bg.webp'
+                  : '/images/default-bg.webp'
               "
               class="w-full h-full object-cover opacity-50 mix-blend-overlay"
               :alt="evento?.titulo"
@@ -174,17 +197,22 @@ onUnmounted(() => {
             </div>
 
             <p
-              v-if="evento?.subtitulo"
+              v-if="evento?.modo_evento"
               class="text-lg md:text-3xl text-white font-medium max-w-3xl mx-auto md:mb-5"
             >
-              · {{ evento.subtitulo }} ·
+              · {{ evento.modo_evento }} ·
             </p>
             <h1
-              class="text-5xl sm:text-5xl md:text-[80px] font-black text-white leading-tight mb-6 drop-shadow-2xl"
+              class="text-5xl sm:text-5xl md:text-[80px] font-black text-white leading-tight mb-2 drop-shadow-2xl"
             >
               {{ evento?.titulo }}
             </h1>
-
+<p
+              v-if="evento?.subtitulo"
+              class="text-lg md:text-3xl text-white font-medium max-w-3xl mx-auto md:mb-6"
+            >
+              {{ evento.subtitulo }}
+            </p>
             <div
               class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-white font-medium bg-black/30 w-full sm:w-fit mx-auto px-6 py-4 rounded-3xl backdrop-blur-md border border-white/10"
             >
@@ -195,7 +223,7 @@ onUnmounted(() => {
                     color: evento?.area_formacion?.color_hex_principal || '#f97316',
                   }"
                 />
-                {{ formatDate(evento?.fecha_hora) }}
+              {{ formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin) }}
               </span>
               <span class="flex items-center gap-2 text-sm md:text-base">
                 <MapPin
@@ -643,7 +671,7 @@ onUnmounted(() => {
       </RevealSection>
     </div>
 
-    <InscripcionModal :show="showModal" :evento="evento" @close="showModal = false" />
+    <FormProvicionalModal :show="showModal" :evento="evento" @close="showModal = false" />
   </GuestLayout>
 </template>
 

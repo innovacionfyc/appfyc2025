@@ -1,6 +1,7 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import { FileSpreadsheet, X, Loader2, Save, CheckSquare, Square } from "lucide-vue-next";
+import FormInput from "../Shared/inputs/FormInput.vue";
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -30,7 +31,7 @@ const submit = () => {
     preserveScroll: true,
     onSuccess: () => {
       closeModal();
-      emit("success"); // Avisamos al padre (Dashboard) para reabrir el de Eventos
+      emit("success");
     },
   });
 };
@@ -61,9 +62,9 @@ const submit = () => {
           >
             <div class="flex items-center gap-3">
               <div
-                class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center"
+                class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center"
               >
-                <FileSpreadsheet class="w-5 h-5 text-indigo-600" />
+                <FileSpreadsheet class="w-5 h-5 text-rose-600" />
               </div>
               <div>
                 <h2 class="text-xl font-bold text-slate-900">Plantilla de Inscripción</h2>
@@ -84,36 +85,31 @@ const submit = () => {
             <form id="plantillaForm" @submit.prevent="submit" class="space-y-8">
               <div class="space-y-5">
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase"
-                    >Nombre de la Plantilla *</label
-                  >
-                  <input
-                    v-model="form.nombre_plantilla"
+                  <FormInput
+                    label="Nombre de la plantilla"
                     type="text"
+                    v-model="form.nombre_plantilla"
+                    icon="format_italic"
                     placeholder="Ej. Formulario Estándar para Empresas"
-                    class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600"
-                    :class="{ 'border-red-500': form.errors.nombre_plantilla }"
+                    required
+                    :max="50"
+                    activeColor="#e11d48"
+                    :error="form.errors.nombre_plantilla"
                   />
-                  <p
-                    v-if="form.errors.nombre_plantilla"
-                    class="mt-1 text-xs text-red-600"
-                  >
-                    {{ form.errors.nombre_plantilla }}
-                  </p>
                 </div>
 
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase"
-                    >Enfoque del Formulario *</label
-                  >
-                  <select
+                  <FormInput
+                    label="Enfoque del Formulario"
+                    type="select"
                     v-model="form.tipo_persona"
-                    class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 cursor-pointer"
-                  >
-                    <option value="Natural">Solo Personas Naturales</option>
-                    <option value="Jurídica">Solo Personas Jurídicas (Empresas)</option>
-                    <option value="Ambas">Mixto (Ambas)</option>
-                  </select>
+                    icon="format_italic"
+                    placeholder="Ej. Formulario Estándar para Empresas"
+                    required
+                    activeColor="#e11d48"
+                    :error="form.errors.tipo_persona"
+                    :options="['Natural', 'Jurídicas', 'Ambas']"
+                  />
                 </div>
               </div>
 
@@ -131,7 +127,7 @@ const submit = () => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label
                     class="flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
-                    :class="{ 'border-indigo-500 bg-indigo-50/30': form.solicitar_cargo }"
+                    :class="{ 'border-rose-500 bg-rose-50/30': form.solicitar_cargo }"
                   >
                     <div class="flex-1">
                       <p class="font-bold text-sm text-slate-900">Cargo / Profesión</p>
@@ -143,7 +139,7 @@ const submit = () => {
                     />
                     <CheckSquare
                       v-if="form.solicitar_cargo"
-                      class="w-6 h-6 text-indigo-600"
+                      class="w-6 h-6 text-rose-600"
                     />
                     <Square v-else class="w-6 h-6 text-slate-300" />
                   </label>
@@ -151,7 +147,7 @@ const submit = () => {
                   <label
                     class="flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
                     :class="{
-                      'border-indigo-500 bg-indigo-50/30': form.solicitar_empresa,
+                      'border-rose-500 bg-rose-50/30': form.solicitar_empresa,
                     }"
                   >
                     <div class="flex-1">
@@ -164,7 +160,7 @@ const submit = () => {
                     />
                     <CheckSquare
                       v-if="form.solicitar_empresa"
-                      class="w-6 h-6 text-indigo-600"
+                      class="w-6 h-6 text-rose-600"
                     />
                     <Square v-else class="w-6 h-6 text-slate-300" />
                   </label>
@@ -172,7 +168,7 @@ const submit = () => {
                   <label
                     class="flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
                     :class="{
-                      'border-indigo-500 bg-indigo-50/30': form.solicitar_correo_corp,
+                      'border-rose-500 bg-rose-50/30': form.solicitar_correo_corp,
                     }"
                   >
                     <div class="flex-1">
@@ -185,7 +181,7 @@ const submit = () => {
                     />
                     <CheckSquare
                       v-if="form.solicitar_correo_corp"
-                      class="w-6 h-6 text-indigo-600"
+                      class="w-6 h-6 text-rose-600"
                     />
                     <Square v-else class="w-6 h-6 text-slate-300" />
                   </label>
@@ -193,7 +189,7 @@ const submit = () => {
                   <label
                     class="flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
                     :class="{
-                      'border-indigo-500 bg-indigo-50/30': form.solicitar_soporte,
+                      'border-rose-500 bg-rose-50/30': form.solicitar_soporte,
                     }"
                   >
                     <div class="flex-1">
@@ -208,7 +204,7 @@ const submit = () => {
                     />
                     <CheckSquare
                       v-if="form.solicitar_soporte"
-                      class="w-6 h-6 text-indigo-600"
+                      class="w-6 h-6 text-rose-600"
                     />
                     <Square v-else class="w-6 h-6 text-slate-300" />
                   </label>
@@ -231,7 +227,7 @@ const submit = () => {
               type="submit"
               form="plantillaForm"
               :disabled="form.processing"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all flex items-center disabled:opacity-70"
+              class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all flex items-center disabled:opacity-70"
             >
               <Loader2 v-if="form.processing" class="w-4 h-4 mr-2 animate-spin" />
               <Save v-else class="w-4 h-4 mr-2" />

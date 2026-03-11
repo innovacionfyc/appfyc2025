@@ -18,11 +18,13 @@ class Evento extends Model
         'contenido_tematico_id',
         'estado_id',
         'area_formacion_id',
+        'modo_evento',
         'titulo',
         'subtitulo',
         'imagen_relacionada',
         'modalidad',
         'url_folleto',
+        'url_formulario_inscripcion',
         'ubicacion',
         'fecha_hora_inicio',
         'fecha_hora_fin',
@@ -48,13 +50,11 @@ class Evento extends Model
         return $this->belongsTo(PerfilOrganizador::class, 'usuario_id');
     }
 
-    // Un evento pertenece a un estado
     public function estado()
     {
         return $this->belongsTo(Estado::class, 'estado_id');
     }
 
-    // Un evento tiene MUCHOS conferencistas (Relación Muchos a Muchos usando la tabla pivote)
     public function conferencistas()
     {
         return $this->belongsToMany(

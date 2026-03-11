@@ -9,6 +9,7 @@ use App\Models\Evento;
 use App\Models\FormularioBase;
 use App\Models\Movimiento;
 use App\Models\PerfilConferencista;
+use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,6 +44,20 @@ class AdminController extends Controller
             ]);
 
         $estados = Estado::all();
+
+        $organizador = Usuario::whereHas('perfilOrganizador', function ($query) {
+            $query->where('rol_id', 3);
+        })
+            ->with('perfilOrganizador')
+            ->get()
+            ->map(fn($u) => [
+                'id' => $u->id,
+                'nombre' => $u->perfilOrganizador
+                    ? $u->perfilOrganizador->primer_nombre . ' ' . $u->perfilOrganizador->segundo_nombre . ' ' . $u->perfilOrganizador->primer_apellido
+                    : $u->email
+            ]);
+
+
         $areas = AreaFormacion::all();
         return Inertia::render('Dashboard/SuperAdmin', [
             'estados' => $estados,
@@ -50,7 +65,8 @@ class AdminController extends Controller
             'conferencistas' => PerfilConferencista::with('areaEncargada')->get(),
             'formularios' => FormularioBase::all(),
             'stats_counts' => $stats_counts,
-            'movimientos' => $movimientos
+            'movimientos' => $movimientos,
+            'organizador' => $organizador
         ]);
     }
 

@@ -32,15 +32,18 @@ const props = defineProps({
   areas: Array,
   formularios: Array,
   conferencistas: Array,
+  organizador: Array,
   stats_counts: Object,
 });
 
 const authStore = useAuthStore();
 
+const contadorEventos = props.stats_counts?.eventos_activos;
+
 const stats = computed(() => [
   {
     name: "Eventos activos",
-    value: props.stats_counts?.eventos_activos || 0,
+    value: contadorEventos,
     icon: Calendar,
     color: "text-blue-600",
     bg: "bg-blue-50",
@@ -116,7 +119,7 @@ const handleOpenDependency = (dependencyType) => {
   isCreateModalOpen.value = false;
   if (dependencyType === "conferencistas")
     setTimeout(() => (isSpeakerModalOpen.value = true), 300);
-  if (dependencyType === "formularios") isFormularioModalOpen.value = true;
+  // if (dependencyType === "formularios") isFormularioModalOpen.value = true;
 };
 </script>
 
@@ -192,8 +195,7 @@ const handleOpenDependency = (dependencyType) => {
                 <div class="flex-1 text-center md:text-left">
                   <h3 class="text-3xl font-black mb-3">Control de Eventos</h3>
                   <p class="text-rose-100 font-medium mb-8 leading-relaxed">
-                    Tienes 4 eventos próximos a iniciar esta semana. Revisa la lista de
-                    inscritos para confirmar el quórum mínimo.
+                    Tienes {{ contadorEventos }} eventos próximos a iniciar esta semana.
                   </p>
                   <div class="flex flex-wrap justify-center md:justify-start gap-4">
                     <button
@@ -311,14 +313,7 @@ const handleOpenDependency = (dependencyType) => {
                 </button>
               </div>
 
-              <Link
-                :href="route('logout')"
-                method="post"
-                as="button"
-                class="mt-8 w-full py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition-all flex items-center justify-center gap-2"
-              >
-                Cerrar Sesión
-              </Link>
+             
             </div>
           </div>
         </section>
@@ -328,6 +323,7 @@ const handleOpenDependency = (dependencyType) => {
         :show="isCreateModalOpen"
         :estados="estados"
         :areas="areas"
+        :organizador="organizador"
         :conferencistas="conferencistas"
         :formularios="formularios"
         @close="isCreateModalOpen = false"
