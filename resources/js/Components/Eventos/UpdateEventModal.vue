@@ -32,8 +32,6 @@ const props = defineProps({
   formularios: { type: Array, default: () => [] },
   organizador: { type: Array, default: () => [] },
   conferencistas: { type: Array, default: () => [] },
-  mode: { type: String, default: "create" },
-  evento: { type: Object, default: null },
 });
 
 const emit = defineEmits(["close", "openDependency", "success"]);
@@ -67,29 +65,24 @@ const missingDependencies = computed(() => {
 
 // --- FORMULARIO REACTIVO ---
 const form = useForm({
-  id: null,
-  linea_evento: "",
-  titulo: "",
   modo_evento: "",
+  titulo: "",
   subtitulo: "",
   area_formacion_id: "",
   estado_id: "",
-  modalidad: "Presencial",
-  fecha_hora_inicio: "",
-  fecha_hora_fin: "",
+  modalidad: "",
   rango_fechas: [],
-  ubicacion: "Centro de convenciones CAFAM Floresta",
+  ubicacion: "",
   precio_jornada: "",
   precio_modulo: "",
   formulario_base_id: "",
   conferencistas: [],
-  color_hex_secundario: "#4F46E5",
+  color_hex_secundario: "",
   texto_dinamico: "",
-  imagen_relacionada: null,
-  url_folleto: null,
-  url_formulario_inscripcion: null,
+  imagen_relacionada: "",
+  url_folleto: "",
+  url_formulario_inscripcion: "",
   organizador_id: "",
-
   contenido_tematico: [{ tema: "", subtemas: [""] }],
 });
 // --- LÓGICA DE FORMATEO PARA PREVIEW ---
@@ -150,83 +143,64 @@ watch(
   }
 );
 
+// --- LÓGICA DE CARGA DE DATOS (Edit / Duplicate) ---
+watch(() => props.show, (isVisible) => {
+  if (isVisible && props.evento) {
+    // Llenamos el formulario con los datos del evento prop
+    form.modo_evento = props.evento.modo_evento;
+    form.titulo = props.mode === 'duplicate' ? `${props.evento.titulo} (Copia)` : props.evento.titulo;
+    form.subtitulo = props.evento.subtitulo;
+    form.area_formacion_id = props.evento.area_formacion_id;
+    form.estado_id = props.mode === 'duplicate' ? 2 : props.evento.estado_id;
+    form.modalidad = props.evento.modalidad;
+    form.ubicacion = props.evento.ubicacion;
+    form.precio_jornada = props.evento.precio_jornada;
+    form.precio_modulo = props.evento.precio_modulo;
+    form.formulario_base_id = props.evento.formulario_base_id;
+    form.texto_dinamico = props.evento.texto_dinamico;
+    form.color_hex_secundario = props.evento.color_hex_secundario;
+    form.url_formulario_inscripcion = props.evento.url_formulario_inscripcion;
+    form.organizador_id = props.evento.organizador_id;
+    
+    form.conferencistas = props.evento.conferencistas.map(s => s.id);
 
+    form.rango_fechas = [props.evento.fecha_hora_inicio, props.evento.fecha_hora_fin];
 
-watch(() => [props.show, props.evento], ([show, evento]) => {
-  // Debug para confirmar que el objeto llega
-  console.log("Evento recibido en modal:", evento);
-
-  if (show && evento) {
-    form.id = props.mode === "edit" ? evento.id : null;
-    form.modo_evento = evento.modo_evento || evento.linea_evento || "";
-    form.titulo = props.mode === "duplicate" ? `${evento.titulo} (Copia)` : evento.titulo;
-    form.subtitulo = evento.subtitulo || "";
-    form.area_formacion_id = evento.area_formacion_id;
-    form.estado_id = props.mode === "duplicate" ? 2 : (evento.estado_id || "");
-    form.modalidad = evento.modalidad || "Presencial";
-    form.ubicacion = evento.ubicacion || "";
-    form.precio_jornada = evento.precio_jornada || "";
-    form.precio_modulo = evento.precio_modulo || "";
-    form.formulario_base_id = evento.formulario_base_id;
-    form.texto_dinamico = evento.texto_dinamico || "";
-    form.color_hex_secundario = evento.color_hex_secundario || "#4F46E5";
-    form.url_formulario_inscripcion = evento.url_formulario_inscripcion || "";
-    form.organizador_id = evento.organizador_id;
-
-    form.conferencistas = evento.conferencistas ? evento.conferencistas.map((s) => s.id) : [];
-
-    form.rango_fechas = evento.fecha_hora_inicio ? [evento.fecha_hora_inicio, evento.fecha_hora_fin] : [];
-
-    const rawModulos = evento.contenido_tematico?.modulos || evento.contenido_tematico;
-    if (rawModulos) {
-      form.contenido_tematico = JSON.parse(JSON.stringify(rawModulos));
-    } else {
-      form.contenido_tematico = [{ tema: "", subtemas: [""] }];
+    if (props.evento.contenido_tematico?.modulos) {
+        form.contenido_tematico = JSON.parse(JSON.stringify(props.evento.contenido_tematico.modulos));
     }
 
-    if (evento.imagen_relacionada) {
-       previewImageUrl.value = evento.imagen_relacionada.startsWith('http') 
-        ? evento.imagen_relacionada 
-        : `/storage/${evento.imagen_relacionada}`;
-    } else {
-       previewImageUrl.value = null;
-    }
-
-    form.defaults();
-
-  } else if (!show) {
+    previewImageUrl.value = props.evento.imagen_relacionada ? `/storage/${props.evento.imagen_relacionada}` : null;
+  } else if (isVisible && !props.evento) {
     form.reset();
-    form.clearErrors();
     previewImageUrl.value = null;
   }
-}, { deep: true });
+});
 
+
+// --- LÓGICA DE ENVÍO INTELIGENTE ---
 const submit = () => {
-  const url = form.id ? route("eventos.update", form.id) : route("eventos.store");
+  const url = props.mode === 'edit' 
+    ? route('eventos.update', props.evento.id) 
+    : route('eventos.store');
 
   form
     .transform((data) => ({
       ...data,
-      _method: form.id ? "put" : "post",
-      fecha_hora_inicio: data.rango_fechas?.[0]
-        ? new Date(data.rango_fechas[0]).toISOString().split("T")[0]
-        : null,
-      fecha_hora_fin: data.rango_fechas?.[1]
-        ? new Date(data.rango_fechas[1]).toISOString().split("T")[0]
-        : data.rango_fechas?.[0]
-        ? new Date(data.rango_fechas[0]).toISOString().split("T")[0]
-        : null,
+      _method: props.mode === 'edit' ? 'put' : 'post',
+      fecha_hora_inicio: data.rango_fechas?.[0] ? new Date(data.rango_fechas[0]).toISOString().split('T')[0] : null,
+      fecha_hora_fin: data.rango_fechas?.[1] 
+        ? new Date(data.rango_fechas[1]).toISOString().split('T')[0] 
+        : (data.rango_fechas?.[0] ? new Date(data.rango_fechas[0]).toISOString().split('T')[0] : null),
     }))
     .post(url, {
       forceFormData: true,
       onSuccess: () => {
         emit("success");
         emit("close");
-        form.reset();
       },
     });
 };
-
 const stepFields = [
   ["titulo", "area_formacion_id"],
   ["rango_fechas", "modalidad", "ubicacion"],
@@ -256,15 +230,18 @@ const getAreaTagImage = () => {
     :show="show"
     :title="
       mode === 'edit'
-        ? 'Editar Publicación'
+        ? 'Editar Jornada Académica'
         : mode === 'duplicate'
-        ? 'Duplicar Evento'
-        : 'Nueva Publicación'
+        ? 'Duplicar Jornada'
+        : 'Nueva Jornada'
     "
     :totalSteps="4"
     :icon="mode === 'edit' ? Save : Globe"
     :activeColor="selectedArea.color_hex_principal"
+    :isDirty="form.isDirty"
+    :errors="form.errors"
     :loading="form.processing"
+    class="!max-w-[95vw] lg:!max-w-[1500px]"
     @close="emit('close')"
     @submit="submit"
   >

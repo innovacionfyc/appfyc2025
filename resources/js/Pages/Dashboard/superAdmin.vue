@@ -205,7 +205,7 @@ const handleOpenDependency = (dependencyType) => {
                       <Plus class="w-5 h-5" /> Crear ahora
                     </button>
                     <Link
-                      href="/admin/eventos"
+                      href="/admin/eventos/data"
                       class="bg-rose-500/30 backdrop-blur-md text-white border border-rose-400/30 font-bold py-3.5 px-8 rounded-2xl hover:bg-rose-500/50 transition-all"
                     >
                       Ver agenda

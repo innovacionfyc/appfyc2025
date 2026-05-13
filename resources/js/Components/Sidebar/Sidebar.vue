@@ -29,9 +29,7 @@ const navItems = [
     name: "Eventos",
     icon: CalendarDays,
     submenu: [
-      { name: "Ver Todos", href: "/admin/eventos" },
-      { name: "Inscripciones", href: "/admin/inscripciones" },
-      { name: "Áreas", href: "/admin/areas" },
+      { name: "Ver Todos", href: "/admin/eventos/data" },
     ],
   },
   {

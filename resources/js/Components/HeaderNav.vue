@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 import BtnUniversal from "./BtnUniversal.vue";
 import BtnSecundario from "./Shared/buttons/btnSecundario.vue";
+import BtnPrimario from "./Shared/buttons/btnPrimario.vue";
 
 const isMenuOpen = ref(false);
 const isScrolled = ref(false);
@@ -130,18 +131,18 @@ onUnmounted(() => {
 
       <div class="hidden md:flex items-center justify-end gap-6 z-20">
         <a href="https://evaluaciones.fycconsultores.com/" target="_blank">
-          <BtnSecundario
+          <BtnUniversal
             label="Certificados"
             :activeColor="current?.hex_principal"
             as="div"
           />
         </a>
         <Link
-          href="/contacto"
+          href="/login"
           class="group transition-transform active:scale-95 outline-none"
         >
-          <BtnUniversal
-            label="Contáctenos"
+          <BtnSecundario
+            label="Iniciar sesión"
             icon="rocket_launch"
             icon-position="right"
             size="md"

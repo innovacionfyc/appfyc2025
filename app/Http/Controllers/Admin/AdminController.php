@@ -44,6 +44,7 @@ class AdminController extends Controller
             ]);
 
         $estados = Estado::all();
+        $areas = AreaFormacion::all();
 
         $organizador = Usuario::whereHas('perfilOrganizador', function ($query) {
             $query->where('rol_id', 3);
@@ -58,8 +59,7 @@ class AdminController extends Controller
             ]);
 
 
-        $areas = AreaFormacion::all();
-        return Inertia::render('Dashboard/SuperAdmin', [
+        return Inertia::render('Dashboard/superAdmin', [
             'estados' => $estados,
             'areas' => $areas,
             'conferencistas' => PerfilConferencista::with('areaEncargada')->get(),
