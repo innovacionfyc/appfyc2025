@@ -13,17 +13,17 @@ const nav = [
   { label: "Inicio", href: "/", match: "/" },
   { label: "Líneas de negocio", href: "/oferta", match: "/oferta" },
   { label: "Nosotros", href: "/nosotros", match: "/nosotros" },
-  // {
-  //   label: "Publicaciones",
-  //   href: "/responsabilidad-social",
-  //   match: "/responsabilidad-social",
-  // },
-  // {
-  //   label: "Rincón del cliente",
-  //   href: "/rincon-del-cliente",
-  //   match: "/rincon-del-cliente",
-  // },
-  // { label: "Blog", href: "/blog", match: "/blog" },
+  {
+    label: "Publicaciones",
+    href: "/responsabilidad-social",
+    match: "/responsabilidad-social",
+  },
+  {
+    label: "Participantes",
+    href: "/rincon-del-cliente",
+    match: "/rincon-del-cliente",
+  },
+  { label: "Blog", href: "/blog", match: "/blog" },
 ];
 
 const handleScroll = () => {
