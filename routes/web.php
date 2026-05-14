@@ -11,3 +11,7 @@ foreach (File::allFiles($routesPath) as $routeFile) {
 Route::get('/ping', function () {
     return response()->json(['status' => 'ok']);
 });
+
+Route::fallback(function () {
+    return response()->view('errors.404', [], 404);
+});
