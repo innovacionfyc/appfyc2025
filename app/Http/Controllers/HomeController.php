@@ -37,8 +37,8 @@ class HomeController extends Controller
                 'mode_event' => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->modalidad ?? 'Por definir'),
                 'city' => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->ubicacion ?? 'Por definir'),
 
-                'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento.jpg',
-                'imageBg' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-evento-bg.jpg',
+                'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
+                'imageBg' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
                 'cta_text' => 'Inscribirme',
                 'cta_url' => route('evento.show', $evento->id),
                 'badge' => $evento->modalidad,

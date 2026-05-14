@@ -36,7 +36,7 @@ const note2026 =
     <div class="absolute inset-0 z-0 pointer-events-none">
       <div class="absolute top-0 right-0 w-[520px] h-[520px] bg-primary-vinotinto/5 rounded-full blur-[110px] translate-x-1/3 -translate-y-1/3"></div>
       <div class="absolute bottom-0 left-0 w-[620px] h-[620px] bg-primary-naranja/5 rounded-full blur-[130px] -translate-x-1/3 translate-y-1/3"></div>
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.03]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.03]"></div>
     </div>
 
     <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">

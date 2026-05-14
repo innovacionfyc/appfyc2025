@@ -86,7 +86,7 @@ const cards = [
       <div class="absolute -bottom-56 -right-56 w-[760px] h-[760px] rounded-full blur-3xl opacity-18 bg-[#e96510]"></div>
       <div class="absolute top-1/4 right-1/4 w-[640px] h-[640px] rounded-full blur-3xl opacity-12 bg-[#685f2f]"></div>
 
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.02]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.02]"></div>
       <div class="absolute inset-0 bg-gradient-to-b from-white via-white/85 to-white"></div>
     </div>
 

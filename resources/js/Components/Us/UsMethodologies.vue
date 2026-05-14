@@ -71,7 +71,7 @@ const blocks = [
       <div class="absolute -bottom-56 -right-56 w-[760px] h-[760px] rounded-full blur-3xl opacity-14 bg-[#942934]"></div>
       <div class="absolute top-1/4 -left-56 w-[700px] h-[700px] rounded-full blur-3xl opacity-12 bg-[#685f2f]"></div>
 
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.02]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.02]"></div>
       <div class="absolute inset-0 bg-gradient-to-b from-white via-white/85 to-white"></div>
     </div>
 

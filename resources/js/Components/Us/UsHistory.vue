@@ -104,7 +104,7 @@ const activeBgStyle = computed(() => bgPresets[activeKey.value] || bgPresets.for
       <div class="absolute bottom-0 left-0 w-[700px] h-[700px] bg-[#e96510]/4 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/3"></div>
 
       <!-- grid pattern (si existe) -->
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.025]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.025]"></div>
     </div>
 
     <div class="relative z-10 max-w-7xl mx-auto px-6">

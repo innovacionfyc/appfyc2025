@@ -133,7 +133,7 @@ onUnmounted(() => {
         <a href="https://evaluaciones.fycconsultores.com/" target="_blank">
           <BtnUniversal
             label="Certificados"
-            :activeColor="current?.hex_principal"
+            
             as="div"
           />
         </a>
@@ -146,7 +146,7 @@ onUnmounted(() => {
             icon="rocket_launch"
             icon-position="right"
             size="md"
-            :activeColor="current?.hex_principal"
+            
           />
         </Link>
       </div>

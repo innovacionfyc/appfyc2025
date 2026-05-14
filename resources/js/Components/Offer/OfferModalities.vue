@@ -87,7 +87,7 @@ const cards = [
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-primary-vinotinto/5 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3"></div>
       <div class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary-naranja/5 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3"></div>
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.03]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.03]"></div>
     </div>
 
     <div class="relative z-10 mx-auto max-w-7xl px-6 lg:px-8">

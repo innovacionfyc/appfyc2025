@@ -101,7 +101,7 @@ const activeModal = computed(() => modalities.find(m => m.key === activeKey.valu
 
       <div class="absolute top-0 right-0 w-[700px] h-[700px] bg-[#942934]/4 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3"></div>
       <div class="absolute bottom-0 left-0 w-[700px] h-[700px] bg-[#e96510]/4 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/3"></div>
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.02]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.02]"></div>
       <div class="absolute inset-0 bg-gradient-to-b from-white via-white/85 to-white"></div>
     </div>
 

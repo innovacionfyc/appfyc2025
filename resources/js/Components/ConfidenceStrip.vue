@@ -83,7 +83,7 @@ watchEffect(() => { if (inView.value) startCounters() })
       <div
         class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary-naranja/5 rounded-full blur-[120px] -translate-x-1/3 translate-y-1/3">
       </div>
-      <div class="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-[0.03]"></div>
+      <div class="absolute inset-0 bg-[url('/images/grid-pattern.png')] opacity-[0.03]"></div>
     </div>
 
     <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 flex flex-col h-full justify-center">
