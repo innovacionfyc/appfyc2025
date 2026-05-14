@@ -59,6 +59,26 @@ class AdminController extends Controller
             ]);
 
 
+        $fechaInicio = now()->startOfWeek();
+        $fechaFin = now()->addWeeks(4)->endOfWeek();
+        $agenda_proxima = Evento::with(['areaFormacion'])
+            ->where('estado_id', 1)
+            ->whereBetween('fecha_hora_inicio', [$fechaInicio, $fechaFin])
+            ->orderBy('fecha_hora_inicio', 'asc')
+            ->get()
+            ->map(fn($e) => [
+                'id' => $e->id,
+                'titulo' => $e->titulo,
+                'area' => $e->areaFormacion->nombre,
+                'color' => $e->areaFormacion->color_hex_principal ?? '#64748b',
+                'fecha' => $e->fecha_hora_inicio,
+                'es_esta_semana' => \Carbon\Carbon::parse($e->fecha_hora_inicio)->isCurrentWeek(),
+                'es_hoy' => \Carbon\Carbon::parse($e->fecha_hora_inicio)->isToday(),
+                'modalidad' => $e->modalidad,
+                'ubicacion' => $e->ubicacion
+            ]);
+
+
         return Inertia::render('Dashboard/superAdmin', [
             'estados' => $estados,
             'areas' => $areas,
@@ -66,7 +86,8 @@ class AdminController extends Controller
             'formularios' => FormularioBase::all(),
             'stats_counts' => $stats_counts,
             'movimientos' => $movimientos,
-            'organizador' => $organizador
+            'organizador' => $organizador,
+            'agenda_proxima' => $agenda_proxima,
         ]);
     }
 

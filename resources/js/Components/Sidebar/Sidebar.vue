@@ -27,8 +27,9 @@ const navItems = [
     name: "Eventos",
     icon: CalendarDays,
     submenu: [
+      { name: "Calendario", href: "/admin/eventos/calendario" },
       { name: "Eventos activos", href: "/admin/eventos/data" },
-      { name: "Papelera", href: "/admin/eventos/data/papelera" },
+      { name: "Caducados", href: "/admin/eventos/data/archivados" },
     ],
   },
   {

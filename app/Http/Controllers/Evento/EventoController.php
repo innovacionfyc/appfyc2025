@@ -31,6 +31,7 @@ class EventoController extends Controller
             'contenidoTematico',
             'organizador.perfilOrganizador'
         ])
+    ->where('estado_id', 1)
             ->latest()
             ->get();
 
@@ -51,6 +52,45 @@ class EventoController extends Controller
         $conferencistas = PerfilConferencista::with('areaEncargada')->get();
 
         return Inertia::render('Eventos/Eventos', [
+            'eventos' => $eventos,
+            'areas' => $areas,
+            'estados' => $estados,
+            'conferencistas' => $conferencistas,
+            'formularios' => FormularioBase::all(),
+            'organizador' => $organizador
+        ]);
+    }
+
+     public function calendario(): Response
+    {
+        $eventos = Evento::with([
+            'areaFormacion',
+            'estado',
+            'conferencistas',
+            'contenidoTematico',
+            'organizador.perfilOrganizador'
+        ])
+    ->where('estado_id', 1)
+            ->latest()
+            ->get();
+
+        $organizador = Usuario::whereHas('perfilOrganizador', function ($query) {
+            $query->where('rol_id', 3);
+        })
+            ->with('perfilOrganizador')
+            ->get()
+            ->map(fn($u) => [
+                'id' => $u->id,
+                'nombre' => $u->perfilOrganizador
+                    ? $u->perfilOrganizador->primer_nombre . ' ' . $u->perfilOrganizador->segundo_nombre . ' ' . $u->perfilOrganizador->primer_apellido
+                    : $u->email
+            ]);
+
+        $estados = Estado::all();
+        $areas = AreaFormacion::all();
+        $conferencistas = PerfilConferencista::with('areaEncargada')->get();
+
+        return Inertia::render('Eventos/Calendario', [
             'eventos' => $eventos,
             'areas' => $areas,
             'estados' => $estados,
@@ -316,4 +356,40 @@ class EventoController extends Controller
             'organizador' => $organizador
         ]);
     }
+
+    public function archivados(): Response
+{
+    $eventos = Evento::with([
+        'areaFormacion',
+        'estado',
+        'conferencistas',
+        'contenidoTematico',
+        'organizador.perfilOrganizador'
+    ])
+    ->where('estado_id', 5)
+    ->latest()
+    ->get();
+
+   
+    $organizador = Usuario::whereHas('perfilOrganizador', function ($query) {
+        $query->where('rol_id', 3);
+    })
+    ->with('perfilOrganizador')
+    ->get()
+    ->map(fn($u) => [
+        'id' => $u->id,
+        'nombre' => $u->perfilOrganizador
+            ? $u->perfilOrganizador->primer_nombre . ' ' . $u->perfilOrganizador->segundo_nombre . ' ' . $u->perfilOrganizador->primer_apellido
+            : $u->email
+    ]);
+
+    return Inertia::render('Eventos/Papelera', [
+        'eventos' => $eventos,
+        'areas' => AreaFormacion::all(),
+        'estados' => Estado::all(),
+        'conferencistas' => PerfilConferencista::with('areaEncargada')->get(),
+        'formularios' => FormularioBase::all(),
+        'organizador' => $organizador
+    ]);
+}
 }

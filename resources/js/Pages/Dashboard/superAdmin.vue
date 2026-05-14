@@ -21,6 +21,9 @@ import {
   Activity,
   Zap,
   Clock,
+  MapPin,
+  Monitor,
+  Star,
   LayoutGrid,
 } from "lucide-vue-next";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
@@ -34,6 +37,7 @@ const props = defineProps({
   conferencistas: Array,
   organizador: Array,
   stats_counts: Object,
+  agenda_proxima: Array,
 });
 
 const authStore = useAuthStore();
@@ -119,7 +123,20 @@ const handleOpenDependency = (dependencyType) => {
   isCreateModalOpen.value = false;
   if (dependencyType === "conferencistas")
     setTimeout(() => (isSpeakerModalOpen.value = true), 300);
-  // if (dependencyType === "formularios") isFormularioModalOpen.value = true;
+};
+
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return {
+    diaNum: date.getDate(),
+    mes: date.toLocaleString("es-ES", { month: "short" }).replace(".", ""),
+    diaNombre: date.toLocaleString("es-ES", { weekday: "short" }).replace(".", ""),
+    hora: date.toLocaleString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }),
+  };
 };
 </script>
 
@@ -220,24 +237,150 @@ const handleOpenDependency = (dependencyType) => {
               </div>
             </div>
 
-            <div class="bg-white rounded-[3rem] border border-slate-100 p-8 shadow-sm">
+            <div
+              class="bg-white rounded-[3rem] border border-slate-100 p-8 shadow-sm h-full flex flex-col"
+            >
               <div class="flex items-center justify-between mb-8">
-                <h4 class="text-xl font-black text-slate-900">Agenda Próxima</h4>
+                <div>
+                  <h4 class="text-xl font-black text-slate-900">
+                    Agenda activa
+                  </h4>
+                  <p class="text-xs text-slate-400 font-medium">
+                    Esta semana + 4 posteriores
+                  </p>
+                </div>
                 <Link
-                  href="/admin/eventos"
-                  class="text-sm font-bold text-rose-600 hover:underline"
-                  >Ver calendario completo</Link
+                  href="/admin/eventos/calendario"
+                  class="p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all flex items-center gap-3"
                 >
+                  <Calendar class="w-5 h-5" />
+                  <span class="text-semibold"> Ver calendario completo</span>
+                </Link>
               </div>
 
-              <div class="flex flex-col items-center justify-center py-10 text-center">
-                <div
-                  class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4"
-                >
-                  <Clock class="w-8 h-8 text-slate-200" />
+              <div
+                v-if="agenda_proxima.length > 0"
+                class="space-y-4 overflow-y-auto pr-2 max-h-[600px] custom-scrollbar"
+              >
+                <div v-for="(evento, index) in agenda_proxima" :key="evento.id">
+                  <div
+                    v-if="index === 0 && evento.es_esta_semana"
+                    class="mb-4 flex items-center gap-3"
+                  >
+                    <span
+                      class="flex-none text-[16px] font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full"
+                      >Esta semana</span
+                    >
+                    <div class="h-px bg-rose-100 flex-grow"></div>
+                  </div>
+
+                  <div
+                    v-if="
+                      index > 0 &&
+                      !evento.es_esta_semana &&
+                      agenda_proxima[index - 1].es_esta_semana
+                    "
+                    class="my-6 flex items-center gap-3"
+                  >
+                    <span
+                      class="flex-none text-[16px] font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full"
+                      >Siguientes semanas</span
+                    >
+                    <div class="h-px bg-slate-100 flex-grow"></div>
+                  </div>
+
+                  <div
+                    class="group relative flex items-start gap-4 p-4 rounded-[2rem] transition-all duration-300 border border-transparent hover:border-slate-100 hover:bg-slate-50/50"
+                    :class="{ 'bg-rose-50/30 border-rose-100': evento.es_hoy }"
+                  >
+                    <div
+                      class="flex-none w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all"
+                      :class="
+                        evento.es_hoy
+                          ? 'bg-rose-600 text-white shadow-lg shadow-rose-200'
+                          : 'bg-slate-100 text-slate-900'
+                      "
+                    >
+                      <span
+                        class="text-[9px] font-black uppercase tracking-tighter opacity-70"
+                        >{{ formatDate(evento.fecha).diaNombre }}</span
+                      >
+                      <span class="text-xl font-black leading-none">{{
+                        formatDate(evento.fecha).diaNum
+                      }}</span>
+                    </div>
+
+                    <div class="flex-grow min-w-0 pt-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <div
+                          v-if="evento.es_hoy"
+                          class="flex items-center gap-1 bg-rose-600 text-[8px] text-white px-1.5 py-0.5 rounded-md font-black uppercase animate-pulse"
+                        >
+                          <Star class="w-2 h-2 fill-current" /> hoy
+                        </div>
+                        <span
+                          class="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate"
+                          >{{ evento.area }}</span
+                        >
+                      </div>
+
+                      <h5
+                        class="text-sm font-bold text-slate-900 mb-2 truncate group-hover:text-rose-600 transition-colors"
+                      >
+                        {{ evento.titulo }}
+                      </h5>
+
+                      <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-1 text-slate-400">
+                          <Clock class="w-3 h-3" />
+                          <span class="text-[10px] font-bold">{{
+                            formatDate(evento.fecha).hora
+                          }}</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-slate-400">
+                          <MapPin
+                            v-if="evento.modalidad === 'Presencial'"
+                            class="w-3 h-3"
+                          />
+                          <Monitor v-else class="w-3 h-3" />
+                          <span class="text-[10px] font-bold">{{
+                            evento.modalidad === "Presencial"
+                              ? evento.ubicacion
+                              : "virtual"
+                          }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-full opacity-20 group-hover:opacity-100 transition-all"
+                      :style="{ backgroundColor: evento.color }"
+                    ></div>
+                  </div>
                 </div>
-                <p class="text-slate-400 font-medium text-sm">
-                  No hay eventos para mostrar en las próximas 24 horas.
+              </div>
+
+              <div
+                v-else
+                class="flex flex-col items-center justify-center py-16 text-center flex-grow"
+              >
+                <div
+                  class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6"
+                >
+                  <Clock class="w-10 h-10 text-slate-100" />
+                </div>
+                <p
+                  class="text-slate-400 font-medium text-sm max-w-[220px] mx-auto"
+                >
+                  no hay eventos programados para este periodo.
+                </p>
+              </div>
+
+              <div class="mt-auto pt-6 border-t border-slate-50 flex justify-center">
+                <p
+                  class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]"
+                >
+                  f&c consultores • gestión de agenda
                 </p>
               </div>
             </div>
@@ -267,7 +410,6 @@ const handleOpenDependency = (dependencyType) => {
                     >
                       <span class="text-xs font-bold">{{ mov.user[0] }}</span>
                     </div>
-                    
 
                     <div class="flex-1 min-w-0">
                       <p class="text-[14px] text-slate-600 leading-snug">
@@ -312,8 +454,6 @@ const handleOpenDependency = (dependencyType) => {
                   <span class="text-[10px] font-bold block">Seguridad</span>
                 </button>
               </div>
-
-             
             </div>
           </div>
         </section>
@@ -368,5 +508,32 @@ const handleOpenDependency = (dependencyType) => {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #e2e8f0;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 </style>

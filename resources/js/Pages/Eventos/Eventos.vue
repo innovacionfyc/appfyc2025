@@ -165,47 +165,52 @@ const formatEventRange = (inicio, fin) => {
         :stats="headerStats"
       />
 
-      <div class="p-8 max-w-[1700px] mx-auto space-y-10">
+      <div class="p-8 mx-auto space-y-10">
         <div
-          class="flex flex-col lg:flex-row justify-between items-center gap-6 bg-slate-900 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group"
+          class="bg-slate-900 p-5 rounded-[2.5rem] border border-white/5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5"
         >
-          <div
-            class="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"
-          ></div>
-
-          <div class="relative z-10 flex items-center gap-6">
+          <div class="flex items-center gap-4">
             <div
-              class="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner"
+              class="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10"
             >
-              <LayoutGrid class="w-8 h-8 text-white" />
+              <LayoutGrid class="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h2 class="text-3xl font-black text-white tracking-tight">
-                Catálogo Maestro
+            <div class="flex flex-col">
+              <h2 class="text-lg font-black text-white lowercase leading-tight">
+                catálogo maestro
               </h2>
-              <p class="text-slate-400 text-xs font-bold uppercase tracking-[0.3em]">
-                Total: {{ filteredEventos.length }} Unidades
+              <p class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                {{ filteredEventos.length }} jornadas encontradas
               </p>
             </div>
           </div>
 
-          <div class="relative z-10 flex items-center gap-4 w-full lg:w-auto">
-            <div class="relative flex-1 lg:w-[450px]">
+          <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="relative flex-grow md:w-72 lg:w-96 group">
               <Search
-                class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"
+                class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-orange-500 transition-colors"
               />
               <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Buscar por título del evento..."
-                class="w-full pl-14 pr-6 py-5 bg-white/5 border-none rounded-full text-white placeholder:text-slate-600 focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
+                placeholder="buscar jornada..."
+                class="w-full pl-11 pr-4 py-3 bg-white/5 border-none rounded-2xl text-white placeholder:text-slate-600 focus:ring-1 focus:ring-orange-500/30 focus:bg-white/10 transition-all text-xs font-medium"
               />
+              <button
+                v-if="searchQuery"
+                @click="searchQuery = ''"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              >
+                <X class="w-3 h-3" />
+              </button>
             </div>
+
             <button
               @click="openModal(null, 'create')"
-              class="flex items-center gap-3 px-8 py-5 bg-orange-600 hover:bg-orange-500 text-white rounded-full font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-orange-900/20"
+              class="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
             >
-              <Plus class="w-5 h-5" /> Nueva Jornada
+              <Plus class="w-4 h-4" />
+              <span class="hidden sm:inline">nueva jornada</span>
             </button>
           </div>
         </div>
@@ -214,136 +219,148 @@ const formatEventRange = (inicio, fin) => {
           <div
             v-for="evento in filteredEventos"
             :key="evento.id"
-            class="group bg-white rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] transition-all duration-700 flex flex-col relative overflow-hidden"
+            class="group bg-white rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] transition-all duration-700 flex flex-col relative overflow-hidden"
           >
-            <div class="relative h-64 overflow-hidden">
+            <div class="relative h-72 overflow-hidden">
               <img
                 :src="
                   evento.imagen_relacionada
                     ? '/storage/' + evento.imagen_relacionada
                     : '/images/default-bg.webp'
                 "
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2s]"
+                class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3s] ease-out"
               />
+
               <div
-                class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/20 to-transparent"
+                class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
               ></div>
 
               <div class="absolute top-6 left-6">
                 <span
-                  class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border border-white/10 shadow-xl"
+                  class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] backdrop-blur-md border border-white/20 shadow-2xl text-white"
                   :class="getStatusClass(evento.estado_id)"
                 >
                   {{ evento.estado?.tipo_estado }}
                 </span>
               </div>
 
-             <div class="mb-6 md:mb-8 flex justify-center">
-              <img
-                :src="getAreaTagImage()"
-                :alt="evento?.area_formacion?.nombre || 'Área de formación'"
-                class="h-20 md:h-28 w-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-              <p
-                class="text-sm md:text-md text-slate-400 font-medium max-w-xl mx-auto md:mb-2"
+              <div
+                class="absolute bottom-6 right-6 w-20 h-20 bg-white/10 backdrop-blur-xl rounded-3xl p-2 border border-white/20 shadow-2xl transition-transform duration-500 group-hover:rotate-6"
               >
-                · {{ evento.modo_evento || "Sin línea de formación" }} ·
-              </p>
-              <h1 class="font-black text-white leading-tight mb-1 text-5xl">
-                {{ evento.titulo || "Sin título definido" }}
-              </h1>
-              <p
-                class="text-sm md:text-md text-white font-medium max-w-xl mx-auto md:mb-2"
-              >
-                {{ evento.subtitulo || "Sin subtitulo definido" }}
-              </p>
+                <img
+                  :src="getAreaTagImage(evento.area_formacion?.nombre)"
+                  class="w-full h-full object-contain drop-shadow-md"
+                />
+              </div>
             </div>
 
-            <div class="p-10 space-y-8 flex-1 flex flex-col">
-              <div class="flex items-start gap-5">
-                <div
-                  class="flex-shrink-0 w-16 h-16 bg-slate-900 rounded-3xl flex flex-col items-center justify-center text-white shadow-xl shadow-slate-200"
+            <div class="p-10 space-y-6 flex-1 flex flex-col">
+              <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="w-2 h-2 rounded-full"
+                    :style="{
+                      backgroundColor: evento.area_formacion?.color_hex_principal,
+                    }"
+                  ></span>
+                  <p
+                    class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]"
+                  >
+                    {{ evento.modo_evento || "formación continua" }}
+                  </p>
+                </div>
+                <h3
+                  class="text-3xl font-black text-slate-900 leading-tight lowercase group-hover:text-orange-600 transition-colors duration-500"
                 >
-                  <Calendar class="w-5 h-5 text-orange-500 mb-1" />
-                  <span class="text-[10px] font-black uppercase tracking-tighter"
-                    >Agenda</span
+                  {{ evento.titulo }}
+                </h3>
+                <p class="text-xs font-bold text-slate-500 line-clamp-2 leading-relaxed">
+                  {{ evento.subtitulo }}
+                </p>
+              </div>
+
+              <div
+                class="bg-slate-50 p-6 rounded-[2.5rem] flex items-center gap-5 border border-slate-100 transition-colors group-hover:bg-white group-hover:border-orange-100"
+              >
+                <div
+                  class="w-14 h-14 bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-white shadow-xl group-hover:bg-orange-600 transition-colors"
+                >
+                  <Calendar class="w-5 h-5 mb-0.5" />
+                  <span class="text-[8px] font-black uppercase tracking-tighter"
+                    >cita</span
                   >
                 </div>
                 <div class="space-y-1">
-                  <p
-                    class="text-[11px] font-black text-slate-400 uppercase tracking-widest"
-                  >
-                    Fecha Programada
-                  </p>
-                  <p class="text-lg font-black text-slate-800 leading-none">
+                  <p class="text-[11px] font-black text-slate-800 leading-none">
                     {{
                       formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin)
                     }}
                   </p>
-                  <p class="text-xs font-bold text-slate-500 flex items-center gap-1">
-                    <MapPin class="w-3 h-3" />
-                    {{ evento.ubicacion || "Ubicación por definir" }}
+                  <p
+                    class="text-[10px] font-bold text-slate-400 flex items-center gap-1 lowercase"
+                  >
+                    <MapPin class="w-3 h-3 text-orange-500" />
+                    {{ evento.ubicacion || "sede central por definir" }}
                   </p>
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50">
+              <div class="grid grid-cols-2 gap-6 py-2">
                 <div class="space-y-1">
                   <p
-                    class="text-[9px] font-black text-slate-400 uppercase tracking-tighter"
+                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
                   >
-                    Inversión Jornada
+                    inversión
                   </p>
                   <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                    <span class="text-sm font-black text-slate-700">{{
+                    <span class="text-xl font-black text-slate-900">{{
                       formatPrice(evento.precio_jornada)
                     }}</span>
+                    <span
+                      class="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md uppercase"
+                      >iva inc.</span
+                    >
                   </div>
                 </div>
-                <div class="space-y-1 border-l border-slate-100 pl-4">
+                <div class="space-y-1 border-l border-slate-100 pl-6">
                   <p
-                    class="text-[9px] font-black text-slate-400 uppercase tracking-tighter"
+                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
                   >
-                    Staff Académico
+                    académicos
                   </p>
                   <div class="flex items-center gap-2">
-                    <Users class="w-4 h-4 text-slate-400" />
-                    <span class="text-sm font-black text-slate-700"
-                      >{{ evento.conferencistas?.length }} Expertos</span
+                    <Users class="w-4 h-4 text-slate-900" />
+                    <span class="text-sm font-black text-slate-900"
+                      >{{ evento.conferencistas?.length }} expertos</span
                     >
                   </div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 pt-6 mt-auto">
-                <BtnUniversal
+              <div class="flex items-center gap-3 pt-6 border-t border-slate-50 mt-auto">
+                <button
                   @click="openPreview(evento)"
-                  label="Previsualización web"
-                  icon="globe"
-                  icon-position="right"
-                  :activeColor="evento.area_formacion.color_hex_principal"
-                />
-
-                <div
-                  class="flex gap-1.5 bg-slate-50 p-1.5 rounded-[2.2rem] border border-slate-100"
+                  class="flex-grow flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-orange-600 transition-all hover:shadow-xl hover:shadow-orange-200"
                 >
+                  ver detalles <ChevronRight class="w-4 h-4" />
+                </button>
+
+                <div class="flex gap-1.5 bg-slate-100 p-1.5 rounded-[1.8rem]">
                   <button
                     @click="openModal(evento, 'edit')"
-                    class="w-12 h-12 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-blue-600 hover:shadow-md transition-all shadow-sm"
+                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-blue-600 hover:shadow-lg transition-all"
                   >
                     <Edit3 class="w-4 h-4" />
                   </button>
                   <button
                     @click="openModal(evento, 'duplicate')"
-                    class="w-12 h-12 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-indigo-600 hover:shadow-md transition-all shadow-sm"
+                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-emerald-600 hover:shadow-lg transition-all"
                   >
                     <Copy class="w-4 h-4" />
                   </button>
                   <button
                     @click="deleteEvent(evento.id)"
-                    class="w-12 h-12 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-red-600 hover:shadow-md transition-all shadow-sm"
+                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-red-600 hover:shadow-lg transition-all"
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
