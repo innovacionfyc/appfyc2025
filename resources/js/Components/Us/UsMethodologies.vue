@@ -30,7 +30,7 @@ const items = [
     grad: 'from-[#e96510] to-[#f39322]',
   },
   {
-    icon: 'case',
+    icon: 'dynamic_form',
     title: 'Análisis de casos reales',
     desc: 'Aplicación práctica con situaciones del entorno institucional.',
     accent: '#942934',
@@ -62,7 +62,7 @@ const blocks = [
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full overflow-hidden bg-white py-16">
+  <section ref="rootEl" class="flex items-center min-h-dvh relative w-full overflow-hidden bg-white py-16">
     <!-- Fondo dinámico suave -->
     <div class="absolute inset-0 z-0 pointer-events-none">
       <div class="absolute inset-0 bg-gradient-to-br from-[#e96510]/10 via-white to-[#685f2f]/10"></div>

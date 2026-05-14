@@ -8,6 +8,7 @@ import ProgramCtaStrip from "@/Components/ProgramCtaStrip.vue";
 import SiteFooter from "@/Components/SiteFooter.vue";
 import RevealSection from "@/Components/RevealSection.vue";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
+import Creditos from "@/Components/Creditos.vue";
 
 const props = defineProps({
   eventosHero: {
@@ -50,6 +51,7 @@ const props = defineProps({
 
       <RevealSection class="snap-end w-full z-40 relative">
         <SiteFooter />
+       
       </RevealSection>
     </div>
   </GuestLayout>

@@ -14,26 +14,39 @@ import GuestLayout from "@/Layouts/GuestLayout.vue";
 <template>
   <Head title="Oferta" />
 
-  <div class="min-h-screen">
-    <GuestLayout>
-    <HeaderNav />
-      <main class="pt-24">
-        <OfferHero />
+  <GuestLayout>
+    <div
+      class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white flex flex-col"
+    >
+      <HeaderNav />
 
-        <RevealSection>
+      <main class="flex-grow">
+        <RevealSection class="snap-start min-h-dvh w-full">
+          <OfferHero />
+        </RevealSection>
+
+        <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
           <OfferModalities />
         </RevealSection>
 
-        <RevealSection>
+        <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
           <OfferMethodology />
         </RevealSection>
-
-        <RevealSection>
-          <OfferCtaStrip />
-        </RevealSection>
       </main>
-    <SiteFooter />
-    </GuestLayout>
 
-  </div>
+      <RevealSection class="snap-end w-full z-40 relative mt-auto">
+        <SiteFooter />
+      </RevealSection>
+    </div>
+  </GuestLayout>
 </template>
+
+<style>
+div::-webkit-scrollbar {
+  display: none;
+}
+div {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

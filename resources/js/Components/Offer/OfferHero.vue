@@ -20,21 +20,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => observer?.disconnect())
 
-/**
- * Fondo dinámico (hover preview + click fijo)
- */
+
 const hovered = ref(null)
 const pinned = ref(null)
-const activeKey = computed(() => pinned.value ?? hovered.value ?? 'abiertos') // default: Abiertos (como tu orden)
+const activeKey = computed(() => pinned.value ?? hovered.value ?? 'abiertos') 
 
 function pin(key) {
   pinned.value = (pinned.value === key) ? null : key
 }
 
-/**
- * “Imágenes” temporales (gradientes tipo foto).
- * Cuando tengas imágenes reales: reemplazas backgroundImage por url(...)
- */
+
 const bgPresets = {
   abiertos: {
     backgroundImage: `
@@ -68,7 +63,7 @@ const activeBgStyle = computed(() => bgPresets[activeKey.value] || bgPresets.abi
 <template>
   <section
     ref="rootEl"
-    class="relative w-full py-20 lg:py-28 overflow-hidden bg-white"
+    class="flex items-center w-full min-h-dvh py-20 lg:py-28 overflow-hidden bg-white"
   >
     <!-- ✅ Fondo dinámico EXTENDIDO por todo el Hero -->
     <div class="absolute inset-0 z-0 pointer-events-none">

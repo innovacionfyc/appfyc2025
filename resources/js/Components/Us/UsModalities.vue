@@ -93,7 +93,7 @@ const activeModal = computed(() => modalities.find(m => m.key === activeKey.valu
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full overflow-hidden bg-white py-16">
+  <section ref="rootEl" class="flex items-center min-h-dvh relative w-full overflow-hidden bg-white py-16">
     <!-- Fondo dinámico extendido -->
     <div class="absolute inset-0 z-0 pointer-events-none">
       <div class="absolute inset-0 transition-opacity duration-500" :style="activeBgStyle"></div>

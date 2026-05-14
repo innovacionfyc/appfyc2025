@@ -93,7 +93,7 @@ const activeBgStyle = computed(() => bgPresets[activeKey.value] || bgPresets.for
 </script>
 
 <template>
-  <section ref="rootEl" class="relative w-full overflow-hidden bg-white py-16 md:py-20">
+  <section ref="rootEl" class="flex items-center min-h-dvh relative w-full overflow-hidden bg-white ">
     <!-- Fondo dinámico extendido -->
     <div class="absolute inset-0 z-0 pointer-events-none">
       <div class="absolute inset-0 transition-opacity duration-500" :style="activeBgStyle"></div>
@@ -108,7 +108,7 @@ const activeBgStyle = computed(() => bgPresets[activeKey.value] || bgPresets.for
     </div>
 
     <div class="relative z-10 max-w-7xl mx-auto px-6">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <!-- TEXTO -->
         <div class="lg:col-span-7">
           <div

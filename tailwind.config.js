@@ -3,19 +3,19 @@ import forms from '@tailwindcss/forms';
 
 /** @type {import('tailwindcss').Config} */
 export default {
-    content: [
-        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
-        './storage/framework/views/*.php',
-        './resources/views/**/*.blade.php',
-        './resources/js/**/*.vue',
-    ],
+  content: [
+    './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
+    './storage/framework/views/*.php',
+    './resources/views/**/*.blade.php',
+    './resources/js/**/*.vue',
+  ],
 
-    theme: {
-        extend: {
-            fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
-            },
-             colors: {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+      },
+      colors: {
         mono: {
           blanco: '#F5F7F8',
           blanco_opacity: '#f5f7f873',
@@ -26,7 +26,7 @@ export default {
         bg: {
           empty: '#1A2130',
         },
-        primary: { 
+        primary: {
           vinotinto: '#942934',
           verde: '#685F2F',
           naranja: '#E96510',
@@ -61,8 +61,20 @@ export default {
         'gradient-gris': 'linear-gradient(to right, #58636D, #36474F)',
         'gradient-toronja': 'linear-gradient(to right, #9B9900, #CCC715)',
       },
+      animation: {
+        blob: "blob 7s infinite",
+      },
+      keyframes: {
+        blob: {
+          "0%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+          "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+          "100%": { transform: "translate(0px, 0px) scale(1)" },
         },
-    },
+      },
 
-    plugins: [forms],
+    },
+  },
+
+  plugins: [forms],
 };

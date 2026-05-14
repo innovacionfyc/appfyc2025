@@ -40,7 +40,7 @@ const note2026 =
     </div>
 
     <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
 
         <!-- Header -->
         <div class="lg:col-span-5">

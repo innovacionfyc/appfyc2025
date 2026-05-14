@@ -77,7 +77,7 @@ const cards = [
 </script>
 
 <template>
-  <section ref="rootEl" class="relative overflow-hidden">
+  <section ref="rootEl" class="flex items-center min-h-dvh relative overflow-hidden">
     <!-- Fondo dinámico suave -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute inset-0 bg-gradient-to-br from-[#942934]/8 via-white to-[#e96510]/8"></div>

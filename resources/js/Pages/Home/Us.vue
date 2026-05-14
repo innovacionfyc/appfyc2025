@@ -14,26 +14,42 @@ import GuestLayout from "@/Layouts/GuestLayout.vue";
 <template>
   <Head title="Nosotros" />
   <GuestLayout>
+  <div
+      class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white flex flex-col"
+    >
     <HeaderNav />
 
-    <main class="min-h-screen pt-24">
-      <RevealSection>
+    <main class="flex-grow">
+      <RevealSection class="snap-start min-h-dvh w-full">
         <UsHistory />
       </RevealSection>
 
-      <RevealSection>
+      <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
         <UsTeam />
       </RevealSection>
 
-      <RevealSection>
+      <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
         <UsModalities />
       </RevealSection>
 
-      <RevealSection>
+      <RevealSection :repeat="true" class="snap-start w-full z-30 relative">
         <UsMethodologies />
       </RevealSection>
     </main>
 
-    <SiteFooter />
+     <RevealSection class="snap-end w-full z-40 relative mt-auto">
+        <SiteFooter />
+      </RevealSection>
+  </div>
   </GuestLayout>
 </template>
+
+<style>
+div::-webkit-scrollbar {
+  display: none;
+}
+div {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>
