@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Evento;
+namespace App\Http\Controllers\Programas;
 
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
@@ -20,43 +20,14 @@ use Inertia\Response;
 use Illuminate\Support\Str;
 
 
-class EventoController extends Controller
+class ProgramasController extends Controller
 {
     public function show(): Response
     {
-        $eventos = Evento::with([
-            'areaFormacion',
-            'estado',
-            'conferencistas',
-            'contenidoTematico',
-            'organizador.perfilOrganizador'
-        ])
-            ->latest()
-            ->get();
+       
 
-        $organizador = Usuario::whereHas('perfilOrganizador', function ($query) {
-            $query->where('rol_id', 3);
-        })
-            ->with('perfilOrganizador')
-            ->get()
-            ->map(fn($u) => [
-                'id' => $u->id,
-                'nombre' => $u->perfilOrganizador
-                    ? $u->perfilOrganizador->primer_nombre . ' ' . $u->perfilOrganizador->segundo_nombre . ' ' . $u->perfilOrganizador->primer_apellido
-                    : $u->email
-            ]);
-
-        $estados = Estado::all();
-        $areas = AreaFormacion::all();
-        $conferencistas = PerfilConferencista::with('areaEncargada')->get();
-
-        return Inertia::render('Eventos/Eventos', [
-            'eventos' => $eventos,
-            'areas' => $areas,
-            'estados' => $estados,
-            'conferencistas' => $conferencistas,
-            'formularios' => FormularioBase::all(),
-            'organizador' => $organizador
+        return Inertia::render('Programas/Programas', [
+           
         ]);
     }
 

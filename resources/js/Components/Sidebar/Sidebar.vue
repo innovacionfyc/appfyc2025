@@ -17,30 +17,30 @@ import { useAuthStore } from "@/stores/auth";
 const authStore = useAuthStore();
 const page = usePage();
 
-// --- ESTADOS ---
 const isHovered = ref(false);
 const activeSubmenu = ref(null);
 const isMobileMenuOpen = ref(false);
 
-// --- NAVEGACIÓN ---
 const navItems = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
     name: "Eventos",
     icon: CalendarDays,
     submenu: [
-      { name: "Ver Todos", href: "/admin/eventos/data" },
+      { name: "Eventos activos", href: "/admin/eventos/data" },
+      { name: "Papelera", href: "/admin/eventos/data/papelera" },
     ],
   },
   {
     name: "Academia",
     icon: GraduationCap,
     submenu: [
-      { name: "Conferencistas", href: "/admin/conferencistas" },
-      { name: "Material", href: "/admin/material" },
+      { name: "Certificados", href: "/admin/certificadosWeb" },
+      { name: "Programas", href: "/admin/programas" },
+      { name: "Memorias", href: "/admin/memorias" },
     ],
   },
-  { name: "Usuarios", icon: Users, href: "/admin/usuarios_fyc" },
+  { name: "Equipo", icon: Users, href: "/admin/usuarios_fyc" },
   { name: "Configuración", icon: Settings, href: "/admin/configuracion" },
 ];
 

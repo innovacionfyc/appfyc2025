@@ -150,15 +150,15 @@ const submit = () => {
                 activeColor="#e11d48"
               />
 
-              <div class="flex justify-between mb-2 items-center">
+              <!-- <div class="flex justify-between mb-2 items-center">
                 <a
                   href="#"
                   class="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors"
                   >¿Olvidó su contraseña?</a
                 >
-              </div>
+              </div> -->
 
-              <div class="flex items-center">
+              <!-- <div class="flex items-center">
                 <input
                   type="checkbox"
                   id="recordar"
@@ -171,7 +171,7 @@ const submit = () => {
                 >
                   Mantener sesión iniciada
                 </label>
-              </div>
+              </div> -->
 
               <BtnUniversal
                 label="Ingresar al Panel"

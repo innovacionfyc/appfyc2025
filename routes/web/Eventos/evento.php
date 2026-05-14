@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin')->group(function () {
     Route::get('/eventos/data', [EventoController::class, 'show'])->name('eventos.dashboard');
+    Route::get('/eventos/data/papelera', [EventoController::class, 'papelera'])->name('eventos.papelera');
 
     Route::post('/eventos/crear', [EventoController::class, 'store'])->name('eventos.store');
     Route::put('/eventos/{evento}/update', [EventoController::class, 'update'])->name('eventos.update');
