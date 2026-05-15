@@ -69,20 +69,31 @@ const getAreaTagImage = () => {
 const showModal = ref(false);
 
 const timeLeft = ref({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+const isLive = ref(false); 
 let timer = null;
 
 const startCountdown = () => {
   const targetDate = new Date(evento.fecha_hora_inicio).getTime();
+  const endDate = new Date(evento.fecha_hora_fin).getTime();
 
   timer = setInterval(() => {
     const now = new Date().getTime();
     const distance = targetDate - now;
+    const distanceEnd = endDate - now;
 
-    if (distance < 0) {
+    if (distance <= 0 && distanceEnd > 0) {
+      isLive.value = true;
+      timeLeft.value = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+      return;
+    }
+
+    if (distanceEnd <= 0) {
+      isLive.value = false;
       clearInterval(timer);
       return;
     }
 
+    isLive.value = false;
     timeLeft.value.days = Math.floor(distance / (1000 * 60 * 60 * 24));
     timeLeft.value.hours = Math.floor(
       (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
@@ -91,6 +102,7 @@ const startCountdown = () => {
     timeLeft.value.seconds = Math.floor((distance % (1000 * 60)) / 1000);
   }, 1000);
 };
+
 const isScrolled = ref(false);
 const scrollContainer = ref(null);
 
@@ -124,14 +136,20 @@ const formatEventRange = (inicio, fin) => {
   const getYear = (d) => d.getFullYear();
 
   if (!end || start.toDateString() === end.toDateString()) {
-    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} | todo el día`;
+    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
+      start
+    )} | todo el día`;
   }
 
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
+    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(
+      end
+    )} de ${getMonth(start)} de ${getYear(start)}`;
   }
 
-  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(end)} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(
+    end
+  )} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
 };
 </script>
 
@@ -207,7 +225,7 @@ const formatEventRange = (inicio, fin) => {
             >
               {{ evento?.titulo }}
             </h1>
-<p
+            <p
               v-if="evento?.subtitulo"
               class="text-lg md:text-3xl text-white font-medium max-w-3xl mx-auto md:mb-6"
             >
@@ -223,7 +241,7 @@ const formatEventRange = (inicio, fin) => {
                     color: evento?.area_formacion?.color_hex_principal || '#f97316',
                   }"
                 />
-              {{ formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin) }}
+                {{ formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin) }}
               </span>
               <span class="flex items-center gap-2 text-sm md:text-base">
                 <MapPin
@@ -235,34 +253,73 @@ const formatEventRange = (inicio, fin) => {
                 Modalidad {{ evento?.modalidad }}
               </span>
             </div>
-            <div class="relative flex justify-center gap-6 my-10">
+            <div class="my-10">
               <div
-                v-for="(val, unit) in timeLeft"
-                :key="unit"
-                class="flex flex-col items-center"
+                v-if="isLive"
+                class="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700"
               >
-                <div class="flex items-center justify-center">
+                <div class="relative flex items-center justify-center">
                   <div
-                    class="absolute top-0 left-0 w-auto h-1/2 bg-gradient-to-b from-white/5 to-transparent"
+                    class="absolute inset-0 rounded-full blur-xl opacity-20 animate-pulse"
+                    :style="{
+                      background:
+                        evento?.area_formacion?.color_hex_principal || '#f97316',
+                    }"
                   ></div>
 
-                  <span
-                    class="text-3xl sm:text-5xl font-black text-mono-blanco tabular-nums"
+                  <div
+                    class="relative px-8 py-4 rounded-3xl border shadow-2xl flex items-center gap-4"
+                    :style="{
+                      background:
+                        evento?.area_formacion?.color_hex_principal || '#f97316',
+                      border: evento?.area_formacion?.color_hex_principal || '#f97316',
+                    }"
                   >
-                    {{ val < 10 ? "0" + val : val }}
+                    <div class="flex gap-1">
+                      <span class="w-2 h-2 bg-white rounded-full animate-bounce"></span>
+                      <span
+                        class="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"
+                      ></span>
+                      <span
+                        class="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"
+                      ></span>
+                    </div>
+                    <span class="text-2xl font-black text-white"> En ejecución </span>
+                  </div>
+                </div>
+                <p class="mt-4 text-[18px] font-bold text-mono-blanco">
+                  Jornada académica en curso
+                </p>
+              </div>
+
+              <div v-else class="relative flex justify-center gap-6">
+                <div
+                  v-for="(val, unit) in timeLeft"
+                  :key="unit"
+                  class="flex flex-col items-center min-w-[70px]"
+                >
+                  <div class="relative flex items-center justify-center mb-1">
+                    <span
+                      class="text-4xl sm:text-6xl font-black text-mono-blanco tabular-nums tracking-tighter"
+                    >
+                      {{ val < 10 ? "0" + val : val }}
+                    </span>
+                  </div>
+
+                  <span
+                    class="text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                  >
+                    {{
+                      unit === "days"
+                        ? "Días"
+                        : unit === "hours"
+                        ? "Horas"
+                        : unit === "minutes"
+                        ? "Min"
+                        : "Seg"
+                    }}
                   </span>
                 </div>
-                <span class="text-[10px] sm:text-sm font-bold text-slate-400">
-                  {{
-                    unit === "days"
-                      ? "Días"
-                      : unit === "hours"
-                      ? "Horas"
-                      : unit === "minutes"
-                      ? "Min"
-                      : "Seg"
-                  }}
-                </span>
               </div>
             </div>
           </div>

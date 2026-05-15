@@ -31,7 +31,7 @@ class AdminController extends Controller
             'usuario.perfilOrganizador:id,usuario_id,primer_nombre'
         ])
             ->latest()
-            ->take(5)
+            ->take(10)
             ->get()
             ->map(fn($m) => [
                 'id' => $m->id,
@@ -39,7 +39,7 @@ class AdminController extends Controller
                     ? $m->usuario->perfilOrganizador->primer_nombre
                     : 'Sistema',
                 'descripcion' => $m->descripcion,
-                'tiempo' => $m->created_at->diffForHumans(),
+                'tiempo' => $m->created_at->locale('es')->diffForHumans(),
                 'tipo' => $m->tipo
             ]);
 
@@ -66,17 +66,27 @@ class AdminController extends Controller
             ->whereBetween('fecha_hora_inicio', [$fechaInicio, $fechaFin])
             ->orderBy('fecha_hora_inicio', 'asc')
             ->get()
-            ->map(fn($e) => [
-                'id' => $e->id,
-                'titulo' => $e->titulo,
-                'area' => $e->areaFormacion->nombre,
-                'color' => $e->areaFormacion->color_hex_principal ?? '#64748b',
-                'fecha' => $e->fecha_hora_inicio,
-                'es_esta_semana' => \Carbon\Carbon::parse($e->fecha_hora_inicio)->isCurrentWeek(),
-                'es_hoy' => \Carbon\Carbon::parse($e->fecha_hora_inicio)->isToday(),
-                'modalidad' => $e->modalidad,
-                'ubicacion' => $e->ubicacion
-            ]);
+            ->map(function ($e) {
+                $start = \Carbon\Carbon::parse($e->fecha_hora_inicio);
+                $end = \Carbon\Carbon::parse($e->fecha_hora_fin);
+                $duracion = $start->diffInDays($end) + 1;
+                $nombre_completo = $e->organizador->perfilOrganizador->primer_nombre . ' ' . $e->organizador->perfilOrganizador->segundo_nombre . ' ' . $e->organizador->perfilOrganizador->primer_apellido;
+
+                return [
+                    'id' => $e->id,
+                    'titulo' => $e->titulo,
+                    'area' => $e->areaFormacion->nombre,
+                    'color' => $e->areaFormacion->color_hex_principal ?? '#64748b',
+                    'fecha' => $e->fecha_hora_inicio,
+                    'fecha_fin' => $e->fecha_hora_fin,
+                    'duracion_dias' => $duracion,
+                    'es_esta_semana' => $start->isCurrentWeek(),
+                    'es_hoy' => $start->isToday() || (now()->between($start, $end)),
+                    'modalidad' => $e->modalidad,
+                    'ubicacion' => $e->ubicacion,
+                    'organizador' => $nombre_completo
+                ];
+            });
 
 
         return Inertia::render('Dashboard/superAdmin', [

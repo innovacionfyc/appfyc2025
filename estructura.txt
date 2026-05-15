@@ -1,1 +1,4 @@
 php artisan storage:link
+
+correr tareas automaticas
+php artisan schedule:work

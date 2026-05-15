@@ -5,28 +5,24 @@ import { useAuthStore } from "@/stores/auth";
 
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
-import BtnUniversal from "@/Components/BtnUniversal.vue";
 import CreateEventModal from "@/Components/Eventos/CreateEventModal.vue";
-import CreateConferencistaModal from "@/Components/Conferencistas/CreateConferencistaModal.vue";
-import CreateFormularioModal from "@/Components/Formularios/CreateFormularioModal.vue";
+
 
 // ICONOS
 import {
   Users,
   Calendar,
-  ShieldCheck,
-  ChevronRight,
   Plus,
-  ArrowUpRight,
   Activity,
   Zap,
   Clock,
   MapPin,
   Monitor,
-  Star,
   LayoutGrid,
+  User,
 } from "lucide-vue-next";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
+import PreviewEventModal from "@/Components/Eventos/PreviewEventModal.vue";
 
 const props = defineProps({
   auth: Object,
@@ -39,8 +35,6 @@ const props = defineProps({
   stats_counts: Object,
   agenda_proxima: Array,
 });
-
-const authStore = useAuthStore();
 
 const contadorEventos = props.stats_counts?.eventos_activos;
 
@@ -57,21 +51,10 @@ const stats = computed(() => [
     name: "Conferencistas",
     value: props.stats_counts?.conferencistas || 0,
     icon: Users,
-    color: "text-rose-600",
+    color: "text-primary-vinotinto",
     bg: "bg-rose-50",
     trend: "Registrados",
-  },
-  {
-    name: "Inscripciones",
-    value:
-      props.stats_counts?.inscripciones >= 1000
-        ? (props.stats_counts.inscripciones / 1000).toFixed(1) + "k"
-        : props.stats_counts?.inscripciones || 0,
-    icon: Zap,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    trend: "Total acumulado",
-  },
+  }
 ]);
 
 const recentActivity = [
@@ -103,21 +86,20 @@ const headerStats = [
     label: "Perfil",
     value: props.auth?.user?.perfil_organizador?.rol?.tipo_rol,
     icon: "verified_user",
-    color: "text-emerald-500",
+    color: "text-sembg-semaforo-verde",
     bg: "bg-emerald-50",
   },
   {
     label: "Equipo",
     value: props.auth?.user?.perfil_organizador?.equipo?.nombre,
     icon: "check_circle",
-    color: "text-blue-500",
+    color: "text-primary-naranja",
     bg: "bg-blue-50",
   },
 ];
 
 const isCreateModalOpen = ref(false);
 const isSpeakerModalOpen = ref(false);
-const isFormularioModalOpen = ref(false);
 
 const handleOpenDependency = (dependencyType) => {
   isCreateModalOpen.value = false;
@@ -138,6 +120,26 @@ const formatDate = (dateStr) => {
     }),
   };
 };
+
+const isPreviewOpen = ref(false);
+const selectedEvento = ref(null);
+
+const openPreview = (evento) => {
+  selectedEvento.value = evento;
+  isPreviewOpen.value = true;
+};
+
+const getExecutionDay = (evento) => {
+  const start = new Date(evento.fecha);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+
+  const diffTime = Math.abs(today - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  return diffDays > evento.duracion_dias ? evento.duracion_dias : diffDays;
+};
 </script>
 
 <template>
@@ -154,18 +156,18 @@ const formatDate = (dateStr) => {
       </DashboardHeader>
 
       <div
-        class="mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-1000"
+        class="mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000"
       >
         <section
-          class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700"
+          class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700"
         >
           <div
             v-for="stat in stats"
             :key="stat.name"
-            class="group relative bg-white/60 backdrop-blur-2xl p-7 rounded-[2.5rem] border border-white shadow-[0_10px_40px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden"
+            class="group relative bg-mono-blanco/60 backdrop-blur-2xl p-5 rounded-xl border border-mono-blanco shadow-[0_10px_40px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden"
           >
             <div
-              class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-white/40 to-transparent rounded-full blur-2xl"
+              class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-mono-blanco/40 to-transparent rounded-full blur-2xl"
             ></div>
 
             <div class="flex items-start justify-between relative z-10">
@@ -173,16 +175,18 @@ const formatDate = (dateStr) => {
                 :class="[
                   stat.bg,
                   stat.color,
-                  'w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border border-white/50 transition-transform group-hover:scale-110 duration-500',
+                  'w-8 h-8 rounded-2xl flex items-center justify-center shadow-sm border border-mono-blanco/50 transition-transform group-hover:scale-110 duration-500',
                 ]"
               >
-                <component :is="stat.icon" class="w-7 h-7" />
+                <component :is="stat.icon" class="w-5 h-5" />
               </div>
 
               <div
-                class="px-3 py-1.5 rounded-full bg-white/80 border border-white shadow-sm flex items-center gap-1.5"
+                class="px-3 py-1.5 rounded-full bg-mono-blanco/80 border border-mono-blanco shadow-sm flex items-center gap-1.5"
               >
-                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <div
+                  class="w-1.5 h-1.5 rounded-full bg-semaforo-verde animate-pulse"
+                ></div>
                 <span class="text-[11px] font-bold text-slate-500 leading-none">
                   {{ stat.trend }}
                 </span>
@@ -193,7 +197,7 @@ const formatDate = (dateStr) => {
               <p class="text-sm font-semibold text-slate-400 mb-1 leading-none">
                 {{ stat.name }}
               </p>
-              <h3 class="text-4xl font-black text-slate-900 tracking-tight">
+              <h3 class="text-4xl font-black text-mono-negro tracking-tight">
                 {{ stat.value }}
               </h3>
             </div>
@@ -203,55 +207,46 @@ const formatDate = (dateStr) => {
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2 space-y-8">
             <div
-              class="bg-gradient-to-br from-rose-600 to-rose-700 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-rose-200"
+              class="bg-mono-blanco rounded-2xl border border-slate-100 p-8 shadow-sm h-auto flex flex-col"
             >
               <div
-                class="absolute -top-10 -right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"
-              ></div>
-              <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                <div class="flex-1 text-center md:text-left">
-                  <h3 class="text-3xl font-black mb-3">Control de Eventos</h3>
-                  <p class="text-rose-100 font-medium mb-8 leading-relaxed">
-                    Tienes {{ contadorEventos }} eventos próximos a iniciar esta semana.
-                  </p>
-                  <div class="flex flex-wrap justify-center md:justify-start gap-4">
-                    <button
-                      @click="isCreateModalOpen = true"
-                      class="bg-white text-rose-600 font-bold py-3.5 px-8 rounded-2xl shadow-lg hover:bg-rose-50 transition-all active:scale-95 flex items-center gap-2"
+                class="mb-5 bg-gradient-to-br from-primary-vinotinto to-secondary-vinotinto2 w-full rounded-2xl p-5 text-mono-blanco relative overflow-hidden shadow-2xl shadow-rose-200"
+              >
+                <div class="2xl:flex 2xl:justify-between items-center">
+                  <div class="flex gap-3">
+                    <div
+                      class="2xl:flex hidden w-14 h-14 bg-mono-blanco/10 backdrop-blur-sm rounded-md border border-mono-blanco/20 items-center justify-center"
                     >
-                      <Plus class="w-5 h-5" /> Crear ahora
-                    </button>
-                    <Link
-                      href="/admin/eventos/data"
-                      class="bg-rose-500/30 backdrop-blur-md text-white border border-rose-400/30 font-bold py-3.5 px-8 rounded-2xl hover:bg-rose-500/50 transition-all"
-                    >
-                      Ver agenda
-                    </Link>
+                      <LayoutGrid class="w-8 h-8 text-mono-blanco/50" />
+                    </div>
+                    <div class="">
+                      <h3 class="text-3xl font-black">Control de Eventos</h3>
+                      <p class="text-rose-100 font-medium leading-relaxed">
+                        Tienes {{ contadorEventos }} eventos próximos a iniciar esta
+                        semana.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div
-                  class="w-48 h-48 bg-white/10 backdrop-blur-sm rounded-[2.5rem] border border-white/20 flex items-center justify-center"
-                >
-                  <LayoutGrid class="w-20 h-20 text-white/50" />
+
+                  <button
+                    @click="isCreateModalOpen = true"
+                    class="bg-mono-blanco text-primary-vinotinto font-bold py-5 px-8 rounded-xl shadow-lg hover:bg-rose-50 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Plus class="w-5 h-5" /> Crear ahora
+                  </button>
                 </div>
               </div>
-            </div>
 
-            <div
-              class="bg-white rounded-[3rem] border border-slate-100 p-8 shadow-sm h-full flex flex-col"
-            >
-              <div class="flex items-center justify-between mb-8">
+              <div class="flex items-center justify-between mb-5">
                 <div>
-                  <h4 class="text-xl font-black text-slate-900">
-                    Agenda activa
-                  </h4>
+                  <h4 class="text-xl font-black text-mono-negro">Agenda activa</h4>
                   <p class="text-xs text-slate-400 font-medium">
                     Esta semana + 4 posteriores
                   </p>
                 </div>
                 <Link
                   href="/admin/eventos/calendario"
-                  class="p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all flex items-center gap-3"
+                  class="p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-primary-vinotinto rounded-2xl transition-all flex items-center gap-3"
                 >
                   <Calendar class="w-5 h-5" />
                   <span class="text-semibold"> Ver calendario completo</span>
@@ -268,7 +263,7 @@ const formatDate = (dateStr) => {
                     class="mb-4 flex items-center gap-3"
                   >
                     <span
-                      class="flex-none text-[16px] font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full"
+                      class="flex-none text-[14px] font-black text-primary-vinotinto bg-rose-50 px-3 py-1 rounded-full"
                       >Esta semana</span
                     >
                     <div class="h-px bg-rose-100 flex-grow"></div>
@@ -283,115 +278,118 @@ const formatDate = (dateStr) => {
                     class="my-6 flex items-center gap-3"
                   >
                     <span
-                      class="flex-none text-[16px] font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full"
-                      >Siguientes semanas</span
+                      class="flex-none text-[14px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full"
+                      >Próximamente</span
                     >
                     <div class="h-px bg-slate-100 flex-grow"></div>
                   </div>
 
                   <div
-                    class="group relative flex items-start gap-4 p-4 rounded-[2rem] transition-all duration-300 border border-transparent hover:border-slate-100 hover:bg-slate-50/50"
-                    :class="{ 'bg-rose-50/30 border-rose-100': evento.es_hoy }"
+                    @click="openPreview(evento)"
+                    class="group relative flex items-start gap-4 p-4 rounded-[2.2rem] transition-all duration-500 border border-transparent hover:border-slate-100 hover:bg-mono-blanco hover:shadow-xl hover:shadow-slate-200/40 cursor-pointer"
+                    :class="{ 'bg-rose-50/40 border-rose-100': evento.es_hoy }"
                   >
                     <div
-                      class="flex-none w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all"
+                      class="flex-none w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-sm"
                       :class="
                         evento.es_hoy
-                          ? 'bg-rose-600 text-white shadow-lg shadow-rose-200'
-                          : 'bg-slate-100 text-slate-900'
+                          ? 'bg-primary-vinotinto text-mono-blanco shadow-rose-200'
+                          : 'bg-mono-negro_opacity_medio border-mono-negro border text-mono-negro'
                       "
                     >
                       <span
-                        class="text-[9px] font-black uppercase tracking-tighter opacity-70"
-                        >{{ formatDate(evento.fecha).diaNombre }}</span
+                        class="text-[8px] font-black uppercase tracking-tighter opacity-70"
                       >
-                      <span class="text-xl font-black leading-none">{{
-                        formatDate(evento.fecha).diaNum
-                      }}</span>
+                        {{ formatDate(evento.fecha).diaNombre }}
+                      </span>
+                      <span class="text-xl font-black leading-none">
+                        {{ formatDate(evento.fecha).diaNum }} <br />
+                        {{ formatDate(evento.fecha_fin).diaNum }}
+                      </span>
                     </div>
 
                     <div class="flex-grow min-w-0 pt-1">
-                      <div class="flex items-center gap-2 mb-1">
+                      <div class="flex items-center gap-2 mb-1.5">
                         <div
                           v-if="evento.es_hoy"
-                          class="flex items-center gap-1 bg-rose-600 text-[8px] text-white px-1.5 py-0.5 rounded-md font-black uppercase animate-pulse"
+                          class="flex items-center gap-1 bg-primary-vinotinto text-[12px] text-mono-blanco px-2 py-0.5 rounded-md font-semibold shadow-sm"
                         >
-                          <Star class="w-2 h-2 fill-current" /> hoy
+                          <span v-if="evento.duracion_dias > 1"
+                            >En ejecución: día {{ getExecutionDay(evento) }}/{{
+                              evento.duracion_dias
+                            }}</span
+                          >
+                          <span v-else>hoy</span>
                         </div>
-                        <span
-                          class="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate"
-                          >{{ evento.area }}</span
+
+                        <div
+                          v-else-if="evento.duracion_dias > 1"
+                          class="bg-primary-verde/20 text-primary-verde text-[12px] px-2 py-0.5 rounded-md font-semibold border border-primary-verde"
                         >
+                          {{ evento.duracion_dias }} días de jornada
+                        </div>
+
+                        <span class="text-[13px] font-bold text-slate-400">
+                          · {{ evento.area }} ·
+                        </span>
                       </div>
 
                       <h5
-                        class="text-sm font-bold text-slate-900 mb-2 truncate group-hover:text-rose-600 transition-colors"
+                        class="text-md font-black text-mono-negro mb-2 truncate group-hover:text-primary-vinotinto transition-colors"
                       >
                         {{ evento.titulo }}
                       </h5>
+                      <div class="flex items-center gap-1.5 truncate">
+                        <User class="w-3 h-3 opacity-40" />
+                        <span class="text-[12px] font-bold">
+                          {{ evento.organizador }}
+                        </span>
+                      </div>
 
-                      <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-1 text-slate-400">
-                          <Clock class="w-3 h-3" />
-                          <span class="text-[10px] font-bold">{{
+                      <div class="flex items-center gap-4 text-slate-400">
+                        <div class="flex items-center gap-1.5">
+                          <Clock class="w-3 h-3 opacity-40" />
+                          <span class="text-[12px] font-bold">{{
                             formatDate(evento.fecha).hora
                           }}</span>
+                          -
+                          <span class="text-[10px] font-bold">{{
+                            formatDate(evento.fecha_fin).hora
+                          }}</span>
                         </div>
-                        <div class="flex items-center gap-1 text-slate-400">
+                        <div class="flex items-center gap-1.5 truncate">
                           <MapPin
                             v-if="evento.modalidad === 'Presencial'"
-                            class="w-3 h-3"
+                            class="w-3 h-3 opacity-40"
                           />
-                          <Monitor v-else class="w-3 h-3" />
-                          <span class="text-[10px] font-bold">{{
-                            evento.modalidad === "Presencial"
-                              ? evento.ubicacion
-                              : "virtual"
-                          }}</span>
+                          <Monitor v-else class="w-3 h-3 opacity-40" />
+                          <span class="text-[12px] font-bold">
+                            {{
+                              evento.modalidad === "Presencial"
+                                ? evento.ubicacion
+                                : "Virtual"
+                            }}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div
-                      class="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-full opacity-20 group-hover:opacity-100 transition-all"
+                      class="absolute right-4 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full opacity-10 group-hover:opacity-100 group-hover:h-12 transition-all duration-500"
                       :style="{ backgroundColor: evento.color }"
                     ></div>
                   </div>
                 </div>
-              </div>
-
-              <div
-                v-else
-                class="flex flex-col items-center justify-center py-16 text-center flex-grow"
-              >
-                <div
-                  class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6"
-                >
-                  <Clock class="w-10 h-10 text-slate-100" />
-                </div>
-                <p
-                  class="text-slate-400 font-medium text-sm max-w-[220px] mx-auto"
-                >
-                  no hay eventos programados para este periodo.
-                </p>
-              </div>
-
-              <div class="mt-auto pt-6 border-t border-slate-50 flex justify-center">
-                <p
-                  class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]"
-                >
-                  f&c consultores • gestión de agenda
-                </p>
               </div>
             </div>
           </div>
 
           <div class="space-y-8">
             <div
-              class="bg-white/70 backdrop-blur-xl rounded-[3rem] border border-white p-8 shadow-sm"
+              class="bg-mono-blanco/70 backdrop-blur-xl rounded-[3rem] border border-mono-blanco p-8 shadow-sm"
             >
-              <h4 class="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                <Activity class="w-5 h-5 text-rose-500" /> Actividad
+              <h4 class="text-lg font-black text-mono-negro mb-6 flex items-center gap-2">
+                <Activity class="w-5 h-5 text-primary-vinotinto" /> Actividad
               </h4>
               <div class="space-y-6">
                 <TransitionGroup
@@ -404,8 +402,8 @@ const formatDate = (dateStr) => {
                       :class="[
                         'w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all group-hover:scale-110',
                         mov.tipo === 'registro'
-                          ? 'bg-emerald-50 text-emerald-500'
-                          : 'bg-blue-50 text-blue-500',
+                          ? 'bg-emerald-50 text-sembg-semaforo-verde'
+                          : 'bg-primary-naranja/20 text-primary-naranja',
                       ]"
                     >
                       <span class="text-xs font-bold">{{ mov.user[0] }}</span>
@@ -413,7 +411,7 @@ const formatDate = (dateStr) => {
 
                     <div class="flex-1 min-w-0">
                       <p class="text-[14px] text-slate-600 leading-snug">
-                        <span class="font-bold text-slate-900">{{ mov.user }}</span>
+                        <span class="font-bold text-primary-naranja">{{ mov.user }}</span>
                         {{ mov.descripcion }}
                       </p>
                       <p
@@ -432,29 +430,6 @@ const formatDate = (dateStr) => {
                 </div>
               </div>
             </div>
-
-            <div
-              class="bg-slate-900 rounded-[3rem] p-8 text-white relative overflow-hidden group"
-            >
-              <div
-                class="absolute inset-0 bg-gradient-to-tr from-rose-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
-              ></div>
-              <h4 class="text-base font-bold mb-6 relative z-10">Herramientas</h4>
-              <div class="grid grid-cols-2 gap-3 relative z-10">
-                <button
-                  class="p-4 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-center"
-                >
-                  <Users class="w-5 h-5 mx-auto mb-2 text-rose-400" />
-                  <span class="text-[10px] font-bold block">Personal</span>
-                </button>
-                <button
-                  class="p-4 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-center"
-                >
-                  <ShieldCheck class="w-5 h-5 mx-auto mb-2 text-emerald-400" />
-                  <span class="text-[10px] font-bold block">Seguridad</span>
-                </button>
-              </div>
-            </div>
           </div>
         </section>
       </div>
@@ -469,22 +444,11 @@ const formatDate = (dateStr) => {
         @close="isCreateModalOpen = false"
         @openDependency="handleOpenDependency"
       />
-      <CreateConferencistaModal
-        :show="isSpeakerModalOpen"
-        :areas="areas"
-        @close="isSpeakerModalOpen = false"
-        @success="
-          isSpeakerModalOpen = false;
-          isCreateModalOpen = true;
-        "
-      />
-      <CreateFormularioModal
-        :show="isFormularioModalOpen"
-        @close="isFormularioModalOpen = false"
-        @success="
-          isFormularioModalOpen = false;
-          isCreateModalOpen = true;
-        "
+      
+      <PreviewEventModal
+        :show="isPreviewOpen"
+        :evento="selectedEvento"
+        @close="isPreviewOpen = false"
       />
     </Sidebar>
   </AuthenticatedLayout>

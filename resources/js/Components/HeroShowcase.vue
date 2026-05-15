@@ -35,14 +35,12 @@ let isScrolling = false;
 
 const current = computed(() => props.events?.[active.value] ?? props.events?.[0] ?? null);
 
-// Sincroniza el índice activo cuando el usuario scrollea manualmente
 function handleScroll() {
   if (!rowRef.value || isScrolling) return;
   
   const container = rowRef.value;
   const center = container.scrollLeft + container.clientWidth / 2;
   
-  // Encontramos la tarjeta que está más cerca del centro
   const children = Array.from(container.children);
   const closestIndex = children.reduce((closest, child, index) => {
     const childCenter = child.offsetLeft + child.clientWidth / 2;
@@ -133,16 +131,9 @@ const formatEventRange = (inicio) => {
     </div>
   </transition-group>
   
-<!-- Gradiente Adaptativo e Inteligente -->
 <div 
-  class="absolute inset-0 z-10 transition-all duration-1000 ease-in-out"
-  :style="{
-    background: `linear-gradient(var(--gradient-dir, to bottom), 
-      ${current?.hex_principal ?? '#0B192C'} 0%, 
-      ${(current?.hex_principal ?? '#0B192C')}E6 10%, 
-      ${(current?.hex_principal ?? '#0B192C')}66 40%, 
-      transparent 100%)`
-  }"
+  class="absolute inset-0 z-10 transition-all duration-1000 ease-in-out bg-gradient-to-b 2xl:bg-gradient-to-t from-[#0B192C] via-[#0B192C]/50 to-transparent"
+
 ></div>
 </div>
 
