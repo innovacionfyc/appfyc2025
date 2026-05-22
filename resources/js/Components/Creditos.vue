@@ -7,7 +7,7 @@
     </div>
     
     <div class="flex items-center gap-1.5 group cursor-default">
-      <span class="text-[11px] font-medium text-slate-400 lowercase">
+      <span class="text-[11px] font-medium text-slate-400 ">
         hecho con
       </span>
       
@@ -15,7 +15,7 @@
         favorite
       </span>
       
-      <span class="text-[11px] font-medium text-slate-400 lowercase">
+      <span class="text-[11px] font-medium text-slate-400 ">
         por el equipo <span class="text-slate-600 font-bold">transformación digital y comunicaciones</span>
       </span>
     </div>

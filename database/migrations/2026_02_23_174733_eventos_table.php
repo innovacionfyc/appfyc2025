@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->foreignId('area_formacion_id')->constrained('areas_formacion')->onDelete('restrict');
             $table->foreignId('formulario_base_id')->nullable()->constrained('formularios_base')->onDelete('restrict');
 
-            $table->string('modo_evento');
+            $table->string('modo_evento')->default('Pendiente por saber');
             $table->string('titulo');
             $table->string('slug')->unique();
             $table->string('subtitulo')->nullable();
@@ -31,8 +31,16 @@ return new class extends Migration {
             $table->dateTime('fecha_hora_fin');
             $table->decimal('precio_jornada', 10, 2)->nullable();
             $table->decimal('precio_modulo', 10, 2)->nullable();
+            $table->decimal('precio_cng', 10, 2)->nullable();
+            $table->decimal('precio_curso_intensivo', 10, 2)->nullable();
+            $table->decimal('precio_diplomado', 10, 2)->nullable();
             $table->text('texto_dinamico')->nullable();
+            $table->enum('tipo_evento', ['JORNADA', 'MODULO', 'CNG', 'CURSO_INTENSIVO', 'DIPLOMADO', 'CI_CNG'])->default('JORNADA');
+            $table->boolean('tiene_oferta_valor');
+            $table->string('oferta_valor')->default(NULL);
             $table->string('color_hex_secundario', 7)->nullable();
+            $table->string('estilo_temario')->default('lista');
+            $table->string('estilo_expertos')->default('lista');
 
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('update_by')->nullable();

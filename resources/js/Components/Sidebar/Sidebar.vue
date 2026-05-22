@@ -3,14 +3,20 @@ import { ref, computed } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 import {
   LayoutDashboard,
-  CalendarDays,
-  Users,
   Settings,
   ChevronDown,
   LogOut,
   GraduationCap,
   Menu,
   X,
+  ClipboardList,
+  CalendarDays,
+  Users,
+  Calendar,
+  History,
+  BadgeCheck,
+  Library,
+  BookOpen,
 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
@@ -27,25 +33,25 @@ const navItems = [
     name: "Eventos",
     icon: CalendarDays,
     submenu: [
-      { name: "Calendario", href: "/admin/eventos/calendario" },
-      { name: "Eventos activos", href: "/admin/eventos/data" },
-      { name: "Caducados", href: "/admin/eventos/data/archivados" },
+      { name: "Eventos activos", href: "/admin/eventos/data", icon: ClipboardList },
+      { name: "Calendario", href: "/admin/eventos/calendario", icon: Calendar },
+      { name: "Caducados", href: "/admin/eventos/data/archivados", icon: History },
     ],
   },
   {
     name: "Academia",
     icon: GraduationCap,
     submenu: [
-      { name: "Certificados", href: "/admin/certificadosWeb" },
-      { name: "Programas", href: "/admin/programas" },
-      { name: "Memorias", href: "/admin/memorias" },
+      { name: "Certificados", href: "/admin/certificadosWeb", icon: BadgeCheck },
+      { name: "Programas", href: "/admin/programas", icon: Library },
+      { name: "Memorias", href: "/admin/memorias", icon: BookOpen },
     ],
   },
   { name: "Equipo", icon: Users, href: "/admin/usuarios_fyc" },
   { name: "Configuración", icon: Settings, href: "/admin/configuracion" },
 ];
 
-// --- LÓGICA ---
+
 const toggleSubmenu = (name) => {
   if (activeSubmenu.value === name) activeSubmenu.value = null;
   else {
@@ -117,85 +123,90 @@ const isUrlActive = (href) => (href ? page.url.startsWith(href) : false);
         </div>
       </div>
 
-      <nav class="flex-1 px-3 space-y-2 overflow-y-auto no-scrollbar">
-        <div v-for="item in navItems" :key="item.name">
+    <nav class="flex-1 px-3 space-y-2 overflow-y-auto no-scrollbar">
+  <div v-for="item in navItems" :key="item.name">
+    <Link
+      v-if="!item.submenu"
+      :href="item.href"
+      :class="[
+        'flex items-center gap-4 p-3.5 rounded-[1.25rem] transition-all duration-300 group',
+        isUrlActive(item.href)
+          ? 'bg-gradient-to-tr to-primary-vinotinto from-secondary-vinotinto2 text-white shadow-xl shadow-rose-900/20'
+          : 'text-slate-500 hover:bg-white hover:shadow-sm',
+      ]"
+    >
+      <component
+        :is="item.icon"
+        class="w-6 h-6 shrink-0 transition-transform group-hover:scale-110"
+      />
+      <span
+        :class="[
+          'font-bold text-sm transition-all duration-500 ',
+          isHovered ? 'opacity-100' : 'opacity-0',
+        ]"
+      >
+        {{ item.name }}
+      </span>
+    </Link>
+
+    <div v-else class="space-y-1">
+      <button
+        @click="toggleSubmenu(item.name)"
+        :class="[
+          'w-full flex items-center gap-4 p-3.5 rounded-[1.25rem] transition-all duration-300 group',
+          activeSubmenu === item.name
+            ? 'bg-slate-100 text-slate-900'
+            : 'text-slate-500 hover:bg-white',
+        ]"
+      >
+        <component :is="item.icon" class="w-6 h-6 shrink-0 transition-transform group-hover:scale-110" />
+        <span
+          :class="[
+            'flex-1 font-bold text-sm text-left transition-all duration-500 ',
+            isHovered ? 'opacity-100' : 'opacity-0',
+          ]"
+        >
+          {{ item.name }}
+        </span>
+        <ChevronDown
+          v-if="isHovered"
+          :class="[
+            'w-4 h-4 transition-transform duration-500 opacity-40',
+            activeSubmenu === item.name ? 'rotate-180' : '',
+          ]"
+        />
+      </button>
+
+      <Transition
+        enter-active-class="overflow-hidden transition-[max-height,opacity] duration-500 ease-in-out"
+        enter-from-class="max-h-0 opacity-0"
+        enter-to-class="max-h-60 opacity-100"
+        leave-active-class="overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out"
+        leave-from-class="max-h-60 opacity-100"
+        leave-to-class="max-h-0 opacity-0"
+      >
+        <div
+          v-if="activeSubmenu === item.name && isHovered"
+          class="pl-6 space-y-1"
+        >
           <Link
-            v-if="!item.submenu"
-            :href="item.href"
-            :class="[
-              'flex items-center gap-4 p-3.5 rounded-[1.25rem] transition-all duration-300 group',
-              isUrlActive(item.href)
-                ? 'bg-gradient-to-tr to-primary-vinotinto from-secondary-vinotinto2  text-white shadow-xl shadow-rose-900/20'
-                : 'text-slate-500 hover:bg-white hover:shadow-sm',
-            ]"
+            v-for="sub in item.submenu"
+            :key="sub.name"
+            :href="sub.href"
+            class="flex items-center gap-3 py-2.5 px-4 rounded-xl text-[11px] font-bold transition-all duration-300 group/sub"
+            :class="isUrlActive(sub.href) ? 'text-rose-600 bg-rose-50/50' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'"
           >
-            <component
-              :is="item.icon"
-              class="w-6 h-6 shrink-0 transition-transform group-hover:scale-110"
+            <component 
+              :is="sub.icon" 
+              class="w-4 h-4 shrink-0 opacity-40 group-hover/sub:opacity-100 transition-opacity" 
             />
-            <span
-              :class="[
-                'font-bold text-sm transition-all duration-500',
-                isHovered ? 'opacity-100' : 'opacity-0',
-              ]"
-            >
-              {{ item.name }}
-            </span>
+            <span class=" tracking-wide">{{ sub.name }}</span>
           </Link>
-
-          <div v-else class="space-y-1">
-            <button
-              @click="toggleSubmenu(item.name)"
-              :class="[
-                'w-full flex items-center gap-4 p-3.5 rounded-[1.25rem] transition-all duration-300 group',
-                activeSubmenu === item.name
-                  ? 'bg-slate-100 text-slate-900'
-                  : 'text-slate-500 hover:bg-white',
-              ]"
-            >
-              <component :is="item.icon" class="w-6 h-6 shrink-0" />
-              <span
-                :class="[
-                  'flex-1 font-bold text-sm text-left transition-all duration-500',
-                  isHovered ? 'opacity-100' : 'opacity-0',
-                ]"
-              >
-                {{ item.name }}
-              </span>
-              <ChevronDown
-                v-if="isHovered"
-                :class="[
-                  'w-4 h-4 transition-transform duration-500',
-                  activeSubmenu === item.name ? 'rotate-180' : '',
-                ]"
-              />
-            </button>
-
-            <Transition
-              enter-active-class="overflow-hidden transition-[max-height,opacity] duration-500 ease-in-out"
-              enter-from-class="max-h-0 opacity-0"
-              enter-to-class="max-h-40 opacity-100"
-              leave-active-class="overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out"
-              leave-from-class="max-h-40 opacity-100"
-              leave-to-class="max-h-0 opacity-0"
-            >
-              <div
-                v-if="activeSubmenu === item.name && isHovered"
-                class="pl-12 space-y-1"
-              >
-                <Link
-                  v-for="sub in item.submenu"
-                  :key="sub.name"
-                  :href="sub.href"
-                  class="block py-2 text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors"
-                >
-                  {{ sub.name }}
-                </Link>
-              </div>
-            </Transition>
-          </div>
         </div>
-      </nav>
+      </Transition>
+    </div>
+  </div>
+</nav>
 
       <div class="p-3 mt-auto shrink-0 border-t border-slate-100/50">
         <div
@@ -228,7 +239,7 @@ const isUrlActive = (href) => (href ? page.url.startsWith(href) : false);
             </p>
           </div>
 
-          <Link  :href="route('logout')" method="post" as="button">
+          <Link :href="route('logout')" method="post" as="button">
             <button
               v-if="isHovered"
               class="p-2 text-slate-300 hover:text-red-500 transition-colors"

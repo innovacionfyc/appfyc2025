@@ -127,30 +127,77 @@ onUnmounted(() => {
 const formatEventRange = (inicio, fin) => {
   if (!inicio) return "Fecha por definir";
 
-  const start = new Date(inicio);
-  const end = fin ? new Date(fin) : null;
+  const parseLocal = (dateStr) => {
+    if (!dateStr) return null;
+    const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    return new Date(normalized);
+  };
 
-  const getDayName = (d) => d.toLocaleString("es-ES", { weekday: "long" });
+  const start = parseLocal(inicio);
+  const end = parseLocal(fin);
+
+  if (isNaN(start.getTime())) return "Fecha por definir";
+
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+  const getDayName = (d) => capitalize(d.toLocaleString("es-CO", { weekday: "long" }));
   const getDayNum = (d) => d.getDate();
-  const getMonth = (d) => d.toLocaleString("es-ES", { month: "long" });
+  const getMonth = (d) => d.toLocaleString("es-CO", { month: "long" });
   const getYear = (d) => d.getFullYear();
+  
+  const formatTime = (d) => {
+    return d.toLocaleString("es-CO", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).toUpperCase();
+  };
 
-  if (!end || start.toDateString() === end.toDateString()) {
-    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
-      start
-    )} | todo el día`;
+  const hasValidEnd = end && !isNaN(end.getTime());
+  
+
+  const isStartMidnight = start.getHours() === 0 && start.getMinutes() === 0;
+  const isEndMidnight = hasValidEnd ? (end.getHours() === 0 && end.getMinutes() === 0) : true;
+  const hasSpecificTime = !(isStartMidnight && isEndMidnight);
+
+  const timeStartStr = formatTime(start);
+  const timeEndStr = hasValidEnd ? formatTime(end) : "";
+
+  if (!hasValidEnd || start.toDateString() === end.toDateString()) {
+    const baseDate = `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)}`;
+    
+    if (!hasValidEnd) {
+      return hasSpecificTime 
+        ? `${baseDate} | a partir de las ${timeStartStr}` 
+        : `${baseDate} | todo el día`;
+    }
+    
+    if (!hasSpecificTime) return `${baseDate} | todo el día`;
+    
+    if (timeStartStr === timeEndStr) {
+      return `${baseDate} | a las ${timeStartStr}`;
+    }
+
+    return `${baseDate} | ${timeStartStr} - ${timeEndStr}`;
   }
+
 
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(
-      end
-    )} de ${getMonth(start)} de ${getYear(start)}`;
+    if (hasSpecificTime) {
+       return `${getDayName(start).toLowerCase()} ${getDayNum(start)} (${timeStartStr}) al ${getDayName(end).toLowerCase()} ${getDayNum(end)} (${timeEndStr}) de ${getMonth(start)} de ${getYear(start)}`;
+    }
+    return `${getDayName(start).toLowerCase()} ${getDayNum(start)} al ${getDayName(end).toLowerCase()} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
   }
 
-  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(
-    end
-  )} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+
+  if (start.getFullYear() === end.getFullYear()) {
+    return `${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(start)}`;
+  }
+
+
+  return `${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
 };
+
+
 </script>
 
 <template>

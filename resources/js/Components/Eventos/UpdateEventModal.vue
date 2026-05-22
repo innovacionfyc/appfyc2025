@@ -2,17 +2,12 @@
 import { ref, computed, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import {
-  LayoutDashboard,
   MapPin,
   Save,
   Plus,
   Trash2,
-  AlertCircle,
-  ArrowRight,
-  UserCheck,
   CheckCircle2,
   Calendar,
-  DollarSign,
   Monitor,
   Smartphone,
   X,
@@ -144,63 +139,86 @@ watch(
 );
 
 // --- LÓGICA DE CARGA DE DATOS (Edit / Duplicate) ---
-watch(() => props.show, (isVisible) => {
-  if (isVisible && props.evento) {
-    // Llenamos el formulario con los datos del evento prop
-    form.modo_evento = props.evento.modo_evento;
-    form.titulo = props.mode === 'duplicate' ? `${props.evento.titulo} (Copia)` : props.evento.titulo;
-    form.subtitulo = props.evento.subtitulo;
-    form.area_formacion_id = props.evento.area_formacion_id;
-    form.estado_id = props.mode === 'duplicate' ? 2 : props.evento.estado_id;
-    form.modalidad = props.evento.modalidad;
-    form.ubicacion = props.evento.ubicacion;
-    form.precio_jornada = props.evento.precio_jornada;
-    form.precio_modulo = props.evento.precio_modulo;
-    form.formulario_base_id = props.evento.formulario_base_id;
-    form.texto_dinamico = props.evento.texto_dinamico;
-    form.color_hex_secundario = props.evento.color_hex_secundario;
-    form.url_formulario_inscripcion = props.evento.url_formulario_inscripcion;
-    form.organizador_id = props.evento.organizador_id;
-    
-    form.conferencistas = props.evento.conferencistas.map(s => s.id);
+watch(
+  () => props.show,
+  (isVisible) => {
+    if (isVisible && props.evento) {
+      // Llenamos el formulario con los datos del evento prop
+      form.modo_evento = props.evento.modo_evento;
+      form.titulo =
+        props.mode === "duplicate"
+          ? `${props.evento.titulo} (Copia)`
+          : props.evento.titulo;
+      form.subtitulo = props.evento.subtitulo;
+      form.area_formacion_id = props.evento.area_formacion_id;
+      form.estado_id = props.mode === "duplicate" ? 2 : props.evento.estado_id;
+      form.modalidad = props.evento.modalidad;
+      form.ubicacion = props.evento.ubicacion;
+      form.precio_jornada = props.evento.precio_jornada;
+      form.precio_modulo = props.evento.precio_modulo;
+      form.formulario_base_id = props.evento.formulario_base_id;
+      form.texto_dinamico = props.evento.texto_dinamico;
+      form.color_hex_secundario = props.evento.color_hex_secundario;
+      form.url_formulario_inscripcion = props.evento.url_formulario_inscripcion;
+      form.organizador_id = props.evento.organizador_id;
+      form.imagen_relacionada = null;
+      form.url_folleto = null;
 
-    form.rango_fechas = [props.evento.fecha_hora_inicio, props.evento.fecha_hora_fin];
+      form.conferencistas = props.evento.conferencistas.map((s) => s.id);
 
-    if (props.evento.contenido_tematico?.modulos) {
-        form.contenido_tematico = JSON.parse(JSON.stringify(props.evento.contenido_tematico.modulos));
+      const formatForInput = (dbDate) => {
+        if (!dbDate) return "";
+        return dbDate.replace(" ", "T").substring(0, 16);
+      };
+
+      form.fecha_hora_inicio = formatForInput(evento.fecha_hora_inicio);
+      form.fecha_hora_fin = formatForInput(evento.fecha_hora_fin);
+
+      if (props.evento.contenido_tematico?.modulos) {
+        form.contenido_tematico = JSON.parse(
+          JSON.stringify(props.evento.contenido_tematico.modulos)
+        );
+      }
+
+      previewImageUrl.value = props.evento.imagen_relacionada
+        ? `/storage/${props.evento.imagen_relacionada}`
+        : null;
+    } else if (isVisible && !props.evento) {
+      form.reset();
+      previewImageUrl.value = null;
     }
-
-    previewImageUrl.value = props.evento.imagen_relacionada ? `/storage/${props.evento.imagen_relacionada}` : null;
-  } else if (isVisible && !props.evento) {
-    form.reset();
-    previewImageUrl.value = null;
   }
-});
+);
 
-
-// --- LÓGICA DE ENVÍO INTELIGENTE ---
 const submit = () => {
-  const url = props.mode === 'edit' 
-    ? route('eventos.update', props.evento.id) 
-    : route('eventos.store');
+  const url = form.id ? route("eventos.update", form.id) : route("eventos.store");
 
   form
-    .transform((data) => ({
-      ...data,
-      _method: props.mode === 'edit' ? 'put' : 'post',
-      fecha_hora_inicio: data.rango_fechas?.[0] ? new Date(data.rango_fechas[0]).toISOString().split('T')[0] : null,
-      fecha_hora_fin: data.rango_fechas?.[1] 
-        ? new Date(data.rango_fechas[1]).toISOString().split('T')[0] 
-        : (data.rango_fechas?.[0] ? new Date(data.rango_fechas[0]).toISOString().split('T')[0] : null),
-    }))
+    .transform((data) => {
+      const formatToDB = (dateStr) => {
+        return dateStr ? dateStr.replace("T", " ") + ":00" : null;
+      };
+
+      const start = formatToDB(data.fecha_hora_inicio);
+      const end = formatToDB(data.fecha_hora_fin) || start;
+
+      return {
+        ...data,
+        _method: form.id ? "put" : "post",
+        fecha_hora_inicio: start,
+        fecha_hora_fin: end,
+      };
+    })
     .post(url, {
       forceFormData: true,
       onSuccess: () => {
         emit("success");
         emit("close");
+        form.reset();
       },
     });
 };
+
 const stepFields = [
   ["titulo", "area_formacion_id"],
   ["rango_fechas", "modalidad", "ubicacion"],
@@ -307,11 +325,20 @@ const getAreaTagImage = () => {
               </h4>
 
               <FormInput
-                label="Fechas del Evento"
-                type="date-range"
-                v-model="form.rango_fechas"
-                :error="form.errors.rango_fechas"
-                icon="event"
+                label="Inicio de Jornada"
+                type="datetime-local"
+                v-model="form.fecha_hora_inicio"
+                :error="form.errors.fecha_hora_inicio"
+                icon="calendar_clock"
+                :activeColor="selectedArea.color_hex_principal"
+                required
+              />
+              <FormInput
+                label="Fin de Jornada"
+                type="datetime-local"
+                v-model="form.fecha_hora_fin"
+                :error="form.errors.fecha_hora_fin"
+                icon="event_busy"
                 :activeColor="selectedArea.color_hex_principal"
                 required
               />
@@ -677,7 +704,9 @@ const getAreaTagImage = () => {
                             color: selectedArea.color_hex_principal || '#f97316',
                           }"
                         />
-                        {{ formatRangeFull(form.rango_fechas) }}
+                        {{
+                          formatRangeFull([form.fecha_hora_inicio, form.fecha_hora_fin])
+                        }}
                       </span>
                       <span class="flex items-center gap-2 text-[10px]">
                         <MapPin

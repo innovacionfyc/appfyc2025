@@ -40,7 +40,7 @@ export function useTema() {
 
     onMounted(() => {
         // Aplica el tema en la carga inicial
-        aplicarTemaCompleto();
+        aplicarTemaCompletoLowerCase();
 
         // ✅ NUEVO: Se crea un listener que "escucha" los cambios del tema del sistema
         mediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
@@ -56,7 +56,7 @@ export function useTema() {
 
     watch(() => page.props.auth.user, (newUser, oldUser) => {
         if (newUser?.id !== oldUser?.id) {
-            aplicarTemaCompleto();
+            aplicarTemaCompletoLowerCase();
         }
     }, {
         deep: true

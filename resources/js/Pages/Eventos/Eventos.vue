@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, watch } from "vue";
 import { Head, router } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import {
@@ -8,17 +8,16 @@ import {
   MapPin,
   Eye,
   Edit3,
-  Trash2,
   Search,
   Users,
   Copy,
-  TrendingUp,
-  LayoutGrid,
-  Zap,
-  CalendarCheck,
   ChevronRight,
-  MoreHorizontal,
-  MousePointerClick,
+  LayoutGrid,
+  List,
+  AlignJustify,
+  X,
+  Trash2,
+  Undo2
 } from "lucide-vue-next";
 
 import BtnUniversal from "@/Components/BtnUniversal.vue";
@@ -45,11 +44,6 @@ const isModalOpen = ref(false);
 const modalMode = ref("create");
 const selectedEvento = ref(null);
 
-const filteredEventos = computed(() => {
-  return props.eventos.filter((e) =>
-    e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
-});
 
 const openModal = (evento = null, mode = "create") => {
   isModalOpen.value = false;
@@ -100,15 +94,6 @@ const headerStats = computed(() => [
   },
 ]);
 
-const deleteEvent = (id) => {
-  if (
-    confirm(
-      "¿Estás absolutamente seguro? Esta acción eliminará permanentemente todos los datos vinculados."
-    )
-  ) {
-    router.delete(route("eventos.destroy", id), { preserveScroll: true });
-  }
-};
 
 const evento = props.eventos;
 const getAreaTagImage = () => {
@@ -128,29 +113,138 @@ const getAreaTagImage = () => {
 const formatEventRange = (inicio, fin) => {
   if (!inicio) return "Fecha por definir";
 
-  const start = new Date(inicio);
-  const end = fin ? new Date(fin) : null;
+  const parseLocal = (dateStr) => {
+    if (!dateStr) return null;
+    const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    return new Date(normalized);
+  };
 
-  const getDayName = (d) => d.toLocaleString("es-ES", { weekday: "long" });
+  const start = parseLocal(inicio);
+  const end = parseLocal(fin);
+
+  if (isNaN(start.getTime())) return "Fecha por definir";
+
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+  const getDayName = (d) => capitalize(d.toLocaleString("es-CO", { weekday: "long" }));
   const getDayNum = (d) => d.getDate();
-  const getMonth = (d) => d.toLocaleString("es-ES", { month: "long" });
+  const getMonth = (d) => d.toLocaleString("es-CO", { month: "long" });
   const getYear = (d) => d.getFullYear();
+  
+  const formatTime = (d) => {
+    return d.toLocaleString("es-CO", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).toUpperCase();
+  };
 
-  if (!end || start.toDateString() === end.toDateString()) {
-    return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
-      start
-    )} | todo el día`;
+  const hasValidEnd = end && !isNaN(end.getTime());
+  
+
+  const isStartMidnight = start.getHours() === 0 && start.getMinutes() === 0;
+  const isEndMidnight = hasValidEnd ? (end.getHours() === 0 && end.getMinutes() === 0) : true;
+  const hasSpecificTime = !(isStartMidnight && isEndMidnight);
+
+  const timeStartStr = formatTime(start);
+  const timeEndStr = hasValidEnd ? formatTime(end) : "";
+
+  if (!hasValidEnd || start.toDateString() === end.toDateString()) {
+    const baseDate = `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)}`;
+    
+    if (!hasValidEnd) {
+      return hasSpecificTime 
+        ? `${baseDate} | a partir de las ${timeStartStr}` 
+        : `${baseDate} | todo el día`;
+    }
+    
+    if (!hasSpecificTime) return `${baseDate} | todo el día`;
+    
+    if (timeStartStr === timeEndStr) {
+      return `${baseDate} | a las ${timeStartStr}`;
+    }
+
+    return `${baseDate} | ${timeStartStr} - ${timeEndStr}`;
   }
+
 
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    return `${getDayName(start)} ${getDayNum(start)} al ${getDayName(end)} ${getDayNum(
-      end
-    )} de ${getMonth(start)} de ${getYear(start)}`;
+    if (hasSpecificTime) {
+       return `Del ${getDayName(start).toLowerCase()} ${getDayNum(start)} (${timeStartStr}) al ${getDayName(end).toLowerCase()} ${getDayNum(end)} (${timeEndStr}) de ${getMonth(start)} de ${getYear(start)}`;
+    }
+    return `Del ${getDayName(start).toLowerCase()} ${getDayNum(start)} al ${getDayName(end).toLowerCase()} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
   }
 
-  return `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} — ${getDayName(
-    end
-  )} ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+
+  if (start.getFullYear() === end.getFullYear()) {
+    return `Del ${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(start)}`;
+  }
+
+
+  return `Del ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+};
+
+const currentView = ref(localStorage.getItem("event_view_pref") || "grid");
+
+watch(currentView, (newView) => {
+  localStorage.setItem("event_view_pref", newView);
+});
+
+const setView = (view) => {
+  currentView.value = view;
+};
+
+
+const pendingDeletions = ref(new Set()); 
+
+const undoToast = ref({
+  show: false,
+  eventoId: null,
+  timeoutId: null, 
+  intervalId: null, 
+  timeLeft: 8,
+});
+
+const filteredEventos = computed(() => {
+  return props.eventos.filter((e) => 
+    e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
+    !pendingDeletions.value.has(e.id) 
+  );
+});
+
+const eliminarEvento = (evento) => {
+  if (confirm(`¿Estás seguro de que deseas eliminar "${evento.titulo}"? Esta acción destruirá todos sus archivos.`)) {
+    
+    pendingDeletions.value.add(evento.id);
+
+    undoToast.value.show = true;
+    undoToast.value.eventoId = evento.id;
+    undoToast.value.timeLeft = 8;
+
+    if (undoToast.value.intervalId) clearInterval(undoToast.value.intervalId);
+    if (undoToast.value.timeoutId) clearTimeout(undoToast.value.timeoutId);
+
+    undoToast.value.intervalId = setInterval(() => {
+      undoToast.value.timeLeft--;
+    }, 1000);
+
+    undoToast.value.timeoutId = setTimeout(() => {
+      clearInterval(undoToast.value.intervalId);
+      undoToast.value.show = false;
+      pendingDeletions.value.delete(evento.id); 
+
+      router.delete(route("eventos.destroy", evento.id), {
+        preserveScroll: true
+      });
+    }, 8000);
+  }
+};
+
+const deshacerEliminacion = () => {
+  clearTimeout(undoToast.value.timeoutId);
+  clearInterval(undoToast.value.intervalId);
+
+  pendingDeletions.value.delete(undoToast.value.eventoId);
+  undoToast.value.show = false;
 };
 </script>
 
@@ -165,9 +259,9 @@ const formatEventRange = (inicio, fin) => {
         :stats="headerStats"
       />
 
-      <div class="p-8 mx-auto space-y-10">
+      <div class="mx-auto space-y-10">
         <div
-          class="bg-slate-900 p-5 rounded-[2.5rem] border border-white/5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5"
+          class="bg-slate-900 p-5 rounded-xl border border-white/5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5"
         >
           <div class="flex items-center gap-4">
             <div
@@ -176,10 +270,8 @@ const formatEventRange = (inicio, fin) => {
               <LayoutGrid class="w-5 h-5 text-white" />
             </div>
             <div class="flex flex-col">
-              <h2 class="text-lg font-black text-white lowercase leading-tight">
-                catálogo maestro
-              </h2>
-              <p class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+              <h2 class="text-[18px] font-black text-white">Eventos activos</h2>
+              <p class="text-[14px] font-bold text-slate-500">
                 {{ filteredEventos.length }} jornadas encontradas
               </p>
             </div>
@@ -203,19 +295,63 @@ const formatEventRange = (inicio, fin) => {
               >
                 <X class="w-3 h-3" />
               </button>
-            </div>
 
-            <button
-              @click="openModal(null, 'create')"
-              class="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
-            >
-              <Plus class="w-4 h-4" />
-              <span class="hidden sm:inline">nueva jornada</span>
-            </button>
+
+            </div>
+             <div class="flex bg-white/5 p-1 rounded-2xl border border-white/10 mr-2">
+                <button
+                  @click="setView('grid')"
+                  :class="[
+                    'p-2 rounded-xl transition-all',
+                    currentView === 'grid'
+                      ? 'bg-orange-600 text-white shadow-lg'
+                      : 'text-slate-500 hover:text-white',
+                  ]"
+                  title="Vista Cuadrícula"
+                >
+                  <LayoutGrid class="w-4 h-4" />
+                </button>
+                <button
+                  @click="setView('list')"
+                  :class="[
+                    'p-2 rounded-xl transition-all',
+                    currentView === 'list'
+                      ? 'bg-orange-600 text-white shadow-lg'
+                      : 'text-slate-500 hover:text-white',
+                  ]"
+                  title="Vista Lista"
+                >
+                  <List class="w-4 h-4" />
+                </button>
+                <button
+                  @click="setView('detailed')"
+                  :class="[
+                    'p-2 rounded-xl transition-all',
+                    currentView === 'detailed'
+                      ? 'bg-orange-600 text-white shadow-lg'
+                      : 'text-slate-500 hover:text-white',
+                  ]"
+                  title="Vista Detallada"
+                >
+                  <AlignJustify class="w-4 h-4" />
+                </button>
+              </div>
+
+           
+            <BtnUniversal
+            label="Crear evento"
+            icon="add"
+            icon-position="right"
+            size="md"
+            @click="openModal(null, 'create')"
+          />
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-10">
+        <div
+          v-if="currentView === 'grid'"
+          class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-10"
+        >
           <div
             v-for="evento in filteredEventos"
             :key="evento.id"
@@ -270,7 +406,7 @@ const formatEventRange = (inicio, fin) => {
                   </p>
                 </div>
                 <h3
-                  class="text-3xl font-black text-slate-900 leading-tight lowercase group-hover:text-orange-600 transition-colors duration-500"
+                  class="text-3xl font-black text-slate-900 leading-tight group-hover:text-orange-600 transition-colors duration-500"
                 >
                   {{ evento.titulo }}
                 </h3>
@@ -296,9 +432,7 @@ const formatEventRange = (inicio, fin) => {
                       formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin)
                     }}
                   </p>
-                  <p
-                    class="text-[10px] font-bold text-slate-400 flex items-center gap-1 lowercase"
-                  >
+                  <p class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                     <MapPin class="w-3 h-3 text-orange-500" />
                     {{ evento.ubicacion || "sede central por definir" }}
                   </p>
@@ -359,7 +493,7 @@ const formatEventRange = (inicio, fin) => {
                     <Copy class="w-4 h-4" />
                   </button>
                   <button
-                    @click="deleteEvent(evento.id)"
+                    @click="eliminarEvento(evento)"
                     class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-red-600 hover:shadow-lg transition-all"
                   >
                     <Trash2 class="w-4 h-4" />
@@ -370,27 +504,175 @@ const formatEventRange = (inicio, fin) => {
           </div>
         </div>
 
-        <PreviewEventModal
-          :show="isPreviewOpen"
-          :evento="selectedEventForPreview"
-          @close="isPreviewOpen = false"
-        />
+        <div v-else-if="currentView === 'list'" class="space-y-3">
+          <div
+            v-for="evento in filteredEventos"
+            :key="evento.id"
+            class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-6 hover:shadow-md transition-all group"
+          >
+            <img
+              :src="
+                evento.imagen_relacionada
+                  ? '/storage/' + evento.imagen_relacionada
+                  : '/images/default-bg.webp'
+              "
+              class="w-16 h-16 rounded-2xl object-cover shrink-0"
+            />
 
-        <CreateEventModal
-          :show="isModalOpen"
-          :mode="modalMode"
-          :evento="selectedEvento"
-          :estados="estados"
-          :areas="areas"
-          :organizador="organizador"
-          :conferencistas="conferencistas"
-          :formularios="formularios"
-          @close="isModalOpen = false"
-          @success="isModalOpen = false"
-        />
+            <div class="flex-grow min-w-0">
+              <h4 class="font-black text-slate-900 truncate lowercase">
+                {{ evento.titulo }}
+              </h4>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {{ formatEventRange(evento.fecha_hora_inicio) }}
+              </p>
+            </div>
+
+            <div class="hidden lg:block shrink-0 px-4 border-l border-slate-100">
+              <span class="text-xs font-black text-slate-700">{{
+                formatPrice(evento.precio_jornada)
+              }}</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                @click="openPreview(evento)"
+                class="p-2.5 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
+              >
+                <Eye class="w-4 h-4" />
+              </button>
+              <button
+                @click="openModal(evento, 'edit')"
+                class="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-all"
+              >
+                <Edit3 class="w-4 h-4" />
+              </button>
+              <button
+                @click="eliminarEvento(evento)"
+                class="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-all"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="currentView === 'detailed'" class="space-y-6">
+          <div
+            v-for="evento in filteredEventos"
+            :key="evento.id"
+            class="bg-white rounded-[3rem] border border-slate-100 overflow-hidden flex flex-col md:flex-row hover:shadow-xl transition-all group"
+          >
+            <div class="md:w-1/3 h-64 md:h-auto relative">
+              <img
+                :src="
+                  evento.imagen_relacionada
+                    ? '/storage/' + evento.imagen_relacionada
+                    : '/images/default-bg.webp'
+                "
+                class="w-full h-full object-cover"
+              />
+              <div
+                class="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"
+              ></div>
+            </div>
+
+            <div class="md:w-2/3 p-8 flex flex-col">
+              <div class="flex justify-between items-start mb-4">
+                <span
+                  class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500"
+                >
+                  {{ evento.area_formacion?.nombre }}
+                </span>
+                <div class="flex gap-2">
+                  <button
+                    @click="openModal(evento, 'edit')"
+                    class="p-2 text-slate-300 hover:text-blue-600 transition-colors"
+                  >
+                    <Edit3 class="w-5 h-5" />
+                  </button>
+                  <button
+                    @click="eliminarEvento(evento)"
+                    class="p-2 text-slate-300 hover:text-rose-600 transition-colors"
+                  >
+                    <Trash2 class="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <h3 class="text-2xl font-black text-slate-900 mb-2 lowercase">
+                {{ evento.titulo }}
+              </h3>
+              <p class="text-sm text-slate-500 mb-6 line-clamp-2">
+                {{ evento.subtitulo }}
+              </p>
+
+              <div
+                class="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between"
+              >
+                <div class="flex gap-6">
+                  <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <Calendar class="w-4 h-4 text-orange-500" />
+                    {{ formatEventRange(evento.fecha_hora_inicio) }}
+                  </div>
+                  <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <Users class="w-4 h-4 text-orange-500" />
+                    {{ evento.conferencistas?.length }} Expertos
+                  </div>
+                </div>
+                <button
+                  @click="openPreview(evento)"
+                  class="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                >
+                  gestionar jornada
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </Sidebar>
+    <PreviewEventModal
+      :show="isPreviewOpen"
+      :evento="selectedEventForPreview"
+      @close="isPreviewOpen = false"
+    />
+
+    <CreateEventModal
+      :show="isModalOpen"
+      :mode="modalMode"
+      :evento="selectedEvento"
+      :estados="estados"
+      :areas="areas"
+      :organizador="organizador"
+      :conferencistas="conferencistas"
+      :formularios="formularios"
+      @close="isModalOpen = false"
+      @success="isModalOpen = false"
+    />
   </AuthenticatedLayout>
+
+  <Teleport to="body">
+  <div
+    v-if="undoToast.show"
+    class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl transition-all duration-300"
+    style="animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;"
+  >
+    <span class="text-[13px] font-medium tracking-wide">
+      Evento eliminado correctamente.
+    </span>
+    
+    <div class="h-4 w-px bg-slate-700"></div>
+    
+    <button
+      @click="deshacerEliminacion"
+      class="text-[13px] font-black text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 group"
+    >
+      <Undo2 class="w-4 h-4 group-hover:-rotate-45 transition-transform" />
+      Deshacer ({{ undoToast.timeLeft }}s)
+    </button>
+  </div>
+</Teleport>
 </template>
 
 <style scoped>
@@ -406,5 +688,16 @@ img {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 </style>

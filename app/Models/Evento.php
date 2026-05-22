@@ -30,8 +30,17 @@ class Evento extends Model
         'fecha_hora_fin',
         'precio_jornada',
         'precio_modulo',
+        'precio_cng',
+        'precio_curso_intensivo',
+        'precio_diplomado',
+        'tipo_evento',
         'texto_dinamico',
-        'color_hex_secundario'
+        'color_hex_secundario',
+        'tiene_oferta_valor',
+        'oferta_valor',
+        'estilo_temario',
+        'estilo_expertos',
+
     ];
 
     protected $casts = [
@@ -65,19 +74,23 @@ class Evento extends Model
         )->withTimestamps();
     }
 
-    public function formularioInscripcion() {
+    public function formularioInscripcion()
+    {
         return $this->belongsTo(FormularioInscripcion::class, 'formulario_base_id');
     }
 
-    public function contenidoTematico() {
+    public function contenidoTematico()
+    {
         return $this->belongsTo(ContenidoTematico::class, 'contenido_tematico_id');
     }
 
-    public function areaFormacion() {
+    public function areaFormacion()
+    {
         return $this->belongsTo(AreaFormacion::class, 'area_formacion_id');
     }
 
-    public function formularioBase() {
+    public function formularioBase()
+    {
         return $this->belongsTo(FormularioBase::class, 'formulario_base_id');
     }
 

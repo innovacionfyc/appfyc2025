@@ -102,10 +102,46 @@ onMounted(() => {
 
 onBeforeUnmount(stopAutoplay);
 
-const formatEventRange = (inicio) => {
-  if (!inicio) return "fecha por definir";
-  const start = new Date(inicio);
-  return start.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+const formatEventRange = (inicio, fin) => {
+  if (!inicio) return "Fecha por definir...";
+
+  const parseLocal = (dateStr) => {
+    if (!dateStr) return null;
+    const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    return new Date(normalized);
+  };
+
+  const start = parseLocal(inicio);
+  const end = parseLocal(fin);
+
+  if (isNaN(start.getTime())) return "Fecha por definir...";
+
+  const getDayNum = (d) => d.getDate();
+  const getMonth = (d) => d.toLocaleString("es-CO", { month: "long" });
+  const getYear = (d) => d.getFullYear();
+
+  const hasValidEnd = end && !isNaN(end.getTime());
+
+  // 1. Mismo día o evento sin fecha de cierre
+  if (!hasValidEnd || start.toDateString() === end.toDateString()) {
+    return `${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)}`;
+  }
+
+  // 2. Mismo mes y año
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    // Si es consecutivo usamos "y" (22 y 23), si son más días usamos "al" (22 al 25)
+    const conector = (getDayNum(end) - getDayNum(start) === 1) ? "y" : "al";
+    return `${getDayNum(start)} ${conector} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
+  }
+
+  // 3. Mismo año, distinto mes
+  if (start.getFullYear() === end.getFullYear()) {
+    return `${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(start)}`;
+  }
+
+  // 4. Distinto año
+  return `${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
 };
 </script>
 
@@ -159,7 +195,7 @@ const formatEventRange = (inicio) => {
               <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-300 text-sm">
                 <span class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                   <span class="material-symbols-rounded text-lg">calendar_today</span>
-                  {{ formatEventRange(current?.date_in) }}
+                  {{ formatEventRange(current?.fecha_hora_inicio, current?.fecha_hora_fin) }}
                 </span>
                 <span class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                   <span class="material-symbols-rounded text-lg">location_on</span>

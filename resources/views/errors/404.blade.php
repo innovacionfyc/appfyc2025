@@ -61,7 +61,7 @@
                             <span class="group-hover:translate-x-1 transition-transform">→</span>
                         </a>
                         
-                        <a href="https://wa.me/573163861932" target="_blank" class="w-full sm:w-auto bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-sm border border-slate-200 hover:border-slate-900 transition-all duration-300 lowercase">
+                        <a href="https://wa.me/573163861932" target="_blank" class="w-full sm:w-auto bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-sm border border-slate-200 hover:border-slate-900 transition-all duration-300 ">
                             Ayuda técnica
                         </a>
                     </div>
@@ -70,9 +70,9 @@
 
             <div class="mt-12 flex flex-col items-center gap-3 opacity-60">
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-medium text-slate-400 lowercase">hecho con</span>
+                    <span class="text-[10px] font-medium text-slate-400 ">hecho con</span>
                     <span class="material-symbols-rounded text-red-500 text-xs animate-pulse">favorite</span>
-                    <span class="text-[10px] font-medium text-slate-400 lowercase">
+                    <span class="text-[10px] font-medium text-slate-400 ">
                         por el equipo <span class="text-slate-900 font-bold">transformación digital y comunicaciones</span>
                     </span>
                 </div>

@@ -158,7 +158,15 @@ const getExecutionDay = (evento) => {
       <div
         class="mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000"
       >
-        <section
+      
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+          <div class="lg:col-span-2 space-y-8">
+            <div
+              class="bg-mono-blanco rounded-2xl border border-slate-100 p-8 shadow-sm h-auto flex flex-col"
+            >
+              <section
           class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700"
         >
           <div
@@ -203,12 +211,6 @@ const getExecutionDay = (evento) => {
             </div>
           </div>
         </section>
-
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div class="lg:col-span-2 space-y-8">
-            <div
-              class="bg-mono-blanco rounded-2xl border border-slate-100 p-8 shadow-sm h-auto flex flex-col"
-            >
               <div
                 class="mb-5 bg-gradient-to-br from-primary-vinotinto to-secondary-vinotinto2 w-full rounded-2xl p-5 text-mono-blanco relative overflow-hidden shadow-2xl shadow-rose-200"
               >

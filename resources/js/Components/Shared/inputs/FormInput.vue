@@ -319,7 +319,7 @@ const fileMetadata = computed(() => {
         >
           <template #trigger>
             <div
-              class="font-semibold text-sm transition-colors w-full lowercase leading-tight"
+              class="font-semibold text-sm transition-colors w-full  leading-tight"
               :class="modelValue ? 'text-slate-700' : 'text-slate-300'"
             >
               <template v-if="modelValue && modelValue[0]">

@@ -37,14 +37,7 @@ const isModalOpen = ref(false);
 const modalMode = ref("edit");
 const selectedEvento = ref(null);
 
-// Filtrado de búsqueda
-const filteredEventos = computed(() => {
-  return props.eventos.filter((e) =>
-    e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
-});
 
-// Stats para el Header
 const headerStats = computed(() => [
   {
     label: "Total Archivados",
@@ -55,12 +48,10 @@ const headerStats = computed(() => [
   }
 ]);
 
-// Lógica de eliminación definitiva
 const deleteEvent = (id) => {
   if (confirm("¿Eliminar permanentemente? Esta acción es irreversible y borrará archivos y registros.")) {
     router.delete(route("eventos.destroy", id), { 
         preserveScroll: true,
-        onSuccess: () => alert("Evento eliminado del sistema.") 
     });
   }
 };
@@ -87,6 +78,59 @@ const getAreaTagImage = (areaNombre) => {
     "Finanzas y Hacienda Pública": "/images/areasFormacion/finanzas_publicas_web.png",
   };
   return imagenesPorArea[areaNombre] || "/images/areasFormacion/formacion_defecto_web.png";
+};
+
+const pendingDeletions = ref(new Set()); 
+
+const undoToast = ref({
+  show: false,
+  eventoId: null,
+  timeoutId: null, 
+  timeLeft: 8,
+});
+
+const filteredEventos = computed(() => {
+  return props.eventos.filter((e) => 
+    e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
+    !pendingDeletions.value.has(e.id)
+  );
+});
+
+
+const eliminarEvento = (evento) => {
+  if (confirm(`¿Estás seguro de que deseas eliminar "${evento.titulo}"? Esta acción destruirá todos sus archivos.`)) {
+    
+    pendingDeletions.value.add(evento.id);
+
+    undoToast.value.show = true;
+    undoToast.value.eventoId = evento.id;
+    undoToast.value.timeLeft = 8;
+
+    if (undoToast.value.intervalId) clearInterval(undoToast.value.intervalId);
+    if (undoToast.value.timeoutId) clearTimeout(undoToast.value.timeoutId);
+
+    undoToast.value.intervalId = setInterval(() => {
+      undoToast.value.timeLeft--;
+    }, 1000);
+
+    undoToast.value.timeoutId = setTimeout(() => {
+      clearInterval(undoToast.value.intervalId);
+      undoToast.value.show = false;
+      pendingDeletions.value.delete(evento.id); 
+
+      router.delete(route("eventos.destroy", evento.id), {
+        preserveScroll: true
+      });
+    }, 8000);
+  }
+};
+
+const deshacerEliminacion = () => {
+  clearTimeout(undoToast.value.timeoutId);
+  clearInterval(undoToast.value.intervalId);
+
+  pendingDeletions.value.delete(undoToast.value.eventoId);
+  undoToast.value.show = false;
 };
 </script>
 
@@ -144,7 +188,7 @@ const getAreaTagImage = (areaNombre) => {
               <div class="flex items-center gap-4">
                 <img :src="getAreaTagImage(evento.area_formacion?.nombre)" class="h-12 w-auto object-contain opacity-50" />
                 <div>
-                    <h3 class="font-black text-slate-800 text-xl leading-tight line-clamp-2 lowercase">{{ evento.titulo }}</h3>
+                    <h3 class="font-black text-slate-800 text-xl leading-tight line-clamp-2 ">{{ evento.titulo }}</h3>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ evento.area_formacion?.nombre }}</p>
                 </div>
               </div>
@@ -169,7 +213,7 @@ const getAreaTagImage = (areaNombre) => {
                   <button @click="openModal(evento, 'edit')" class="w-10 h-10 flex items-center justify-center bg-white text-slate-400 rounded-xl hover:text-blue-600 transition-colors shadow-sm">
                     <Edit3 class="w-4 h-4" />
                   </button>
-                  <button @click="deleteEvent(evento.id)" class="w-10 h-10 flex items-center justify-center bg-white text-slate-400 rounded-xl hover:text-red-600 transition-colors shadow-sm">
+                  <button @click="eliminarEvento(evento)" class="w-10 h-10 flex items-center justify-center bg-white text-slate-400 rounded-xl hover:text-red-600 transition-colors shadow-sm">
                     <Trash2 class="w-4 h-4" />
                   </button>
                 </div>
@@ -182,7 +226,7 @@ const getAreaTagImage = (areaNombre) => {
             <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                 <Archive class="w-10 h-10 text-slate-200" />
             </div>
-            <h3 class="text-xl font-black text-slate-900 lowercase">archivo vacío</h3>
+            <h3 class="text-xl font-black text-slate-900 ">archivo vacío</h3>
             <p class="text-slate-400 text-sm max-w-xs mx-auto">no se han encontrado eventos con el estado de archivado actualmente.</p>
         </div>
       </div>
@@ -201,4 +245,26 @@ const getAreaTagImage = (areaNombre) => {
       />
     </Sidebar>
   </AuthenticatedLayout>
+
+   <Teleport to="body">
+  <div
+    v-if="undoToast.show"
+    class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl transition-all duration-300"
+    style="animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;"
+  >
+    <span class="text-[13px] font-medium tracking-wide">
+      Evento eliminado correctamente.
+    </span>
+    
+    <div class="h-4 w-px bg-slate-700"></div>
+    
+    <button
+      @click="deshacerEliminacion"
+      class="text-[13px] font-black text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 group"
+    >
+      <Undo2 class="w-4 h-4 group-hover:-rotate-45 transition-transform" />
+      Deshacer ({{ undoToast.timeLeft }}s)
+    </button>
+  </div>
+</Teleport>
 </template>

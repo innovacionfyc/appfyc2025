@@ -102,7 +102,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 @fycconsultoressas
 
@@ -127,7 +127,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-5 py-1.5 bg-slate-900 text-white text-[13px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-5 py-1.5 bg-slate-900 text-white text-[13px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 @FyCCapacita
                 <div
@@ -151,7 +151,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 @FYC_Consultores
                 <div
@@ -174,7 +174,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 @fycconsultores
                 <div
@@ -197,7 +197,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 @FYCConsultores
                 <div
@@ -221,7 +221,7 @@ const navigation = {
               class="group relative flex items-center justify-center"
             >
               <div
-                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold lowercase rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
+                class="absolute bottom-full mb-3 px-3 py-1.5 bg-slate-900 text-white text-[13px] font-bold  rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none shadow-xl"
               >
                 #soyfycconsultores
                 <div
@@ -340,7 +340,7 @@ const navigation = {
             favorite
           </span>
 
-          <span class="text-[11px] font-medium text-slate-400 lowercase">
+          <span class="text-[11px] font-medium text-slate-400 ">
             por el equipo
             <span class="text-slate-600 font-bold"
               >transformación digital y comunicaciones</span

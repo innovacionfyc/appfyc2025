@@ -13,6 +13,6 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin')->group(fun
 
     Route::post('/eventos/crear', [EventoController::class, 'store'])->name('eventos.store');
     Route::put('/eventos/{evento}/update', [EventoController::class, 'update'])->name('eventos.update');
-    Route::post('/eventos/{evento}/duplicate', [App\Http\Controllers\Evento\EventoController::class, 'duplicate'])->name('eventos.duplicate');
     Route::delete('/eventos/{evento}', [EventoController::class, 'destroy'])->name('eventos.destroy');
+    Route::post('/eventos/{id}/restore', [EventoController::class, 'restore'])->name('eventos.restore');
 });

@@ -370,7 +370,7 @@ const jumpToDay = (d, m, y) => {
 
           <span
             v-if="shouldShowTitle(date, ev)"
-            class="text-[9px] font-black truncate lowercase tracking-tight pl-1"
+            class="text-[9px] font-black truncate  tracking-tight pl-1"
             :class="[getEventPosition(date.d, date.m, date.y, ev) === 'single' || getEventPosition(date.d, date.m, date.y, ev) === 'start' ? 'text-white' : '']"
           >
             {{ ev.titulo }}
@@ -388,7 +388,7 @@ const jumpToDay = (d, m, y) => {
               >
                 <div class="space-y-2">
                   <h3
-                    class="text-6xl font-black text-slate-900 tracking-tighter leading-none lowercase"
+                    class="text-6xl font-black text-slate-900 tracking-tighter leading-none "
                   >
                     {{ dayNames[viewDate.getDay()] }}
                   </h3>
@@ -464,7 +464,7 @@ const jumpToDay = (d, m, y) => {
                         </div>
 
                         <h4
-                          class="text-3xl md:text-4xl font-black text-slate-800 leading-[1.1] tracking-tight lowercase group-hover:text-indigo-600 transition-colors"
+                          class="text-3xl md:text-4xl font-black text-slate-800 leading-[1.1] tracking-tight  group-hover:text-indigo-600 transition-colors"
                         >
                           {{ ev.titulo }}
                         </h4>

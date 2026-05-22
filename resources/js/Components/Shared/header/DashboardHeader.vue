@@ -17,7 +17,7 @@ const currentDate = computed(() => {
 </script>
 
 <template>
-  <header class="mb-10 animate-in fade-in slide-in-from-top-4 duration-1000">
+  <header class=" animate-in fade-in slide-in-from-top-4 duration-1000">
     <div class="flex items-center gap-2 mb-4">
       <div class="px-4 py-1.5 bg-black/5 backdrop-blur-md rounded-full border border-black/5 flex items-center gap-2">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -29,7 +29,7 @@ const currentDate = computed(() => {
 
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
       
-      <div class="max-w-2xl">
+      <div class="">
         <h2 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-3">
           {{ title }}
         </h2>
@@ -64,7 +64,7 @@ const currentDate = computed(() => {
       </div>
     </div>
 
-    <div class="w-full h-[1px] bg-gradient-to-r from-transparent via-black/5 to-transparent mt-10"></div>
+    <div class="w-full h-[1px] bg-gradient-to-r from-transparent via-black/5 to-transparent mt-5"></div>
   </header>
 </template>
 
@@ -73,12 +73,10 @@ const currentDate = computed(() => {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* Tipografía de sistema San Francisco style */
 h2 {
   letter-spacing: -0.03em;
 }
 
-/* Efecto de curvatura Apple (Squircle) aproximado */
 .rounded-\[2rem\] {
   border-radius: 2rem;
 }
