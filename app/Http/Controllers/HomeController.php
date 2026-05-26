@@ -33,7 +33,7 @@ class HomeController extends Controller
             'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
             'imageBg' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
             'cta_text' => 'Inscribirme',
-            'cta_url' => route('evento.show', $evento->id),
+            'cta_url' => route('evento.show', $evento->slug),
             'badge' => $evento->modalidad,
             'rating' => 5,
             'hex_principal' => $evento->areaFormacion->color_hex_principal,
@@ -46,9 +46,8 @@ class HomeController extends Controller
     ]);
 }
 
-    public function showPlantilla($id)
+    public function showPlantilla($slug)
     {
-
         $evento = Evento::with([
             'areaFormacion',
             'conferencistas',
@@ -56,10 +55,9 @@ class HomeController extends Controller
             'formularioBase',
             'organizador',
             'organizador.perfilOrganizador'
-
         ])
-
-            ->findOrFail($id);
+        ->where('slug', $slug)
+        ->firstOrFail();
 
         return Inertia::render('Home/Plantilla', [
             'evento' => $evento

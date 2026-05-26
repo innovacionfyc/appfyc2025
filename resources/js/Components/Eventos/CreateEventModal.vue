@@ -19,7 +19,7 @@ import {
   Globe,
   Palette,
   Info,
-  User,
+  Users,
 } from "lucide-vue-next";
 import BaseStepperModal from "../Modales/BaseStepperModal.vue";
 import FormInput from "../Shared/inputs/FormInput.vue";
@@ -64,17 +64,16 @@ const missingDependencies = computed(() => {
   return missing;
 });
 
-// --- FORMULARIO REACTIVO ---
 const form = useForm({
   id: null,
   id_origen_duplicado: null,
   linea_evento: "",
   titulo: "",
-  modo_evento: "",
+  modo_evento: null,
   subtitulo: "",
   area_formacion_id: "",
   estado_id: "",
-  modalidad: "Presencial",
+  modalidad: null,
   fecha_hora_inicio: "",
   fecha_hora_fin: "",
   fecha_hora_inicio: "",
@@ -82,11 +81,11 @@ const form = useForm({
   ubicacion: "Centro de convenciones CAFAM Floresta",
   formulario_base_id: "",
   conferencistas: [],
-  color_hex_secundario: "#4F46E5",
+  color_hex_secundario: null,
   estilo_temario: "lista",
   estilo_expertos: "lista",
   texto_dinamico: "",
-  tipo_evento: "JORNADA",
+  tipo_evento: null,
   precio_jornada: 0,
   precio_modulo: 0,
   precio_cng: 0,
@@ -99,10 +98,9 @@ const form = useForm({
   tiene_oferta_valor: false,
   oferta_valor: "",
 
-  contenido_tematico: [{ tema: "", subtemas: [""] }],
+  contenido_tematico: [{ tema: "(Escribe algo...)", subtemas: [""] }],
 });
 
-// Define la matriz de precios activa según el tipo de evento
 const camposPrecioActivos = computed(() => {
   const map = {
     JORNADA: ["precio_jornada"],
@@ -111,6 +109,7 @@ const camposPrecioActivos = computed(() => {
     CURSO_INTENSIVO: ["precio_curso_intensivo"],
     DIPLOMADO: ["precio_diplomado"],
     CI_CNG: ["precio_curso_intensivo", "precio_cng"],
+    JOR_MOD: ["precio_jornada", "precio_modulo"],
   };
   return map[form.tipo_evento] || [];
 });
@@ -155,7 +154,7 @@ const formatRangeFull = (range) => {
 };
 
 const addTema = () => {
-  form.contenido_tematico.push({ tema: "", subtemas: [""] })
+  form.contenido_tematico.push({ tema: "", subtemas: [""] });
 };
 const removeTema = (i) => form.contenido_tematico.splice(i, 1);
 const addSubtema = (ti) => form.contenido_tematico[ti].subtemas.push("");
@@ -166,6 +165,46 @@ const toggleSpeaker = (id) => {
   index === -1 ? form.conferencistas.push(id) : form.conferencistas.splice(index, 1);
 };
 
+const clearForm = () => {
+  form.id = null;
+  form.id_origen_duplicado = null;
+  form.modo_evento = "";
+  form.titulo = "";
+  form.subtitulo = "";
+  form.area_formacion_id = "";
+  form.estado_id = "";
+  form.tipo_evento = "JORNADA";
+  form.modalidad = "Presencial";
+  form.fecha_hora_inicio = "";
+  form.fecha_hora_fin = "";
+  form.ubicacion = "";
+  
+  form.precio_jornada = 0;
+  form.precio_modulo = 0;
+  form.precio_cng = 0;
+  form.precio_curso_intensivo = 0;
+  form.precio_diplomado = 0;
+  
+  form.tiene_oferta_valor = false;
+  form.oferta_valor = "";
+  
+  form.conferencistas = [];
+  form.contenido_tematico = [{ tema: "", subtemas: [""] }];
+  
+  form.color_hex_secundario = "#4F46E5";
+  form.estilo_temario = "lista";
+  form.estilo_expertos = "lista";
+  form.texto_dinamico = "";
+  
+  form.imagen_relacionada = null;
+  form.url_folleto = null;
+  form.url_formulario_inscripcion = "";
+  form.organizador_id = "";
+
+  form.clearErrors();
+  previewImageUrl.value = null;
+};
+
 watch(
   () => form.imagen_relacionada,
   (file) => {
@@ -174,65 +213,74 @@ watch(
 );
 
 watch(
-  () => [props.show, props.evento],
-  ([show, evento]) => {
-    if (show && evento) {
-      form.id = props.mode === "edit" ? evento.id : null;
-      form.id_origen_duplicado = props.mode === "duplicate" ? evento.id : null;
+  () => [props.show, props.evento, props.mode],
+  ([isVisible, evento, mode]) => {
+    if (isVisible) {
+      if ((mode === "edit" || mode === "duplicate") && evento) {
+        form.id = mode === "edit" ? evento.id : null;
+        form.id_origen_duplicado = mode === "duplicate" ? evento.id : null;
 
-      form.modo_evento = evento.modo_evento || evento.linea_evento || "";
-      form.titulo =
-        props.mode === "duplicate" ? `${evento.titulo} (Copia)` : evento.titulo;
-      form.subtitulo = evento.subtitulo || "";
-      form.area_formacion_id = evento.area_formacion_id;
-      form.estado_id = props.mode === "duplicate" ? 1 : evento.estado_id || "";
-      form.modalidad = evento.modalidad || "Presencial";
-      form.ubicacion = evento.ubicacion || "";
-      form.precio_jornada = evento.precio_jornada || "";
-      form.precio_modulo = evento.precio_modulo || "";
-      form.formulario_base_id = evento.formulario_base_id;
-      form.texto_dinamico = evento.texto_dinamico || "";
-      form.color_hex_secundario = evento.color_hex_secundario || "#4F46E5";
-      form.url_formulario_inscripcion = evento.url_formulario_inscripcion || "";
-      form.organizador_id = evento.organizador_id;
-      form.estilo_temario = evento.estilo_temario || "lista";
-      form.estilo_expertos = evento.estilo_expertos || "lista";
+        form.modo_evento = evento.modo_evento || "";
+        form.titulo = mode === "duplicate" ? `${evento.titulo} (Copia)` : evento.titulo;
+        form.subtitulo = evento.subtitulo || "";
+        form.area_formacion_id = evento.area_formacion_id || "";
+        form.estado_id = mode === "duplicate" ? 1 : evento.estado_id || "";
+        form.tipo_evento = evento.tipo_evento || "JORNADA";
+        form.modalidad = evento.modalidad || "Presencial";
+        form.ubicacion = evento.ubicacion || "";
+        
+        form.precio_jornada = evento.precio_jornada || 0;
+        form.precio_modulo = evento.precio_modulo || 0;
+        form.precio_cng = evento.precio_cng || 0;
+        form.precio_curso_intensivo = evento.precio_curso_intensivo || 0;
+        form.precio_diplomado = evento.precio_diplomado || 0;
+        
+        form.tiene_oferta_valor = !!evento.oferta_valor;
+        form.oferta_valor = evento.oferta_valor || "";
+        
+        form.texto_dinamico = evento.texto_dinamico || "";
+        form.color_hex_secundario = evento.color_hex_secundario || "#4F46E5";
+        form.estilo_temario = evento.estilo_temario || "lista";
+        form.estilo_expertos = evento.estilo_expertos || "lista";
+        
+        form.url_formulario_inscripcion = evento.url_formulario_inscripcion || "";
+        form.organizador_id = evento.organizador_id || "";
+        
+        form.imagen_relacionada = null;
+        form.url_folleto = null;
+        form.conferencistas = evento.conferencistas ? evento.conferencistas.map((s) => s.id) : [];
 
-      form.conferencistas = evento.conferencistas
-        ? evento.conferencistas.map((s) => s.id)
-        : [];
+        const formatForInput = (dbDate) => {
+          if (!dbDate) return "";
+          return dbDate.replace(" ", "T").substring(0, 16);
+        };
 
-      const formatForInput = (dbDate) => {
-        if (!dbDate) return "";
-        return dbDate.replace(" ", "T").substring(0, 16);
-      };
+        form.fecha_hora_inicio = formatForInput(evento.fecha_hora_inicio);
+        form.fecha_hora_fin = formatForInput(evento.fecha_hora_fin);
 
-      form.fecha_hora_inicio = formatForInput(evento.fecha_hora_inicio);
-      form.fecha_hora_fin = formatForInput(evento.fecha_hora_fin);
+        const rawModulos = evento.contenido_tematico?.modulos || evento.contenido_tematico;
+        if (rawModulos) {
+          form.contenido_tematico = JSON.parse(JSON.stringify(rawModulos)).map((m) => ({
+            tema: m.tema || "",
+            subtemas: m.subtemas || [],
+          }));
+        } else {
+          form.contenido_tematico = [{ tema: "", subtemas: [""] }];
+        }
 
-      const rawModulos = evento.contenido_tematico?.modulos || evento.contenido_tematico;
-      if (rawModulos) {
-        form.contenido_tematico = JSON.parse(JSON.stringify(rawModulos));
+        previewImageUrl.value = evento.imagen_relacionada
+          ? evento.imagen_relacionada.startsWith('http') ? evento.imagen_relacionada : `/storage/${evento.imagen_relacionada}`
+          : null;
+          
+        form.defaults();
       } else {
-        form.contenido_tematico = [{ tema: "", subtemas: [""] }];
+        clearForm();
       }
-
-      if (evento.imagen_relacionada) {
-        previewImageUrl.value = evento.imagen_relacionada.startsWith("http")
-          ? evento.imagen_relacionada
-          : `/storage/${evento.imagen_relacionada}`;
-      } else {
-        previewImageUrl.value = null;
-      }
-
-      form.defaults();
-    } else if (!show) {
-      form.reset();
-      form.clearErrors();
-      previewImageUrl.value = null;
+    } else {
+      clearForm();
     }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 const submit = () => {
@@ -247,20 +295,20 @@ const submit = () => {
         "precio_curso_intensivo",
         "precio_diplomado",
       ];
-
       todosLosPrecios.forEach((campo) => {
-        if (!camposPrecioActivos.value.includes(campo)) {
-          data[campo] = 0;
-        }
+        if (!camposPrecioActivos.value.includes(campo)) data[campo] = 0;
       });
 
       const ofertaFinal = data.tiene_oferta_valor ? data.oferta_valor : null;
 
-      form.contenido_tematico = form.contenido_tematico
-        .filter((m) => m.tema.trim() !== "")
+
+      const temarioLimpio = (data.contenido_tematico || [])
+        .filter((m) => m && m.tema && typeof m.tema === 'string' && m.tema.trim() !== "")
         .map((m) => ({
           ...m,
-          subtemas: m.subtemas.filter((s) => s.trim() !== ""),
+          subtemas: (m.subtemas || []).filter(
+            (s) => s && typeof s === 'string' && s.trim() !== ""
+          ),
         }));
 
       const formatToDB = (dateStr) =>
@@ -275,6 +323,7 @@ const submit = () => {
         fecha_hora_inicio: start,
         fecha_hora_fin: end,
         oferta_valor: ofertaFinal,
+        contenido_tematico: temarioLimpio,
       };
     })
     .post(url, {
@@ -450,9 +499,11 @@ const toggleSubtemas = (modulo) => {
                     'CURSO_INTENSIVO',
                     'DIPLOMADO',
                     'CI_CNG',
+                    'JOR_MOD',
                   ]"
                   icon="category"
                   :activeColor="selectedArea.color_hex_principal"
+                  :error="form.errors.tipo_evento"
                   required
                 />
               </div>
@@ -463,6 +514,8 @@ const toggleSubtemas = (modulo) => {
                   type="number"
                   v-model="form.precio_jornada"
                   icon="payments"
+                  :error="form.errors.precio_jornada"
+                  required
                 />
                 <FormInput
                   v-if="camposPrecioActivos.includes('precio_modulo')"
@@ -470,6 +523,8 @@ const toggleSubtemas = (modulo) => {
                   type="number"
                   v-model="form.precio_modulo"
                   icon="payments"
+                  :error="form.errors.precio_modulo"
+                  required
                 />
                 <FormInput
                   v-if="camposPrecioActivos.includes('precio_cng')"
@@ -477,6 +532,8 @@ const toggleSubtemas = (modulo) => {
                   type="number"
                   v-model="form.precio_cng"
                   icon="payments"
+                  :error="form.errors.precio_cng"
+                  required
                 />
                 <FormInput
                   v-if="camposPrecioActivos.includes('precio_curso_intensivo')"
@@ -484,6 +541,8 @@ const toggleSubtemas = (modulo) => {
                   type="number"
                   v-model="form.precio_curso_intensivo"
                   icon="payments"
+                  :error="form.errors.precio_curso_intensivo"
+                  required
                 />
                 <FormInput
                   v-if="camposPrecioActivos.includes('precio_diplomado')"
@@ -491,17 +550,26 @@ const toggleSubtemas = (modulo) => {
                   type="number"
                   v-model="form.precio_diplomado"
                   icon="payments"
+                  :error="form.errors.precio_diplomado"
+                  required
                 />
               </div>
             </div>
 
             <div v-if="currentStep === 3" class="space-y-6 animate-in">
+              <p
+                v-if="form.errors.contenido_tematico"
+                class="text-[11px] font-bold text-red-500 mb-2"
+              >
+                {{ form.errors.contenido_tematico }}
+              </p>
               <div class="flex justify-between items-center">
                 <h4
                   class="text-[10px] font-black uppercase text-slate-400 tracking-widest"
                 >
                   Temario Académico
                 </h4>
+
                 <button
                   @click="addTema"
                   class="text-xs font-bold flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded-lg transition-all"
@@ -540,6 +608,12 @@ const toggleSubtemas = (modulo) => {
                       <Trash2 class="w-4 h-4" />
                     </button>
                   </div>
+                  <p
+                    v-if="form.errors[`contenido_tematico.${ti}.tema`]"
+                    class="text-[10px] font-bold text-red-500 ml-11 mb-3"
+                  >
+                    {{ form.errors[`contenido_tematico.${ti}.tema`] }}
+                  </p>
 
                   <div class="pl-11">
                     <button
@@ -547,21 +621,21 @@ const toggleSubtemas = (modulo) => {
                       @click="toggleSubtemas(modulo)"
                       class="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors"
                       :class="
-                        modulo.subtemas.length > 0
+                        modulo.subtemas?.length > 0
                           ? 'text-rose-600'
                           : 'text-slate-400 hover:text-slate-600'
                       "
                     >
                       <Plus class="w-3 h-3" />
                       {{
-                        modulo.subtemas.length > 0
+                        modulo.subtemas?.length > 0
                           ? "Ocultar subtemas"
                           : "Agregar subtemas"
                       }}
                     </button>
 
                     <div
-                      v-if="modulo.subtemas.length > 0"
+                      v-if="modulo.subtemas?.length > 0"
                       class="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2"
                     >
                       <div
@@ -603,6 +677,12 @@ const toggleSubtemas = (modulo) => {
               >
                 Expertos Asignados
               </h4>
+              <p
+                v-if="form.errors.conferencistas"
+                class="text-[11px] font-bold text-red-500 mb-2"
+              >
+                {{ form.errors.conferencistas }}
+              </p>
               <div class="grid grid-cols-2 gap-2">
                 <div
                   v-for="s in conferencistas"
@@ -688,7 +768,7 @@ const toggleSubtemas = (modulo) => {
             </div>
 
             <div v-if="currentStep === 4" class="space-y-6 animate-in">
-              <div class="grid grid-cols-2 gap-4 items-center">
+              <div class="grid gap-4 items-center">
                 <div
                   class="p-6 rounded-3xl border-2 border-dashed border-slate-200 text-center hover:bg-slate-50 transition-colors"
                 >
@@ -709,12 +789,6 @@ const toggleSubtemas = (modulo) => {
                     }}</span>
                   </label>
                 </div>
-                <FormInput
-                  label="Color Identidad"
-                  type="color"
-                  v-model="form.color_hex_secundario"
-                  :activeColor="selectedArea.color_hex_principal"
-                />
               </div>
 
               <div class="bg-slate-50 p-5 rounded-3xl border border-slate-100 space-y-5">
@@ -808,21 +882,25 @@ const toggleSubtemas = (modulo) => {
               </div>
 
               <FormInput
-                label="Url inscripción (opcional)"
+                label="Url inscripción"
                 type="text"
                 v-model="form.url_formulario_inscripcion"
                 icon="link"
                 placeholder="Ingrese el vinculo"
                 :max="250"
                 :activeColor="selectedArea.color_hex_principal"
+                required
+                :error="form.errors.url_formulario_inscripcion"
               />
               <FormInput
-                label="Documento soporte (opcional)"
+                label="Documento soporte"
                 type="file"
                 v-model="form.url_folleto"
                 icon="upload_file"
                 placeholder="Click para subir PDF o Imagen"
                 :activeColor="selectedArea.color_hex_principal"
+                required
+                :error="form.errors.url_folleto"
               />
               <FormInput
                 label="Comercial encargado"
@@ -832,6 +910,7 @@ const toggleSubtemas = (modulo) => {
                 icon="people"
                 :activeColor="selectedArea.color_hex_principal"
                 required
+                :error="form.errors.organizador_id"
               />
             </div>
           </div>
@@ -1010,7 +1089,7 @@ const toggleSubtemas = (modulo) => {
                               {{ tema.tema || "Tema pendiente..." }}
                             </p>
                             <div
-                              v-if="tema.subtemas.length"
+                              v-if="tema.subtemas?.length"
                               class="mt-2 grid grid-cols-1 gap-1"
                             >
                               <div

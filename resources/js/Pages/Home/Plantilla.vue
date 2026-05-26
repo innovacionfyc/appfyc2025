@@ -205,7 +205,6 @@ const formatEventRange = (inicio, fin) => {
     <title>{{ evento?.titulo }}</title>
 
     <meta name="description" :content="evento?.subtitulo + ': ' + evento?.titulo" />
-    <meta name="theme-color" :content="activeColor" key="theme-color" />
   </Head>
 
   <GuestLayout>
@@ -454,7 +453,7 @@ const formatEventRange = (inicio, fin) => {
                     <ul
                       class="grid gap-3 bg-slate-50/50 rounded-2xl p-5 border border-slate-100"
                       :class="
-                        modulo.subtemas.length === 1
+                        modulo.subtemas?.length === 1
                           ? 'grid-cols-1'
                           : 'grid-cols-1 md:grid-cols-2'
                       "

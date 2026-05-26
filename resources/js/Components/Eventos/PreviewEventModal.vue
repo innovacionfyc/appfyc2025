@@ -18,8 +18,8 @@ const activeColor = computed(
 );
 
 const externalUrl = computed(() => {
-  if (!props.evento?.id) return "";
-  return `${window.location.origin}/evento/${props.evento.id}`;
+  if (!props.evento?.slug) return "";
+  return `${window.location.origin}/evento/${props.evento.slug}`;
 });
 
 watch(

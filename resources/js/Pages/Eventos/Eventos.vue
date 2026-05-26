@@ -55,8 +55,13 @@ const openModal = (evento = null, mode = "create") => {
   });
 };
 
+const previewUrl = ref("");
+
 const openPreview = (evento) => {
   selectedEventForPreview.value = evento;
+  
+  previewUrl.value = route('evento.show', evento.slug);
+  
   isPreviewOpen.value = true;
 };
 

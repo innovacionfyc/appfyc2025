@@ -20,6 +20,7 @@ class Evento extends Model
         'area_formacion_id',
         'modo_evento',
         'titulo',
+        'slug',
         'subtitulo',
         'imagen_relacionada',
         'modalidad',
