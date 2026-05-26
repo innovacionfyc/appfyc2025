@@ -84,7 +84,8 @@ class AdminController extends Controller
                     'es_hoy' => $start->isToday() || (now()->between($start, $end)),
                     'modalidad' => $e->modalidad,
                     'ubicacion' => $e->ubicacion,
-                    'organizador' => $nombre_completo
+                    'organizador' => $nombre_completo,
+                    'slug' => $e->slug,
                 ];
             });
 

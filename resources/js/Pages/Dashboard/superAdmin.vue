@@ -7,7 +7,6 @@ import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import CreateEventModal from "@/Components/Eventos/CreateEventModal.vue";
 
-
 // ICONOS
 import {
   Users,
@@ -54,32 +53,9 @@ const stats = computed(() => [
     color: "text-primary-vinotinto",
     bg: "bg-rose-50",
     trend: "Registrados",
-  }
+  },
 ]);
 
-const recentActivity = [
-  {
-    id: 1,
-    user: "Admin",
-    action: "creó el evento",
-    target: "Seminario de Hacienda",
-    time: "hace 2 min",
-  },
-  {
-    id: 2,
-    user: "Comercial",
-    action: "registró nuevo",
-    target: "conferencista",
-    time: "hace 15 min",
-  },
-  {
-    id: 3,
-    user: "Sistema",
-    action: "envió correo a",
-    target: "45 inscritos",
-    time: "hace 1 hora",
-  },
-];
 
 const headerStats = [
   {
@@ -124,8 +100,12 @@ const formatDate = (dateStr) => {
 const isPreviewOpen = ref(false);
 const selectedEvento = ref(null);
 
+const previewUrl = ref("");
 const openPreview = (evento) => {
   selectedEvento.value = evento;
+
+  previewUrl.value = route("evento.show", evento.slug);
+
   isPreviewOpen.value = true;
 };
 
@@ -139,6 +119,14 @@ const getExecutionDay = (evento) => {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   return diffDays > evento.duracion_dias ? evento.duracion_dias : diffDays;
+};
+
+const calcularTotalDias = (evento) => {
+  const start = new Date(evento.fecha);
+  const end = new Date(evento.fecha_fin);
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays;
 };
 </script>
 
@@ -158,59 +146,56 @@ const getExecutionDay = (evento) => {
       <div
         class="mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000"
       >
-      
-
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
           <div class="lg:col-span-2 space-y-8">
             <div
               class="bg-mono-blanco rounded-2xl border border-slate-100 p-8 shadow-sm h-auto flex flex-col"
             >
               <section
-          class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700"
-        >
-          <div
-            v-for="stat in stats"
-            :key="stat.name"
-            class="group relative bg-mono-blanco/60 backdrop-blur-2xl p-5 rounded-xl border border-mono-blanco shadow-[0_10px_40px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden"
-          >
-            <div
-              class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-mono-blanco/40 to-transparent rounded-full blur-2xl"
-            ></div>
-
-            <div class="flex items-start justify-between relative z-10">
-              <div
-                :class="[
-                  stat.bg,
-                  stat.color,
-                  'w-8 h-8 rounded-2xl flex items-center justify-center shadow-sm border border-mono-blanco/50 transition-transform group-hover:scale-110 duration-500',
-                ]"
-              >
-                <component :is="stat.icon" class="w-5 h-5" />
-              </div>
-
-              <div
-                class="px-3 py-1.5 rounded-full bg-mono-blanco/80 border border-mono-blanco shadow-sm flex items-center gap-1.5"
+                class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700"
               >
                 <div
-                  class="w-1.5 h-1.5 rounded-full bg-semaforo-verde animate-pulse"
-                ></div>
-                <span class="text-[11px] font-bold text-slate-500 leading-none">
-                  {{ stat.trend }}
-                </span>
-              </div>
-            </div>
+                  v-for="stat in stats"
+                  :key="stat.name"
+                  class="group relative bg-mono-blanco/60 backdrop-blur-2xl p-5 rounded-xl border border-mono-blanco shadow-[0_10px_40px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden"
+                >
+                  <div
+                    class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-mono-blanco/40 to-transparent rounded-full blur-2xl"
+                  ></div>
 
-            <div class="mt-6 relative z-10">
-              <p class="text-sm font-semibold text-slate-400 mb-1 leading-none">
-                {{ stat.name }}
-              </p>
-              <h3 class="text-4xl font-black text-mono-negro tracking-tight">
-                {{ stat.value }}
-              </h3>
-            </div>
-          </div>
-        </section>
+                  <div class="flex items-start justify-between relative z-10">
+                    <div
+                      :class="[
+                        stat.bg,
+                        stat.color,
+                        'w-8 h-8 rounded-2xl flex items-center justify-center shadow-sm border border-mono-blanco/50 transition-transform group-hover:scale-110 duration-500',
+                      ]"
+                    >
+                      <component :is="stat.icon" class="w-5 h-5" />
+                    </div>
+
+                    <div
+                      class="px-3 py-1.5 rounded-full bg-mono-blanco/80 border border-mono-blanco shadow-sm flex items-center gap-1.5"
+                    >
+                      <div
+                        class="w-1.5 h-1.5 rounded-full bg-semaforo-verde animate-pulse"
+                      ></div>
+                      <span class="text-[11px] font-bold text-slate-500 leading-none">
+                        {{ stat.trend }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="mt-6 relative z-10">
+                    <p class="text-sm font-semibold text-slate-400 mb-1 leading-none">
+                      {{ stat.name }}
+                    </p>
+                    <h3 class="text-4xl font-black text-mono-negro tracking-tight">
+                      {{ stat.value }}
+                    </h3>
+                  </div>
+                </div>
+              </section>
               <div
                 class="mb-5 bg-gradient-to-br from-primary-vinotinto to-secondary-vinotinto2 w-full rounded-2xl p-5 text-mono-blanco relative overflow-hidden shadow-2xl shadow-rose-200"
               >
@@ -292,22 +277,41 @@ const getExecutionDay = (evento) => {
                     :class="{ 'bg-rose-50/40 border-rose-100': evento.es_hoy }"
                   >
                     <div
-                      class="flex-none w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-sm"
+                      class="flex-none w-20 h-20 rounded-2xl flex flex-col items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-sm"
                       :class="
                         evento.es_hoy
-                          ? 'bg-primary-vinotinto text-mono-blanco shadow-rose-200'
-                          : 'bg-mono-negro_opacity_medio border-mono-negro border text-mono-negro'
+                          ? 'bg-primary-vinotinto text-mono-blanco'
+                          : 'text-mono-blanco'
                       "
+                      :style="{ backgroundColor: !evento.es_hoy ? evento.color : '' }"
                     >
-                      <span
-                        class="text-[8px] font-black uppercase tracking-tighter opacity-70"
-                      >
+                      <span class="text-[10px] font-black uppercase opacity-70">
                         {{ formatDate(evento.fecha).diaNombre }}
                       </span>
-                      <span class="text-xl font-black leading-none">
-                        {{ formatDate(evento.fecha).diaNum }} <br />
-                        {{ formatDate(evento.fecha_fin).diaNum }}
+
+                      <span class="text-2xl font-black text-center leading-none">
+                        <template
+                          v-if="
+                            formatDate(evento.fecha).diaNum ===
+                            formatDate(evento.fecha_fin).diaNum
+                          "
+                        >
+                          {{ formatDate(evento.fecha).diaNum }}
+                        </template>
+
+                        <template v-else-if="calcularTotalDias(evento) >= 3">
+                          {{ formatDate(evento.fecha).diaNum }} al
+                          {{ formatDate(evento.fecha_fin).diaNum }}
+                        </template>
+
+                        <template v-else>
+                          {{ formatDate(evento.fecha).diaNum }} y
+                          {{ formatDate(evento.fecha_fin).diaNum }}
+                        </template>
                       </span>
+                      <span class="text-[10px] font-black uppercase opacity-70">{{
+                        formatDate(evento.fecha).mes
+                      }}</span>
                     </div>
 
                     <div class="flex-grow min-w-0 pt-1">
@@ -326,9 +330,12 @@ const getExecutionDay = (evento) => {
 
                         <div
                           v-else-if="evento.duracion_dias > 1"
-                          class="bg-primary-verde/20 text-primary-verde text-[12px] px-2 py-0.5 rounded-md font-semibold border border-primary-verde"
+                          class=" text-mono-blanco text-[12px] px-2 py-0.5 rounded-md font-semibold"
+                           :style="{ backgroundColor: evento.color }"
                         >
-                          {{ evento.duracion_dias }} días de jornada
+                          {{ Math.floor(evento.duracion_dias) }}
+                          <span v-if="evento.duracion_dias > 2">Días</span>
+                          <span v-else>Día</span> de jornada
                         </div>
 
                         <span class="text-[13px] font-bold text-slate-400">
@@ -446,7 +453,7 @@ const getExecutionDay = (evento) => {
         @close="isCreateModalOpen = false"
         @openDependency="handleOpenDependency"
       />
-      
+
       <PreviewEventModal
         :show="isPreviewOpen"
         :evento="selectedEvento"

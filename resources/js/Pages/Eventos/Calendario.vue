@@ -60,14 +60,12 @@ const dayNames = [
 ];
 const dayNamesShort = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
-// --- FILTRADO ---
 const filteredEventos = computed(() => {
   return props.eventos.filter((e) =>
     selectedAreaId.value ? e.area_formacion_id === selectedAreaId.value : true
   );
 });
 
-// --- LÓGICA DE FECHAS ---
 const calendarData = computed(() => {
   const year = viewDate.value.getFullYear();
   const month = viewDate.value.getMonth();
@@ -117,17 +115,12 @@ const getEventPosition = (d, m, y, event) => {
   return "middle";
 };
 
-// Centraliza las clases de Tailwind
 const getEventClasses = (date, ev) => {
   const pos = getEventPosition(date.d, date.m, date.y, ev);
   return {
-    // Evento de un solo día
     'rounded-lg shadow-sm mx-1': pos === 'single',
-    // Inicio de un evento multidía
     'rounded-l-lg ml-1': pos === 'start',
-    // Parte media de un evento multidía
     'rounded-none': pos === 'middle',
-    // Final de un evento multidía
     'rounded-r-lg mr-1': pos === 'end',
   };
 };
@@ -136,13 +129,11 @@ const getEventStyles = (ev, date) => {
   const color = ev.area_formacion?.color_hex_principal || '#e11d48';
   const pos = getEventPosition(date.d, date.m, date.y, ev);
   
-  // Si es el inicio o único, usamos el color sólido para que destaque
-  // Si es continuación, podemos usar una opacidad ligeramente distinta para efecto premium
   const isSolid = pos === 'start' || pos === 'single';
   
   return {
-    backgroundColor: isSolid ? color : `${color}dd`, // Sólido o 85% de opacidad
-    color: '#ffffff', // Texto siempre blanco para máxima legibilidad sobre colores
+    backgroundColor: isSolid ? color : `${color}dd`,
+    color: '#ffffff', 
     boxShadow: isSolid ? `0 2px 4px ${color}20` : 'none'
   };
 };
@@ -151,18 +142,15 @@ const shouldShowTitle = (date, ev) => {
   const pos = getEventPosition(date.d, date.m, date.y, ev);
   const dayOfWeek = new Date(date.y, date.m, date.d).getDay();
   
-  // Mostrar título si: es el inicio, es un solo día, es el día 1 del mes, o es Lunes (re-confirmación visual)
   return pos === 'start' || pos === 'single' || date.d === 1 || dayOfWeek === 1;
 };
 
 const hoveredColumn = ref(null);
 
-// Calculamos el estilo de las columnas dinámicamente
 const gridStyle = computed(() => {
   if (hoveredColumn.value === null) return "repeat(7, 1fr)";
   let columns = [];
   for (let i = 0; i < 7; i++) {
-    // La columna bajo el mouse crece (1.8fr), las demás se encogen (1fr)
     columns.push(i === hoveredColumn.value ? "1.8fr" : "1fr");
   }
   return columns.join(" ");
@@ -191,13 +179,11 @@ const formatTime = (dateStr) => {
   });
 };
 
-// Calcula la estructura exacta del mes (Lunes a Domingo)
 const getDaysInMonthForYear = (monthIdx, year) => {
   const firstDay = new Date(year, monthIdx, 1).getDay();
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
   const days = [];
 
-  // Ajuste para que la semana empiece en Lunes
   const offset = firstDay === 0 ? 6 : firstDay - 1;
 
   for (let i = 0; i < offset; i++) days.push({ day: null });
@@ -206,14 +192,12 @@ const getDaysInMonthForYear = (monthIdx, year) => {
   return days;
 };
 
-// Obtiene el color del primer evento encontrado para ese día
 const getDayEventColor = (d, m, y) => {
   if (!d) return null;
   const evs = getEventsForDate(d, m, y);
   return evs.length > 0 ? evs[0].area_formacion?.color_hex_principal || "#ef4444" : null;
 };
 
-// Navegación rápida: clic en día de año -> vista de día
 const jumpToDay = (d, m, y) => {
   if (!d) return;
   viewDate.value = new Date(y, m, d);
@@ -236,35 +220,15 @@ const jumpToDay = (d, m, y) => {
           class="mt-8 flex flex-col lg:flex-row gap-6 items-center justify-between bg-white p-6 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100"
         >
           <div class="flex items-center gap-6">
-            <div
-              class="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200 shadow-inner"
-            >
-              <button
-                @click="navigate(-1)"
-                class="p-2 hover:bg-white hover:text-rose-600 rounded-xl transition-all"
-              >
-                <ChevronLeft class="w-5 h-5" />
-              </button>
-              <button
-                @click="viewDate = new Date()"
-                class="px-5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-600 transition-colors"
-              >
-                hoy
-              </button>
-              <button
-                @click="navigate(1)"
-                class="p-2 hover:bg-white hover:text-rose-600 rounded-xl transition-all"
-              >
-                <ChevronRight class="w-5 h-5" />
-              </button>
-            </div>
-
-            <div class="flex flex-col">
+           <div class="flex flex-col">
               <h2 class="text-2xl font-black text-slate-900 capitalize leading-none">
                 {{ currentView !== "year" ? monthNames[viewDate.getMonth()] : "" }}
-                <span class="text-rose-600">{{ viewDate.getFullYear() }}</span>
+                <span class="text-primary-vinotinto">{{ viewDate.getFullYear() }}</span>
               </h2>
             </div>
+            
+
+           
           </div>
 
           <div
@@ -275,7 +239,7 @@ const jumpToDay = (d, m, y) => {
               class="px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all"
               :class="
                 !selectedAreaId
-                  ? 'bg-white text-rose-600 shadow-sm'
+                  ? 'bg-white text-primary-vinotinto shadow-sm'
                   : 'text-slate-400 hover:text-slate-600'
               "
             >
@@ -286,7 +250,7 @@ const jumpToDay = (d, m, y) => {
               v-for="area in areas"
               :key="area.id"
               @click="selectedAreaId = area.id"
-              class="flex items-center gap-2 px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all group"
+              class="flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px]  transition-all group"
               :class="
                 selectedAreaId === area.id
                   ? 'bg-white shadow-sm'
@@ -310,7 +274,7 @@ const jumpToDay = (d, m, y) => {
                 class="px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
                 :class="
                   currentView === v
-                    ? 'bg-white text-rose-600 shadow-sm'
+                    ? 'bg-white text-primary-vinotinto shadow-sm'
                     : 'text-slate-400'
                 "
               >
@@ -319,20 +283,45 @@ const jumpToDay = (d, m, y) => {
             </div>
             <button
               @click="isCreateModalOpen = true"
-              class="p-4 bg-rose-600 text-white rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 hover:-translate-y-0.5 transition-all active:scale-95"
+              class="p-4 bg-primary-vinotinto text-white rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 hover:-translate-y-0.5 transition-all active:scale-95"
             >
               <Plus class="w-6 h-6" />
             </button>
           </div>
         </div>
 
+<div class="flex justify-end mt-5">
+<div
+              class="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-200 shadow-inner"
+            >
+            
+              <button
+                @click="navigate(-1)"
+                class="p-2 hover:bg-white hover:text-primary-vinotinto rounded-xl transition-all"
+              >
+                <ChevronLeft class="w-5 h-5" />
+              </button>
+              <button
+                @click="viewDate = new Date()"
+                class="px-5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-vinotinto transition-colors"
+              >
+                hoy
+              </button>
+              <button
+                @click="navigate(1)"
+                class="p-2 hover:bg-white hover:text-primary-vinotinto rounded-xl transition-all"
+              >
+                <ChevronRight class="w-5 h-5" />
+              </button>
+            </div>
+</div>
         <div
-          class="mt-8 bg-white rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] border border-slate-100 overflow-hidden"
+          class="mt-5 bg-white rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] border border-slate-100 overflow-hidden"
         >
           <template v-if="currentView === 'month'">
   <div class="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
     <div v-for="day in dayNamesShort" :key="day" class="py-4 text-center">
-      <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{{ day }}</span>
+      <span class="text-[15px] text-primary-vinotinto font-bold uppercase">{{ day }}</span>
     </div>
   </div>
 
@@ -345,12 +334,13 @@ const jumpToDay = (d, m, y) => {
     >
       <div class="flex justify-end p-1 mb-1">
         <span
-          class="text-[11px] font-black w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+          class="text-[20px] font-semibold w-10 h-10 flex items-center justify-center rounded-lg transition-all"
           :class="date.d === new Date().getDate() && date.m === new Date().getMonth() && date.y === new Date().getFullYear()
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-200'
+              ? 'bg-primary-vinotinto text-white shadow-md shadow-rose-200'
               : 'text-slate-400'"
         >
           {{ date.d }}
+          
         </span>
       </div>
 
@@ -370,10 +360,10 @@ const jumpToDay = (d, m, y) => {
 
           <span
             v-if="shouldShowTitle(date, ev)"
-            class="text-[9px] font-black truncate  tracking-tight pl-1"
+            class="text-[14px] pl-1"
             :class="[getEventPosition(date.d, date.m, date.y, ev) === 'single' || getEventPosition(date.d, date.m, date.y, ev) === 'start' ? 'text-white' : '']"
           >
-            {{ ev.titulo }}
+            {{ ev.titulo }} <br>
           </span >
         </button>
       </div>
@@ -388,14 +378,14 @@ const jumpToDay = (d, m, y) => {
               >
                 <div class="space-y-2">
                   <h3
-                    class="text-6xl font-black text-slate-900 tracking-tighter leading-none "
+                    class="text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase"
                   >
                     {{ dayNames[viewDate.getDay()] }}
                   </h3>
                   <p
                     class="text-xl font-bold text-slate-400 capitalize flex items-center gap-2"
                   >
-                    <span class="text-indigo-600">{{ viewDate.getDate() }}</span>
+                    <span class="text-primary-vinotinto">{{ viewDate.getDate() }}</span>
                     {{ monthNames[viewDate.getMonth()] }}, {{ viewDate.getFullYear() }}
                   </p>
                 </div>
@@ -405,7 +395,7 @@ const jumpToDay = (d, m, y) => {
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
                   >
                     jornadas para hoy:
-                    <span class="text-indigo-600">{{
+                    <span class="text-primary-vinotinto">{{
                       getEventsForDate(
                         viewDate.getDate(),
                         viewDate.getMonth(),
@@ -464,7 +454,7 @@ const jumpToDay = (d, m, y) => {
                         </div>
 
                         <h4
-                          class="text-3xl md:text-4xl font-black text-slate-800 leading-[1.1] tracking-tight  group-hover:text-indigo-600 transition-colors"
+                          class="text-3xl md:text-4xl font-black text-slate-800 leading-[1.1] tracking-tight  group-hover:text-primary-vinotinto transition-colors"
                         >
                           {{ ev.titulo }}
                         </h4>
@@ -487,7 +477,7 @@ const jumpToDay = (d, m, y) => {
 
                       <div class="flex-none">
                         <div
-                          class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500"
+                          class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-primary-vinotinto group-hover:text-white transition-all duration-500"
                         >
                           <ChevronRight class="w-6 h-6" />
                         </div>
@@ -522,7 +512,7 @@ const jumpToDay = (d, m, y) => {
                     </div>
                     <button
                       @click="isCreateModalOpen = true"
-                      class="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-slate-50 transition-all"
+                      class="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary-vinotinto hover:bg-slate-50 transition-all"
                     >
                       + programar algo ahora
                     </button>
@@ -543,7 +533,7 @@ const jumpToDay = (d, m, y) => {
               >
                 <div class="flex items-center justify-between mb-6">
                   <h4
-                    class="text-sm font-black text-slate-900 uppercase tracking-[0.2em] group-hover/month:text-indigo-600 transition-colors"
+                    class="text-sm font-black text-slate-900 uppercase tracking-[0.2em] group-hover/month:text-primary-vinotinto transition-colors"
                   >
                     {{ month }}
                   </h4>
@@ -631,9 +621,10 @@ const jumpToDay = (d, m, y) => {
                           ?.color_hex_principal,
                       }"
                     ></div>
+                
                   </div>
                   <p
-                    class="text-[8px] font-black text-slate-300 uppercase tracking-widest"
+                    class="text-[12px]  text-slate-300 "
                   >
                     {{
                       props.eventos.filter(

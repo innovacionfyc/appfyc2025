@@ -11,13 +11,14 @@ import {
   Search,
   Users,
   Copy,
-  ChevronRight,
+  Tag,
   LayoutGrid,
   List,
   AlignJustify,
   X,
   Trash2,
-  Undo2
+  Undo2,
+  Monitor,
 } from "lucide-vue-next";
 
 import BtnUniversal from "@/Components/BtnUniversal.vue";
@@ -44,7 +45,6 @@ const isModalOpen = ref(false);
 const modalMode = ref("create");
 const selectedEvento = ref(null);
 
-
 const openModal = (evento = null, mode = "create") => {
   isModalOpen.value = false;
   selectedEvento.value = null;
@@ -59,9 +59,9 @@ const previewUrl = ref("");
 
 const openPreview = (evento) => {
   selectedEventForPreview.value = evento;
-  
-  previewUrl.value = route('evento.show', evento.slug);
-  
+
+  previewUrl.value = route("evento.show", evento.slug);
+
   isPreviewOpen.value = true;
 };
 
@@ -91,14 +91,13 @@ const headerStats = computed(() => [
     bg: "bg-emerald-50",
   },
   {
-    label: "Expertos Globales",
+    label: "Conferencistas Globales",
     value: props.stats_counts?.total_conferencistas || 0,
     icon: "record_voice_over",
     color: "text-orange-500",
     bg: "bg-orange-50",
   },
 ]);
-
 
 const evento = props.eventos;
 const getAreaTagImage = () => {
@@ -120,7 +119,7 @@ const formatEventRange = (inicio, fin) => {
 
   const parseLocal = (dateStr) => {
     if (!dateStr) return null;
-    const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    const normalized = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T");
     return new Date(normalized);
   };
 
@@ -134,36 +133,41 @@ const formatEventRange = (inicio, fin) => {
   const getDayNum = (d) => d.getDate();
   const getMonth = (d) => d.toLocaleString("es-CO", { month: "long" });
   const getYear = (d) => d.getFullYear();
-  
+
   const formatTime = (d) => {
-    return d.toLocaleString("es-CO", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).toUpperCase();
+    return d
+      .toLocaleString("es-CO", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
   };
 
   const hasValidEnd = end && !isNaN(end.getTime());
-  
 
   const isStartMidnight = start.getHours() === 0 && start.getMinutes() === 0;
-  const isEndMidnight = hasValidEnd ? (end.getHours() === 0 && end.getMinutes() === 0) : true;
+  const isEndMidnight = hasValidEnd
+    ? end.getHours() === 0 && end.getMinutes() === 0
+    : true;
   const hasSpecificTime = !(isStartMidnight && isEndMidnight);
 
   const timeStartStr = formatTime(start);
   const timeEndStr = hasValidEnd ? formatTime(end) : "";
 
   if (!hasValidEnd || start.toDateString() === end.toDateString()) {
-    const baseDate = `${getDayName(start)} ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)}`;
-    
+    const baseDate = `${getDayName(start)} ${getDayNum(start)} de ${getMonth(
+      start
+    )} de ${getYear(start)}`;
+
     if (!hasValidEnd) {
-      return hasSpecificTime 
-        ? `${baseDate} | a partir de las ${timeStartStr}` 
+      return hasSpecificTime
+        ? `${baseDate} | a partir de las ${timeStartStr}`
         : `${baseDate} | todo el día`;
     }
-    
+
     if (!hasSpecificTime) return `${baseDate} | todo el día`;
-    
+
     if (timeStartStr === timeEndStr) {
       return `${baseDate} | a las ${timeStartStr}`;
     }
@@ -171,21 +175,28 @@ const formatEventRange = (inicio, fin) => {
     return `${baseDate} | ${timeStartStr} - ${timeEndStr}`;
   }
 
-
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
     if (hasSpecificTime) {
-       return `Del ${getDayName(start).toLowerCase()} ${getDayNum(start)} (${timeStartStr}) al ${getDayName(end).toLowerCase()} ${getDayNum(end)} (${timeEndStr}) de ${getMonth(start)} de ${getYear(start)}`;
+      return `Del ${getDayName(start).toLowerCase()} ${getDayNum(
+        start
+      )} (${timeStartStr}) al ${getDayName(end).toLowerCase()} ${getDayNum(
+        end
+      )} (${timeEndStr}) de ${getMonth(start)} de ${getYear(start)}`;
     }
-    return `Del ${getDayName(start).toLowerCase()} ${getDayNum(start)} al ${getDayName(end).toLowerCase()} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
+    return `Del ${getDayName(start).toLowerCase()} ${getDayNum(start)} al ${getDayName(
+      end
+    ).toLowerCase()} ${getDayNum(end)} de ${getMonth(start)} de ${getYear(start)}`;
   }
-
 
   if (start.getFullYear() === end.getFullYear()) {
-    return `Del ${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(start)}`;
+    return `Del ${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(
+      end
+    )} de ${getMonth(end)} de ${getYear(start)}`;
   }
 
-
-  return `Del ${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
+  return `Del ${getDayNum(start)} de ${getMonth(start)} de ${getYear(
+    start
+  )} al ${getDayNum(end)} de ${getMonth(end)} de ${getYear(end)}`;
 };
 
 const currentView = ref(localStorage.getItem("event_view_pref") || "grid");
@@ -198,27 +209,30 @@ const setView = (view) => {
   currentView.value = view;
 };
 
-
-const pendingDeletions = ref(new Set()); 
+const pendingDeletions = ref(new Set());
 
 const undoToast = ref({
   show: false,
   eventoId: null,
-  timeoutId: null, 
-  intervalId: null, 
+  timeoutId: null,
+  intervalId: null,
   timeLeft: 8,
 });
 
 const filteredEventos = computed(() => {
-  return props.eventos.filter((e) => 
-    e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
-    !pendingDeletions.value.has(e.id) 
+  return props.eventos.filter(
+    (e) =>
+      e.titulo.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
+      !pendingDeletions.value.has(e.id)
   );
 });
 
 const eliminarEvento = (evento) => {
-  if (confirm(`¿Estás seguro de que deseas eliminar "${evento.titulo}"? Esta acción destruirá todos sus archivos.`)) {
-    
+  if (
+    confirm(
+      `¿Estás seguro de que deseas eliminar "${evento.titulo}"? Esta acción destruirá todos sus archivos.`
+    )
+  ) {
     pendingDeletions.value.add(evento.id);
 
     undoToast.value.show = true;
@@ -235,10 +249,10 @@ const eliminarEvento = (evento) => {
     undoToast.value.timeoutId = setTimeout(() => {
       clearInterval(undoToast.value.intervalId);
       undoToast.value.show = false;
-      pendingDeletions.value.delete(evento.id); 
+      pendingDeletions.value.delete(evento.id);
 
       router.delete(route("eventos.destroy", evento.id), {
-        preserveScroll: true
+        preserveScroll: true,
       });
     }, 8000);
   }
@@ -250,6 +264,20 @@ const deshacerEliminacion = () => {
 
   pendingDeletions.value.delete(undoToast.value.eventoId);
   undoToast.value.show = false;
+};
+
+const obtenerPrecioPrincipal = (evento) => {
+  if (evento.precio_jornada > 0)
+    return { etiqueta: "Inv. Jornada", valor: evento.precio_jornada };
+  if (evento.precio_diplomado > 0)
+    return { etiqueta: "Diplomado", valor: evento.precio_diplomado };
+  if (evento.precio_curso_intensivo > 0)
+    return { etiqueta: "Intensivo", valor: evento.precio_curso_intensivo };
+  if (evento.precio_modulo > 0)
+    return { etiqueta: "Por Módulo", valor: evento.precio_modulo };
+  if (evento.precio_cng > 0) return { etiqueta: "Precio CNG", valor: evento.precio_cng };
+
+  return { etiqueta: "Inversión", valor: 0 };
 };
 </script>
 
@@ -300,206 +328,203 @@ const deshacerEliminacion = () => {
               >
                 <X class="w-3 h-3" />
               </button>
-
-
             </div>
-             <div class="flex bg-white/5 p-1 rounded-2xl border border-white/10 mr-2">
-                <button
-                  @click="setView('grid')"
-                  :class="[
-                    'p-2 rounded-xl transition-all',
-                    currentView === 'grid'
-                      ? 'bg-orange-600 text-white shadow-lg'
-                      : 'text-slate-500 hover:text-white',
-                  ]"
-                  title="Vista Cuadrícula"
-                >
-                  <LayoutGrid class="w-4 h-4" />
-                </button>
-                <button
-                  @click="setView('list')"
-                  :class="[
-                    'p-2 rounded-xl transition-all',
-                    currentView === 'list'
-                      ? 'bg-orange-600 text-white shadow-lg'
-                      : 'text-slate-500 hover:text-white',
-                  ]"
-                  title="Vista Lista"
-                >
-                  <List class="w-4 h-4" />
-                </button>
-                <button
-                  @click="setView('detailed')"
-                  :class="[
-                    'p-2 rounded-xl transition-all',
-                    currentView === 'detailed'
-                      ? 'bg-orange-600 text-white shadow-lg'
-                      : 'text-slate-500 hover:text-white',
-                  ]"
-                  title="Vista Detallada"
-                >
-                  <AlignJustify class="w-4 h-4" />
-                </button>
-              </div>
+            <div class="flex bg-white/5 p-1 rounded-2xl border border-white/10 mr-2">
+              <button
+                @click="setView('grid')"
+                :class="[
+                  'p-2 rounded-xl transition-all',
+                  currentView === 'grid'
+                    ? 'bg-orange-600 text-white shadow-lg'
+                    : 'text-slate-500 hover:text-white',
+                ]"
+                title="Vista Cuadrícula"
+              >
+                <LayoutGrid class="w-4 h-4" />
+              </button>
+              <button
+                @click="setView('list')"
+                :class="[
+                  'p-2 rounded-xl transition-all',
+                  currentView === 'list'
+                    ? 'bg-orange-600 text-white shadow-lg'
+                    : 'text-slate-500 hover:text-white',
+                ]"
+                title="Vista Lista"
+              >
+                <List class="w-4 h-4" />
+              </button>
+              <button
+                @click="setView('detailed')"
+                :class="[
+                  'p-2 rounded-xl transition-all',
+                  currentView === 'detailed'
+                    ? 'bg-orange-600 text-white shadow-lg'
+                    : 'text-slate-500 hover:text-white',
+                ]"
+                title="Vista Detallada"
+              >
+                <AlignJustify class="w-4 h-4" />
+              </button>
+            </div>
 
-           
             <BtnUniversal
-            label="Crear evento"
-            icon="add"
-            icon-position="right"
-            size="md"
-            @click="openModal(null, 'create')"
-          />
+              label="Crear evento"
+              icon="add"
+              icon-position="right"
+              size="md"
+              @click="openModal(null, 'create')"
+            />
           </div>
         </div>
 
         <div
           v-if="currentView === 'grid'"
-          class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-10"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
           <div
             v-for="evento in filteredEventos"
             :key="evento.id"
-            class="group bg-white rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] transition-all duration-700 flex flex-col relative overflow-hidden"
+            class="group bg-white rounded-[2.5rem] border border-slate-100/80 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 flex flex-col overflow-hidden"
           >
-            <div class="relative h-72 overflow-hidden">
+            <div class="relative h-64 overflow-hidden bg-slate-100">
               <img
                 :src="
                   evento.imagen_relacionada
                     ? '/storage/' + evento.imagen_relacionada
                     : '/images/default-bg.webp'
                 "
-                class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3s] ease-out"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
               />
-
               <div
-                class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
+                class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent"
               ></div>
 
-              <div class="absolute top-6 left-6">
+              <div class="absolute top-5 left-5 flex gap-2">
                 <span
-                  class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] backdrop-blur-md border border-white/20 shadow-2xl text-white"
+                  class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest backdrop-blur-md shadow-sm"
                   :class="getStatusClass(evento.estado_id)"
                 >
-                  {{ evento.estado?.tipo_estado }}
+                  {{ evento.estado?.tipo_estado || "Borrador" }}
                 </span>
               </div>
 
               <div
-                class="absolute bottom-6 right-6 w-20 h-20 bg-white/10 backdrop-blur-xl rounded-3xl p-2 border border-white/20 shadow-2xl transition-transform duration-500 group-hover:rotate-6"
+                class="absolute bottom-5 right-5 w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl p-2.5 border border-white/20 shadow-lg group-hover:-translate-y-2 transition-transform duration-500"
               >
                 <img
-                  :src="getAreaTagImage(evento.area_formacion?.nombre)"
+                  :src="getAreaTagImage()"
                   class="w-full h-full object-contain drop-shadow-md"
                 />
               </div>
-            </div>
 
-            <div class="p-10 space-y-6 flex-1 flex flex-col">
-              <div class="space-y-2">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="w-2 h-2 rounded-full"
-                    :style="{
-                      backgroundColor: evento.area_formacion?.color_hex_principal,
-                    }"
-                  ></span>
-                  <p
-                    class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]"
-                  >
-                    {{ evento.modo_evento || "formación continua" }}
-                  </p>
-                </div>
-                <h3
-                  class="text-3xl font-black text-slate-900 leading-tight group-hover:text-orange-600 transition-colors duration-500"
+              <div class="absolute bottom-5 left-5 right-24 text-white">
+                <p
+                  class="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1 flex items-center gap-1.5"
                 >
+                  <Calendar class="w-3 h-3 text-orange-400" />
+                  {{
+                    formatEventRange(
+                      evento.fecha_hora_inicio,
+                      evento.fecha_hora_fin
+                    ).split("|")[0]
+                  }}
+                </p>
+                <h3 class="text-xl font-black leading-tight line-clamp-2 drop-shadow-md">
                   {{ evento.titulo }}
                 </h3>
-                <p class="text-xs font-bold text-slate-500 line-clamp-2 leading-relaxed">
-                  {{ evento.subtitulo }}
+              </div>
+            </div>
+
+            <div class="p-6 flex-1 flex flex-col bg-white">
+              <div class="flex items-center gap-2 mb-4">
+                <span
+                  class="w-2 h-2 rounded-full"
+                  :style="{
+                    backgroundColor:
+                      evento.area_formacion?.color_hex_principal || '#f97316',
+                  }"
+                ></span>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  {{ evento.modo_evento || "Línea de formación" }}
                 </p>
               </div>
 
+              <div class="flex items-center gap-1.5 mb-5">
+                <MapPin
+                  v-if="evento.modalidad === 'Presencial'"
+                  class="w-5 h-5 opacity-40"
+                />
+                <Monitor v-else class="w-3 h-3 opacity-40" />
+                <span class="text-[16px] font-bold">
+                  {{ evento.modalidad === "Presencial" ? evento.ubicacion : "Virtual" }}
+                </span>
+              </div>
+
               <div
-                class="bg-slate-50 p-6 rounded-[2.5rem] flex items-center gap-5 border border-slate-100 transition-colors group-hover:bg-white group-hover:border-orange-100"
+                class="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-3xl border border-slate-100/50"
               >
-                <div
-                  class="w-14 h-14 bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-white shadow-xl group-hover:bg-orange-600 transition-colors"
-                >
-                  <Calendar class="w-5 h-5 mb-0.5" />
-                  <span class="text-[8px] font-black uppercase tracking-tighter"
-                    >cita</span
+                <div class="flex flex-col">
+                  <span
+                    class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1"
                   >
-                </div>
-                <div class="space-y-1">
-                  <p class="text-[11px] font-black text-slate-800 leading-none">
+                    {{ obtenerPrecioPrincipal(evento).etiqueta }}
+                  </span>
+                  <span
+                    class="text-sm font-black"
+                    :class="
+                      obtenerPrecioPrincipal(evento).valor > 0
+                        ? 'text-emerald-600'
+                        : 'text-slate-800'
+                    "
+                  >
                     {{
-                      formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin)
+                      obtenerPrecioPrincipal(evento).valor > 0
+                        ? formatPrice(obtenerPrecioPrincipal(evento).valor)
+                        : "Gratuito"
                     }}
-                  </p>
-                  <p class="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                    <MapPin class="w-3 h-3 text-orange-500" />
-                    {{ evento.ubicacion || "sede central por definir" }}
-                  </p>
+                  </span>
                 </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-6 py-2">
-                <div class="space-y-1">
-                  <p
-                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
+                <div class="flex flex-col border-l border-slate-200 pl-4">
+                  <span
+                    class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1"
+                    >Conferencistas</span
                   >
-                    inversión
-                  </p>
-                  <div class="flex items-center gap-2">
-                    <span class="text-xl font-black text-slate-900">{{
-                      formatPrice(evento.precio_jornada)
-                    }}</span>
-                    <span
-                      class="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md uppercase"
-                      >iva inc.</span
-                    >
-                  </div>
-                </div>
-                <div class="space-y-1 border-l border-slate-100 pl-6">
-                  <p
-                    class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
+                  <div
+                    class="flex items-center gap-1.5 text-sm font-black text-slate-800"
                   >
-                    académicos
-                  </p>
-                  <div class="flex items-center gap-2">
-                    <Users class="w-4 h-4 text-slate-900" />
-                    <span class="text-sm font-black text-slate-900"
-                      >{{ evento.conferencistas?.length }} expertos</span
-                    >
+                    <Users class="w-3.5 h-3.5 text-orange-500" />
+                    {{ evento.conferencistas?.length || 0 }}
                   </div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 pt-6 border-t border-slate-50 mt-auto">
+              <div class="flex items-center gap-2 mt-auto">
                 <button
                   @click="openPreview(evento)"
-                  class="flex-grow flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-orange-600 transition-all hover:shadow-xl hover:shadow-orange-200"
+                  class="flex-1 flex items-center justify-center gap-2 py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-orange-600 transition-all shadow-md hover:shadow-orange-200"
                 >
-                  ver detalles <ChevronRight class="w-4 h-4" />
+                  Ver Perfil
                 </button>
-
-                <div class="flex gap-1.5 bg-slate-100 p-1.5 rounded-[1.8rem]">
+                <div class="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
                   <button
                     @click="openModal(evento, 'edit')"
-                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-blue-600 hover:shadow-lg transition-all"
+                    class="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all"
+                    title="Editar"
                   >
                     <Edit3 class="w-4 h-4" />
                   </button>
                   <button
                     @click="openModal(evento, 'duplicate')"
-                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-emerald-600 hover:shadow-lg transition-all"
+                    class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl transition-all"
+                    title="Duplicar"
                   >
                     <Copy class="w-4 h-4" />
                   </button>
                   <button
                     @click="eliminarEvento(evento)"
-                    class="w-11 h-11 flex items-center justify-center bg-white text-slate-400 rounded-full hover:text-red-600 hover:shadow-lg transition-all"
+                    class="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl transition-all"
+                    title="Eliminar"
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
@@ -513,48 +538,104 @@ const deshacerEliminacion = () => {
           <div
             v-for="evento in filteredEventos"
             :key="evento.id"
-            class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-6 hover:shadow-md transition-all group"
+            class="bg-white p-3 pr-4 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row items-start md:items-center gap-4 hover:shadow-lg hover:border-slate-200 transition-all group"
           >
-            <img
-              :src="
-                evento.imagen_relacionada
-                  ? '/storage/' + evento.imagen_relacionada
-                  : '/images/default-bg.webp'
-              "
-              class="w-16 h-16 rounded-2xl object-cover shrink-0"
-            />
+            <div
+              class="relative w-full md:w-24 h-32 md:h-20 shrink-0 rounded-2xl overflow-hidden bg-slate-100"
+            >
+              <img
+                :src="
+                  evento.imagen_relacionada
+                    ? '/storage/' + evento.imagen_relacionada
+                    : '/images/default-bg.webp'
+                "
+                class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+              <div
+                class="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors"
+              ></div>
+            </div>
 
-            <div class="flex-grow min-w-0">
-              <h4 class="font-black text-slate-900 truncate lowercase">
+            <div class="flex-grow min-w-0 flex flex-col justify-center">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span
+                  class="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500"
+                >
+                  {{ evento.area_formacion?.nombre }}
+                </span>
+                <div class="w-1 h-1 rounded-full bg-slate-300"></div>
+                <span
+                  class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"
+                  :class="getStatusClass(evento.estado_id).split(' ')[1]"
+                >
+                  {{ evento.estado?.tipo_estado }}
+                </span>
+              </div>
+              <h4
+                class="text-sm font-black text-slate-900 truncate leading-tight group-hover:text-orange-600 transition-colors"
+              >
                 {{ evento.titulo }}
               </h4>
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {{ formatEventRange(evento.fecha_hora_inicio) }}
+              <p
+                class="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1.5 truncate"
+              >
+                <Calendar class="w-3 h-3 text-slate-400" />
+                {{ formatEventRange(evento.fecha_hora_inicio, evento.fecha_hora_fin) }}
               </p>
             </div>
 
-            <div class="hidden lg:block shrink-0 px-4 border-l border-slate-100">
-              <span class="text-xs font-black text-slate-700">{{
-                formatPrice(evento.precio_jornada)
-              }}</span>
+            <div
+              class="hidden lg:flex flex-col shrink-0 px-6 border-l border-slate-100 min-w-[140px]"
+            >
+              <span
+                class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5"
+              >
+                {{ obtenerPrecioPrincipal(evento).etiqueta }}
+              </span>
+              <span
+                class="text-sm font-black"
+                :class="
+                  obtenerPrecioPrincipal(evento).valor > 0
+                    ? 'text-emerald-600'
+                    : 'text-slate-800'
+                "
+              >
+                {{
+                  obtenerPrecioPrincipal(evento).valor > 0
+                    ? formatPrice(obtenerPrecioPrincipal(evento).valor)
+                    : "Gratuito"
+                }}
+              </span>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div
+              class="flex items-center gap-1.5 w-full md:w-auto md:opacity-50 group-hover:opacity-100 transition-opacity justify-end mt-2 md:mt-0"
+            >
               <button
                 @click="openPreview(evento)"
-                class="p-2.5 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
+                class="p-2.5 bg-slate-50 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+                title="Ver Detalles"
               >
                 <Eye class="w-4 h-4" />
               </button>
               <button
                 @click="openModal(evento, 'edit')"
-                class="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-all"
+                class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                title="Editar"
               >
                 <Edit3 class="w-4 h-4" />
               </button>
               <button
+                @click="openModal(evento, 'duplicate')"
+                class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl transition-all"
+                title="Duplicar"
+              >
+                <Copy class="w-4 h-4" />
+              </button>
+              <button
                 @click="eliminarEvento(evento)"
-                class="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-all"
+                class="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"
+                title="Eliminar"
               >
                 <Trash2 class="w-4 h-4" />
               </button>
@@ -562,75 +643,178 @@ const deshacerEliminacion = () => {
           </div>
         </div>
 
-        <div v-else-if="currentView === 'detailed'" class="space-y-6">
+        <div v-else-if="currentView === 'detailed'" class="space-y-8">
           <div
             v-for="evento in filteredEventos"
             :key="evento.id"
-            class="bg-white rounded-[3rem] border border-slate-100 overflow-hidden flex flex-col md:flex-row hover:shadow-xl transition-all group"
+            class="bg-white rounded-[3rem] border border-slate-100 overflow-hidden flex flex-col lg:flex-row hover:shadow-2xl hover:shadow-slate-200/40 transition-all duration-500 group"
           >
-            <div class="md:w-1/3 h-64 md:h-auto relative">
+            <div class="lg:w-2/5 h-64 lg:h-auto relative overflow-hidden bg-slate-900">
               <img
                 :src="
                   evento.imagen_relacionada
                     ? '/storage/' + evento.imagen_relacionada
                     : '/images/default-bg.webp'
                 "
-                class="w-full h-full object-cover"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
               />
               <div
-                class="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"
+                class="absolute inset-0 bg-gradient-to-r from-slate-900/50 to-transparent"
               ></div>
+
+              <div class="absolute bottom-6 left-6 right-6">
+                <span
+                  class="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest backdrop-blur-md shadow-lg border border-white/20 text-white"
+                  :class="getStatusClass(evento.estado_id)"
+                >
+                  {{ evento.estado?.tipo_estado || "Borrador" }}
+                </span>
+              </div>
             </div>
 
-            <div class="md:w-2/3 p-8 flex flex-col">
-              <div class="flex justify-between items-start mb-4">
-                <span
-                  class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500"
+            <div class="lg:w-3/5 p-8 lg:p-10 flex flex-col bg-white">
+              <div
+                class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4"
+              >
+                <div>
+                  <span
+                    class="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 inline-block mb-3"
+                  >
+                    {{ evento.area_formacion?.nombre }}
+                  </span>
+                  <h3
+                    class="text-2xl lg:text-3xl font-black text-slate-900 leading-tight"
+                  >
+                    {{ evento.titulo }}
+                  </h3>
+                </div>
+
+                <div
+                  class="flex gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shrink-0"
                 >
-                  {{ evento.area_formacion?.nombre }}
-                </span>
-                <div class="flex gap-2">
                   <button
                     @click="openModal(evento, 'edit')"
-                    class="p-2 text-slate-300 hover:text-blue-600 transition-colors"
+                    class="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all shadow-sm"
                   >
-                    <Edit3 class="w-5 h-5" />
+                    <Edit3 class="w-4 h-4" />
+                  </button>
+                  <button
+                    @click="openModal(evento, 'duplicate')"
+                    class="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl transition-all shadow-sm"
+                  >
+                    <Copy class="w-4 h-4" />
                   </button>
                   <button
                     @click="eliminarEvento(evento)"
-                    class="p-2 text-slate-300 hover:text-rose-600 transition-colors"
+                    class="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all shadow-sm"
                   >
-                    <Trash2 class="w-5 h-5" />
+                    <Trash2 class="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <h3 class="text-2xl font-black text-slate-900 mb-2 lowercase">
-                {{ evento.titulo }}
-              </h3>
-              <p class="text-sm text-slate-500 mb-6 line-clamp-2">
-                {{ evento.subtitulo }}
+              <p
+                class="text-sm text-slate-500 mb-8 line-clamp-3 leading-relaxed max-w-2xl"
+              >
+                {{
+                  evento.subtitulo ||
+                  "Sin descripción o subtítulo registrado para esta publicación."
+                }}
               </p>
 
               <div
-                class="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between"
+                class="mt-auto pt-6 border-t border-slate-100 flex flex-wrap gap-4 items-center justify-between"
               >
-                <div class="flex gap-6">
-                  <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
-                    <Calendar class="w-4 h-4 text-orange-500" />
-                    {{ formatEventRange(evento.fecha_hora_inicio) }}
+                <div class="flex items-center gap-4 lg:gap-8 flex-wrap flex-1">
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0"
+                    >
+                      <Calendar class="w-4 h-4 text-orange-500" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span
+                        class="text-[9px] font-black uppercase tracking-widest text-slate-400"
+                        >Agenda</span
+                      >
+                      <span
+                        class="text-[11px] font-bold text-slate-700 truncate max-w-[130px]"
+                        :title="
+                          formatEventRange(
+                            evento.fecha_hora_inicio,
+                            evento.fecha_hora_fin
+                          )
+                        "
+                      >
+                        {{
+                          formatEventRange(
+                            evento.fecha_hora_inicio,
+                            evento.fecha_hora_fin
+                          ).split("|")[0]
+                        }}
+                      </span>
+                    </div>
                   </div>
-                  <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
-                    <Users class="w-4 h-4 text-orange-500" />
-                    {{ evento.conferencistas?.length }} Expertos
+
+                  <div
+                    class="flex items-center gap-3 border-l border-slate-100 pl-4 lg:pl-8"
+                  >
+                    <div
+                      class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0"
+                    >
+                      <Users class="w-4 h-4 text-blue-500" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span
+                        class="text-[9px] font-black uppercase tracking-widest text-slate-400"
+                        >Equipo</span
+                      >
+                      <span class="text-[11px] font-bold text-slate-700"
+                        >{{ evento.conferencistas?.length || 0 }} Conferencistas</span
+                      >
+                    </div>
+                  </div>
+
+                  <div
+                    class="flex items-center gap-3 border-l border-slate-100 pl-4 lg:pl-8"
+                  >
+                    <div
+                      class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0"
+                    >
+                      <Tag class="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span
+                        class="text-[9px] font-black uppercase tracking-widest text-slate-400"
+                      >
+                        {{ obtenerPrecioPrincipal(evento).etiqueta }}
+                      </span>
+                      <span
+                        class="text-[11px] font-bold"
+                        :class="
+                          obtenerPrecioPrincipal(evento).valor > 0
+                            ? 'text-emerald-600'
+                            : 'text-slate-700'
+                        "
+                      >
+                        {{
+                          obtenerPrecioPrincipal(evento).valor > 0
+                            ? formatPrice(obtenerPrecioPrincipal(evento).valor)
+                            : "Gratuito"
+                        }}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button
-                  @click="openPreview(evento)"
-                  class="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-                >
-                  gestionar jornada
-                </button>
+
+                <div class="w-full sm:w-auto mt-4 sm:mt-0">
+                  <button
+                    @click="openPreview(evento)"
+                    class="w-full sm:w-auto px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg hover:shadow-orange-200"
+                  >
+                    Detalles Completos
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -658,26 +842,26 @@ const deshacerEliminacion = () => {
   </AuthenticatedLayout>
 
   <Teleport to="body">
-  <div
-    v-if="undoToast.show"
-    class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl transition-all duration-300"
-    style="animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;"
-  >
-    <span class="text-[13px] font-medium tracking-wide">
-      Evento eliminado correctamente.
-    </span>
-    
-    <div class="h-4 w-px bg-slate-700"></div>
-    
-    <button
-      @click="deshacerEliminacion"
-      class="text-[13px] font-black text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 group"
+    <div
+      v-if="undoToast.show"
+      class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl transition-all duration-300"
+      style="animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards"
     >
-      <Undo2 class="w-4 h-4 group-hover:-rotate-45 transition-transform" />
-      Deshacer ({{ undoToast.timeLeft }}s)
-    </button>
-  </div>
-</Teleport>
+      <span class="text-[13px] font-medium tracking-wide">
+        Evento eliminado correctamente.
+      </span>
+
+      <div class="h-4 w-px bg-slate-700"></div>
+
+      <button
+        @click="deshacerEliminacion"
+        class="text-[13px] font-black text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 group"
+      >
+        <Undo2 class="w-4 h-4 group-hover:-rotate-45 transition-transform" />
+        Deshacer ({{ undoToast.timeLeft }}s)
+      </button>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

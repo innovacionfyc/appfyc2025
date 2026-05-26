@@ -633,7 +633,7 @@ const formatEventRange = (inicio, fin) => {
             </div>
             <div
               v-if="evento?.organizador?.perfil_organizador"
-              class="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center group"
+              class="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex items-center group"
             >
               <div
                 class="bg-white border-2 border-r-0 p-2.5 rounded-l-2xl shadow-2xl cursor-pointer transition-all duration-500 group-hover:-translate-x-[340px]"
@@ -739,17 +739,12 @@ const formatEventRange = (inicio, fin) => {
 
                     <a
                       :href="`mailto:${evento.organizador.perfil_organizador.correo_corporativo}`"
-                      class="flex flex-col items-center justify-center gap-2 p-4 rounded-[1.5rem] bg-slate-50 text-slate-700 hover:text-white transition-all duration-300 group/btn shadow-sm"
-                      :style="{
-                        '--hover-bg':
-                          evento?.area_formacion?.color_hex_principal || '#f97316',
-                      }"
-                      @mouseenter="$el.style.backgroundColor = activeColor"
+                      class="hover:bg-rose-500 flex flex-col items-center justify-center gap-2 p-4 rounded-[1.5rem] bg-slate-50 text-slate-700 hover:text-white transition-all duration-300 group/btn shadow-sm"
+                     
+                     
                       onmouseover="this.style.backgroundColor=this.getAttribute('data-color'); this.style.color='white'"
                       onmouseout="this.style.backgroundColor=''; this.style.color=''"
-                      :data-color="
-                        evento?.area_formacion?.color_hex_principal || '#f97316'
-                      "
+                     
                     >
                       <Mail
                         class="w-5 h-5 transition-transform group-hover/btn:scale-110"
