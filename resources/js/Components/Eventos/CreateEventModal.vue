@@ -79,6 +79,8 @@ const form = useForm({
   color_hex_secundario: null,
   estilo_temario: "lista",
   estilo_expertos: "lista",
+  estilo_plantilla: "clasico",
+  estilo_card: "",
   texto_dinamico: "",
   tipo_evento: null,
   precio_seminario: 0,
@@ -192,6 +194,8 @@ const clearForm = () => {
   form.color_hex_secundario = "#4F46E5";
   form.estilo_temario = "lista";
   form.estilo_expertos = "lista";
+  form.estilo_plantilla= "";
+  form.estilo_card = "";
   form.texto_dinamico = "";
 
   form.imagen_relacionada = null;
@@ -241,6 +245,8 @@ watch(
         form.color_hex_secundario = evento.color_hex_secundario || "#4F46E5";
         form.estilo_temario = evento.estilo_temario || "lista";
         form.estilo_expertos = evento.estilo_expertos || "lista";
+        form.estilo_plantilla = evento.estilo_plantilla || "lista";
+        form.estilo_card = evento.estilo_card || "lista";
 
         form.url_formulario_inscripcion = evento.url_formulario_inscripcion || null;
         form.organizador_id = evento.organizador_id || null;
@@ -784,147 +790,493 @@ const toggleSubtemas = (modulo) => {
               </div>
             </div>
 
-           <div v-if="currentStep === 4" class="space-y-6 animate-in">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h4 class="text-[14px] font-medium text-slate-400 flex items-center gap-2">
-                <Palette class="w-4 h-4" /> Diseño y Anexos
-              </h4>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 p-2">
-              
-              <div 
-                class="relative overflow-hidden p-6 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center min-h-[160px] transition-all duration-300 group cursor-pointer hover:shadow-sm"
-                :class="previewImageUrl ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'"
+            <div v-if="currentStep === 4" class="space-y-6 animate-in">
+              <div
+                class="flex items-center justify-between border-b border-slate-100 pb-2"
               >
-                <img 
-                  v-if="previewImageUrl" 
-                  :src="previewImageUrl" 
-                  class="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-multiply transition-opacity group-hover:opacity-25" 
+                <h4
+                  class="text-[14px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"
+                >
+                  <Palette class="w-4 h-4" /> Personalización Gráfica y Estructura
+                </h4>
+              </div>
+
+              <div class="flex flex-col xl:flex-row gap-6 min-h-[460px]">
+                <div
+                  class="w-full xl:w-5/12 space-y-5 max-h-[500px] overflow-y-auto pr-1 custom-scroll"
+                >
+                  <div
+                    class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3"
+                  >
+                    <label
+                      class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"
+                    >
+                      <Columns class="w-3.5 h-3.5" /> 1. Distribución de la Plantilla
+                    </label>
+                    <div
+                      class="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                    >
+                      <button
+                        @click="form.estilo_plantilla = 'clasico'"
+                        type="button"
+                        :class="
+                          form.estilo_plantilla === 'clasico'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Clásica
+                      </button>
+                      <button
+                        @click="form.estilo_plantilla = 'invertido'"
+                        type="button"
+                        :class="
+                          form.estilo_plantilla === 'invertido'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Invertida
+                      </button>
+                      <button
+                        @click="form.estilo_plantilla = 'minimalista'"
+                        type="button"
+                        :class="
+                          form.estilo_plantilla === 'minimalista'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Apilada
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3"
+                  >
+                    <label
+                      class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"
+                    >
+                      <List class="w-3.5 h-3.5" /> 2. Diseño del Temario (Módulos)
+                    </label>
+                    <div
+                      class="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                    >
+                      <button
+                        @click="form.estilo_temario = 'lista'"
+                        type="button"
+                        :class="
+                          form.estilo_temario === 'lista'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Lista Completa
+                      </button>
+                      <button
+                        @click="form.estilo_temario = 'cuadricula'"
+                        type="button"
+                        :class="
+                          form.estilo_temario === 'cuadricula'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Dos Columnas
+                      </button>
+                      <button
+                        @click="form.estilo_temario = 'tarjetas'"
+                        type="button"
+                        :class="
+                          form.estilo_temario === 'tarjetas'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Tarjetas
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3"
+                  >
+                    <label
+                      class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"
+                    >
+                      <SquareSquare class="w-3.5 h-3.5" /> 3. Formato del Equipo Académico
+                    </label>
+                    <div
+                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                    >
+                      <button
+                        @click="form.estilo_expertos = 'lista'"
+                        type="button"
+                        :class="
+                          form.estilo_expertos === 'lista'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Filas Detalladas
+                      </button>
+                      <button
+                        @click="form.estilo_expertos = 'tarjetas'"
+                        type="button"
+                        :class="
+                          form.estilo_expertos === 'tarjetas'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Grilla de Avatares
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3"
+                  >
+                    <label
+                      class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"
+                    >
+                      <LayoutGrid class="w-3.5 h-3.5" /> 4. Caja de Conversión (Precios)
+                    </label>
+                    <div
+                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                    >
+                      <button
+                        @click="form.estilo_card = 'minimalista'"
+                        type="button"
+                        :class="
+                          form.estilo_card === 'minimalista'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Gris Corporativo
+                      </button>
+                      <button
+                        @click="form.estilo_card = 'destacado'"
+                        type="button"
+                        :class="
+                          form.estilo_card === 'destacado'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Gradiente Premium
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="relative overflow-hidden p-4 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center min-h-[90px] transition-all duration-300 group cursor-pointer"
+                    :class="
+                      previewImageUrl
+                        ? 'border-emerald-300 bg-emerald-50/30'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                    "
+                  >
+                    <img
+                      v-if="previewImageUrl"
+                      :src="previewImageUrl"
+                      class="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-multiply"
+                    />
+                    <input
+                      type="file"
+                      @input="form.imagen_relacionada = $event.target.files[0]"
+                      id="banner-up"
+                      class="hidden"
+                      accept="image/*"
+                    />
+                    <label
+                      for="banner-up"
+                      class="cursor-pointer flex flex-col items-center relative z-10 w-full justify-center"
+                    >
+                      <span
+                        class="text-[11px] font-black uppercase tracking-widest"
+                        :class="previewImageUrl ? 'text-emerald-700' : 'text-slate-600'"
+                      >
+                        {{
+                          previewImageUrl
+                            ? "✓ Banner Cargado (Click para cambiar)"
+                            : "Subir Banner Principal"
+                        }}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div
+                  class="w-full xl:w-7/12 bg-slate-900 rounded-3xl p-5 shadow-inner border border-slate-800 flex flex-col relative overflow-hidden group"
+                >
+                  <div
+                    class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4 shrink-0"
+                  >
+                    <div class="flex gap-1.5">
+                      <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
+                      <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+                    </div>
+                    <div
+                      class="px-4 py-0.5 bg-slate-800 rounded-lg text-[9px] font-mono text-slate-400 tracking-tight select-none"
+                    >
+                      fycconsultores.com/evento-live-preview
+                    </div>
+                    <div class="w-8"></div>
+                  </div>
+
+                  <div
+                    class="flex-1 flex gap-3 transition-all duration-500 p-1 rounded-xl"
+                    :class="{
+                      'flex-row': form.estilo_plantilla === 'clasico',
+                      'flex-row-reverse': form.estilo_plantilla === 'invertido',
+                      'flex-col overflow-y-auto no-scrollbar':
+                        form.estilo_plantilla === 'minimalista',
+                    }"
+                  >
+                    <div
+                      class="transition-all duration-500 flex flex-col gap-3"
+                      :class="
+                        form.estilo_plantilla === 'minimalista' ? 'w-full' : 'w-7/12'
+                      "
+                    >
+                      <div
+                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-3"
+                      >
+                        <div
+                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
+                        >
+                          <div
+                            class="w-3.5 h-3.5 rounded bg-blue-500/20 flex items-center justify-center text-[8px] font-black text-blue-400"
+                          >
+                            T
+                          </div>
+                          <span
+                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
+                            >Contenido Temático</span
+                          >
+                        </div>
+
+                        <div
+                          v-if="form.estilo_temario === 'lista'"
+                          class="space-y-2.5 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 3"
+                            :key="i"
+                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
+                          >
+                            <div class="w-1/2 h-2 bg-slate-600 rounded-full"></div>
+                            <div
+                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
+                            <div
+                              class="w-4/5 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div
+                          v-else-if="form.estilo_temario === 'cuadricula'"
+                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 4"
+                            :key="i"
+                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
+                          >
+                            <div class="w-4/5 h-2 bg-slate-600 rounded-full"></div>
+                            <div
+                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div
+                          v-else-if="form.estilo_temario === 'tarjetas'"
+                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 4"
+                            :key="i"
+                            class="p-2 bg-slate-700 border-b-2 rounded-xl space-y-2 shadow-sm"
+                            :style="{
+                              borderBottomColor: selectedArea.color_hex_principal,
+                            }"
+                          >
+                            <div
+                              class="w-3 h-3 rounded-full opacity-40"
+                              :style="{
+                                backgroundColor: selectedArea.color_hex_principal,
+                              }"
+                            ></div>
+                            <div class="w-full h-1.5 bg-slate-500 rounded-full"></div>
+                            <div
+                              class="w-3/4 h-1 bg-slate-600 rounded-full opacity-50"
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="flex gap-3 transition-all duration-500"
+                      :class="
+                        form.estilo_plantilla === 'minimalista'
+                          ? 'w-full flex-col lg:flex-row'
+                          : 'w-5/12 flex-col'
+                      "
+                    >
+                      <div
+                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-2.5"
+                      >
+                        <div
+                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
+                        >
+                          <div
+                            class="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[8px] font-black text-amber-400"
+                          >
+                            E
+                          </div>
+                          <span
+                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
+                            >Equipo Académico</span
+                          >
+                        </div>
+
+                        <div
+                          v-if="
+                            form.style_expertos === 'lista' ||
+                            form.estilo_expertos === 'lista'
+                          "
+                          class="space-y-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 2"
+                            :key="i"
+                            class="flex items-center gap-2 bg-slate-800/30 p-1.5 rounded-xl border border-slate-700/30"
+                          >
+                            <div class="w-7 h-7 bg-slate-600 rounded-lg shrink-0"></div>
+                            <div class="flex-1 space-y-1">
+                              <div class="w-2/3 h-1.5 bg-slate-500 rounded-full"></div>
+                              <div
+                                class="w-1/2 h-1 bg-slate-600 rounded-full opacity-50"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          v-else
+                          class="grid grid-cols-3 gap-2 py-1 justify-items-center animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 3"
+                            :key="i"
+                            class="flex flex-col items-center gap-1 bg-slate-800/40 p-2 rounded-xl border border-slate-700/20 w-full"
+                          >
+                            <div
+                              class="w-8 h-8 rounded-full bg-slate-600 border border-slate-500 shadow-sm"
+                            ></div>
+                            <div class="w-3/4 h-1 bg-slate-500 rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="rounded-2xl p-3 transition-all duration-500 flex flex-col justify-between shrink-0"
+                        :class="[
+                          form.estilo_plantilla === 'minimalista'
+                            ? 'w-full lg:w-1/2 h-auto'
+                            : 'h-40',
+                          form.estilo_card === 'destacado'
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700'
+                            : 'bg-slate-800/40 border border-slate-700/30',
+                        ]"
+                      >
+                        <div class="space-y-1.5">
+                          <div class="flex justify-between items-center">
+                            <div
+                              class="w-12 h-3 bg-slate-600 rounded-full opacity-60"
+                            ></div>
+                            <div
+                              class="w-6 h-3 rounded-full opacity-40"
+                              :style="{
+                                backgroundColor: selectedArea.color_hex_principal,
+                              }"
+                            ></div>
+                          </div>
+                          <div
+                            class="w-24 h-4 bg-slate-400 rounded-md mt-1 animate-pulse"
+                          ></div>
+                        </div>
+
+                        <div
+                          class="w-full h-7 rounded-xl flex items-center justify-center text-[10px] font-black uppercase text-white tracking-widest mt-3 opacity-90"
+                          :style="{ backgroundColor: selectedArea.color_hex_principal }"
+                        >
+                          Inscribirme
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="absolute right-3 bottom-3 text-[9px] text-slate-700 font-mono tracking-tight pointer-events-none select-none"
+                  >
+                    FYC Public Engine v2.1
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <FormInput
+                  label="Url de inscripción"
+                  type="text"
+                  v-model="form.url_formulario_inscripcion"
+                  icon="link"
+                  placeholder="https://docs.google.com/..."
+                  :max="250"
+                  :activeColor="selectedArea.color_hex_principal"
+                  required
+                  :error="form.errors.url_formulario_inscripcion"
                 />
-                
-                <input
+                <FormInput
+                  label="Documento soporte (Brochure)"
                   type="file"
-                  @input="form.imagen_relacionada = $event.target.files[0]"
-                  id="banner-up"
-                  class="hidden"
-                  accept="image/*"
+                  v-model="form.url_folleto"
+                  icon="upload_file"
+                  placeholder="Subir PDF descriptivo"
+                  :activeColor="selectedArea.color_hex_principal"
+                  required
+                  :error="form.errors.url_folleto"
                 />
-                <label for="banner-up" class="cursor-pointer flex flex-col items-center relative z-10 w-full h-full justify-center">
-                  <div 
-                    class="w-12 h-12 rounded-full shadow-sm flex items-center justify-center mb-3 transition-colors"
-                    :class="previewImageUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400 group-hover:text-slate-600 group-hover:scale-105'"
-                  >
-                    <Palette class="w-5 h-5" />
-                  </div>
-                  <span 
-                    class="text-xs font-black uppercase tracking-widest text-center" 
-                    :class="previewImageUrl ? 'text-emerald-700' : 'text-slate-600'"
-                  >
-                    {{ previewImageUrl ? "Cambiar Banner" : "Subir Banner Principal" }}
-                  </span>
-                  <span class="text-[10px] text-slate-400 font-medium mt-1">Recomendado: 1920x1080px</span>
-                </label>
               </div>
 
-              <div class="space-y-5 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
-                <div>
-                  <div class="flex items-center justify-between mb-2.5">
-                    <label class="text-[11px] font-black uppercase tracking-widest text-slate-500">
-                      Diseño del Temario
-                    </label>
-                  </div>
-                  <div class="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
-                    <button 
-                      @click="form.estilo_temario = 'lista'" 
-                      type="button" 
-                      :class="form.estilo_temario === 'lista' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'" 
-                      class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-                    >
-                      <List class="w-3.5 h-3.5" /> Clásico
-                    </button>
-                    <button 
-                      @click="form.estilo_temario = 'cuadricula'" 
-                      type="button" 
-                      :class="form.estilo_temario === 'cuadricula' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'" 
-                      class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-                    >
-                      <Columns class="w-3.5 h-3.5" /> Columnas
-                    </button>
-                    <button 
-                      @click="form.estilo_temario = 'tarjetas'" 
-                      type="button" 
-                      :class="form.estilo_temario === 'tarjetas' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'" 
-                      class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-                    >
-                      <LayoutGrid class="w-3.5 h-3.5" /> Tarjetas
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex items-center justify-between mb-2.5">
-                    <label class="text-[11px] font-black uppercase tracking-widest text-slate-500">
-                      Diseño del Equipo
-                    </label>
-                  </div>
-                  <div class="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
-                    <button 
-                      @click="form.estilo_expertos = 'lista'" 
-                      type="button" 
-                      :class="form.estilo_expertos === 'lista' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'" 
-                      class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-                    >
-                      <List class="w-3.5 h-3.5" /> Fila
-                    </button>
-                    <button 
-                      @click="form.estilo_expertos = 'tarjetas'" 
-                      type="button" 
-                      :class="form.estilo_expertos === 'tarjetas' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'" 
-                      class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-                    >
-                      <SquareSquare class="w-3.5 h-3.5" /> Cuadrícula
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
               <FormInput
-                label="Url de inscripción"
-                type="text"
-                v-model="form.url_formulario_inscripcion"
-                icon="link"
-                placeholder="https://docs.google.com/..."
-                :max="250"
+                label="Comercial encargado"
+                type="select"
+                v-model="form.organizador_id"
+                :options="organizador"
+                icon="people"
                 :activeColor="selectedArea.color_hex_principal"
                 required
-                :error="form.errors.url_formulario_inscripcion"
-              />
-              <FormInput
-                label="Documento soporte (Brochure)"
-                type="file"
-                v-model="form.url_folleto"
-                icon="upload_file"
-                placeholder="Subir PDF descriptivo"
-                :activeColor="selectedArea.color_hex_principal"
-                required
-                :error="form.errors.url_folleto"
+                :error="form.errors.organizador_id"
               />
             </div>
-
-            <FormInput
-              label="Comercial encargado"
-              type="select"
-              v-model="form.organizador_id"
-              :options="organizador"
-              icon="people"
-              :activeColor="selectedArea.color_hex_principal"
-              required
-              :error="form.errors.organizador_id"
-            />
-          </div>
           </div>
         </div>
       </div>

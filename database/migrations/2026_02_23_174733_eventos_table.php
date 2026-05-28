@@ -42,6 +42,9 @@ return new class extends Migration {
             $table->string('color_hex_secundario', 7)->nullable();
             $table->string('estilo_temario')->default('lista');
             $table->string('estilo_expertos')->default('lista');
+            $table->string('estilo_card')->default('minimalista');
+
+            $table->string('estilo_plantilla')->default('clasico');
 
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('update_by')->nullable();

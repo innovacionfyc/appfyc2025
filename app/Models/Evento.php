@@ -42,6 +42,8 @@ class Evento extends Model
         'oferta_valor',
         'estilo_temario',
         'estilo_expertos',
+        'estilo_card',
+        'estilo_plantilla'
 
     ];
 

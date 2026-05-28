@@ -190,6 +190,8 @@ class EventoController extends Controller
                 
                 'estilo_temario' => 'nullable|string',
                 'estilo_expertos' => 'nullable|string',
+                'estilo_card' => 'nullable|string',
+                'estilo_plantilla' => 'nullable|string',
             ], [
                 'area_formacion_id.required' => 'Es obligatorio seleccionar un Área de Formación.',
                 'area_formacion_id.exists' => 'El Área de Formación seleccionada no es válida.',
@@ -345,6 +347,7 @@ class EventoController extends Controller
                 'fecha_hora_fin' => 'required|date|after_or_equal:fecha_hora_inicio',
                 'modalidad' => 'required|string|in:Presencial,Virtual,Híbrido',
                 'ubicacion' => 'nullable|string|max:255',
+                'precio_seminario' => 'nullable|numeric|min:0',
                 'precio_jornada' => 'nullable|numeric|min:0',
                 'precio_modulo' => 'nullable|numeric|min:0',
                 'precio_cng' => 'nullable|numeric|min:0',
@@ -364,6 +367,8 @@ class EventoController extends Controller
                 'url_formulario_inscripcion' => 'required|url|max:255',
                 'estilo_temario' => 'nullable|string',
                 'estilos_expertos' => 'nullable|string',
+                'estilo_card' => 'nullable|string',
+                'estilo_plantilla' => 'nullable|string',
             ], [
 
                 'id_origen_duplicado.exists' => 'El evento que intentas duplicar ya no existe en el sistema.',
