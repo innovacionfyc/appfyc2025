@@ -167,6 +167,7 @@ class EventoController extends Controller
                 'ubicacion' => 'nullable|string|max:255',
                 
                 'precio_jornada' => 'nullable|numeric|min:0',
+                'precio_seminario' => 'nullable|numeric|min:0',
                 'precio_modulo' => 'nullable|numeric|min:0',
                 'precio_cng' => 'nullable|numeric|min:0',
                 'precio_curso_intensivo' => 'nullable|numeric|min:0',
@@ -213,6 +214,8 @@ class EventoController extends Controller
 
                 'precio_jornada.numeric' => 'El precio de la jornada debe ser un valor numérico.',
                 'precio_jornada.min' => 'El precio de la jornada no puede ser negativo.',
+                'precio_seminario.numeric' => 'El precio de la jornada debe ser un valor numérico.',
+                'precio_seminario.min' => 'El precio de la jornada no puede ser negativo.',
                 'precio_modulo.numeric' => 'El precio del módulo debe ser un valor numérico.',
                 'precio_modulo.min' => 'El precio del módulo no puede ser negativo.',
                 'precio_cng.numeric' => 'El precio del CNG debe ser un valor numérico.',

@@ -22,8 +22,12 @@ class PerfilConferencista extends Model
         'telefono',
         'correo',
         'url_hv',
-        'area_encargada_id',
+        'areas_encargadas',
        
+    ];
+
+    protected $casts = [
+        'areas_encargadas' => 'array', 
     ];
 
 
@@ -34,7 +38,6 @@ class PerfilConferencista extends Model
         return $this->belongsTo(AreaFormacion::class, 'area_encargada_id');
     }
     
-    // Relaciones de muchos a muchos (Tablas pivote)
     public function eventosParticipados() {
         return $this->belongsToMany(Evento::class, 'evento_conferencista', 'conferencista_id', 'evento_id')->withTimestamps();
     }

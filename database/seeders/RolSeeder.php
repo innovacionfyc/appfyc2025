@@ -14,13 +14,13 @@ class RolSeeder extends Seeder
     {
         $roles = [
             [
-                'tipo_rol' => 'Super Administrador',
+                'nombre' => 'Super Administrador',
                 'slug' => 'super-admin',
                 'descripcion' => 'Acceso total y absoluto al sistema. Puede gestionar usuarios, catálogos y configuraciones globales.',
                 'permisos' => ['acceso_total'],
             ],
             [
-                'tipo_rol' => 'Administrador',
+                'nombre' => 'Administrador',
                 'slug' => 'admin',
                 'descripcion' => 'Gestión completa de la plataforma de eventos, contenidos temáticos y asignación de conferencistas.',
                 'permisos' => [
@@ -32,7 +32,7 @@ class RolSeeder extends Seeder
                 ],
             ],
             [
-                'tipo_rol' => 'Comercial',
+                'nombre' => 'Comercial',
                 'slug' => 'comercial',
                 'descripcion' => 'Encargado de la gestión de ventas, seguimiento de formularios de inscripción y atención al cliente.',
                 'permisos' => [

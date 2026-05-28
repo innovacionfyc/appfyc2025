@@ -81,6 +81,7 @@ const form = useForm({
   estilo_expertos: "lista",
   texto_dinamico: "",
   tipo_evento: null,
+  precio_seminario: 0,
   precio_jornada: 0,
   precio_modulo: 0,
   precio_cng: 0,
@@ -91,7 +92,7 @@ const form = useForm({
   url_formulario_inscripcion: null,
   organizador_id: "",
   tiene_oferta_valor: false,
-  oferta_valor: "",
+  oferta_valor: "N/A",
 
   contenido_tematico: [{ tema: "(Escribe algo...)", subtemas: [""] }],
 });
@@ -99,6 +100,7 @@ const form = useForm({
 const camposPrecioActivos = computed(() => {
   const map = {
     JORNADA: ["precio_jornada"],
+    SEMINARIO: ["precio_seminario"],
     MODULO: ["precio_modulo"],
     CNG: ["precio_cng"],
     CURSO_INTENSIVO: ["precio_curso_intensivo"],
@@ -175,13 +177,14 @@ const clearForm = () => {
   form.ubicacion = "";
 
   form.precio_jornada = 0;
+  form.precio_seminario = 0;
   form.precio_modulo = 0;
   form.precio_cng = 0;
   form.precio_curso_intensivo = 0;
   form.precio_diplomado = 0;
 
   form.tiene_oferta_valor = false;
-  form.oferta_valor = "";
+  form.oferta_valor = "N/A";
 
   form.conferencistas = [];
   form.contenido_tematico = [{ tema: "", subtemas: [""] }];
@@ -225,6 +228,7 @@ watch(
         form.ubicacion = evento.ubicacion || null;
 
         form.precio_jornada = evento.precio_jornada || 0;
+        form.precio_seminario = evento.precio_seminario || 0;
         form.precio_modulo = evento.precio_modulo || 0;
         form.precio_cng = evento.precio_cng || 0;
         form.precio_curso_intensivo = evento.precio_curso_intensivo || 0;
@@ -290,6 +294,7 @@ const submit = () => {
     .transform((data) => {
       const todosLosPrecios = [
         "precio_jornada",
+        "precio_seminario",
         "precio_modulo",
         "precio_cng",
         "precio_curso_intensivo",
@@ -381,6 +386,7 @@ const toggleSubtemas = (modulo) => {
     :icon="mode === 'edit' ? Save : Globe"
     :activeColor="selectedArea.color_hex_principal"
     :loading="form.processing"
+    :errors="form.errors"
     @close="emit('close')"
     @submit="submit"
   >
@@ -496,6 +502,7 @@ const toggleSubtemas = (modulo) => {
                   type="select"
                   v-model="form.tipo_evento"
                   :options="[
+                    'SEMINARIO',
                     'JORNADA',
                     'MODULO',
                     'CNG',
@@ -517,6 +524,15 @@ const toggleSubtemas = (modulo) => {
                   v-model="form.precio_jornada"
                   icon="payments"
                   :error="form.errors.precio_jornada"
+                  required
+                />
+                <FormInput
+                  v-if="camposPrecioActivos.includes('precio_seminario')"
+                  label="Precio Seminario"
+                  type="number"
+                  v-model="form.precio_seminario"
+                  icon="payments"
+                  :error="form.errors.precio_seminario"
                   required
                 />
                 <FormInput
@@ -712,7 +728,7 @@ const toggleSubtemas = (modulo) => {
                       class="text-[11px] text-slate-700 truncate"
                       :style="{ color: selectedArea.color_hex_principal }"
                     >
-                      {{ s.area_encargada.nombre }}
+                      {{ s.areas_encargadas.nombre }}
                     </p>
                   </span>
                 </div>
@@ -763,7 +779,6 @@ const toggleSubtemas = (modulo) => {
                     placeholder="Ej: 20% de descuento por pronto pago..."
                     :activeColor="selectedArea.color_hex_principal"
                     :max="100"
-                    required
                   />
                 </div>
               </div>

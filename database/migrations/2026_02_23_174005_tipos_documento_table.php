@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('tipos_documento', function (Blueprint $table) {
             $table->id();
-            $table->string('documento_legal');
+            $table->string('nombre');
             $table->string('sigla');
             $table->string('codigo_dian');
 

@@ -268,7 +268,7 @@ const deshacerEliminacion = () => {
 
 const obtenerPrecioPrincipal = (evento) => {
   if (evento.precio_jornada > 0)
-    return { etiqueta: "Inv. Jornada", valor: evento.precio_jornada };
+    return { etiqueta: "Jornada", valor: evento.precio_jornada };
   if (evento.precio_diplomado > 0)
     return { etiqueta: "Diplomado", valor: evento.precio_diplomado };
   if (evento.precio_curso_intensivo > 0)
@@ -276,6 +276,7 @@ const obtenerPrecioPrincipal = (evento) => {
   if (evento.precio_modulo > 0)
     return { etiqueta: "Por Módulo", valor: evento.precio_modulo };
   if (evento.precio_cng > 0) return { etiqueta: "Precio CNG", valor: evento.precio_cng };
+  if (evento.precio_seminario > 0) return { etiqueta: "Seminario", valor: evento.precio_seminario };
 
   return { etiqueta: "Inversión", valor: 0 };
 };

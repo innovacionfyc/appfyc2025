@@ -60,7 +60,7 @@ const stats = computed(() => [
 const headerStats = [
   {
     label: "Perfil",
-    value: props.auth?.user?.perfil_organizador?.rol?.tipo_rol,
+    value: props.auth?.user?.perfil_organizador?.rol?.nombre,
     icon: "verified_user",
     color: "text-sembg-semaforo-verde",
     bg: "bg-emerald-50",

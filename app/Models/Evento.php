@@ -30,6 +30,7 @@ class Evento extends Model
         'fecha_hora_inicio',
         'fecha_hora_fin',
         'precio_jornada',
+        'precio_seminario',
         'precio_modulo',
         'precio_cng',
         'precio_curso_intensivo',

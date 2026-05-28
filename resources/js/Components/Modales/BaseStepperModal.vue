@@ -142,41 +142,55 @@ watch(
             <slot :currentStep="currentStep"></slot>
           </div>
 
-          <div
-            class="p-8 md:px-16 md:py-10 bg-white border-t border-slate-50 flex items-center justify-between"
-          >
-            <div class="flex-1">
-              <BtnSecundario
-                v-if="currentStep > 1"
-                label="Anterior"
-                icon="chevron_left"
-                @click="prevStep"
-              />
+        <div class="flex flex-col">
+            
+            <div v-if="Object.keys(errors).length > 0" class="px-6 md:px-10 py-4 bg-rose-50 border-t border-rose-100 flex items-start gap-3 shrink-0">
+               <div class="p-1.5 bg-rose-100 text-rose-600 rounded-lg shrink-0 mt-0.5">
+                  <X :size="16" />
+               </div>
+               <div>
+                  <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-0.5">
+                    No se pudo guardar
+                  </p>
+                  <p class="text-xs font-medium text-rose-600">
+                    {{ errors.error || Object.values(errors)[0] }}
+                  </p>
+               </div>
             </div>
 
-            <div class="flex-[2] flex justify-end gap-4">
-              <BtnUniversal
-                v-if="currentStep < totalSteps"
-                label="Siguiente"
-                icon="chevron_right"
-                icon-position="right"
-                :activeColor="activeColor"
-                :disabled="!canContinue"
-                @click="nextStep"
-              />
-              
+            <div class="p-8 md:px-16 md:py-10 bg-white border-t border-slate-50 flex items-center justify-between">
+              <div class="flex-1">
+                <BtnSecundario
+                  v-if="currentStep > 1"
+                  label="Anterior"
+                  icon="chevron_left"
+                  @click="prevStep"
+                />
+              </div>
 
-              <BtnUniversal
-                v-if="currentStep === totalSteps"
-                :label="submitLabel"
-                icon="check"
-                icon-position="right"
-                :activeColor="activeColor"
-                :disabled="loading || !canContinue"
-                :loading="loading"
-                :process="processLabel"
-                @click="emit('submit')"
-              />
+              <div class="flex-[2] flex justify-end gap-4">
+                <BtnUniversal
+                  v-if="currentStep < totalSteps"
+                  label="Siguiente"
+                  icon="chevron_right"
+                  icon-position="right"
+                  :activeColor="activeColor"
+                  :disabled="!canContinue"
+                  @click="nextStep"
+                />
+                
+                <BtnUniversal
+                  v-if="currentStep === totalSteps"
+                  :label="submitLabel"
+                  icon="check"
+                  icon-position="right"
+                  :activeColor="activeColor"
+                  :disabled="loading || !canContinue"
+                  :loading="loading"
+                  :process="processLabel"
+                  @click="emit('submit')"
+                />
+              </div>
             </div>
           </div>
         </div>

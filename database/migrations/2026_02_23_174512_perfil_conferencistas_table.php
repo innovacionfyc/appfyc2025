@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->string('telefono');
             $table->string('correo')->unique();
             $table->string('url_hv')->nullable();
-            $table->foreignId('area_encargada_id')->constrained('areas_formacion')->onDelete('restrict');
+            $table->json('areas_encargadas')->nullable();
 
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('update_by')->nullable();

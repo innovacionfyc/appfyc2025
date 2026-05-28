@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('tipo_rol')->unique();
+            $table->string('nombre')->unique();
             $table->string('slug')->unique();
             $table->text('descripcion')->nullable();
             $table->json('permisos')->nullable();
