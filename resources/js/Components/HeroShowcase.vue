@@ -293,13 +293,23 @@ const formatEventRange = (inicio, fin) => {
               class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent opacity-80"
             ></div>
 
+            <div class="absolute top-0 inset-x-0 p-6 z-20">
+              <h3
+                class="text-3xl sm:text-5xl lg:text-4xl text-left uppercase font-black text-white leading-[1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+              >
+                {{
+                  formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin)
+                }}
+              </h3>
+            </div>
+
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div
                 class="p-4 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10"
                 :class="i === active ? 'opacity-100' : 'opacity-0'"
               >
-                <p class="text-[10px] font-black text-blue-400 uppercase mb-1">
-                  {{ ev.mode_event }}
+                <p class="text-[14px] font-medium text-mono-blanco mb-1">
+                  · {{ ev.mode }} ·
                 </p>
                 <h3
                   class="text-lg lg:text-xl font-bold text-white leading-tight line-clamp-2"
@@ -322,7 +332,6 @@ const formatEventRange = (inicio, fin) => {
     </div>
   </section>
 
- 
   <section
     v-else
     class="relative isolate w-full h-dvh flex flex-col justify-end overflow-hidden bg-[#0b192c2f]"
@@ -330,7 +339,7 @@ const formatEventRange = (inicio, fin) => {
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div
         class="absolute inset-0 bg-cover bg-center animate-ken-burns opacity-40 grayscale-[10%]"
-        style="background-image: url('/images/eventos/default-bg.webp');"
+        style="background-image: url('/images/eventos/default-bg.webp')"
       ></div>
 
       <div
@@ -338,29 +347,43 @@ const formatEventRange = (inicio, fin) => {
       ></div>
     </div>
 
-    <div class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-24 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8">
-      
-      <aside class="w-full lg:w-5/12 mb-4 lg:mb-20 flex flex-col items-start space-y-4 lg:space-y-6">
-        
-        <div class="flex items-center px-4 py-2.5 gap-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md animate-pulse">
+    <div
+      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-24 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
+    >
+      <aside
+        class="w-full lg:w-5/12 mb-4 lg:mb-20 flex flex-col items-start space-y-4 lg:space-y-6"
+      >
+        <div
+          class="flex items-center px-4 py-2.5 gap-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md animate-pulse"
+        >
           <span class="h-2.5 w-2.5 rounded-full bg-slate-600"></span>
           <span class="h-2 w-16 bg-slate-600 rounded"></span>
         </div>
 
-        <h1 class="text-3xl sm:text-5xl lg:text-7xl font-black text-white/70 leading-[1.1] tracking-tight drop-shadow-lg">
-          Nuevas fechas <br /> en preparación
+        <h1
+          class="text-3xl sm:text-5xl lg:text-7xl font-black text-white/70 leading-[1.1] tracking-tight drop-shadow-lg"
+        >
+          Nuevas fechas <br />
+          en preparación
         </h1>
 
         <div class="space-y-4 border-l-4 border-white/20 pl-5 w-full max-w-md">
           <div class="h-6 w-3/4 bg-white/10 rounded-md animate-pulse"></div>
-          
-          <p class="text-base lg:text-xl text-slate-400 font-medium leading-snug drop-shadow-md">
-            Nuestro equipo académico está estructurando las próximas jornadas. Mantente atento para asegurar tu cupo.
+
+          <p
+            class="text-base lg:text-xl text-slate-400 font-medium leading-snug drop-shadow-md"
+          >
+            Nuestro equipo académico está estructurando las próximas jornadas. Mantente
+            atento para asegurar tu cupo.
           </p>
-          
+
           <div class="flex flex-wrap gap-4 pt-2">
-             <div class="h-8 w-32 bg-white/10 rounded-xl animate-pulse backdrop-blur-sm"></div>
-             <div class="h-8 w-24 bg-white/10 rounded-xl animate-pulse backdrop-blur-sm"></div>
+            <div
+              class="h-8 w-32 bg-white/10 rounded-xl animate-pulse backdrop-blur-sm"
+            ></div>
+            <div
+              class="h-8 w-24 bg-white/10 rounded-xl animate-pulse backdrop-blur-sm"
+            ></div>
           </div>
         </div>
 
@@ -377,13 +400,20 @@ const formatEventRange = (inicio, fin) => {
       </aside>
 
       <aside class="w-full lg:w-7/12 relative">
-        <div class="flex gap-4 lg:gap-6 overflow-hidden py-6 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 opacity-80">
-          
-          <div class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-white/20 w-[75vw] sm:w-[400px] lg:w-[360px] h-[350px] lg:h-[480px] z-20 shadow-2xl flex flex-col justify-end animate-pulse backdrop-blur-md">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-            
+        <div
+          class="flex gap-4 lg:gap-6 overflow-hidden py-6 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 opacity-80"
+        >
+          <div
+            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-white/20 w-[75vw] sm:w-[400px] lg:w-[360px] h-[350px] lg:h-[480px] z-20 shadow-2xl flex flex-col justify-end animate-pulse backdrop-blur-md"
+          >
+            <div
+              class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+            ></div>
+
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
-              <div class="p-4 rounded-2xl bg-white/10 border border-white/10 flex flex-col gap-3">
+              <div
+                class="p-4 rounded-2xl bg-white/10 border border-white/10 flex flex-col gap-3"
+              >
                 <div class="h-2 w-16 bg-slate-500 rounded"></div>
                 <div class="h-6 w-full bg-slate-600 rounded-md"></div>
                 <div class="h-6 w-2/3 bg-slate-600 rounded-md"></div>
@@ -391,7 +421,9 @@ const formatEventRange = (inicio, fin) => {
             </div>
           </div>
 
-          <div class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[60vw] sm:w-[300px] lg:w-[300px] h-[300px] lg:h-[420px] z-0 opacity-40 flex flex-col justify-end mt-4 lg:mt-8 animate-pulse backdrop-blur-sm">
+          <div
+            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[60vw] sm:w-[300px] lg:w-[300px] h-[300px] lg:h-[420px] z-0 opacity-40 flex flex-col justify-end mt-4 lg:mt-8 animate-pulse backdrop-blur-sm"
+          >
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div class="p-4 rounded-2xl bg-white/5 flex flex-col gap-3">
                 <div class="h-2 w-12 bg-slate-600 rounded"></div>
@@ -401,7 +433,9 @@ const formatEventRange = (inicio, fin) => {
             </div>
           </div>
 
-          <div class="hidden sm:flex relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[300px] h-[420px] z-0 opacity-20 flex-col justify-end mt-8 animate-pulse backdrop-blur-sm">
+          <div
+            class="hidden sm:flex relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[300px] h-[420px] z-0 opacity-20 flex-col justify-end mt-8 animate-pulse backdrop-blur-sm"
+          >
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div class="p-4 rounded-2xl bg-white/5 flex flex-col gap-3">
                 <div class="h-2 w-12 bg-slate-600 rounded"></div>
@@ -409,7 +443,6 @@ const formatEventRange = (inicio, fin) => {
               </div>
             </div>
           </div>
-
         </div>
       </aside>
     </div>

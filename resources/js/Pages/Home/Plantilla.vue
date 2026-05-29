@@ -282,7 +282,7 @@ const layoutConfig = computed(() => {
     "relative overflow-hidden bg-gradient-to-br from-[#0B192C] to-[#081121] rounded-[2rem] p-6 md:p-7 shadow-xl shrink-0 border border-white/10 isolate";
   if (estiloC === "destacado") {
     cardPrecioClass =
-      "relative overflow-hidden bg-gradient-to-br from-slate-900 via-purple-950 to-slate-950 rounded-[2.5rem] p-7 shadow-2xl shrink-0 border border-purple-500/30 isolate ring-1 ring-purple-500/20";
+      "relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-600 to-slate-950 rounded-[2.5rem] p-7 shadow-2xl shrink-0 border border-purple-500/30 isolate ring-1 ring-purple-500/20";
   }
 
   return {
