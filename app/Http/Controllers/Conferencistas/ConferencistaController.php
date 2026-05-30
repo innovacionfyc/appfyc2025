@@ -5,13 +5,27 @@ namespace App\Http\Controllers\Conferencistas;
 use App\Http\Controllers\Controller;
 use App\Models\PerfilConferencista;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ConferencistaController extends Controller
 {
+    public function show(): Response
+    {
+        $usuario = Auth::user();
+        $perfil = PerfilConferencista::where('usuario_id', $usuario->id)->first();
+
+        return Inertia::render('Dashboard/Conferencista', [
+            'auth' => ['user' => $usuario],
+            'perfil' => $perfil,
+        ]);
+    }
+
     public function store(Request $request)
     {
         try {
