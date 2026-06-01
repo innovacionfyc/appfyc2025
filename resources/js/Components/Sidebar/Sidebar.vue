@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   Library,
   BookOpen,
+  Video,
 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
@@ -47,6 +48,7 @@ const navItems = [
       { name: "Memorias", href: "/admin/memorias", icon: BookOpen },
     ],
   },
+  { name: "Accesos Virtuales", icon: Video, href: "/admin/accesos-virtuales/data" },
   { name: "Equipo", icon: Users, href: "/admin/usuarios_fyc" },
   { name: "Configuración", icon: Settings, href: "/admin/configuracion" },
 ];
