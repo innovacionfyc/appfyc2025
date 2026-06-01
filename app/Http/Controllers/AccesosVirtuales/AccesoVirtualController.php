@@ -9,6 +9,7 @@ use App\Models\Movimiento;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -16,16 +17,30 @@ use Inertia\Response;
 
 class AccesoVirtualController extends Controller
 {
-    // PENDIENTE Fase 3: componente Vue 'AccesosVirtuales/AccesosVirtuales' aún no existe
     public function index(): Response
     {
         $accesos = AccesoVirtual::with(['estado', 'organizador.perfilOrganizador'])
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn($a) => [
+                'id'                => $a->id,
+                'nombre'            => $a->nombre,
+                'slug'              => $a->slug,
+                'descripcion'       => $a->descripcion,
+                'fecha'             => $a->fecha ? $a->fecha->format('Y-m-d') : null,
+                'hora'              => $a->hora,
+                'url_zoom'          => $a->url_zoom,
+                'estado_id'         => $a->estado_id,
+                'estado'            => $a->estado,
+                'imagen_banner'     => $a->imagen_banner,
+                'imagen_banner_url' => $a->imagen_banner
+                    ? Storage::url($a->imagen_banner)
+                    : null,
+            ]);
 
         return Inertia::render('AccesosVirtuales/AccesosVirtuales', [
             'accesos' => $accesos,
-            'estados'  => Estado::all(),
+            'estados' => Estado::all(),
         ]);
     }
 
@@ -38,18 +53,21 @@ class AccesoVirtualController extends Controller
                 'fecha'         => 'nullable|date',
                 'hora'          => 'nullable|date_format:H:i',
                 'url_zoom'      => 'required|url|max:500',
-                'imagen_banner' => 'nullable|string|max:500',
+                'imagen_banner' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
                 'estado_id'     => 'required|exists:estados,id',
             ], [
-                'nombre.required'      => 'El nombre del acceso virtual es obligatorio.',
-                'nombre.max'           => 'El nombre no puede superar los 200 caracteres.',
-                'url_zoom.required'    => 'El link de la reunión virtual es obligatorio.',
-                'url_zoom.url'         => 'El link debe ser una URL válida (ej: https://zoom.us/j/...).',
-                'url_zoom.max'         => 'El link de la reunión es demasiado largo.',
-                'fecha.date'           => 'El formato de la fecha es incorrecto.',
-                'hora.date_format'     => 'La hora debe estar en formato HH:MM (ej: 09:00).',
-                'estado_id.required'   => 'El estado del acceso virtual es obligatorio.',
-                'estado_id.exists'     => 'El estado seleccionado no es válido.',
+                'nombre.required'         => 'El nombre del acceso virtual es obligatorio.',
+                'nombre.max'              => 'El nombre no puede superar los 200 caracteres.',
+                'url_zoom.required'       => 'El link de la reunión virtual es obligatorio.',
+                'url_zoom.url'            => 'El link debe ser una URL válida (ej: https://zoom.us/j/...).',
+                'url_zoom.max'            => 'El link de la reunión es demasiado largo.',
+                'fecha.date'              => 'El formato de la fecha es incorrecto.',
+                'hora.date_format'        => 'La hora debe estar en formato HH:MM (ej: 09:00).',
+                'estado_id.required'      => 'El estado del acceso virtual es obligatorio.',
+                'estado_id.exists'        => 'El estado seleccionado no es válido.',
+                'imagen_banner.image'     => 'El archivo debe ser una imagen.',
+                'imagen_banner.mimes'     => 'El banner debe ser JPG, PNG o WEBP.',
+                'imagen_banner.max'       => 'El banner no puede superar los 4 MB.',
             ]);
 
             $slug = $this->generarSlug($validated['nombre']);
@@ -63,7 +81,9 @@ class AccesoVirtualController extends Controller
                 'fecha'          => $validated['fecha'] ?? null,
                 'hora'           => $validated['hora'] ?? null,
                 'url_zoom'       => $validated['url_zoom'],
-                'imagen_banner'  => $validated['imagen_banner'] ?? null,
+                'imagen_banner'  => $request->hasFile('imagen_banner')
+                    ? $request->file('imagen_banner')->store('accesos-virtuales/banners', 'public')
+                    : null,
             ]);
 
             Movimiento::registrar(
@@ -91,18 +111,21 @@ class AccesoVirtualController extends Controller
                 'fecha'         => 'nullable|date',
                 'hora'          => 'nullable|date_format:H:i',
                 'url_zoom'      => 'required|url|max:500',
-                'imagen_banner' => 'nullable|string|max:500',
+                'imagen_banner' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
                 'estado_id'     => 'required|exists:estados,id',
             ], [
-                'nombre.required'    => 'El nombre del acceso virtual es obligatorio.',
-                'nombre.max'         => 'El nombre no puede superar los 200 caracteres.',
-                'url_zoom.required'  => 'El link de la reunión virtual es obligatorio.',
-                'url_zoom.url'       => 'El link debe ser una URL válida.',
-                'url_zoom.max'       => 'El link de la reunión es demasiado largo.',
-                'fecha.date'         => 'El formato de la fecha es incorrecto.',
-                'hora.date_format'   => 'La hora debe estar en formato HH:MM (ej: 09:00).',
-                'estado_id.required' => 'El estado del acceso virtual es obligatorio.',
-                'estado_id.exists'   => 'El estado seleccionado no es válido.',
+                'nombre.required'         => 'El nombre del acceso virtual es obligatorio.',
+                'nombre.max'              => 'El nombre no puede superar los 200 caracteres.',
+                'url_zoom.required'       => 'El link de la reunión virtual es obligatorio.',
+                'url_zoom.url'            => 'El link debe ser una URL válida.',
+                'url_zoom.max'            => 'El link de la reunión es demasiado largo.',
+                'fecha.date'              => 'El formato de la fecha es incorrecto.',
+                'hora.date_format'        => 'La hora debe estar en formato HH:MM (ej: 09:00).',
+                'estado_id.required'      => 'El estado del acceso virtual es obligatorio.',
+                'estado_id.exists'        => 'El estado seleccionado no es válido.',
+                'imagen_banner.image'     => 'El archivo debe ser una imagen.',
+                'imagen_banner.mimes'     => 'El banner debe ser JPG, PNG o WEBP.',
+                'imagen_banner.max'       => 'El banner no puede superar los 4 MB.',
             ]);
 
             // Regenerar slug solo si el nombre cambió, conservando el uuid original
@@ -112,6 +135,14 @@ class AccesoVirtualController extends Controller
                     $accesoVirtual->id,
                     explode('-', $accesoVirtual->slug)[0]
                 );
+            }
+
+            // Manejo de banner: si llega nuevo archivo se guarda; si no, se preserva el existente
+            if ($request->hasFile('imagen_banner')) {
+                $validated['imagen_banner'] = $request->file('imagen_banner')
+                    ->store('accesos-virtuales/banners', 'public');
+            } else {
+                unset($validated['imagen_banner']);
             }
 
             $accesoVirtual->update($validated);

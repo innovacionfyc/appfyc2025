@@ -3,22 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\AccesoVirtual;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class AccesoVirtualPublicController extends Controller
 {
-    // PENDIENTE Fase 4: componente Vue 'Home/AccesoVirtual' aún no existe
-    // PENDIENTE: estado_id = 1 es el estado "activo" según el patrón del proyecto.
-    //            Si en el futuro los IDs de estado cambian, este valor debe actualizarse.
     public function show(string $slug)
     {
         $acceso = AccesoVirtual::with('estado')
             ->where('slug', $slug)
-            ->where('estado_id', 1)
             ->firstOrFail();
 
         return Inertia::render('Home/AccesoVirtual', [
-            'acceso' => $acceso,
+            'acceso' => [
+                'nombre'            => $acceso->nombre,
+                'descripcion'       => $acceso->descripcion,
+                'fecha'             => $acceso->fecha ? $acceso->fecha->format('Y-m-d') : null,
+                'hora'              => $acceso->hora,
+                'url_zoom'          => $acceso->url_zoom,
+                'estado_id'         => $acceso->estado_id,
+                'estado'            => $acceso->estado,
+                'imagen_banner_url' => $acceso->imagen_banner
+                    ? Storage::url($acceso->imagen_banner)
+                    : null,
+            ],
         ]);
     }
 }
