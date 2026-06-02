@@ -53,21 +53,22 @@ class AccesoVirtualController extends Controller
                 'fecha'         => 'nullable|date',
                 'hora'          => 'nullable|date_format:H:i',
                 'url_zoom'      => 'required|url|max:500',
-                'imagen_banner' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
+                'imagen_banner' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:8192',
                 'estado_id'     => 'required|exists:estados,id',
             ], [
-                'nombre.required'         => 'El nombre del acceso virtual es obligatorio.',
-                'nombre.max'              => 'El nombre no puede superar los 200 caracteres.',
-                'url_zoom.required'       => 'El link de la reunión virtual es obligatorio.',
-                'url_zoom.url'            => 'El link debe ser una URL válida (ej: https://zoom.us/j/...).',
-                'url_zoom.max'            => 'El link de la reunión es demasiado largo.',
-                'fecha.date'              => 'El formato de la fecha es incorrecto.',
-                'hora.date_format'        => 'La hora debe estar en formato HH:MM (ej: 09:00).',
-                'estado_id.required'      => 'El estado del acceso virtual es obligatorio.',
-                'estado_id.exists'        => 'El estado seleccionado no es válido.',
-                'imagen_banner.image'     => 'El archivo debe ser una imagen.',
-                'imagen_banner.mimes'     => 'El banner debe ser JPG, PNG o WEBP.',
-                'imagen_banner.max'       => 'El banner no puede superar los 4 MB.',
+                'nombre.required'           => 'El nombre del acceso virtual es obligatorio.',
+                'nombre.max'                => 'El nombre no puede superar los 200 caracteres.',
+                'url_zoom.required'         => 'El link de la reunión virtual es obligatorio.',
+                'url_zoom.url'              => 'El link debe ser una URL válida (ej: https://zoom.us/j/...).',
+                'url_zoom.max'              => 'El link de la reunión es demasiado largo.',
+                'fecha.date'                => 'El formato de la fecha es incorrecto.',
+                'hora.date_format'          => 'La hora debe estar en formato HH:MM (ej: 09:00).',
+                'estado_id.required'        => 'El estado del acceso virtual es obligatorio.',
+                'estado_id.exists'          => 'El estado seleccionado no es válido.',
+                'imagen_banner.uploaded'    => 'El archivo no pudo subirse. Verifica que no supere el límite del servidor (generalmente 2–8 MB) y vuelve a intentarlo.',
+                'imagen_banner.image'       => 'El archivo debe ser una imagen válida.',
+                'imagen_banner.mimes'       => 'El banner debe estar en formato JPG, PNG o WEBP.',
+                'imagen_banner.max'         => 'El banner no puede superar los 8 MB.',
             ]);
 
             $slug = $this->generarSlug($validated['nombre']);
@@ -137,8 +138,14 @@ class AccesoVirtualController extends Controller
                 );
             }
 
-            // Manejo de banner: si llega nuevo archivo se guarda; si no, se preserva el existente
+            // Manejo de banner con orden seguro:
+            // 1. Guardar nuevo archivo primero (sin tocar el anterior)
+            // 2. Actualizar el registro en BD
+            // 3. Solo borrar el archivo anterior DESPUÉS de que el update sea exitoso
+            // Así, si update() falla, el registro sigue apuntando al banner anterior intacto.
+            $oldBannerPath = null;
             if ($request->hasFile('imagen_banner')) {
+                $oldBannerPath = $accesoVirtual->imagen_banner; // guardar ruta anterior
                 $validated['imagen_banner'] = $request->file('imagen_banner')
                     ->store('accesos-virtuales/banners', 'public');
             } else {
@@ -146,6 +153,11 @@ class AccesoVirtualController extends Controller
             }
 
             $accesoVirtual->update($validated);
+
+            // Borrar banner anterior solo tras update exitoso en BD
+            if ($oldBannerPath) {
+                Storage::disk('public')->delete($oldBannerPath);
+            }
 
             Movimiento::registrar(
                 tipo: 'actualizacion',
@@ -166,8 +178,18 @@ class AccesoVirtualController extends Controller
     public function destroy(AccesoVirtual $accesoVirtual)
     {
         try {
-            $nombre = $accesoVirtual->nombre;
+            $nombre      = $accesoVirtual->nombre;
+            $bannerPath  = $accesoVirtual->imagen_banner;
+
+            // Orden: primero soft delete, luego borrar archivo físico.
+            // Si el soft delete falla, el archivo queda intacto (el registro sigue existiendo).
+            // Si el borrado del archivo falla (p.ej. ya no existe), el registro ya está
+            // eliminado correctamente y la URL pública deja de funcionar de inmediato.
             $accesoVirtual->delete();
+
+            if ($bannerPath) {
+                Storage::disk('public')->delete($bannerPath);
+            }
 
             Movimiento::registrar(
                 tipo: 'eliminacion',

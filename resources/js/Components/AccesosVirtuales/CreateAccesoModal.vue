@@ -107,27 +107,33 @@ const previewFecha = computed(() => {
 });
 
 // ── Submit ────────────────────────────────────────────────────────────────────
+// Para edición: transform agrega _method=PUT al FormData y luego se envía como POST real.
+// Esto es necesario porque los navegadores no soportan multipart/form-data con PUT nativo.
+// Para creación: transform se resetea a identidad para evitar que _method=PUT filtre
+// si el usuario alterna entre editar y crear sin recargar la página.
 const submit = () => {
   if (isEdit.value && props.acceso) {
-    // PUT con spoofing para soportar multipart/form-data con archivo
-    form.post(route("accesos-virtuales.update", props.acceso.id), {
-      data: { ...form.data(), _method: "PUT" },
-      forceFormData: true,
-      preserveScroll: true,
-      onSuccess: () => { emit("success"); emit("close"); },
-    });
+    form
+      .transform((data) => ({ ...data, _method: "PUT" }))
+      .post(route("accesos-virtuales.update", props.acceso.id), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => { emit("success"); emit("close"); },
+      });
   } else {
-    form.post(route("accesos-virtuales.store"), {
-      forceFormData: true,
-      preserveScroll: true,
-      onSuccess: () => {
-        form.reset();
-        form.estado_id = estadoActivoId.value;
-        previewImageUrl.value = null;
-        emit("success");
-        emit("close");
-      },
-    });
+    form
+      .transform((data) => data)
+      .post(route("accesos-virtuales.store"), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+          form.reset();
+          form.estado_id = estadoActivoId.value;
+          previewImageUrl.value = null;
+          emit("success");
+          emit("close");
+        },
+      });
   }
 };
 </script>
@@ -304,7 +310,7 @@ const submit = () => {
                     label="Banner / imagen del acceso"
                     type="file"
                     icon="image"
-                    placeholder="Seleccionar imagen (JPG, PNG o WEBP · máx. 4 MB)"
+                    placeholder="Seleccionar imagen (JPG, PNG o WEBP · máx. 8 MB)"
                     activeColor="#7f1d1d"
                     :error="form.errors.imagen_banner"
                     @clearError="form.clearErrors('imagen_banner')"
