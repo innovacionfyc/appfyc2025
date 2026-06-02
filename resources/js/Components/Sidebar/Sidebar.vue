@@ -28,11 +28,15 @@ const isHovered = ref(false);
 const activeSubmenu = ref(null);
 const isMobileMenuOpen = ref(false);
 
+// module  → slug para futura compatibilidad con roles.permisos en BD
+// roles   → array de slugs de rol que pueden ver este ítem (ausente = todos)
 const navItems = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
     name: "Eventos",
     icon: CalendarDays,
+    module: "eventos",
+    roles: ["super-admin", "admin"],
     submenu: [
       { name: "Eventos activos", href: "/admin/eventos/data", icon: ClipboardList },
       { name: "Calendario", href: "/admin/eventos/calendario", icon: Calendar },
@@ -42,17 +46,69 @@ const navItems = [
   {
     name: "Academia",
     icon: GraduationCap,
+    module: "academia",
+    roles: ["super-admin", "admin"],
     submenu: [
       { name: "Certificados", href: "/admin/certificadosWeb", icon: BadgeCheck },
       { name: "Programas", href: "/admin/programas", icon: Library },
       { name: "Memorias", href: "/admin/memorias", icon: BookOpen },
     ],
   },
-  { name: "Accesos Virtuales", icon: Video, href: "/admin/accesos-virtuales/data" },
-  { name: "Equipo", icon: Users, href: "/admin/usuarios_fyc" },
-  { name: "Configuración", icon: Settings, href: "/admin/configuracion" },
+  {
+    name: "Accesos Virtuales",
+    icon: Video,
+    href: "/admin/accesos-virtuales/data",
+    module: "accesos-virtuales",
+    roles: ["super-admin", "admin"],
+  },
+  {
+    name: "Equipo",
+    icon: Users,
+    href: "/admin/usuarios_fyc",
+    module: "equipo",
+    roles: ["super-admin"],
+  },
+  {
+    name: "Configuración",
+    icon: Settings,
+    href: "/admin/configuracion",
+    module: "configuracion",
+    roles: ["super-admin", "admin"],
+  },
 ];
 
+// ── Control de visibilidad por rol ────────────────────────────────────────────
+// Slug del rol activo del usuario autenticado
+const rolActual = computed(() => authStore.rolActual);
+
+// Array de permisos del rol (columna permisos JSON en tabla roles)
+// Disponible porque HandleInertiaRequests carga perfilOrganizador.rol
+const permisos = computed(
+  () => page.props.auth?.user?.perfil_organizador?.rol?.permisos ?? []
+);
+
+// Devuelve true si el usuario puede ver el ítem del sidebar
+// Prioridad: super-admin > acceso_total en permisos > roles del ítem > module en permisos
+const canSeeItem = (item) => {
+  // Sin restricción declarada → visible para todos los usuarios del panel
+  if (!item.roles && !item.module) return true;
+
+  // super-admin tiene bypass explícito (consistente con VerificarRol.php)
+  if (rolActual.value === "super-admin") return true;
+
+  // El rol tiene permiso acceso_total en BD → ve todo
+  if (permisos.value.includes("acceso_total")) return true;
+
+  // El slug del usuario está en la lista de roles permitidos del ítem
+  if (item.roles?.includes(rolActual.value)) return true;
+
+  // Compatibilidad futura: si permisos en BD contienen el module slug del ítem
+  if (item.module && permisos.value.includes(item.module)) return true;
+
+  return false;
+};
+
+const visibleNavItems = computed(() => navItems.filter(canSeeItem));
 
 const toggleSubmenu = (name) => {
   if (activeSubmenu.value === name) activeSubmenu.value = null;
@@ -126,7 +182,7 @@ const isUrlActive = (href) => (href ? page.url.startsWith(href) : false);
       </div>
 
     <nav class="flex-1 px-3 space-y-2 overflow-y-auto no-scrollbar">
-  <div v-for="item in navItems" :key="item.name">
+  <div v-for="item in visibleNavItems" :key="item.name">
     <Link
       v-if="!item.submenu"
       :href="item.href"
