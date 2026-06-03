@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             EquipoSeeder::class,
             RolSeeder::class,
             UsuarioSeeder::class,
+            TestEventosSeeder::class,
         ]);
     }
 }

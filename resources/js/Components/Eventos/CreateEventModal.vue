@@ -92,6 +92,7 @@ const form = useForm({
   imagen_relacionada: null,
   url_folleto: null,
   url_formulario_inscripcion: null,
+  url_folleto_secundario: null,
   organizador_id: "",
   tiene_oferta_valor: false,
   oferta_valor: "N/A",
@@ -194,12 +195,13 @@ const clearForm = () => {
   form.color_hex_secundario = "#4F46E5";
   form.estilo_temario = "lista";
   form.estilo_expertos = "lista";
-  form.estilo_plantilla= "";
+  form.estilo_plantilla = "";
   form.estilo_card = "";
   form.texto_dinamico = "";
 
   form.imagen_relacionada = null;
   form.url_folleto = null;
+  form.url_folleto_secundario = null;
   form.url_formulario_inscripcion = "";
   form.organizador_id = "";
 
@@ -253,6 +255,7 @@ watch(
 
         form.imagen_relacionada = null;
         form.url_folleto = null;
+        form.url_folleto_secundario = null;
         form.conferencistas = evento.conferencistas
           ? evento.conferencistas.map((s) => s.id)
           : [];
@@ -814,7 +817,7 @@ const toggleSubtemas = (modulo) => {
                       <Columns class="w-3.5 h-3.5" /> 1. Distribución de la Plantilla
                     </label>
                     <div
-                      class="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
                     >
                       <button
                         @click="form.estilo_plantilla = 'clasico'"
@@ -824,7 +827,7 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Clásica
                       </button>
@@ -836,7 +839,7 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Invertida
                       </button>
@@ -848,9 +851,21 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Apilada
+                      </button>
+                      <button
+                        @click="form.estilo_plantilla = 'moderno'"
+                        type="button"
+                        :class="
+                          form.estilo_plantilla === 'moderno'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Moderna (Ancha)
                       </button>
                     </div>
                   </div>
@@ -864,7 +879,7 @@ const toggleSubtemas = (modulo) => {
                       <List class="w-3.5 h-3.5" /> 2. Diseño del Temario (Módulos)
                     </label>
                     <div
-                      class="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
                     >
                       <button
                         @click="form.estilo_temario = 'lista'"
@@ -874,7 +889,7 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Lista Completa
                       </button>
@@ -886,7 +901,7 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Dos Columnas
                       </button>
@@ -898,9 +913,21 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Tarjetas
+                      </button>
+                      <button
+                        @click="form.estilo_temario = 'compacto'"
+                        type="button"
+                        :class="
+                          form.estilo_temario === 'compacto'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Compacto
                       </button>
                     </div>
                   </div>
@@ -924,7 +951,7 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
                         Filas Detalladas
                       </button>
@@ -936,9 +963,33 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
-                        Grilla de Avatares
+                        Grilla Avatares
+                      </button>
+                      <button
+                        @click="form.estilo_expertos = 'pildoras'"
+                        type="button"
+                        :class="
+                          form.estilo_expertos === 'pildoras'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Píldoras
+                      </button>
+                      <button
+                        @click="form.estilo_expertos = 'minimalista'"
+                        type="button"
+                        :class="
+                          form.estilo_expertos === 'minimalista'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Solo Texto
                       </button>
                     </div>
                   </div>
@@ -952,7 +1003,7 @@ const toggleSubtemas = (modulo) => {
                       <LayoutGrid class="w-3.5 h-3.5" /> 4. Caja de Conversión (Precios)
                     </label>
                     <div
-                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100"
+                      class="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100 mb-4"
                     >
                       <button
                         @click="form.estilo_card = 'minimalista'"
@@ -962,9 +1013,9 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
-                        Gris Corporativo
+                        Gris Oscuro
                       </button>
                       <button
                         @click="form.estilo_card = 'destacado'"
@@ -974,9 +1025,33 @@ const toggleSubtemas = (modulo) => {
                             ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
                             : 'text-slate-400 hover:text-slate-600'
                         "
-                        class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
                       >
-                        Gradiente Premium
+                        Gradiente
+                      </button>
+                      <button
+                        @click="form.estilo_card = 'glass'"
+                        type="button"
+                        :class="
+                          form.estilo_card === 'glass'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Glassmorphism
+                      </button>
+                      <button
+                        @click="form.estilo_card = 'neon'"
+                        type="button"
+                        :class="
+                          form.estilo_card === 'neon'
+                            ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
+                            : 'text-slate-400 hover:text-slate-600'
+                        "
+                        class="py-2 rounded-lg text-[11px] font-bold transition-all text-center"
+                      >
+                        Borde Neón
                       </button>
                     </div>
                   </div>
@@ -1043,90 +1118,52 @@ const toggleSubtemas = (modulo) => {
                     :class="{
                       'flex-row': form.estilo_plantilla === 'clasico',
                       'flex-row-reverse': form.estilo_plantilla === 'invertido',
-                      'flex-col overflow-y-auto no-scrollbar':
-                        form.estilo_plantilla === 'minimalista',
+                      'flex-col overflow-y-auto no-scrollbar': form.estilo_plantilla === 'minimalista',
+                      'flex-row items-start': form.estilo_plantilla === 'moderno',
                     }"
                   >
                     <div
                       class="transition-all duration-500 flex flex-col gap-3"
                       :class="
-                        form.estilo_plantilla === 'minimalista' ? 'w-full' : 'w-7/12'
+                        form.estilo_plantilla === 'minimalista' ? 'w-full' : 
+                        form.estilo_plantilla === 'moderno' ? 'w-2/3' : 'w-7/12'
                       "
                     >
-                      <div
-                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-3"
-                      >
-                        <div
-                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
-                        >
-                          <div
-                            class="w-3.5 h-3.5 rounded bg-blue-500/20 flex items-center justify-center text-[8px] font-black text-blue-400"
-                          >
+                      <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-3">
+                        <div class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2">
+                          <div class="w-3.5 h-3.5 rounded bg-blue-500/20 flex items-center justify-center text-[8px] font-black text-blue-400">
                             T
                           </div>
-                          <span
-                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
-                            >Contenido Temático</span
-                          >
+                          <span class="text-[9px] font-black uppercase text-slate-300 tracking-widest">Contenido Temático</span>
                         </div>
 
-                        <div
-                          v-if="form.estilo_temario === 'lista'"
-                          class="space-y-2.5 animate-in fade-in duration-300"
-                        >
-                          <div
-                            v-for="i in 3"
-                            :key="i"
-                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
-                          >
+                        <div v-if="form.estilo_temario === 'lista'" class="space-y-2.5 animate-in fade-in duration-300">
+                          <div v-for="i in 3" :key="i" class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5">
                             <div class="w-1/2 h-2 bg-slate-600 rounded-full"></div>
-                            <div
-                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
-                            ></div>
-                            <div
-                              class="w-4/5 h-1.5 bg-slate-700 rounded-full opacity-40"
-                            ></div>
+                            <div class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
+                            <div class="w-4/5 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
                           </div>
                         </div>
 
-                        <div
-                          v-else-if="form.estilo_temario === 'cuadricula'"
-                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
-                        >
-                          <div
-                            v-for="i in 4"
-                            :key="i"
-                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
-                          >
+                        <div v-else-if="form.estilo_temario === 'cuadricula'" class="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
+                          <div v-for="i in 4" :key="i" class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5">
                             <div class="w-4/5 h-2 bg-slate-600 rounded-full"></div>
-                            <div
-                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
-                            ></div>
+                            <div class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
                           </div>
                         </div>
 
-                        <div
-                          v-else-if="form.estilo_temario === 'tarjetas'"
-                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
-                        >
-                          <div
-                            v-for="i in 4"
-                            :key="i"
-                            class="p-2 bg-slate-700 border-b-2 rounded-xl space-y-2 shadow-sm"
-                            :style="{
-                              borderBottomColor: selectedArea.color_hex_principal,
-                            }"
-                          >
-                            <div
-                              class="w-3 h-3 rounded-full opacity-40"
-                              :style="{
-                                backgroundColor: selectedArea.color_hex_principal,
-                              }"
-                            ></div>
+                        <div v-else-if="form.estilo_temario === 'tarjetas'" class="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
+                          <div v-for="i in 4" :key="i" class="p-2 bg-slate-700 border-b-2 rounded-xl space-y-2 shadow-sm" :style="{ borderBottomColor: selectedArea.color_hex_principal }">
+                            <div class="w-3 h-3 rounded-full opacity-40" :style="{ backgroundColor: selectedArea.color_hex_principal }"></div>
                             <div class="w-full h-1.5 bg-slate-500 rounded-full"></div>
-                            <div
-                              class="w-3/4 h-1 bg-slate-600 rounded-full opacity-50"
-                            ></div>
+                            <div class="w-3/4 h-1 bg-slate-600 rounded-full opacity-50"></div>
+                          </div>
+                        </div>
+
+                        <div v-else-if="form.estilo_temario === 'compacto'" class="space-y-1 animate-in fade-in duration-300">
+                          <div v-for="i in 5" :key="i" class="p-1.5 bg-slate-800/20 border-b border-slate-700/30 flex items-center gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
+                            <div class="flex-1 h-1.5 bg-slate-600 rounded-full opacity-60"></div>
                           </div>
                         </div>
                       </div>
@@ -1135,62 +1172,43 @@ const toggleSubtemas = (modulo) => {
                     <div
                       class="flex gap-3 transition-all duration-500"
                       :class="
-                        form.estilo_plantilla === 'minimalista'
-                          ? 'w-full flex-col lg:flex-row'
-                          : 'w-5/12 flex-col'
+                        form.estilo_plantilla === 'minimalista' ? 'w-full flex-col lg:flex-row' : 
+                        form.estilo_plantilla === 'moderno' ? 'w-1/3 flex-col' : 'w-5/12 flex-col'
                       "
                     >
-                      <div
-                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-2.5"
-                      >
-                        <div
-                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
-                        >
-                          <div
-                            class="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[8px] font-black text-amber-400"
-                          >
-                            E
-                          </div>
-                          <span
-                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
-                            >Equipo Académico</span
-                          >
+                      <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-2.5">
+                        <div class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2">
+                          <div class="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[8px] font-black text-amber-400">E</div>
+                          <span class="text-[9px] font-black uppercase text-slate-300 tracking-widest">Equipo Académico</span>
                         </div>
 
-                        <div
-                          v-if="
-                            form.style_expertos === 'lista' ||
-                            form.estilo_expertos === 'lista'
-                          "
-                          class="space-y-2 animate-in fade-in duration-300"
-                        >
-                          <div
-                            v-for="i in 2"
-                            :key="i"
-                            class="flex items-center gap-2 bg-slate-800/30 p-1.5 rounded-xl border border-slate-700/30"
-                          >
+                        <div v-if="form.estilo_expertos === 'lista'" class="space-y-2 animate-in fade-in duration-300">
+                          <div v-for="i in 2" :key="i" class="flex items-center gap-2 bg-slate-800/30 p-1.5 rounded-xl border border-slate-700/30">
                             <div class="w-7 h-7 bg-slate-600 rounded-lg shrink-0"></div>
                             <div class="flex-1 space-y-1">
                               <div class="w-2/3 h-1.5 bg-slate-500 rounded-full"></div>
-                              <div
-                                class="w-1/2 h-1 bg-slate-600 rounded-full opacity-50"
-                              ></div>
+                              <div class="w-1/2 h-1 bg-slate-600 rounded-full opacity-50"></div>
                             </div>
                           </div>
                         </div>
 
-                        <div
-                          v-else
-                          class="grid grid-cols-3 gap-2 py-1 justify-items-center animate-in fade-in duration-300"
-                        >
-                          <div
-                            v-for="i in 3"
-                            :key="i"
-                            class="flex flex-col items-center gap-1 bg-slate-800/40 p-2 rounded-xl border border-slate-700/20 w-full"
-                          >
-                            <div
-                              class="w-8 h-8 rounded-full bg-slate-600 border border-slate-500 shadow-sm"
-                            ></div>
+                        <div v-else-if="form.estilo_expertos === 'tarjetas'" class="grid grid-cols-2 gap-2 py-1 justify-items-center animate-in fade-in duration-300">
+                          <div v-for="i in 2" :key="i" class="flex flex-col items-center gap-1 bg-slate-800/40 p-2 rounded-xl border border-slate-700/20 w-full">
+                            <div class="w-8 h-8 rounded-full bg-slate-600 border border-slate-500 shadow-sm"></div>
+                            <div class="w-3/4 h-1 bg-slate-500 rounded-full"></div>
+                          </div>
+                        </div>
+
+                        <div v-else-if="form.estilo_expertos === 'pildoras'" class="flex flex-wrap gap-1.5 py-1 animate-in fade-in duration-300">
+                          <div v-for="i in 4" :key="i" class="flex items-center gap-1.5 bg-slate-700/50 rounded-full p-1 pr-2 border border-slate-600/30">
+                            <div class="w-4 h-4 rounded-full bg-slate-500"></div>
+                            <div class="w-6 h-1 bg-slate-400 rounded-full"></div>
+                          </div>
+                        </div>
+
+                        <div v-else-if="form.estilo_expertos === 'minimalista'" class="divide-y divide-slate-700/40 animate-in fade-in duration-300">
+                          <div v-for="i in 3" :key="i" class="py-1.5 flex items-center gap-2">
+                            <div class="w-2 h-2 bg-slate-600 rounded-sm"></div>
                             <div class="w-3/4 h-1 bg-slate-500 rounded-full"></div>
                           </div>
                         </div>
@@ -1199,33 +1217,24 @@ const toggleSubtemas = (modulo) => {
                       <div
                         class="rounded-2xl p-3 transition-all duration-500 flex flex-col justify-between shrink-0"
                         :class="[
-                          form.estilo_plantilla === 'minimalista'
-                            ? 'w-full lg:w-1/2 h-auto'
-                            : 'h-40',
-                          form.estilo_card === 'destacado'
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700'
-                            : 'bg-slate-800/40 border border-slate-700/30',
+                          form.estilo_plantilla === 'minimalista' ? 'w-full lg:w-1/2 h-auto' : 'h-40',
+                          form.estilo_card === 'destacado' ? 'bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700' : 
+                          form.estilo_card === 'glass' ? 'bg-slate-800/30 backdrop-blur-md border border-white/10' :
+                          form.estilo_card === 'neon' ? 'bg-slate-950 border border-slate-600 shadow-lg' :
+                          'bg-slate-800/40 border border-slate-700/30'
                         ]"
+                        :style="form.estilo_card === 'neon' ? `box-shadow: 0 0 15px ${selectedArea.color_hex_principal}40; border-color: ${selectedArea.color_hex_principal}80` : ''"
                       >
                         <div class="space-y-1.5">
                           <div class="flex justify-between items-center">
-                            <div
-                              class="w-12 h-3 bg-slate-600 rounded-full opacity-60"
-                            ></div>
-                            <div
-                              class="w-6 h-3 rounded-full opacity-40"
-                              :style="{
-                                backgroundColor: selectedArea.color_hex_principal,
-                              }"
-                            ></div>
+                            <div class="w-12 h-3 bg-slate-600 rounded-full opacity-60"></div>
+                            <div class="w-6 h-3 rounded-full opacity-40" :style="{ backgroundColor: selectedArea.color_hex_principal }"></div>
                           </div>
-                          <div
-                            class="w-24 h-4 bg-slate-400 rounded-md mt-1 animate-pulse"
-                          ></div>
+                          <div class="w-24 h-4 bg-slate-400 rounded-md mt-1 animate-pulse"></div>
                         </div>
 
                         <div
-                          class="w-full h-7 rounded-xl flex items-center justify-center text-[10px] font-black uppercase text-white tracking-widest mt-3 opacity-90"
+                          class="w-full h-7 rounded-xl flex items-center justify-center text-[10px] font-black uppercase text-white tracking-widest mt-3 opacity-90 transition-colors"
                           :style="{ backgroundColor: selectedArea.color_hex_principal }"
                         >
                           Inscribirme
@@ -1234,36 +1243,62 @@ const toggleSubtemas = (modulo) => {
                     </div>
                   </div>
 
-                  <div
-                    class="absolute right-3 bottom-3 text-[9px] text-slate-700 font-mono tracking-tight pointer-events-none select-none"
-                  >
+                  <div class="absolute right-3 bottom-3 text-[9px] text-slate-700 font-mono tracking-tight pointer-events-none select-none">
                     FYC Public Engine v2.1
                   </div>
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                <FormInput
-                  label="Url de inscripción"
-                  type="text"
-                  v-model="form.url_formulario_inscripcion"
-                  icon="link"
-                  placeholder="https://docs.google.com/..."
-                  :max="250"
-                  :activeColor="selectedArea.color_hex_principal"
-                  required
-                  :error="form.errors.url_formulario_inscripcion"
-                />
-                <FormInput
-                  label="Documento soporte (Brochure)"
-                  type="file"
-                  v-model="form.url_folleto"
-                  icon="upload_file"
-                  placeholder="Subir PDF descriptivo"
-                  :activeColor="selectedArea.color_hex_principal"
-                  required
-                  :error="form.errors.url_folleto"
-                />
+              <div class="flex w-full items-center">
+                <div
+                  class="grid grid-cols-1 gap-6 pt-2 w-full"
+                  :class="
+                    form.tipo_evento === 'CI_CNG' ? 'md:grid-cols-3' : 'md:grid-cols-2'
+                  "
+                >
+                  <FormInput
+                    label="Url de inscripción"
+                    type="text"
+                    v-model="form.url_formulario_inscripcion"
+                    icon="link"
+                    placeholder="https://docs.google.com/..."
+                    :max="250"
+                    :activeColor="selectedArea.color_hex_principal"
+                    required
+                    :error="form.errors.url_formulario_inscripcion"
+                  />
+
+                  <FormInput
+                    :label="
+                      form.tipo_evento === 'CI_CNG'
+                        ? 'Folleto Curso Intensivo'
+                        : 'Documento soporte (Folleto)'
+                    "
+                    type="file"
+                    v-model="form.url_folleto"
+                    icon="upload_file"
+                    :placeholder="
+                      form.tipo_evento === 'CI_CNG'
+                        ? 'PDF del Curso'
+                        : 'Subir PDF descriptivo'
+                    "
+                    :activeColor="selectedArea.color_hex_principal"
+                    required
+                    :error="form.errors.url_folleto"
+                  />
+
+                  <FormInput
+                    v-if="form.tipo_evento === 'CI_CNG'"
+                    label="Folleto Congreso"
+                    type="file"
+                    v-model="form.url_folleto_secundario"
+                    icon="upload_file"
+                    placeholder="PDF del Congreso"
+                    :activeColor="selectedArea.color_hex_principal"
+                    required
+                    :error="form.errors.url_folleto_secundario"
+                  />
+                </div>
               </div>
 
               <FormInput

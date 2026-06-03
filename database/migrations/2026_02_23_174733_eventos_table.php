@@ -25,6 +25,7 @@ return new class extends Migration {
             $table->string('imagen_relacionada')->nullable();
             $table->string('modalidad');
             $table->string('url_folleto')->nullable();
+            $table->string('url_folleto_secundario')->nullable();
             $table->string('url_formulario_inscripcion');
             $table->string('ubicacion')->nullable();
             $table->dateTime('fecha_hora_inicio');

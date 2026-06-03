@@ -25,6 +25,7 @@ class Evento extends Model
         'imagen_relacionada',
         'modalidad',
         'url_folleto',
+        'url_folleto_secundario',
         'url_formulario_inscripcion',
         'ubicacion',
         'fecha_hora_inicio',
