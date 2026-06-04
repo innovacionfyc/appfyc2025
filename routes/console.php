@@ -9,4 +9,8 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 
-Schedule::command('eventos:caducar')->everyMinute();
+// La tarea de caducidad automática solo se registra si está habilitada
+// explícitamente mediante EVENTOS_CADUCAR_AUTOMATICO=true en el .env.
+if (config('eventos.caducar_automatico', false)) {
+    Schedule::command('eventos:caducar')->everyMinute();
+}
