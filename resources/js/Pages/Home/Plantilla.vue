@@ -261,7 +261,7 @@ const layoutConfig = computed(() => {
   // ==========================================
   // 3. Estilos de los Expertos
   // ==========================================
-  let expertosGridClass = "space-y-3 pb-4 flex-1";
+  let expertosGridClass = "space-y-3 pb-4 h-full";
   let expertoCardClass =
     "group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-3 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-hidden shadow-sm w-full";
 
@@ -293,11 +293,11 @@ const layoutConfig = computed(() => {
     // Lista por defecto
     if (totalExpertos === 1) {
       expertosGridClass = "flex flex-col justify-center pb-4 flex-1 h-full min-h-[150px]";
-    expertoCardClass += " p-5 md:p-6 shadow-md ring-1 ring-slate-100";
+      expertoCardClass += " p-5 md:p-6 shadow-md ring-1 ring-slate-100";
     } else {
-    // Esto asegura que la lista tenga un tope visual incluso si hay scroll
-    expertosGridClass = "space-y-3 pb-8 flex-1"; 
-  }
+      // Esto asegura que la lista tenga un tope visual incluso si hay scroll
+      expertosGridClass = "space-y-3 pb-8 flex-1";
+    }
   }
 
   // ==========================================
@@ -566,7 +566,7 @@ const preciosVisibles = computed(() => {
 
       <RevealSection>
         <SectionPlantilla
-          class="snap-start min-h-dvh  w-full flex items-center justify-center bg-slate-50 relative py-20 lg:py-24"
+          class="snap-start min-h-dvh w-full flex items-center justify-center bg-slate-50 relative py-20 lg:py-24"
         >
           <div
             class="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 w-full"
@@ -719,66 +719,125 @@ const preciosVisibles = computed(() => {
                   </h3>
                 </div>
 
-<div class="flex-1 overflow-y-auto custom-scroll pr-1 mt-1 min-h-[350px] max-h-[400px]">
-  
-  <div :class="layoutConfig.expertosGrid">
+                <div
+                  class="flex-1 overflow-y-auto custom-scroll pr-1 mt-1 min-h-[350px] max-h-[400px] will-change-transform"
+                >
+                  <div :class="layoutConfig.expertosGrid">
+                    <div
+                      v-for="speaker in evento.conferencistas"
+                      :key="speaker.id"
+                      :class="[layoutConfig.expertoCard, 'group relative cursor-pointer']"
+                      style="will-change: transform"
+                    >
+                      <template v-if="evento.estilo_expertos === 'pildoras'">
+                        <img
+                          :src="
+                            speaker.foto
+                              ? '/storage/' + speaker.foto
+                              : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
+                          "
+                          class="w-8 h-8 rounded-full object-cover"
+                        />
+                        <span class="text-xs font-bold truncate"
+                          >{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }}
+                          {{ speaker.primer_apellido }}</span
+                        >
+                      </template>
 
-    <div
-      v-for="speaker in evento.conferencistas"
-      :key="speaker.id"
-      :class="[layoutConfig.expertoCard, 'group relative cursor-pointer']"
-    >
-    
-      <template v-if="evento.estilo_expertos === 'pildoras'">
-        <img :src="speaker.foto ? '/storage/' + speaker.foto : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`" class="w-8 h-8 rounded-full object-cover">
-        <span class="text-xs font-bold truncate">{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }} {{ speaker.primer_apellido }}</span>
-      </template>
+                      <template v-else-if="evento.estilo_expertos === 'tarjetas'">
+                        <img
+                          :src="
+                            speaker.foto
+                              ? '/storage/' + speaker.foto
+                              : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
+                          "
+                          class="w-16 h-16 rounded-full object-cover mb-2"
+                        />
+                        <span class="text-xs font-black text-center"
+                          >{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }}
+                          {{ speaker.primer_apellido }}</span
+                        >
+                      </template>
 
-      <template v-else-if="evento.estilo_expertos === 'tarjetas'">
-         <img :src="speaker.foto ? '/storage/' + speaker.foto : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`" class="w-16 h-16 rounded-full object-cover mb-2">
-         <span class="text-xs font-black text-center">{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }} {{ speaker.primer_apellido }}</span>
-      </template>
+                      <template v-else-if="evento.estilo_expertos === 'minimalista'">
+                        <img
+                          :src="
+                            speaker.foto
+                              ? '/storage/' + speaker.foto
+                              : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
+                          "
+                          class="w-6 h-6 rounded-md object-cover"
+                        />
+                        <span class="text-sm font-semibold"
+                          >{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }}
+                          {{ speaker.primer_apellido }}</span
+                        >
+                      </template>
 
-      <template v-else-if="evento.estilo_expertos === 'minimalista'">
-        <img :src="speaker.foto ? '/storage/' + speaker.foto : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`" class="w-6 h-6 rounded-md object-cover">
-        <span class="text-sm font-semibold">{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }} {{ speaker.primer_apellido }}</span>
-      </template>
+                      <template v-else>
+                        <img
+                          :src="
+                            speaker.foto
+                              ? '/storage/' + speaker.foto
+                              : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
+                          "
+                          class="w-14 h-14 rounded-2xl object-cover"
+                        />
+                        <div class="min-w-0 flex-1">
+                          <h4 class="text-sm font-black text-slate-900 truncate">
+                            {{ speaker.primer_nombre }} {{ speaker.segundo_nombre }}
+                            {{ speaker.primer_apellido }}
+                          </h4>
+                          <p class="text-[11px] text-slate-500 italic line-clamp-2">
+                            {{ speaker.biografia || "Consultor experto" }}
+                          </p>
+                        </div>
+                      </template>
 
-      <template v-else>
-         <img :src="speaker.foto ? '/storage/' + speaker.foto : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`" class="w-14 h-14 rounded-2xl object-cover">
-         <div class="min-w-0 flex-1">
-           <h4 class="text-sm font-black text-slate-900 truncate">{{ speaker.primer_nombre }} {{ speaker.segundo_nombre }} {{ speaker.primer_apellido }}</h4>
-           <p class="text-[11px] text-slate-500 italic line-clamp-2">{{ speaker.biografia || 'Consultor experto' }}</p>
-         </div>
+                      <div class="absolute z-[100] left-0 top-full mt-2 w-80 p-5 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">
+                        <div
+                          class="absolute -top-1 left-0 w-full h-2 bg-gradient-to-b from-slate-50 to-transparent rounded-t-3xl"
+                        ></div>
 
-         
-      </template>
+                        <div class="flex items-center gap-4 mb-4">
+                          <img
+                            :src="
+                              speaker.foto
+                                ? '/storage/' + speaker.foto
+                                : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
+                            "
+                            class="w-14 h-14 rounded-2xl object-cover shadow-md ring-4 ring-slate-50"
+                          />
+                          <div>
+                            <h5
+                              class="text-sm font-black uppercase text-slate-900 tracking-wide"
+                            >
+                              {{ speaker.primer_nombre }} {{ speaker.primer_apellido }}
+                            </h5>
+                            <span
+                              class="inline-block mt-1 px-2 py-0.5 rounded-md bg-orange-50 text-[9px] font-black text-orange-600 uppercase tracking-widest border border-orange-100"
+                            >
+                              Consultor Experto
+                            </span>
+                          </div>
+                        </div>
 
-<div 
-  class="absolute left-[50%] -translate-x-[50%] top-[calc(100%+10px)] w-80 p-5 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[9999] pointer-events-none"
->
-  <div class="absolute -top-1 left-0 w-full h-2 bg-gradient-to-b from-slate-50 to-transparent rounded-t-3xl"></div>
+                        <p
+                          class="text-[12px] leading-relaxed text-slate-600 text-justify bg-slate-50 p-3 rounded-xl border border-slate-100"
+                        >
+                          {{
+                            speaker.biografia ||
+                            "Perfil profesional en actualización constante."
+                          }}
+                        </p>
 
-  <div class="flex items-center gap-4 mb-4">
-    <img :src="speaker.foto ? '/storage/' + speaker.foto : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`" 
-         class="w-14 h-14 rounded-2xl object-cover shadow-md ring-4 ring-slate-50">
-    <div>
-      <h5 class="text-sm font-black uppercase text-slate-900 tracking-wide">{{ speaker.primer_nombre }} {{ speaker.primer_apellido }}</h5>
-      <span class="inline-block mt-1 px-2 py-0.5 rounded-md bg-orange-50 text-[9px] font-black text-orange-600 uppercase tracking-widest border border-orange-100">
-        Consultor Experto
-      </span>
-    </div>
-  </div>
-  
-  <p class="text-[12px] leading-relaxed text-slate-600 text-justify bg-slate-50 p-3 rounded-xl border border-slate-100">
-    {{ speaker.biografia || 'Perfil profesional en actualización constante.' }}
-  </p>
-  
-  <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-45 shadow-[-2px_-2px_5px_rgba(0,0,0,0.02)]"></div>
-</div>
-    </div>
-  </div>
-</div>
+                        <div
+                          class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-45 shadow-[-2px_-2px_5px_rgba(0,0,0,0.02)]"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div :class="layoutConfig.cardPrecio">
