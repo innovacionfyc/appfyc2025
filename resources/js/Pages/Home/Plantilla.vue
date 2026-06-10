@@ -794,7 +794,7 @@ const preciosVisibles = computed(() => {
                         </div>
                       </template>
 
-                      <div class="absolute z-[100] left-0 top-full mt-2 w-80 p-5 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">
+                      <!-- <div class="absolute z-[100] left-0 top-full mt-2 w-80 p-5 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">
                         <div
                           class="absolute -top-1 left-0 w-full h-2 bg-gradient-to-b from-slate-50 to-transparent rounded-t-3xl"
                         ></div>
@@ -834,7 +834,7 @@ const preciosVisibles = computed(() => {
                         <div
                           class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-45 shadow-[-2px_-2px_5px_rgba(0,0,0,0.02)]"
                         ></div>
-                      </div>
+                      </div> -->
                     </div>
                   </div>
                 </div>
