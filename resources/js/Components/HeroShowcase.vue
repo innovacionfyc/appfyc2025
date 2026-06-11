@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
-import { Link } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
 import BtnUniversal from "./BtnUniversal.vue";
 
 const props = defineProps({
@@ -15,7 +15,7 @@ const props = defineProps({
         city: "Bogotá D.C.",
         imageThumb: "/images/eventos/1.webp",
         imageBg: "/images/eventos/1-hero.webp",
-        cta_text: "Inscribirme",
+        cta_text: "Más información",
         cta_url: "/inscripcion?e=regimenes-especiales",
         area: "Derecho",
         hex_principal: "#2563eb",
@@ -164,6 +164,17 @@ const shortTitle = computed(() => {
 
   return title.length > 90 ? title.substring(0, 90) + "..." : title;
 });
+
+const handleCardClick = (ev, index) => {
+  if (active.value !== index) {
+    setActive(index);
+    return;
+  }
+
+  if (ev?.cta_url) {
+    router.visit(ev.cta_url);
+  }
+};
 </script>
 
 <template>
@@ -283,7 +294,7 @@ const shortTitle = computed(() => {
             <div class="pt-2 lg:pt-4 w-full sm:w-auto shrink-0">
               <Link :href="current?.cta_url || '#'">
                 <BtnUniversal
-                  :label="current?.cta_text"
+                  label="Más información"
                   icon="arrow_forward_ios"
                   icon-position="right"
                   size="lg"
@@ -313,7 +324,7 @@ const shortTitle = computed(() => {
           <button
             v-for="(ev, i) in events"
             :key="ev.id || i"
-            @click="setActive(i)"
+            @click="handleCardClick(ev, i)"
             class="relative flex-none rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] card-3d-wrapper outline-none snap-center"
             :class="[
               i === active
