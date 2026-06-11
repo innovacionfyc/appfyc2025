@@ -55,14 +55,14 @@ function handleScroll() {
 
   if (active.value !== closestIndex && closestIndex < props.events.length) {
     active.value = closestIndex;
-    progressKey.value++; 
+    progressKey.value++;
   }
 }
 
 function setActive(i) {
   const newIndex = (i + props.events.length) % props.events.length;
   if (newIndex === active.value) return;
-  
+
   if (!props.events?.length) return;
   isScrolling = true;
   active.value = (i + props.events.length) % props.events.length;
@@ -86,16 +86,15 @@ function setActive(i) {
 function startAutoplay() {
   stopAutoplay();
   if (!props.autoplay || !props.events?.length) return;
-  
+
   timer = setTimeout(() => {
     setActive(active.value + 1);
-
   }, props.intervalMs);
 }
 
 function stopAutoplay() {
   if (timer) {
-    clearTimeout(timer); 
+    clearTimeout(timer);
     timer = null;
   }
 }
@@ -113,7 +112,7 @@ const userInteracted = () => {
 
   setTimeout(() => {
     if (props.autoplay) startAutoplay();
-  }, 10000); 
+  }, 10000);
 };
 
 onBeforeUnmount(stopAutoplay);
@@ -159,12 +158,18 @@ const formatEventRange = (inicio, fin) => {
     end
   )} de ${getMonth(end)} de ${getYear(end)}`;
 };
+
+const shortTitle = computed(() => {
+  const title = current.value?.title || "";
+
+  return title.length > 90 ? title.substring(0, 90) + "..." : title;
+});
 </script>
 
 <template>
   <section
     v-if="events.length > 0"
-    class="relative isolate w-full h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C]"
+    class="relative isolate w-full min-h-screen lg:h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C]"
   >
     <div class="absolute inset-0 z-0">
       <transition-group name="hero-crossfade">
@@ -192,74 +197,89 @@ const formatEventRange = (inicio, fin) => {
     </div>
 
     <div
-      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-32 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
+      class="relative z-10 w-full max-w-[1920px] mx-auto lg:mx-12 px-6 lg:px-12 pt-14 sm:pt-20 lg:pt-32 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8 lg:gap-12"
     >
-      <aside class="w-full lg:w-5/12 mb-4 lg:mb-20 flex flex-col min-h-0 shrink-0">
+      <aside class="w-full lg:w-[38%] flex flex-col shrink-0 pb-2 lg:pb-8">
         <transition name="content-slide" mode="out-in">
           <div
             :key="active"
             class="flex flex-col items-start space-y-3 lg:space-y-5 w-full"
           >
+            <!-- Área -->
             <div
-              class="flex items-center px-3 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md shrink-0"
+              class="flex items-center px-3 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md shrink-0 max-w-full"
             >
-              <span class="relative flex h-2.5 w-2.5">
+              <span class="relative flex h-2.5 w-2.5 shrink-0">
                 <span
                   class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
                   :style="{ background: current?.hex_principal }"
                 ></span>
+
                 <span
                   class="relative inline-flex rounded-full h-2.5 w-2.5"
                   :style="{ background: current?.hex_principal }"
                 ></span>
               </span>
+
               <span
-                class="text-[10px] font-black text-white tracking-[0.2em] uppercase truncate max-w-[200px]"
+                class="text-[10px] font-black text-white tracking-[0.2em] uppercase truncate max-w-[220px]"
               >
                 {{ current?.area }}
               </span>
             </div>
 
+            <!-- Título -->
             <h1
-              class="w-full font-black text-white leading-[1.1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] break-words transition-all duration-500"
+              :title="current?.title"
+              class="w-full font-black text-white leading-[1.05] tracking-tight break-words overflow-hidden line-clamp-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-all duration-500"
               :class="[
-                current?.title.length > 60
-                  ? 'text-2xl sm:text-4xl lg:text-5xl xl:text-6xl'
-                  : 'text-3xl sm:text-5xl lg:text-6xl xl:text-8xl',
+                current?.title?.length > 60
+                  ? 'text-xl sm:text-3xl lg:text-4xl xl:text-5xl'
+                  : 'text-2xl sm:text-4xl lg:text-5xl xl:text-6xl',
               ]"
             >
-              {{ current?.title }}
+              {{ shortTitle }}
             </h1>
 
+            <!-- Información -->
             <div
-              class="space-y-2 border-l-4 pl-5 animate-fade-in-up w-full"
+              class="space-y-3 border-l-4 pl-4 lg:pl-5 animate-fade-in-up w-full overflow-hidden"
               :style="{ borderLeftColor: current?.hex_principal }"
             >
               <p
-                class="text-base lg:text-xl text-white/90 font-medium leading-snug line-clamp-2 break-words"
+                class="text-sm sm:text-base lg:text-lg text-white/90 font-medium leading-snug line-clamp-2"
               >
                 {{ current?.mode }} | {{ current?.subtitle }}
               </p>
+
               <div
                 class="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-300 text-sm"
               >
                 <span
                   class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 >
-                  <span class="material-symbols-rounded text-lg">calendar_today</span>
+                  <span class="material-symbols-rounded text-lg"> calendar_today </span>
+
                   {{
                     formatEventRange(current?.fecha_hora_inicio, current?.fecha_hora_fin)
                   }}
                 </span>
+
                 <span
-                  class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] truncate max-w-[200px]"
+                  class="flex items-center gap-2 truncate max-w-[180px] sm:max-w-[250px] lg:max-w-[300px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 >
-                  <span class="material-symbols-rounded text-lg">location_on</span>
-                  {{ current?.city }}
+                  <span class="material-symbols-rounded text-lg shrink-0">
+                    location_on
+                  </span>
+
+                  <span class="truncate">
+                    {{ current?.city }}
+                  </span>
                 </span>
               </div>
             </div>
 
+            <!-- Botón -->
             <div class="pt-2 lg:pt-4 w-full sm:w-auto shrink-0">
               <Link :href="current?.cta_url || '#'">
                 <BtnUniversal
@@ -276,9 +296,9 @@ const formatEventRange = (inicio, fin) => {
         </transition>
       </aside>
 
-      <aside class="w-full lg:w-7/12 relative">
+      <aside class="w-full lg:w-[62%] relative overflow-visible">
         <div
-          class="lg:hidden absolute -top-8 right-0 text-white/40 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 animate-pulse"
+          class="lg:hidden absolute -top-5 right-0 text-white/40 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 animate-pulse"
         >
           <span>desliza</span>
           <span class="material-symbols-rounded text-sm">swipe_left</span>
@@ -288,28 +308,31 @@ const formatEventRange = (inicio, fin) => {
           ref="rowRef"
           @scroll="handleScroll"
           @touchstart="userInteracted"
-          class="flex gap-4 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-6 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 perspective-container snap-x snap-mandatory"
+          class="flex gap-4 lg:gap-6 overflow-x-auto overflow-y-visible no-scrollbar scroll-smooth pt-5 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 perspective-container snap-x snap-mandatory"
         >
           <button
             v-for="(ev, i) in events"
             :key="ev.id || i"
             @click="setActive(i)"
-            class="relative flex-none rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] card-3d-wrapper outline-none snap-center"
+            class="relative flex-none rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] card-3d-wrapper outline-none snap-center"
             :class="[
               i === active
-                ? 'w-[75vw] sm:w-[400px] lg:w-[360px] h-[350px] lg:h-[480px] z-20 scale-100 opacity-100 shadow-2xl ring-2 ring-white/20 card-active'
-                : 'w-[60vw] sm:w-[300px] lg:w-[300px] h-[300px] lg:h-[420px] z-0 scale-90 opacity-40 grayscale card-inactive',
+                ? 'card-active w-[78vw] max-w-[420px] sm:w-[400px] lg:w-[380px] h-[300px] xs:h-[320px] sm:h-[440px] lg:h-[500px]'
+                : 'card-inactive w-[60vw] max-w-[320px] sm:w-[300px] lg:w-[320px] h-[220px] xs:h-[260px] sm:h-[340px] lg:h-[420px]',
             ]"
           >
-            <img
-              :src="ev.imageThumb"
-              class="absolute inset-0 h-full w-full object-cover"
-            />
+           <img
+  :src="ev.imageThumb"
+  class="absolute inset-0 h-full w-full object-cover transition-all duration-700 card-image"
+/>
             <div
-              class="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent opacity-80"
-            ></div>
+  class="absolute inset-0 transition-all duration-700 card-overlay"
+></div>
 
-            <div class="absolute top-0 inset-x-0 p-6 z-20">
+           <div
+  class="absolute bottom-0 inset-x-0 p-6 z-20 transition-all duration-500"
+  :class="i === active ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'"
+>
               <h3
                 class="text-3xl sm:text-5xl lg:text-4xl text-left uppercase font-black text-white leading-[1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
               >
@@ -584,6 +607,155 @@ section {
 @media (min-width: 1024px) {
   section {
     --gradient-dir: to top;
+  }
+}
+
+
+
+.perspective-container {
+  perspective: 1200px;
+}
+
+.card-3d-wrapper {
+  transform-style: preserve-3d;
+}
+
+/* Solución para móviles */
+@media (max-width: 1024px) {
+  .card-active {
+    transform: scale(1) !important;
+  }
+
+  .card-inactive {
+    transform: scale(0.92) !important;
+  }
+}
+
+@media (max-height: 740px) {
+  .card-active {
+    height: 240px !important;
+  }
+
+  .card-inactive {
+    height: 200px !important;
+  }
+}
+
+.card-3d-wrapper {
+  transform-style: preserve-3d;
+  transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* CARD ACTIVA */
+.card-active {
+  opacity: 1;
+  z-index: 20;
+
+  transform:
+    perspective(1200px)
+    rotateY(0deg)
+    translateY(-10px)
+    scale(1);
+
+  box-shadow:
+    0 25px 60px rgba(0,0,0,.35),
+    0 0 40px rgba(255,255,255,.15);
+
+  filter: grayscale(0%);
+}
+
+/* CARD INACTIVA */
+.card-inactive {
+  opacity: .55;
+
+  transform:
+    perspective(1200px)
+    rotateY(12deg)
+    scale(.88);
+
+  filter:
+    grayscale(100%)
+    brightness(.65)
+    blur(1px);
+}
+
+/* HOVER */
+.card-inactive:hover {
+  opacity: .8;
+
+  transform:
+    perspective(1200px)
+    rotateY(6deg)
+    scale(.93);
+
+  filter:
+    grayscale(40%)
+    brightness(.9);
+}
+
+/* IMAGEN */
+.card-image {
+  transition: all .8s cubic-bezier(.22,1,.36,1);
+}
+
+.card-active .card-image {
+  transform: scale(1.08);
+}
+
+.card-inactive .card-image {
+  transform: scale(1);
+}
+
+/* OVERLAY */
+.card-overlay {
+  background:
+    linear-gradient(
+      to top,
+      rgba(11,25,44,.95),
+      transparent 60%
+    );
+}
+
+.card-active .card-overlay {
+  opacity: 1;
+}
+
+.card-inactive .card-overlay {
+  opacity: .8;
+}
+
+/* Glow dinámico */
+.card-active::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  border-radius: inherit;
+
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(255,255,255,.15),
+      transparent 70%
+    );
+
+  pointer-events: none;
+
+  animation: pulseGlow 4s infinite;
+}
+
+@keyframes pulseGlow {
+  0% {
+    opacity: .4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: .4;
   }
 }
 </style>
