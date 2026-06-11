@@ -332,23 +332,25 @@ const handleCardClick = (ev, index) => {
                 : 'card-inactive w-[60vw] max-w-[320px] sm:w-[300px] lg:w-[320px] h-[220px] xs:h-[260px] sm:h-[340px] lg:h-[420px]',
             ]"
           >
-           <img
-  :src="ev.imageThumb"
-  class="absolute inset-0 h-full w-full object-cover transition-all duration-700 card-image"
-/>
-            <div
-  class="absolute inset-0 transition-all duration-700 card-overlay"
-></div>
+            <img
+              :src="ev.imageThumb"
+              class="absolute inset-0 h-full w-full object-cover transition-all duration-700 card-image"
+            />
+            <div class="absolute inset-0 transition-all duration-700 card-overlay"></div>
 
-           <div
-  class="absolute bottom-0 inset-x-0 p-6 z-20 transition-all duration-500"
-  :class="i === active ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'"
->
-              <h3
-                class="text-3xl sm:text-5xl lg:text-4xl text-left uppercase font-black text-white leading-[1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+          
+
+            <div class="absolute top-0 inset-x-0 p-6 z-20">
+              <div
+                class="px-2 py-4 rounded-full bg-black/20 backdrop-blur-md border border-white/10"
+                :class="i === active ? 'opacity-100' : 'opacity-0'"
               >
-                {{ formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin) }}
-              </h3>
+                <h3
+                  class="text-lg lg:text-[28px] font-bold text-white leading-tight line-clamp-2"
+                >
+                  {{ formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin) }}
+                </h3>
+              </div>
             </div>
 
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
@@ -369,7 +371,7 @@ const handleCardClick = (ev, index) => {
 
             <div
               v-if="i === active && autoplay"
-              class="absolute bottom-0 left-0 h-1 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)] z-30"
+              class="absolute bottom-50 left-0 h-1 bg-red shadow-[0_0_15px_rgba(255,255,255,0.5)] z-30"
               :key="progressKey"
               :style="{ animation: `progress ${intervalMs}ms linear forwards` }"
             ></div>
@@ -621,8 +623,6 @@ section {
   }
 }
 
-
-
 .perspective-container {
   perspective: 1200px;
 }
@@ -662,51 +662,34 @@ section {
   opacity: 1;
   z-index: 20;
 
-  transform:
-    perspective(1200px)
-    rotateY(0deg)
-    translateY(-10px)
-    scale(1);
+  transform: perspective(1200px) rotateY(0deg) translateY(-10px) scale(1);
 
-  box-shadow:
-    0 25px 60px rgba(0,0,0,.35),
-    0 0 40px rgba(255,255,255,.15);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 40px rgba(255, 255, 255, 0.15);
 
   filter: grayscale(0%);
 }
 
 /* CARD INACTIVA */
 .card-inactive {
-  opacity: .55;
+  opacity: 0.55;
 
-  transform:
-    perspective(1200px)
-    rotateY(12deg)
-    scale(.88);
+  transform: perspective(1200px) rotateY(12deg) scale(0.88);
 
-  filter:
-    grayscale(100%)
-    brightness(.65)
-    blur(1px);
+  filter: grayscale(100%) brightness(0.65) blur(1px);
 }
 
 /* HOVER */
 .card-inactive:hover {
-  opacity: .8;
+  opacity: 0.8;
 
-  transform:
-    perspective(1200px)
-    rotateY(6deg)
-    scale(.93);
+  transform: perspective(1200px) rotateY(6deg) scale(0.93);
 
-  filter:
-    grayscale(40%)
-    brightness(.9);
+  filter: grayscale(40%) brightness(0.9);
 }
 
 /* IMAGEN */
 .card-image {
-  transition: all .8s cubic-bezier(.22,1,.36,1);
+  transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-active .card-image {
@@ -719,12 +702,7 @@ section {
 
 /* OVERLAY */
 .card-overlay {
-  background:
-    linear-gradient(
-      to top,
-      rgba(11,25,44,.95),
-      transparent 60%
-    );
+  background: linear-gradient(to top, rgba(11, 25, 44, 0.95), transparent 60%);
 }
 
 .card-active .card-overlay {
@@ -732,7 +710,7 @@ section {
 }
 
 .card-inactive .card-overlay {
-  opacity: .8;
+  opacity: 0.8;
 }
 
 /* Glow dinámico */
@@ -744,12 +722,11 @@ section {
 
   border-radius: inherit;
 
-  background:
-    radial-gradient(
-      circle at center,
-      rgba(255,255,255,.15),
-      transparent 70%
-    );
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.15),
+    transparent 70%
+  );
 
   pointer-events: none;
 
@@ -758,7 +735,7 @@ section {
 
 @keyframes pulseGlow {
   0% {
-    opacity: .4;
+    opacity: 0.4;
   }
 
   50% {
@@ -766,7 +743,7 @@ section {
   }
 
   100% {
-    opacity: .4;
+    opacity: 0.4;
   }
 }
 </style>
