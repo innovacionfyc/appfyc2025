@@ -221,53 +221,45 @@ const layoutConfig = computed(() => {
   // 1. Estructura general de la Plantilla
   // ==========================================
   let wrapperClass =
-    "flex flex-col lg:flex-row gap-6 lg:gap-8 w-full h-full lg:h-[85dvh]";
-  let temarioContainer = "w-full lg:w-7/12 flex flex-col h-fit lg:h-full";
-  let sidebarContainer = "w-full lg:w-5/12 flex flex-col gap-6 h-full min-h-0";
+    "flex flex-col lg:flex-row gap-6 lg:gap-8 w-full h-auto lg:h-[85dvh]";
+  let temarioContainer = "w-full lg:w-7/12 flex flex-col h-auto lg:h-full";
+  let sidebarContainer = "w-full lg:w-5/12 flex flex-col gap-6 h-auto lg:h-full min-h-0";
 
   if (estiloP === "invertido") {
     wrapperClass =
-      "flex flex-col lg:flex-row-reverse gap-6 lg:gap-8 w-full h-full lg:h-[85dvh]";
+      "flex flex-col lg:flex-row-reverse gap-6 lg:gap-8 w-full h-auto lg:h-[85dvh]";
   } else if (estiloP === "minimalista") {
-    // Apilada
     wrapperClass =
-      "flex flex-col gap-8 w-full h-full lg:h-[85dvh] overflow-y-auto custom-scroll pr-2 lg:pr-4";
-    temarioContainer = "w-full flex flex-col shrink-0 h-fit";
+      "flex flex-col gap-8 w-full h-auto lg:h-[85dvh] overflow-y-auto custom-scroll pr-0 lg:pr-4";
+    temarioContainer = "w-full flex flex-col shrink-0 h-auto lg:h-fit";
     sidebarContainer =
       "w-full grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch shrink-0 pb-12";
   } else if (estiloP === "moderno") {
-    // Moderna (Ancha)
-    wrapperClass =
-      "flex flex-col xl:flex-row gap-6 lg:gap-10 w-full h-full lg:h-auto items-start";
-    temarioContainer = "w-full xl:w-8/12 flex flex-col shrink-0 h-fit mb-12";
-    sidebarContainer = "w-full xl:w-4/12 flex flex-col gap-6 sticky top-24 shrink-0";
+    wrapperClass = "flex flex-col xl:flex-row gap-6 lg:gap-10 w-full h-auto items-start";
+    temarioContainer = "w-full xl:w-8/12 flex flex-col shrink-0 h-auto mb-6 lg:mb-12";
+    sidebarContainer =
+      "w-full xl:w-4/12 flex flex-col gap-6 lg:sticky lg:top-24 shrink-0";
   }
 
-  // ==========================================
   // 2. Estilos del Temario (Módulos)
-  // ==========================================
   let temarioGridClass = "flex flex-col gap-6 md:gap-8";
-
   if (estiloT === "cuadricula") {
     temarioGridClass = "grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch";
   } else if (estiloT === "tarjetas") {
     temarioGridClass =
       "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch";
   } else if (estiloT === "compacto") {
-    // Compacto
     temarioGridClass = "flex flex-col gap-3";
   }
 
-  // ==========================================
   // 3. Estilos de los Expertos
-  // ==========================================
   let expertosGridClass = "space-y-3 pb-4 h-full";
   let expertoCardClass =
-    "group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-3 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-hidden shadow-sm w-full";
+    "group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-3 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] transition-all flex items-center gap-4 overflow-visible shadow-sm w-full";
 
   if (estiloE === "tarjetas") {
     expertoCardClass =
-      "group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-5 rounded-2xl transition-all flex flex-col items-center text-center shadow-sm w-full";
+      "group relative bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 p-5 rounded-2xl transition-all flex flex-col items-center text-center shadow-sm w-full overflow-visible";
     if (totalExpertos === 1) {
       expertosGridClass =
         "flex flex-col items-center justify-center pb-4 flex-1 h-full min-h-[200px]";
@@ -280,22 +272,18 @@ const layoutConfig = computed(() => {
         "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 pb-4 flex-1";
     }
   } else if (estiloE === "pildoras") {
-    // Píldoras
     expertosGridClass = "flex flex-wrap gap-2 pb-4 flex-1";
     expertoCardClass =
-      "group flex items-center gap-3 bg-white border border-slate-200 pr-4 p-1.5 rounded-full shadow-sm hover:shadow-md transition-all w-auto";
+      "group relative flex items-center gap-3 bg-white border border-slate-200 pr-4 p-1.5 rounded-full shadow-sm hover:shadow-md transition-all w-auto overflow-visible";
   } else if (estiloE === "minimalista") {
-    // Solo texto minimalista
     expertosGridClass = "divide-y divide-slate-100 pb-4 flex-1";
     expertoCardClass =
-      "group flex items-center gap-4 py-3 bg-transparent transition-all w-full hover:px-2 hover:bg-slate-50 rounded-lg";
+      "group relative flex items-center gap-4 py-3 bg-transparent transition-all w-full hover:px-2 hover:bg-slate-50 rounded-lg overflow-visible";
   } else {
-    // Lista por defecto
     if (totalExpertos === 1) {
       expertosGridClass = "flex flex-col justify-center pb-4 flex-1 h-full min-h-[150px]";
       expertoCardClass += " p-5 md:p-6 shadow-md ring-1 ring-slate-100";
     } else {
-      // Esto asegura que la lista tenga un tope visual incluso si hay scroll
       expertosGridClass = "space-y-3 pb-8 flex-1";
     }
   }
@@ -383,6 +371,18 @@ const preciosVisibles = computed(() => {
 
   return lista;
 });
+
+const selectedSpeaker = ref(null);
+
+const openSpeakerModal = (speaker) => {
+  selectedSpeaker.value = speaker;
+  document.body.style.overflow = "hidden";
+};
+
+const closeSpeakerModal = () => {
+  selectedSpeaker.value = null;
+  document.body.style.overflow = "auto";
+};
 </script>
 
 <template>
@@ -626,7 +626,9 @@ const preciosVisibles = computed(() => {
                   </div>
                 </div>
 
-                <div class="flex-1 overflow-y-auto p-6 md:p-8 custom-scroll">
+                <div
+                  class="flex-1 overflow-y-visible lg:overflow-y-auto p-4 md:p-8 custom-scroll"
+                >
                   <div
                     v-if="evento?.contenido_tematico?.modulos"
                     :class="layoutConfig.temarioGrid"
@@ -635,7 +637,7 @@ const preciosVisibles = computed(() => {
                       v-for="(modulo, index) in evento.contenido_tematico.modulos"
                       :key="index"
                       :class="[
-                        'relative flex flex-col h-full bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden',
+                        'relative flex flex-col h-auto lg:h-full bg-white border border-slate-200 rounded-[2rem] p-5 md:p-6 shadow-sm hover:shadow-xl transition-all duration-300',
                         evento.estilo_temario === 'tarjetas' ? 'p-6' : '',
                       ]"
                     >
@@ -648,7 +650,7 @@ const preciosVisibles = computed(() => {
                       >
                         <div class="flex items-start gap-4 mb-2 shrink-0 min-h-[20px]">
                           <span
-                            class="text-4xl font-black shrink-0 mt-[-4px]"
+                            class="text-3xl md:text-4xl font-black shrink-0 mt-[-4px]"
                             :style="{
                               color: evento?.area_formacion?.color_hex_principal,
                             }"
@@ -660,8 +662,8 @@ const preciosVisibles = computed(() => {
                         <div
                           :class="
                             modulo.subtemas?.length
-                              ? 'mb-4 text-[17px]'
-                              : 'mb-0  text-[23px]'
+                              ? 'mb-4 text-[15px] md:text-[17px]'
+                              : 'mb-0 text-[18px] md:text-[23px]'
                           "
                         >
                           <h4
@@ -673,13 +675,13 @@ const preciosVisibles = computed(() => {
                       </div>
 
                       <ul
-                        v-if="modulo.subtemas?.length"
-                        class="flex flex-col gap-2 flex-1 w-full"
+                        v-if="modulo.subtemas && modulo.subtemas.length > 0"
+                        class="flex flex-col gap-2 flex-1 w-full pb-4"
                       >
                         <li
                           v-for="(subtema, subIndex) in modulo.subtemas"
                           :key="subIndex"
-                          class="flex items-start text-slate-600 text-[13px] leading-relaxed group"
+                          class="flex items-start text-slate-600 text-[12px] md:text-[13px] leading-relaxed group"
                         >
                           <CheckCircle
                             class="w-4 h-4 mr-3 shrink-0 mt-0.5 opacity-70"
@@ -692,7 +694,7 @@ const preciosVisibles = computed(() => {
                       </ul>
 
                       <div
-                        class="w-full h-1.5 mt-6 rounded-full opacity-80 shrink-0"
+                        class="w-full h-1.5 mt-auto rounded-full opacity-80 shrink-0"
                         :style="{
                           background: evento?.area_formacion?.color_hex_principal,
                         }"
@@ -728,6 +730,7 @@ const preciosVisibles = computed(() => {
                       :key="speaker.id"
                       :class="[layoutConfig.expertoCard, 'group relative cursor-pointer']"
                       style="will-change: transform"
+                      @click="openSpeakerModal(speaker)"
                     >
                       <template v-if="evento.estilo_expertos === 'pildoras'">
                         <img
@@ -793,48 +796,6 @@ const preciosVisibles = computed(() => {
                           </p>
                         </div>
                       </template>
-
-                      <!-- <div class="absolute z-[100] left-0 top-full mt-2 w-80 p-5 bg-white border border-slate-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">
-                        <div
-                          class="absolute -top-1 left-0 w-full h-2 bg-gradient-to-b from-slate-50 to-transparent rounded-t-3xl"
-                        ></div>
-
-                        <div class="flex items-center gap-4 mb-4">
-                          <img
-                            :src="
-                              speaker.foto
-                                ? '/storage/' + speaker.foto
-                                : `https://ui-avatars.com/api/?name=${speaker.primer_nombre}`
-                            "
-                            class="w-14 h-14 rounded-2xl object-cover shadow-md ring-4 ring-slate-50"
-                          />
-                          <div>
-                            <h5
-                              class="text-sm font-black uppercase text-slate-900 tracking-wide"
-                            >
-                              {{ speaker.primer_nombre }} {{ speaker.primer_apellido }}
-                            </h5>
-                            <span
-                              class="inline-block mt-1 px-2 py-0.5 rounded-md bg-orange-50 text-[9px] font-black text-orange-600 uppercase tracking-widest border border-orange-100"
-                            >
-                              Consultor Experto
-                            </span>
-                          </div>
-                        </div>
-
-                        <p
-                          class="text-[12px] leading-relaxed text-slate-600 text-justify bg-slate-50 p-3 rounded-xl border border-slate-100"
-                        >
-                          {{
-                            speaker.biografia ||
-                            "Perfil profesional en actualización constante."
-                          }}
-                        </p>
-
-                        <div
-                          class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-45 shadow-[-2px_-2px_5px_rgba(0,0,0,0.02)]"
-                        ></div>
-                      </div> -->
                     </div>
                   </div>
                 </div>
@@ -961,6 +922,88 @@ const preciosVisibles = computed(() => {
     </div>
 
     <FormProvicionalModal :show="showModal" :evento="evento" @close="showModal = false" />
+<Teleport to="body">
+  <Transition
+    enter-active-class="transition ease-out duration-300"
+    enter-from-class="opacity-0 translate-y-full sm:translate-y-4 sm:scale-95"
+    enter-to-class="opacity-100 translate-y-0 sm:scale-100"
+    leave-active-class="transition ease-in duration-200"
+    leave-from-class="opacity-100 translate-y-0 sm:scale-100"
+    leave-to-class="opacity-0 translate-y-full sm:translate-y-4 sm:scale-95"
+  >
+    <div v-if="selectedSpeaker" class="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4" style="z-index: 99999;">
+      
+      <div 
+        class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity" 
+        @click="closeSpeakerModal"
+      ></div>
+
+      <div class="relative bg-white w-full max-w-[450px] max-h-[90vh] sm:max-h-[85vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col transform transition-all overflow-hidden">
+        
+        <button 
+          @click="closeSpeakerModal" 
+          class="absolute top-4 right-4 sm:top-5 sm:right-5 p-2 bg-black/10 hover:bg-black/20 backdrop-blur-md border border-white/20 rounded-full text-white transition-all z-50"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+
+        <div class="flex-1 w-full overflow-y-auto custom-scroll pb-8">
+          
+          <div 
+            class="h-32 sm:h-36 w-full relative shrink-0"
+            :style="{ background: `linear-gradient(135deg, ${evento?.area_formacion?.color_hex_principal || '#f97316'} 0%, #0f172a 100%)` }"
+          >
+            <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div class="absolute top-[-20%] left-[-10%] w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
+          </div>
+
+          <div class="px-6 sm:px-8 flex flex-col items-center relative">
+            
+            <div class="relative -mt-16 sm:-mt-20 mb-4 shrink-0 z-10">
+              <img
+                :src="selectedSpeaker.foto ? '/storage/' + selectedSpeaker.foto : `https://ui-avatars.com/api/?name=${selectedSpeaker.primer_nombre}`"
+                class="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] sm:rounded-[2.5rem] object-cover shadow-2xl ring-[6px] ring-white bg-white"
+              />
+              <div class="absolute -bottom-2 -right-2 bg-white rounded-full p-1.5 shadow-md border border-slate-50">
+                <ShieldCheck 
+                  class="w-6 h-6" 
+                  :style="{ color: evento?.area_formacion?.color_hex_principal || '#f97316' }" 
+                />
+              </div>
+            </div>
+
+            <div class="text-center mb-6 shrink-0 w-full">
+              <h4 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-3">
+                {{ selectedSpeaker.primer_nombre }} {{ selectedSpeaker.primer_apellido }}
+              </h4>
+              <div class="flex items-center justify-center gap-2">
+                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] sm:text-[11px] font-black text-slate-600 uppercase tracking-widest">
+                  <span 
+                    class="w-2 h-2 rounded-full animate-pulse" 
+                    :style="{ background: evento?.area_formacion?.color_hex_principal || '#f97316' }"
+                  ></span>
+                  Consultor Experto
+                </span>
+              </div>
+            </div>
+
+            <div class="w-full bg-slate-50 border border-slate-100 rounded-[1.5rem] p-5 sm:p-6 relative shrink-0">
+              <svg class="absolute -top-4 -left-2 w-10 h-10 text-slate-200/80 transform -rotate-6" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
+
+              <div class="relative z-10 text-slate-600 text-[13px] sm:text-[14px] leading-relaxed text-center sm:text-justify font-medium">
+                {{ selectedSpeaker.biografia || "Perfil profesional detallado en proceso de actualización por nuestro equipo académico." }}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+   
   </GuestLayout>
 </template>
 

@@ -55,11 +55,14 @@ function handleScroll() {
 
   if (active.value !== closestIndex && closestIndex < props.events.length) {
     active.value = closestIndex;
-    progressKey.value++;
+    progressKey.value++; 
   }
 }
 
 function setActive(i) {
+  const newIndex = (i + props.events.length) % props.events.length;
+  if (newIndex === active.value) return;
+  
   if (!props.events?.length) return;
   isScrolling = true;
   active.value = (i + props.events.length) % props.events.length;
@@ -83,28 +86,35 @@ function setActive(i) {
 function startAutoplay() {
   stopAutoplay();
   if (!props.autoplay || !props.events?.length) return;
-  timer = setInterval(() => {
+  
+  timer = setTimeout(() => {
     setActive(active.value + 1);
+
   }, props.intervalMs);
 }
 
 function stopAutoplay() {
   if (timer) {
-    clearInterval(timer);
+    clearTimeout(timer); 
     timer = null;
   }
 }
 
-const userInteracted = () => {
-  stopAutoplay();
-  setTimeout(() => {
-    if (!timer && props.autoplay) startAutoplay();
-  }, 8000);
-};
-
 onMounted(() => {
   startAutoplay();
 });
+
+watch(active, () => {
+  startAutoplay();
+});
+
+const userInteracted = () => {
+  stopAutoplay();
+
+  setTimeout(() => {
+    if (props.autoplay) startAutoplay();
+  }, 10000); 
+};
 
 onBeforeUnmount(stopAutoplay);
 
@@ -128,28 +138,23 @@ const formatEventRange = (inicio, fin) => {
 
   const hasValidEnd = end && !isNaN(end.getTime());
 
-  // 1. Mismo día o evento sin fecha de cierre
   if (!hasValidEnd || start.toDateString() === end.toDateString()) {
     return `${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)}`;
   }
 
-  // 2. Mismo mes y año
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    // Si es consecutivo usamos "y" (22 y 23), si son más días usamos "al" (22 al 25)
     const conector = getDayNum(end) - getDayNum(start) === 1 ? "y" : "al";
     return `${getDayNum(start)} ${conector} ${getDayNum(end)} de ${getMonth(
       start
     )} de ${getYear(start)}`;
   }
 
-  // 3. Mismo año, distinto mes
   if (start.getFullYear() === end.getFullYear()) {
     return `${getDayNum(start)} de ${getMonth(start)} al ${getDayNum(end)} de ${getMonth(
       end
     )} de ${getYear(start)}`;
   }
 
-  // 4. Distinto año
   return `${getDayNum(start)} de ${getMonth(start)} de ${getYear(start)} al ${getDayNum(
     end
   )} de ${getMonth(end)} de ${getYear(end)}`;
@@ -187,13 +192,16 @@ const formatEventRange = (inicio, fin) => {
     </div>
 
     <div
-      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-24 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
+      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-32 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
     >
-      <aside class="w-full lg:w-5/12 mb-4 lg:mb-20">
+      <aside class="w-full lg:w-5/12 mb-4 lg:mb-20 flex flex-col min-h-0 shrink-0">
         <transition name="content-slide" mode="out-in">
-          <div :key="active" class="flex flex-col items-start space-y-4 lg:space-y-6">
+          <div
+            :key="active"
+            class="flex flex-col items-start space-y-3 lg:space-y-5 w-full"
+          >
             <div
-              class="flex items-center px-3 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md"
+              class="flex items-center px-3 py-1 gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md shrink-0"
             >
               <span class="relative flex h-2.5 w-2.5">
                 <span
@@ -206,22 +214,30 @@ const formatEventRange = (inicio, fin) => {
                 ></span>
               </span>
               <span
-                class="text-[10px] font-black text-white tracking-[0.2em] uppercase"
-                >{{ current?.area }}</span
+                class="text-[10px] font-black text-white tracking-[0.2em] uppercase truncate max-w-[200px]"
               >
+                {{ current?.area }}
+              </span>
             </div>
 
             <h1
-              class="text-3xl sm:text-5xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+              class="w-full font-black text-white leading-[1.1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] break-words transition-all duration-500"
+              :class="[
+                current?.title.length > 60
+                  ? 'text-2xl sm:text-4xl lg:text-5xl xl:text-6xl'
+                  : 'text-3xl sm:text-5xl lg:text-6xl xl:text-8xl',
+              ]"
             >
               {{ current?.title }}
             </h1>
 
             <div
-              class="space-y-2 border-l-4 pl-5 animate-fade-in-up"
+              class="space-y-2 border-l-4 pl-5 animate-fade-in-up w-full"
               :style="{ borderLeftColor: current?.hex_principal }"
             >
-              <p class="text-base lg:text-xl text-white/90 font-medium leading-snug">
+              <p
+                class="text-base lg:text-xl text-white/90 font-medium leading-snug line-clamp-2 break-words"
+              >
                 {{ current?.mode }} | {{ current?.subtitle }}
               </p>
               <div
@@ -236,7 +252,7 @@ const formatEventRange = (inicio, fin) => {
                   }}
                 </span>
                 <span
-                  class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+                  class="flex items-center gap-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] truncate max-w-[200px]"
                 >
                   <span class="material-symbols-rounded text-lg">location_on</span>
                   {{ current?.city }}
@@ -244,7 +260,7 @@ const formatEventRange = (inicio, fin) => {
               </div>
             </div>
 
-            <div class="pt-4 w-full sm:w-auto">
+            <div class="pt-2 lg:pt-4 w-full sm:w-auto shrink-0">
               <Link :href="current?.cta_url || '#'">
                 <BtnUniversal
                   :label="current?.cta_text"
@@ -297,9 +313,7 @@ const formatEventRange = (inicio, fin) => {
               <h3
                 class="text-3xl sm:text-5xl lg:text-4xl text-left uppercase font-black text-white leading-[1] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
               >
-                {{
-                  formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin)
-                }}
+                {{ formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin) }}
               </h3>
             </div>
 
