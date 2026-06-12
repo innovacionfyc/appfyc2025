@@ -44,7 +44,7 @@ onBeforeUnmount(() => {
         <span v-for="n in 6" :key="n"></span>
       </div>
 
-      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 items-center min-h-[500px]">
+      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 items-center lg:min-h-[500px]">
         <!-- Columna texto -->
         <div class="lg:col-span-7 p-8 md:p-12 lg:p-16 flex flex-col justify-center h-full relative">
           <div class="hidden lg:block absolute right-0 top-10 bottom-10 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>

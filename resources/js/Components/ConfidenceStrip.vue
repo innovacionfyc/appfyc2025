@@ -88,7 +88,7 @@ watchEffect(() => { if (inView.value) startCounters() })
 
     <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 flex flex-col h-full justify-center">
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-14 lg:mb-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-16 lg:gap-24 items-center mb-14 lg:mb-4">
 
         <div class="flex flex-col justify-center space-y-8">
           <div class="transition-all duration-1000 transform ease-out"
@@ -100,7 +100,7 @@ watchEffect(() => { if (inView.value) startCounters() })
               Nuestros Resultados 
             </span>
 
-            <h2 class="text-4xl lg:text-5xl font-black text-gray-900 leading-[1.1] mb-6 tracking-tight">
+            <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-[1.1] mb-6 tracking-tight">
               Somos sus aliados estratégicos en la
               <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-vinotinto to-primary-naranja">
                 generación y gestión del conocimiento
@@ -143,7 +143,7 @@ watchEffect(() => { if (inView.value) startCounters() })
             <div class="space-y-1">
               <div class="flex items-baseline gap-1">
                 <span
-                  class="text-5xl font-black tracking-tighter tabular-nums"
+                  class="text-4xl sm:text-5xl font-black tracking-tighter tabular-nums"
                   :class="isFeatured(stat) ? 'text-primary-vinotinto' : 'text-gray-900'"
                 >
                   {{ animatedValues[index].value.toLocaleString('es-CO') }}

@@ -180,7 +180,7 @@ const handleCardClick = (ev, index) => {
 <template>
   <section
     v-if="events.length > 0"
-    class="relative isolate w-full min-h-screen lg:h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C]"
+    class="relative isolate w-full min-h-dvh lg:h-dvh flex flex-col justify-end overflow-hidden bg-[#0B192C]"
   >
     <div class="absolute inset-0 z-0">
       <transition-group name="hero-crossfade">
@@ -208,9 +208,9 @@ const handleCardClick = (ev, index) => {
     </div>
 
     <div
-      class="relative z-10 w-full max-w-[1920px] mx-auto lg:mx-12 px-6 lg:px-12 pt-14 sm:pt-20 lg:pt-32 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8 lg:gap-12"
+      class="relative z-10 w-full max-w-[1920px] mx-auto lg:mx-12 px-5 sm:px-6 lg:px-12 pt-24 lg:pt-28 pb-10 lg:pb-10 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8 sm:gap-10 lg:gap-12"
     >
-      <aside class="w-full lg:w-[38%] flex flex-col shrink-0 pb-2 lg:pb-8">
+      <aside class="w-full lg:w-[34%] flex flex-col shrink-0 pb-2 lg:pb-8">
         <transition name="content-slide" mode="out-in">
           <div
             :key="active"
@@ -242,11 +242,11 @@ const handleCardClick = (ev, index) => {
             <!-- Título -->
             <h1
               :title="current?.title"
-              class="w-full font-black text-white leading-[1.05] tracking-tight break-words overflow-hidden line-clamp-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-all duration-500"
+              class="w-full font-black text-white leading-[1.12] lg:leading-[1.05] tracking-tight break-words overflow-hidden line-clamp-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-all duration-500"
               :class="[
                 current?.title?.length > 60
-                  ? 'text-xl sm:text-3xl lg:text-4xl xl:text-5xl'
-                  : 'text-2xl sm:text-4xl lg:text-5xl xl:text-6xl',
+                  ? 'text-[clamp(1.125rem,4vw,2.375rem)] lg:max-w-[30rem]'
+                  : 'text-[clamp(1.625rem,6vw,3.75rem)]',
               ]"
             >
               {{ shortTitle }}
@@ -254,7 +254,7 @@ const handleCardClick = (ev, index) => {
 
             <!-- Información -->
             <div
-              class="space-y-3 border-l-4 pl-4 lg:pl-5 animate-fade-in-up w-full overflow-hidden"
+              class="space-y-2 lg:space-y-3 border-l-4 pl-4 lg:pl-5 animate-fade-in-up w-full overflow-hidden"
               :style="{ borderLeftColor: current?.hex_principal }"
             >
               <p
@@ -307,7 +307,7 @@ const handleCardClick = (ev, index) => {
         </transition>
       </aside>
 
-      <aside class="w-full lg:w-[62%] relative overflow-visible">
+      <aside class="w-full lg:w-[66%] relative overflow-visible">
         <div
           class="lg:hidden absolute -top-5 right-0 text-white/40 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 animate-pulse"
         >
@@ -319,7 +319,7 @@ const handleCardClick = (ev, index) => {
           ref="rowRef"
           @scroll="handleScroll"
           @touchstart="userInteracted"
-          class="flex gap-4 lg:gap-6 overflow-x-auto overflow-y-visible no-scrollbar scroll-smooth pt-5 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 perspective-container snap-x snap-mandatory"
+          class="flex gap-4 lg:gap-6 overflow-x-auto overflow-y-visible no-scrollbar scroll-smooth pt-6 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 perspective-container snap-x snap-mandatory"
         >
           <button
             v-for="(ev, i) in events"
@@ -371,7 +371,7 @@ const handleCardClick = (ev, index) => {
 
             <div
               v-if="i === active && autoplay"
-              class="absolute bottom-50 left-0 h-1 bg-red shadow-[0_0_15px_rgba(255,255,255,0.5)] z-30"
+              class="absolute bottom-0 left-0 h-1 bg-white/80 shadow-[0_0_15px_rgba(255,255,255,0.5)] z-30"
               :key="progressKey"
               :style="{ animation: `progress ${intervalMs}ms linear forwards` }"
             ></div>
@@ -384,7 +384,7 @@ const handleCardClick = (ev, index) => {
 
   <section
     v-else
-    class="relative isolate w-full h-dvh flex flex-col justify-end overflow-hidden bg-[#0b192c2f]"
+    class="relative isolate w-full min-h-dvh lg:h-dvh flex flex-col justify-end overflow-hidden bg-[#0b192c2f]"
   >
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div
@@ -398,10 +398,10 @@ const handleCardClick = (ev, index) => {
     </div>
 
     <div
-      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-24 pb-8 lg:pb-0 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
+      class="relative z-10 w-full h-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-24 pb-10 lg:pb-10 flex flex-col lg:flex-row items-start lg:items-end justify-between lg:justify-end gap-8"
     >
       <aside
-        class="w-full lg:w-5/12 mb-4 lg:mb-20 flex flex-col items-start space-y-4 lg:space-y-6"
+        class="w-full lg:w-5/12 mb-4 lg:mb-12 flex flex-col items-start space-y-4 lg:space-y-6"
       >
         <div
           class="flex items-center px-4 py-2.5 gap-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md animate-pulse"
@@ -411,7 +411,7 @@ const handleCardClick = (ev, index) => {
         </div>
 
         <h1
-          class="text-3xl sm:text-5xl lg:text-7xl font-black text-white/70 leading-[1.1] tracking-tight drop-shadow-lg"
+          class="text-3xl sm:text-5xl lg:text-6xl font-black text-white/70 leading-[1.1] tracking-tight drop-shadow-lg"
         >
           Nuevas fechas <br />
           en preparación
@@ -454,7 +454,7 @@ const handleCardClick = (ev, index) => {
           class="flex gap-4 lg:gap-6 overflow-hidden py-6 lg:py-10 px-4 lg:px-0 -mx-6 lg:mx-0 opacity-80"
         >
           <div
-            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-white/20 w-[75vw] sm:w-[400px] lg:w-[360px] h-[350px] lg:h-[480px] z-20 shadow-2xl flex flex-col justify-end animate-pulse backdrop-blur-md"
+            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-white/20 w-[75vw] sm:w-[400px] lg:w-[360px] h-[350px] lg:h-[420px] z-20 shadow-2xl flex flex-col justify-end animate-pulse backdrop-blur-md"
           >
             <div
               class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
@@ -472,7 +472,7 @@ const handleCardClick = (ev, index) => {
           </div>
 
           <div
-            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[60vw] sm:w-[300px] lg:w-[300px] h-[300px] lg:h-[420px] z-0 opacity-40 flex flex-col justify-end mt-4 lg:mt-8 animate-pulse backdrop-blur-sm"
+            class="relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[60vw] sm:w-[300px] lg:w-[300px] h-[300px] lg:h-[360px] z-0 opacity-40 flex flex-col justify-end mt-4 lg:mt-8 animate-pulse backdrop-blur-sm"
           >
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div class="p-4 rounded-2xl bg-white/5 flex flex-col gap-3">
@@ -484,7 +484,7 @@ const handleCardClick = (ev, index) => {
           </div>
 
           <div
-            class="hidden sm:flex relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[300px] h-[420px] z-0 opacity-20 flex-col justify-end mt-8 animate-pulse backdrop-blur-sm"
+            class="hidden sm:flex relative flex-none rounded-[2rem] overflow-hidden bg-white/5 border border-transparent w-[300px] h-[300px] lg:h-[360px] z-0 opacity-20 flex-col justify-end mt-8 animate-pulse backdrop-blur-sm"
           >
             <div class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div class="p-4 rounded-2xl bg-white/5 flex flex-col gap-3">
@@ -642,13 +642,26 @@ section {
   }
 }
 
-@media (max-height: 740px) {
+/* Pantallas bajas SOLO en móvil/tablet: compactar cards */
+@media (max-height: 740px) and (max-width: 1023px) {
   .card-active {
     height: 240px !important;
   }
 
   .card-inactive {
     height: 200px !important;
+  }
+}
+
+/* Laptops de poca altura (1366x768, 1280x800, MacBook con dock):
+   reducir cards de forma proporcional sin colapsarlas */
+@media (min-width: 1024px) and (max-height: 820px) {
+  .card-active {
+    height: 400px !important;
+  }
+
+  .card-inactive {
+    height: 330px !important;
   }
 }
 

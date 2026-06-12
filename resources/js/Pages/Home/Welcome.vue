@@ -23,11 +23,11 @@ const props = defineProps({
 
   <GuestLayout>
     <div
-      class="h-screen w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-white dark:bg-[#0B192C]"
+      class="h-dvh w-full overflow-y-auto overflow-x-hidden snap-y snap-proximity scroll-smooth bg-white dark:bg-[#0B192C]"
     >
       <HeaderNav />
 
-      <RevealSection class="snap-start h-dvh w-full">
+      <RevealSection class="snap-start min-h-dvh w-full">
         <HeroShowcase :events="eventosHero" />
       </RevealSection>
 
@@ -49,9 +49,9 @@ const props = defineProps({
         <ProgramCtaStrip />
       </RevealSection>
 
-      <RevealSection class="snap-end w-full z-40 relative">
+      <RevealSection class="snap-start scroll-mt-72 md:scroll-mt-[22rem] lg:scroll-mt-72 w-full z-40 relative">
         <SiteFooter />
-       
+
       </RevealSection>
     </div>
   </GuestLayout>
