@@ -105,7 +105,7 @@ onBeforeUnmount(() => observer?.disconnect())
         </span>
 
         <h2
-          class="text-4xl lg:text-5xl font-black text-gray-900 leading-[1.08] mb-4 transition-all duration-700 delay-100"
+          class="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-[1.08] mb-4 transition-all duration-700 delay-100"
           :class="inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
           Programas de

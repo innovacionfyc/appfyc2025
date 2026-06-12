@@ -63,8 +63,8 @@ onUnmounted(() => {
     class="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ease-out"
     :class="[
       isScrolled || isMenuOpen
-        ? 'py-3 bg-white/70 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_30px_rgba(0,0,0,0.04)]'
-        : 'py-5 bg-transparent border-b border-transparent',
+        ? 'py-2.5 md:py-3 bg-white/70 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_30px_rgba(0,0,0,0.04)]'
+        : 'py-3.5 md:py-5 bg-transparent border-b border-transparent',
     ]"
   >
     <div
@@ -88,7 +88,7 @@ onUnmounted(() => {
               src="/images/logo-fyc.png"
               alt="F&C Consultores"
               class="w-auto object-contain transition-all duration-500 drop-shadow-sm"
-              :class="isScrolled || isMenuOpen ? 'h-12 md:h-16' : 'h-16 md:h-20'"
+              :class="isScrolled || isMenuOpen ? 'h-10 md:h-16' : 'h-12 sm:h-14 md:h-20'"
             />
           </div>
         </Link>
@@ -186,7 +186,7 @@ onUnmounted(() => {
     >
       <div
         v-if="isMenuOpen"
-        class="xl:hidden absolute top-full left-4 right-4 mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden z-40"
+        class="xl:hidden absolute top-full left-4 right-4 mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden z-40 max-h-[calc(100dvh-6.5rem)] overflow-y-auto"
       >
         <div class="p-5 flex flex-col gap-2">
           <nav class="flex flex-col gap-1">

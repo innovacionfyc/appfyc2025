@@ -29,12 +29,12 @@ const navigation = {
 </script>
 
 <template>
-  <footer class="relative mt-44 bg-white pt-48 pb-10">
+  <footer class="relative mt-36 sm:mt-44 bg-white pt-48 sm:pt-56 lg:pt-48 pb-10">
     <div
       class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-3rem)] max-w-6xl"
     >
       <div
-        class="relative overflow-hidden bg-gradient-vinotinto rounded-[2.5rem] p-10 md:p-16 shadow-[0_35px_60px_-15px_rgba(244,63,94,0.4)]"
+        class="relative overflow-hidden bg-gradient-vinotinto rounded-[2.5rem] p-8 sm:p-10 md:p-16 shadow-[0_35px_60px_-15px_rgba(244,63,94,0.4)]"
       >
         <div
           class="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl bg-rose-500"
@@ -48,7 +48,7 @@ const navigation = {
         >
           <div class="text-center lg:text-left space-y-4 max-w-2xl">
             <h2
-              class="text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter"
+              class="text-2xl sm:text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter"
             >
               Potenciamos el conocimiento <br />
               <span class="text-rose-200">del sector público.</span>
@@ -60,7 +60,7 @@ const navigation = {
 
           <Link
             href="/contacto"
-            class="group bg-white text-rose-800 px-12 py-5 rounded-2xl font-black text-xl hover:bg-rose-50 transition-all hover:-translate-y-1 shadow-xl flex items-center gap-3"
+            class="group bg-white text-rose-800 w-full sm:w-auto justify-center px-8 py-4 text-lg md:px-12 md:py-5 md:text-xl rounded-2xl font-black hover:bg-rose-50 transition-all hover:-translate-y-1 shadow-xl flex items-center gap-3"
           >
             Contáctenos
             <svg
@@ -299,7 +299,7 @@ const navigation = {
               class="flex items-center gap-4 group"
             >
               <div
-                class="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary-vinotinto group-hover:bg-primatext-primary-vinotinto group-hover:text-white transition-all duration-300"
+                class="w-12 h-12 shrink-0 bg-slate-50 rounded-2xl flex items-center justify-center text-primary-vinotinto group-hover:bg-primatext-primary-vinotinto group-hover:text-white transition-all duration-300"
               >
                 <svg
                   class="w-5 h-5"
@@ -316,7 +316,7 @@ const navigation = {
                 </svg>
               </div>
               <span
-                class="text-slate-600 font-bold group-hover:text-primary-vinotinto transition-colors tracking-tight truncate"
+                class="min-w-0 text-slate-600 font-bold group-hover:text-primary-vinotinto transition-colors tracking-tight truncate"
                 >contactenos@fycconsultores.com</span
               >
             </a>
