@@ -76,7 +76,9 @@ class Evento extends Model
             'evento_conferencista',
             'evento_id',
             'conferencista_id'
-        )->withTimestamps();
+        )->withTimestamps()->withPivot('orden')
+            ->orderByPivot('orden', 'asc');
+        ;
     }
 
     public function formularioInscripcion()

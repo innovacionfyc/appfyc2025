@@ -96,6 +96,7 @@ const form = useForm({
   organizador_id: "",
   tiene_oferta_valor: false,
   oferta_valor: "N/A",
+  representantes: [],
 
   contenido_tematico: [{ tema: "(Escribe algo...)", subtemas: [""] }],
 });
@@ -160,9 +161,40 @@ const removeTema = (i) => form.contenido_tematico.splice(i, 1);
 const addSubtema = (ti) => form.contenido_tematico[ti].subtemas.push("");
 const removeSubtema = (ti, si) => form.contenido_tematico[ti].subtemas.splice(si, 1);
 
+// --- LÓGICA DEL BUSCADOR ---
+const searchQuery = ref("");
+
+// Filtramos la lista basándonos en el buscador
+const conferencistasFiltrados = computed(() => {
+  if (!searchQuery.value) return props.conferencistas;
+
+  const query = searchQuery.value.toLowerCase();
+
+  return props.conferencistas.filter((s) => {
+    const fullName = `${s.primer_nombre} ${s.primer_apellido}`.toLowerCase();
+    // Busca por nombre o por el área encargada
+    return (
+      fullName.includes(query) ||
+      (s.areas_encargadas?.nombre &&
+        s.areas_encargadas.nombre.toLowerCase().includes(query))
+    );
+  });
+});
+
+// Obtiene los objetos completos de los conferencistas seleccionados respetando el orden exacto de form.conferencistas
+const conferencistasSeleccionados = computed(() => {
+  return form.conferencistas
+    .map((id) => props.conferencistas.find((s) => s.id === id))
+    .filter(Boolean); // Filtra por si acaso hay algún null
+});
+
 const toggleSpeaker = (id) => {
   const index = form.conferencistas.indexOf(id);
-  index === -1 ? form.conferencistas.push(id) : form.conferencistas.splice(index, 1);
+  if (index === -1) {
+    form.conferencistas.push(id);
+  } else {
+    form.conferencistas.splice(index, 1);
+  }
 };
 
 const clearForm = () => {
@@ -347,29 +379,6 @@ const submit = () => {
         form.reset();
       },
     });
-};
-
-const stepFields = [
-  ["titulo", "area_formacion_id"],
-  ["rango_fechas", "modalidad", "ubicacion"],
-  ["conferencistas", "contenido_tematico"],
-  ["imagen_relacionada", "texto_dinamico"],
-];
-
-const getAreaTagImage = () => {
-  const areaSeleccionada = props.areas.find((a) => a.id === form.area_formacion_id);
-
-  const areaName = areaSeleccionada?.nombre;
-
-  const imagenesPorArea = {
-    Jurídica: "/images/areasFormacion/juridica_web.png",
-    "Talento Humano": "/images/areasFormacion/talento_humano_web.png",
-    "Gestión y Políticas Públicas": "/images/areasFormacion/gestion_publica_web.png",
-    "Enfoques Misionales": "/images/areasFormacion/enfoque_misional_web.png",
-    "Finanzas y Hacienda Pública": "/images/areasFormacion/finanzas_publicas_web.png",
-  };
-
-  return imagenesPorArea[areaName] || "/images/areasFormacion/formacion_defecto_web.png";
 };
 
 const toggleSubtemas = (modulo) => {
@@ -599,7 +608,7 @@ const toggleSubtemas = (modulo) => {
 
                 <button
                   @click="addTema"
-                  class="text-xs font-bold flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded-lg transition-all"
+                  class="text-xs font-bold flex items-center gap-1 hover:bg-rose-50 px-2 py-1 rounded-lg transition-all"
                   :style="{
                     color: selectedArea.color_hex_principal || '#f97316',
                   }"
@@ -690,7 +699,7 @@ const toggleSubtemas = (modulo) => {
                       <button
                         type="button"
                         @click="addSubtema(ti)"
-                        class="text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 mt-2 pl-4"
+                        class="text-[10px] font-bold text-slate-400 hover:text-rose-600 flex items-center gap-1 mt-2 pl-4"
                       >
                         <Plus class="w-3 h-3" /> Añadir otro punto
                       </button>
@@ -699,49 +708,94 @@ const toggleSubtemas = (modulo) => {
                 </div>
               </div>
 
-              <h4
-                class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
-              >
-                Expertos Asignados
-              </h4>
-              <p
-                v-if="form.errors.conferencistas"
-                class="text-[11px] font-bold text-red-500 mb-2"
-              >
-                {{ form.errors.conferencistas }}
-              </p>
-              <div class="grid grid-cols-2 gap-2">
-                <div
-                  v-for="s in conferencistas"
-                  :key="s.id"
-                  @click="toggleSpeaker(s.id)"
-                  :class="
-                    form.conferencistas.includes(s.id)
-                      ? 'border-rose-600 bg-blue-50'
-                      : 'border-slate-100 bg-white'
-                  "
-                  class="flex items-center gap-3 p-2 rounded-xl border-2 cursor-pointer transition-all"
+<div v-if="conferencistasSeleccionados.length > 0" class="mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+      <h5 class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2">
+        Orden de aparición (Haz clic para remover)
+      </h5>
+      <div class="flex flex-wrap gap-2">
+        <div 
+          v-for="(s, index) in conferencistasSeleccionados" 
+          :key="s.id"
+          @click="toggleSpeaker(s.id)"
+          class="flex items-center gap-1.5 bg-white border border-rose-200 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-rose-50 transition-colors"
+        >
+          <span class="text-[10px] font-black text-rose-600 bg-rose-50 w-4 h-4 rounded-full flex items-center justify-center">
+            {{ index + 1 }}
+          </span>
+          <span class="text-[11px] font-bold text-slate-700">
+            {{ s.primer_nombre }} {{ s.primer_apellido }}
+          </span>
+          <X class="w-3 h-3 text-slate-400 hover:text-rose-600 ml-1" />
+        </div>
+      </div>
+    </div>
+              <div>
+                <h4
+                  class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
                 >
-                  <img
-                    :src="
-                      s.foto
-                        ? '/storage/' + s.foto
-                        : 'https://ui-avatars.com/api/?name=' + s.primer_nombre
-                    "
-                    class="w-8 h-8 rounded-full object-cover"
+                  Expertos Asignados
+                </h4>
+
+                <div class="my-3">
+                  <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Buscar experto por nombre o área..."
+                    class="w-full text-sm border-slate-200 rounded-xl focus:ring-rose-500 focus:border-rose-500 p-2.5"
                   />
-                  <span class="text-[12px] font-bold text-slate-700"
-                    >{{ s.primer_nombre }} {{ s.primer_apellido }}
-                    <br />
-                    <p
-                      class="text-[11px] text-slate-700 truncate"
-                      :style="{ color: selectedArea.color_hex_principal }"
-                    >
-                      {{ s.areas_encargadas.nombre }}
-                    </p>
-                  </span>
+                </div>
+
+                <p
+                  v-if="form.errors.conferencistas"
+                  class="text-[11px] font-bold text-red-500 mb-2"
+                >
+                  {{ form.errors.conferencistas }}
+                </p>
+
+                <div class="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1">
+                  <div
+                    v-for="s in conferencistasFiltrados"
+                    :key="s.id"
+                    @click="toggleSpeaker(s.id)"
+                    :class="
+                      form.conferencistas.includes(s.id)
+                        ? 'border-rose-600 bg-rose-50 shadow-sm'
+                        : 'border-slate-100 bg-white hover:border-rose-200'
+                    "
+                    class="flex items-center gap-3 p-2 rounded-xl border-2 cursor-pointer transition-all"
+                  >
+                    <img
+                      :src="
+                        s.foto
+                          ? '/storage/' + s.foto
+                          : 'https://ui-avatars.com/api/?name=' +
+                            s.primer_nombre +
+                            '+' +
+                            s.primer_apellido
+                      "
+                      class="w-8 h-8 rounded-full object-cover"
+                    />
+                    <span class="text-[12px] font-bold text-slate-700">
+                      {{ s.primer_nombre }} {{ s.primer_apellido }}
+                      <br />
+                      <p
+                        class="text-[11px] text-slate-700 truncate"
+                        :style="{ color: selectedArea?.color_hex_principal || '#64748b' }"
+                      >
+                        {{ s.areas_encargadas?.nombre || "Sin área" }}
+                      </p>
+                    </span>
+                  </div>
+
+                  <div
+                    v-if="conferencistasFiltrados.length === 0"
+                    class="col-span-2 text-center text-xs text-slate-500 py-4"
+                  >
+                    No se encontraron expertos con ese nombre.
+                  </div>
                 </div>
               </div>
+              
 
               <h4
                 class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
@@ -1118,52 +1172,111 @@ const toggleSubtemas = (modulo) => {
                     :class="{
                       'flex-row': form.estilo_plantilla === 'clasico',
                       'flex-row-reverse': form.estilo_plantilla === 'invertido',
-                      'flex-col overflow-y-auto no-scrollbar': form.estilo_plantilla === 'minimalista',
+                      'flex-col overflow-y-auto no-scrollbar':
+                        form.estilo_plantilla === 'minimalista',
                       'flex-row items-start': form.estilo_plantilla === 'moderno',
                     }"
                   >
                     <div
                       class="transition-all duration-500 flex flex-col gap-3"
                       :class="
-                        form.estilo_plantilla === 'minimalista' ? 'w-full' : 
-                        form.estilo_plantilla === 'moderno' ? 'w-2/3' : 'w-7/12'
+                        form.estilo_plantilla === 'minimalista'
+                          ? 'w-full'
+                          : form.estilo_plantilla === 'moderno'
+                          ? 'w-2/3'
+                          : 'w-7/12'
                       "
                     >
-                      <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-3">
-                        <div class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2">
-                          <div class="w-3.5 h-3.5 rounded bg-blue-500/20 flex items-center justify-center text-[8px] font-black text-blue-400">
+                      <div
+                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-3"
+                      >
+                        <div
+                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
+                        >
+                          <div
+                            class="w-3.5 h-3.5 rounded bg-rose-500/20 flex items-center justify-center text-[8px] font-black text-rose-400"
+                          >
                             T
                           </div>
-                          <span class="text-[9px] font-black uppercase text-slate-300 tracking-widest">Contenido Temático</span>
+                          <span
+                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
+                            >Contenido Temático</span
+                          >
                         </div>
 
-                        <div v-if="form.estilo_temario === 'lista'" class="space-y-2.5 animate-in fade-in duration-300">
-                          <div v-for="i in 3" :key="i" class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5">
+                        <div
+                          v-if="form.estilo_temario === 'lista'"
+                          class="space-y-2.5 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 3"
+                            :key="i"
+                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
+                          >
                             <div class="w-1/2 h-2 bg-slate-600 rounded-full"></div>
-                            <div class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
-                            <div class="w-4/5 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
+                            <div
+                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
+                            <div
+                              class="w-4/5 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_temario === 'cuadricula'" class="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
-                          <div v-for="i in 4" :key="i" class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5">
+                        <div
+                          v-else-if="form.estilo_temario === 'cuadricula'"
+                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 4"
+                            :key="i"
+                            class="p-2 bg-slate-800/40 border border-slate-700/30 rounded-xl space-y-1.5"
+                          >
                             <div class="w-4/5 h-2 bg-slate-600 rounded-full"></div>
-                            <div class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"></div>
+                            <div
+                              class="w-11/12 h-1.5 bg-slate-700 rounded-full opacity-40"
+                            ></div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_temario === 'tarjetas'" class="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
-                          <div v-for="i in 4" :key="i" class="p-2 bg-slate-700 border-b-2 rounded-xl space-y-2 shadow-sm" :style="{ borderBottomColor: selectedArea.color_hex_principal }">
-                            <div class="w-3 h-3 rounded-full opacity-40" :style="{ backgroundColor: selectedArea.color_hex_principal }"></div>
+                        <div
+                          v-else-if="form.estilo_temario === 'tarjetas'"
+                          class="grid grid-cols-2 gap-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 4"
+                            :key="i"
+                            class="p-2 bg-slate-700 border-b-2 rounded-xl space-y-2 shadow-sm"
+                            :style="{
+                              borderBottomColor: selectedArea.color_hex_principal,
+                            }"
+                          >
+                            <div
+                              class="w-3 h-3 rounded-full opacity-40"
+                              :style="{
+                                backgroundColor: selectedArea.color_hex_principal,
+                              }"
+                            ></div>
                             <div class="w-full h-1.5 bg-slate-500 rounded-full"></div>
-                            <div class="w-3/4 h-1 bg-slate-600 rounded-full opacity-50"></div>
+                            <div
+                              class="w-3/4 h-1 bg-slate-600 rounded-full opacity-50"
+                            ></div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_temario === 'compacto'" class="space-y-1 animate-in fade-in duration-300">
-                          <div v-for="i in 5" :key="i" class="p-1.5 bg-slate-800/20 border-b border-slate-700/30 flex items-center gap-2">
+                        <div
+                          v-else-if="form.estilo_temario === 'compacto'"
+                          class="space-y-1 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 5"
+                            :key="i"
+                            class="p-1.5 bg-slate-800/20 border-b border-slate-700/30 flex items-center gap-2"
+                          >
                             <div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-                            <div class="flex-1 h-1.5 bg-slate-600 rounded-full opacity-60"></div>
+                            <div
+                              class="flex-1 h-1.5 bg-slate-600 rounded-full opacity-60"
+                            ></div>
                           </div>
                         </div>
                       </div>
@@ -1172,42 +1285,88 @@ const toggleSubtemas = (modulo) => {
                     <div
                       class="flex gap-3 transition-all duration-500"
                       :class="
-                        form.estilo_plantilla === 'minimalista' ? 'w-full flex-col lg:flex-row' : 
-                        form.estilo_plantilla === 'moderno' ? 'w-1/3 flex-col' : 'w-5/12 flex-col'
+                        form.estilo_plantilla === 'minimalista'
+                          ? 'w-full flex-col lg:flex-row'
+                          : form.estilo_plantilla === 'moderno'
+                          ? 'w-1/3 flex-col'
+                          : 'w-5/12 flex-col'
                       "
                     >
-                      <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-2.5">
-                        <div class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2">
-                          <div class="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[8px] font-black text-amber-400">E</div>
-                          <span class="text-[9px] font-black uppercase text-slate-300 tracking-widest">Equipo Académico</span>
+                      <div
+                        class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex-1 flex flex-col gap-2.5"
+                      >
+                        <div
+                          class="flex items-center gap-1.5 border-b border-slate-700/40 pb-2"
+                        >
+                          <div
+                            class="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[8px] font-black text-amber-400"
+                          >
+                            E
+                          </div>
+                          <span
+                            class="text-[9px] font-black uppercase text-slate-300 tracking-widest"
+                            >Equipo Académico</span
+                          >
                         </div>
 
-                        <div v-if="form.estilo_expertos === 'lista'" class="space-y-2 animate-in fade-in duration-300">
-                          <div v-for="i in 2" :key="i" class="flex items-center gap-2 bg-slate-800/30 p-1.5 rounded-xl border border-slate-700/30">
+                        <div
+                          v-if="form.estilo_expertos === 'lista'"
+                          class="space-y-2 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 2"
+                            :key="i"
+                            class="flex items-center gap-2 bg-slate-800/30 p-1.5 rounded-xl border border-slate-700/30"
+                          >
                             <div class="w-7 h-7 bg-slate-600 rounded-lg shrink-0"></div>
                             <div class="flex-1 space-y-1">
                               <div class="w-2/3 h-1.5 bg-slate-500 rounded-full"></div>
-                              <div class="w-1/2 h-1 bg-slate-600 rounded-full opacity-50"></div>
+                              <div
+                                class="w-1/2 h-1 bg-slate-600 rounded-full opacity-50"
+                              ></div>
                             </div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_expertos === 'tarjetas'" class="grid grid-cols-2 gap-2 py-1 justify-items-center animate-in fade-in duration-300">
-                          <div v-for="i in 2" :key="i" class="flex flex-col items-center gap-1 bg-slate-800/40 p-2 rounded-xl border border-slate-700/20 w-full">
-                            <div class="w-8 h-8 rounded-full bg-slate-600 border border-slate-500 shadow-sm"></div>
+                        <div
+                          v-else-if="form.estilo_expertos === 'tarjetas'"
+                          class="grid grid-cols-2 gap-2 py-1 justify-items-center animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 2"
+                            :key="i"
+                            class="flex flex-col items-center gap-1 bg-slate-800/40 p-2 rounded-xl border border-slate-700/20 w-full"
+                          >
+                            <div
+                              class="w-8 h-8 rounded-full bg-slate-600 border border-slate-500 shadow-sm"
+                            ></div>
                             <div class="w-3/4 h-1 bg-slate-500 rounded-full"></div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_expertos === 'pildoras'" class="flex flex-wrap gap-1.5 py-1 animate-in fade-in duration-300">
-                          <div v-for="i in 4" :key="i" class="flex items-center gap-1.5 bg-slate-700/50 rounded-full p-1 pr-2 border border-slate-600/30">
+                        <div
+                          v-else-if="form.estilo_expertos === 'pildoras'"
+                          class="flex flex-wrap gap-1.5 py-1 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 4"
+                            :key="i"
+                            class="flex items-center gap-1.5 bg-slate-700/50 rounded-full p-1 pr-2 border border-slate-600/30"
+                          >
                             <div class="w-4 h-4 rounded-full bg-slate-500"></div>
                             <div class="w-6 h-1 bg-slate-400 rounded-full"></div>
                           </div>
                         </div>
 
-                        <div v-else-if="form.estilo_expertos === 'minimalista'" class="divide-y divide-slate-700/40 animate-in fade-in duration-300">
-                          <div v-for="i in 3" :key="i" class="py-1.5 flex items-center gap-2">
+                        <div
+                          v-else-if="form.estilo_expertos === 'minimalista'"
+                          class="divide-y divide-slate-700/40 animate-in fade-in duration-300"
+                        >
+                          <div
+                            v-for="i in 3"
+                            :key="i"
+                            class="py-1.5 flex items-center gap-2"
+                          >
                             <div class="w-2 h-2 bg-slate-600 rounded-sm"></div>
                             <div class="w-3/4 h-1 bg-slate-500 rounded-full"></div>
                           </div>
@@ -1217,20 +1376,38 @@ const toggleSubtemas = (modulo) => {
                       <div
                         class="rounded-2xl p-3 transition-all duration-500 flex flex-col justify-between shrink-0"
                         :class="[
-                          form.estilo_plantilla === 'minimalista' ? 'w-full lg:w-1/2 h-auto' : 'h-40',
-                          form.estilo_card === 'destacado' ? 'bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700' : 
-                          form.estilo_card === 'glass' ? 'bg-slate-800/30 backdrop-blur-md border border-white/10' :
-                          form.estilo_card === 'neon' ? 'bg-slate-950 border border-slate-600 shadow-lg' :
-                          'bg-slate-800/40 border border-slate-700/30'
+                          form.estilo_plantilla === 'minimalista'
+                            ? 'w-full lg:w-1/2 h-auto'
+                            : 'h-40',
+                          form.estilo_card === 'destacado'
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700'
+                            : form.estilo_card === 'glass'
+                            ? 'bg-slate-800/30 backdrop-blur-md border border-white/10'
+                            : form.estilo_card === 'neon'
+                            ? 'bg-slate-950 border border-slate-600 shadow-lg'
+                            : 'bg-slate-800/40 border border-slate-700/30',
                         ]"
-                        :style="form.estilo_card === 'neon' ? `box-shadow: 0 0 15px ${selectedArea.color_hex_principal}40; border-color: ${selectedArea.color_hex_principal}80` : ''"
+                        :style="
+                          form.estilo_card === 'neon'
+                            ? `box-shadow: 0 0 15px ${selectedArea.color_hex_principal}40; border-color: ${selectedArea.color_hex_principal}80`
+                            : ''
+                        "
                       >
                         <div class="space-y-1.5">
                           <div class="flex justify-between items-center">
-                            <div class="w-12 h-3 bg-slate-600 rounded-full opacity-60"></div>
-                            <div class="w-6 h-3 rounded-full opacity-40" :style="{ backgroundColor: selectedArea.color_hex_principal }"></div>
+                            <div
+                              class="w-12 h-3 bg-slate-600 rounded-full opacity-60"
+                            ></div>
+                            <div
+                              class="w-6 h-3 rounded-full opacity-40"
+                              :style="{
+                                backgroundColor: selectedArea.color_hex_principal,
+                              }"
+                            ></div>
                           </div>
-                          <div class="w-24 h-4 bg-slate-400 rounded-md mt-1 animate-pulse"></div>
+                          <div
+                            class="w-24 h-4 bg-slate-400 rounded-md mt-1 animate-pulse"
+                          ></div>
                         </div>
 
                         <div
@@ -1243,7 +1420,9 @@ const toggleSubtemas = (modulo) => {
                     </div>
                   </div>
 
-                  <div class="absolute right-3 bottom-3 text-[9px] text-slate-700 font-mono tracking-tight pointer-events-none select-none">
+                  <div
+                    class="absolute right-3 bottom-3 text-[9px] text-slate-700 font-mono tracking-tight pointer-events-none select-none"
+                  >
                     FYC Public Engine v2.1
                   </div>
                 </div>

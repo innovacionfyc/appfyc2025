@@ -813,7 +813,7 @@ const closeSpeakerModal = () => {
                   <div class="flex items-center justify-between">
                     <div>
                       <h3 class="text-xl font-black text-white tracking-tight">
-                        Asegura tu cupo
+                        Asegure su cupo
                       </h3>
                       <p
                         class="text-[10px] text-slate-500 font-bold uppercase tracking-widest"

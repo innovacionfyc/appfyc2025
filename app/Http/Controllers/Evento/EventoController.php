@@ -146,7 +146,6 @@ class EventoController extends Controller
     }
 
 
-
     public function update(Request $request, Evento $evento)
     {
         try {
@@ -247,8 +246,14 @@ class EventoController extends Controller
 
                 $evento->update($validated);
 
+                
+
                 if (!empty($validated['conferencistas'])) {
-                    $evento->conferencistas()->sync($validated['conferencistas']);
+                    $syncData = [];
+                    foreach ($validated['conferencistas'] as $index => $id) {
+                        $syncData[$id] = ['orden' => $index];
+                    }
+                    $evento->conferencistas()->sync($syncData);
                 }
             });
 
@@ -418,7 +423,12 @@ class EventoController extends Controller
                 ]);
 
                 if (!empty($validated['conferencistas'])) {
-                    $nuevoEvento->conferencistas()->sync($validated['conferencistas']);
+                    $syncData = [];
+                    foreach ($validated['conferencistas'] as $index => $id) {
+                        $syncData[$id] = ['orden' => $index];
+                    }
+
+                    $nuevoEvento->conferencistas()->sync($syncData);
                 }
 
                 return $nuevoEvento;
