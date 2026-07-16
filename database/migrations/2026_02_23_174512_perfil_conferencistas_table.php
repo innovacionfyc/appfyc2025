@@ -23,7 +23,6 @@ return new class extends Migration {
             $table->string('correo')->unique();
             $table->string('url_hv')->nullable();
             $table->json('areas_encargadas')->nullable();
-            $table->boolean('es_representante')->default(false);
 
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('update_by')->nullable();
