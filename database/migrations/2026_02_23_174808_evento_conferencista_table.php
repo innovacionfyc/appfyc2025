@@ -14,7 +14,6 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('evento_id')->constrained('eventos')->onDelete('cascade');
             $table->foreignId('conferencista_id')->constrained('perfil_conferencistas')->onDelete('cascade');
-            $table->integer('orden')->default(0); 
             $table->timestamps();
         });
     }

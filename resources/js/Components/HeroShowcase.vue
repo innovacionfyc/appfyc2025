@@ -424,7 +424,7 @@ const handleCardClick = (ev, index) => {
             class="text-base lg:text-xl text-slate-400 font-medium leading-snug drop-shadow-md"
           >
             Nuestro equipo académico está estructurando las próximas jornadas. Mantente
-            atento para asegure su cupo.
+            atento para asegurar tu cupo.
           </p>
 
           <div class="flex flex-wrap gap-4 pt-2">
