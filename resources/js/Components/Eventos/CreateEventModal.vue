@@ -708,27 +708,34 @@ const toggleSubtemas = (modulo) => {
                 </div>
               </div>
 
-<div v-if="conferencistasSeleccionados.length > 0" class="mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-      <h5 class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2">
-        Orden de aparición (Haz clic para remover)
-      </h5>
-      <div class="flex flex-wrap gap-2">
-        <div 
-          v-for="(s, index) in conferencistasSeleccionados" 
-          :key="s.id"
-          @click="toggleSpeaker(s.id)"
-          class="flex items-center gap-1.5 bg-white border border-rose-200 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-rose-50 transition-colors"
-        >
-          <span class="text-[10px] font-black text-rose-600 bg-rose-50 w-4 h-4 rounded-full flex items-center justify-center">
-            {{ index + 1 }}
-          </span>
-          <span class="text-[11px] font-bold text-slate-700">
-            {{ s.primer_nombre }} {{ s.primer_apellido }}
-          </span>
-          <X class="w-3 h-3 text-slate-400 hover:text-rose-600 ml-1" />
-        </div>
-      </div>
-    </div>
+              <div
+                v-if="conferencistasSeleccionados.length > 0"
+                class="mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100"
+              >
+                <h5
+                  class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2"
+                >
+                  Orden de aparición (Haz clic para remover)
+                </h5>
+                <div class="flex flex-wrap gap-2">
+                  <div
+                    v-for="(s, index) in conferencistasSeleccionados"
+                    :key="s.id"
+                    @click="toggleSpeaker(s.id)"
+                    class="flex items-center gap-1.5 bg-white border border-rose-200 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-rose-50 transition-colors"
+                  >
+                    <span
+                      class="text-[10px] font-black text-rose-600 bg-rose-50 w-4 h-4 rounded-full flex items-center justify-center"
+                    >
+                      {{ index + 1 }}
+                    </span>
+                    <span class="text-[11px] font-bold text-slate-700">
+                      {{ s.primer_nombre }} {{ s.primer_apellido }}
+                    </span>
+                    <X class="w-3 h-3 text-slate-400 hover:text-rose-600 ml-1" />
+                  </div>
+                </div>
+              </div>
               <div>
                 <h4
                   class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
@@ -795,7 +802,6 @@ const toggleSubtemas = (modulo) => {
                   </div>
                 </div>
               </div>
-              
 
               <h4
                 class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
