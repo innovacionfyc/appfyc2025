@@ -37,24 +37,7 @@ return new class extends Migration {
             $table->decimal('precio_curso_intensivo', 10, 2)->nullable();
             $table->decimal('precio_diplomado', 10, 2)->nullable();
             $table->text('texto_dinamico')->nullable();
-            $table->enum('tipo_evento', [
-                'SEMINARIO',
-                'JORNADA',
-                'MODULO',
-                'MODULO_VIRTUAL',
-                'CNG',
-                'CNG_VIRTUAL',
-                'CURSO_INTENSIVO_VIRTUAL',
-                'CURSO_INTENSIVO_HIBRIDO',
-                'DIPLOMADO_VIRTUAL',
-                'DIPLOMADO_HIBRIDO',
-                'CI_CNG',
-                'JOR_MOD',
-                'CUR_CNG_MOD_DUPLA',
-                'CUR_DUPLA',
-                'CNG_DUPLA',
-                'MOD_DUPLA'
-            ])->default('JORNADA');
+            $table->enum('tipo_evento', ['SEMINARIO','JORNADA', 'MODULO', 'CNG', 'CURSO_INTENSIVO', 'DIPLOMADO', 'CI_CNG', 'JOR_MOD'])->default('JORNADA');
             $table->boolean('tiene_oferta_valor')->default(FALSE);
             $table->string('oferta_valor')->nullable()->default('N/A');
             $table->string('color_hex_secundario', 7)->nullable();
