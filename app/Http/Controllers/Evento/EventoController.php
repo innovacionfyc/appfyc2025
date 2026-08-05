@@ -146,7 +146,7 @@ class EventoController extends Controller
     }
 
 
-    public function update(Request $request, Evento $evento)
+   public function update(Request $request, Evento $evento)
     {
         try {
             $validated = $request->validate([
@@ -163,12 +163,19 @@ class EventoController extends Controller
                 'fecha_hora_fin' => 'required|date|after_or_equal:fecha_hora_inicio',
                 'modalidad' => 'required|string|in:Presencial,Virtual,Híbrido',
                 'ubicacion' => 'nullable|string|max:255',
+                
+                // --- 10 CAMPOS DE PRECIOS ---
                 'precio_jornada' => 'nullable|numeric|min:0',
                 'precio_seminario' => 'nullable|numeric|min:0',
                 'precio_modulo' => 'nullable|numeric|min:0',
+                'precio_modulo_virtual' => 'nullable|numeric|min:0',
                 'precio_cng' => 'nullable|numeric|min:0',
-                'precio_curso_intensivo' => 'nullable|numeric|min:0',
-                'precio_diplomado' => 'nullable|numeric|min:0',
+                'precio_cng_virtual' => 'nullable|numeric|min:0',
+                'precio_curso_intensivo_hibrido' => 'nullable|numeric|min:0',
+                'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
+                'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
+                'precio_diplomado_virtual' => 'nullable|numeric|min:0',
+
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
                 'conferencistas' => 'required|array|min:1',
@@ -246,8 +253,6 @@ class EventoController extends Controller
 
                 $evento->update($validated);
 
-                
-
                 if (!empty($validated['conferencistas'])) {
                     $syncData = [];
                     foreach ($validated['conferencistas'] as $index => $id) {
@@ -292,12 +297,19 @@ class EventoController extends Controller
                 'fecha_hora_fin' => 'required|date|after_or_equal:fecha_hora_inicio',
                 'modalidad' => 'required|string|in:Presencial,Virtual,Híbrido',
                 'ubicacion' => 'nullable|string|max:255',
-                'precio_seminario' => 'nullable|numeric',
-                'precio_jornada' => 'nullable|numeric',
-                'precio_modulo' => 'nullable|numeric',
-                'precio_cng' => 'nullable|numeric',
-                'precio_curso_intensivo' => 'nullable|numeric',
-                'precio_diplomado' => 'nullable|numeric',
+                
+                // --- 10 CAMPOS DE PRECIOS ---
+                'precio_seminario' => 'nullable|numeric|min:0',
+                'precio_jornada' => 'nullable|numeric|min:0',
+                'precio_modulo' => 'nullable|numeric|min:0',
+                'precio_modulo_virtual' => 'nullable|numeric|min:0',
+                'precio_cng' => 'nullable|numeric|min:0',
+                'precio_cng_virtual' => 'nullable|numeric|min:0',
+                'precio_curso_intensivo_hibrido' => 'nullable|numeric|min:0',
+                'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
+                'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
+                'precio_diplomado_virtual' => 'nullable|numeric|min:0',
+
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
                 'conferencistas' => 'required|array|min:1',
@@ -312,7 +324,7 @@ class EventoController extends Controller
                 'url_folleto_secundario' => 'nullable|file|mimes:pdf',
                 'url_formulario_inscripcion' => 'required|url|max:255',
                 'estilo_temario' => 'nullable|string',
-                'estilos_expertos' => 'nullable|string',
+                'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
             ]);
@@ -346,8 +358,9 @@ class EventoController extends Controller
             $rutaImagen = null;
             $rutaFolleto = null;
             $rutaFolleto_secundario = null;
+            $eventoOrigen = null;
 
-            $copyServerFile = function ($path, $folder) {
+            $copyServerFile = function ($path, $folder) use (&$eventoOrigen, $request) {
                 if (!$path)
                     return null;
                 $cleanPath = str_replace(['/storage/', 'storage/'], '', $path);
@@ -385,7 +398,7 @@ class EventoController extends Controller
                 $rutaFolleto_secundario = $copyServerFile($eventoOrigen->url_folleto_secundario, 'eventos/folletos_secundarios');
             }
 
-            $evento = DB::transaction(function () use ($validated, $rutaImagen, $rutaFolleto, $rutaFolleto_secundario, $slugGenerado) {
+            $eventoCreado = DB::transaction(function () use ($validated, $rutaImagen, $rutaFolleto, $rutaFolleto_secundario, $slugGenerado) {
                 $contenido = ContenidoTematico::create([
                     'modulos' => $validated['contenido_tematico'],
                     'alcance' => $validated['subtitulo'] ?? null,
@@ -409,17 +422,27 @@ class EventoController extends Controller
                     'ubicacion' => $validated['ubicacion'],
                     'fecha_hora_inicio' => $validated['fecha_hora_inicio'],
                     'fecha_hora_fin' => $validated['fecha_hora_fin'],
+                    
+                    // --- ASIGNACIÓN DE LOS 10 PRECIOS ---
+                    'precio_seminario' => $validated['precio_seminario'] ?? 0,
                     'precio_jornada' => $validated['precio_jornada'] ?? 0,
                     'precio_modulo' => $validated['precio_modulo'] ?? 0,
+                    'precio_modulo_virtual' => $validated['precio_modulo_virtual'] ?? 0,
                     'precio_cng' => $validated['precio_cng'] ?? 0,
-                    'precio_curso_intensivo' => $validated['precio_curso_intensivo'] ?? 0,
-                    'precio_diplomado' => $validated['precio_diplomado'] ?? 0,
+                    'precio_cng_virtual' => $validated['precio_cng_virtual'] ?? 0,
+                    'precio_curso_intensivo_hibrido' => $validated['precio_curso_intensivo_hibrido'] ?? 0,
+                    'precio_curso_intensivo_virtual' => $validated['precio_curso_intensivo_virtual'] ?? 0,
+                    'precio_diplomado_hibrido' => $validated['precio_diplomado_hibrido'] ?? 0,
+                    'precio_diplomado_virtual' => $validated['precio_diplomado_virtual'] ?? 0,
+
                     'tiene_oferta_valor' => $validated['tiene_oferta_valor'],
                     'oferta_valor' => $validated['tiene_oferta_valor'] ? $validated['oferta_valor'] : null,
                     'color_hex_secundario' => $validated['color_hex_secundario'],
                     'texto_dinamico' => $validated['texto_dinamico'],
                     'estilo_temario' => $validated['estilo_temario'] ?? 'lista',
-                    'estilo_expertos' => $validated['estilos_expertos'] ?? 'lista',
+                    'estilo_expertos' => $validated['estilo_expertos'] ?? 'lista',
+                    'estilo_card' => $validated['estilo_card'] ?? 'minimalista',
+                    'estilo_plantilla' => $validated['estilo_plantilla'] ?? 'clasico',
                 ]);
 
                 if (!empty($validated['conferencistas'])) {
@@ -438,11 +461,11 @@ class EventoController extends Controller
                 tipo: $request->filled('id_origen_duplicado') ? 'duplicacion_manual' : 'registro',
                 modulo: 'eventos',
                 descripcion: $request->filled('id_origen_duplicado')
-                ? "El usuario duplicó el evento: " . $evento->titulo
-                : "El usuario creó el evento: " . $evento->titulo
+                ? "El usuario duplicó el evento: " . $eventoCreado->titulo
+                : "El usuario creó el evento: " . $eventoCreado->titulo
             );
 
-            return back()->with('success', '¡El evento "' . $evento->titulo . '" se ha procesado correctamente!');
+            return back()->with('success', '¡El evento "' . $eventoCreado->titulo . '" se ha procesado correctamente!');
 
         } catch (ValidationException $e) {
             throw $e;

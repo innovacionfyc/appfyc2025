@@ -302,57 +302,20 @@ const layoutConfig = computed(() => {
 });
 
 const preciosVisibles = computed(() => {
-  const tipo = evento?.tipo_evento;
+  const mapaPrecios = [
+    { label: "Jornada Completa", value: parseFloat(evento?.precio_jornada) || 0 },
+    { label: "Seminario", value: parseFloat(evento?.precio_seminario) || 0 },
+    { label: "Módulo Presencial", value: parseFloat(evento?.precio_modulo) || 0 },
+    { label: "Módulo Virtual", value: parseFloat(evento?.precio_modulo_virtual) || 0 },
+    { label: "Congreso Presencial", value: parseFloat(evento?.precio_cng) || 0 },
+    { label: "Congreso Virtual", value: parseFloat(evento?.precio_cng_virtual) || 0 },
+    { label: "Curso Intensivo Híbrido", value: parseFloat(evento?.precio_curso_intensivo_hibrido) || 0 },
+    { label: "Curso Intensivo Virtual", value: parseFloat(evento?.precio_curso_intensivo_virtual) || 0 },
+    { label: "Diplomado Híbrido", value: parseFloat(evento?.precio_diplomado_hibrido) || 0 },
+    { label: "Diplomado Virtual", value: parseFloat(evento?.precio_diplomado_virtual) || 0 },
+  ];
 
-  const lista = [];
-
-  const mapaPrecios = {
-    jornada: {
-      label: "Jornada Completa",
-      value: parseFloat(evento?.precio_jornada) || 0,
-    },
-
-    seminario: { label: "Seminario", value: parseFloat(evento?.precio_seminario) || 0 },
-
-    diplomado: { label: "Diplomado", value: parseFloat(evento?.precio_diplomado) || 0 },
-
-    modulo: { label: "Por Módulo", value: parseFloat(evento?.precio_modulo) || 0 },
-
-    cng: { label: "Congreso", value: parseFloat(evento?.precio_cng) || 0 },
-
-    curso_intensivo: {
-      label: "Curso Intensivo",
-      value: parseFloat(evento?.precio_curso_intensivo) || 0,
-    },
-  };
-
-  if (tipo === "CI_CNG") {
-    if (mapaPrecios.curso_intensivo.value > 0) lista.push(mapaPrecios.curso_intensivo);
-
-    if (mapaPrecios.cng.value > 0) lista.push(mapaPrecios.cng);
-  } else if (tipo === "JOR_MOD") {
-    if (mapaPrecios.jornada.value > 0) lista.push(mapaPrecios.jornada);
-    if (mapaPrecios.modulo.value > 0) lista.push(mapaPrecios.modulo);
-  } else {
-    const campoDirecto = {
-      SEMINARIO: "seminario",
-      JORNADA: "jornada",
-      MODULO: "modulo",
-      CNG: "cng",
-      CURSO_INTENSIVO: "curso_intensivo",
-      DIPLOMADO: "diplomado",
-    }[tipo];
-
-    if (campoDirecto && mapaPrecios[campoDirecto].value > 0) {
-      lista.push(mapaPrecios[campoDirecto]);
-    } else {
-      const fallbackValido = Object.values(mapaPrecios).find((p) => p.value > 0);
-
-      if (fallbackValido) lista.push(fallbackValido);
-    }
-  }
-
-  return lista;
+  return mapaPrecios.filter((item) => item.value > 0);
 });
 
 const selectedSpeaker = ref(null);
@@ -579,7 +542,7 @@ const closeSpeakerModal = () => {
                   <div class="flex items-center gap-3 flex-wrap">
                     <BtnSecundario
                       v-if="evento?.url_folleto && evento?.tipo_evento !== 'CI_CNG'"
-                      :label="'Folleto ' + evento.tipo_evento"
+                      :label="'Folleto informativo'"
                       icon="download"
                       target="_blank"
                       :href="'/storage/' + evento.url_folleto"
@@ -638,7 +601,7 @@ const closeSpeakerModal = () => {
                         }"
                       ></div>
 
-                      <div class="flex items-start gap-4 mb-4">
+                      <div class="flex items-center gap-4 mb-4">
                         <div
                           class="flex flex-col items-center justify-center font-black rounded-xl shrink-0 border"
                           :class="
@@ -658,7 +621,7 @@ const closeSpeakerModal = () => {
                           {{ index + 1 < 10 ? "0" + (index + 1) : index + 1 }}
                         </div>
 
-                        <div class="flex justify-center pt-0.5">
+                        <div class="flex justify-center items-center pt-0.5">
                           <h4
                             class="font-extrabold text-slate-800 leading-snug w-full"
                             :class="
@@ -667,7 +630,7 @@ const closeSpeakerModal = () => {
                                 : 'text-[17px] md:text-[18px]'
                             "
                           >
-                            {{ modulo.tema }}
+                            {{ modulo.tema }} 
                           </h4>
                         </div>
                       </div>
@@ -805,7 +768,7 @@ const closeSpeakerModal = () => {
                 </div>
               </div>
 
-              <div :class="layoutConfig.cardPrecio">
+             <div :class="layoutConfig.cardPrecio">
                 <!-- 1. MODO: MINIMALISTA (Gris Oscuro - Sobrio y profesional) -->
                 <template
                   v-if="evento?.estilo_card === 'minimalista' || !evento?.estilo_card"
@@ -841,43 +804,45 @@ const closeSpeakerModal = () => {
                         </div>
                       </div>
 
-                      <div class="py-4 border-y border-slate-800 my-2">
-                        <div v-if="preciosVisibles.length > 1" class="flex justify-between items-center gap-5">
+                      <!-- PRECIOS UNIFORMES EN COLUMNA -->
+                      <div class="py-2 border-y border-slate-800 my-1">
+                        <div v-if="preciosVisibles.length > 1" class="flex flex-col gap-2.5 max-h-[150px] overflow-y-auto custom-scroll pr-1">
                           <div
                             v-for="(item, idx) in preciosVisibles"
                             :key="idx"
-                            class="flex w-full items-center justify-between bg-slate-800/50 border border-slate-700/50 px-4 py-3 rounded-2xl"
+                            class="flex w-full items-center justify-between bg-slate-800/50 border border-slate-700/50 px-4 py-2.5 rounded-2xl"
                           >
                             <div class="flex flex-col">
-                              <span class="text-white text-2xl font-black">{{
+                              <span
+                                class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest"
+                                >{{ item.label }}</span
+                              >
+                              <span class="text-white text-lg font-black">{{
                                 formatPrice(item.value)
                               }}</span>
-                              <span
-                                class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest mt-0.5"
-                                >{{ item.label }} • IVA Incl.</span
-                              >
                             </div>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase">IVA Incl.</span>
                           </div>
                         </div>
                         <div
                           v-else-if="preciosVisibles.length === 1"
-                          class="flex flex-col"
+                          class="flex flex-col py-2"
                         >
-                          <p class="text-white text-5xl font-black">
+                          <p class="text-white text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
                           <p
-                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2"
+                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1"
                           >
                             Inversión Total • IVA Incl.
                           </p>
                         </div>
-                        <div v-else class="flex flex-col">
-                          <p class="text-white text-5xl font-black">Cargando...</p>
+                        <div v-else class="flex flex-col py-2">
+                          <p class="text-white text-4xl font-black">Gratuito</p>
                           <p
-                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2"
+                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1"
                           >
-                            Espere mientras obtenemos resultados...
+                            Acceso Libre
                           </p>
                         </div>
                       </div>
@@ -894,7 +859,7 @@ const closeSpeakerModal = () => {
                                 evento?.area_formacion?.color_hex_principal || '#fff',
                             }"
                           />
-                          <p class="text-[16px] font-medium">
+                          <p class="text-[15px] font-medium">
                             {{ evento.modalidad }} · {{ evento.ubicacion }}
                           </p>
                         </div>
@@ -922,14 +887,13 @@ const closeSpeakerModal = () => {
                       }, #1e293b)`,
                     }"
                   >
-                    <!-- Decoración abstracta de fondo -->
                     <div
                       class="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiNmZmYiLz48L3N2Zz4=')]"
                     ></div>
 
                     <div class="relative z-10 flex flex-col gap-5 h-full justify-between">
-                      <div class="flex items-center justify-between  gap-2">
-                         <div>
+                      <div class="flex items-center justify-between gap-2">
+                        <div>
                           <h3 class="text-xl font-bold text-white tracking-tight">
                             Asegure su cupo
                           </h3>
@@ -941,51 +905,49 @@ const closeSpeakerModal = () => {
                         </div>
                         
                         <div
-                          class="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm"
+                          class="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm shrink-0"
                         >
                           <MapPin class="w-3.5 h-3.5 text-white" />
-                          <span class="text-[14px] font-bold text-white uppercase">{{
+                          <span class="text-[12px] font-bold text-white uppercase">{{
                             evento?.modalidad
                           }}</span>
                         </div>
                       </div>
 
+                      <!-- PRECIOS UNIFORMES EN COLUMNA -->
                       <div
-                        class="bg-black/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 my-2"
+                        class="bg-black/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 my-1"
                       >
-                        <div v-if="preciosVisibles.length > 1" class="space-y-3">
+                        <div v-if="preciosVisibles.length > 1" class="flex flex-col gap-2.5 max-h-[150px] overflow-y-auto custom-scroll pr-1">
                           <div
                             v-for="(item, idx) in preciosVisibles"
                             :key="idx"
-                            class="flex items-center justify-between border-b border-white/10 pb-3 last:border-0 last:pb-0"
+                            class="flex items-center justify-between border-b border-white/10 pb-2.5 last:border-0 last:pb-0"
                           >
                             <span
-                              class="text-[11px] text-white/80 font-bold uppercase tracking-widest"
+                              class="text-[11px] text-white/80 font-bold uppercase tracking-widest pr-2"
                               >{{ item.label }}</span
                             >
-
-                            <div class="flex flex-col text-white">
-                             <span class=" text-xl font-black"
-                              >{{ formatPrice(item.value) }}
-                            </span>
-                             <span class="text-xs font-light"> Inversión Total • IVA Incl.</span>
+                            <div class="flex flex-col text-right shrink-0">
+                              <span class="text-white text-lg font-black"
+                                >{{ formatPrice(item.value) }}
+                              </span>
+                              <span class="text-[9px] text-white/70 font-light">IVA Incl.</span>
                             </div>
-                           
                           </div>
-                        
                         </div>
-                        <div v-else-if="preciosVisibles.length === 1" class="text-center">
-                          <p class="text-white text-5xl font-black">
+                        <div v-else-if="preciosVisibles.length === 1" class="text-center py-1">
+                          <p class="text-white text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
                           <p
-                            class="text-[10px] text-white/70 font-black uppercase tracking-widest mt-2"
+                            class="text-[10px] text-white/70 font-black uppercase tracking-widest mt-1"
                           >
                             Inversión Total • IVA Incl.
                           </p>
                         </div>
-                        <div v-else class="text-center">
-                          <p class="text-white text-5xl font-black">Gratuito</p>
+                        <div v-else class="text-center py-1">
+                          <p class="text-white text-4xl font-black">Gratuito</p>
                         </div>
                       </div>
 
@@ -995,7 +957,7 @@ const closeSpeakerModal = () => {
                           class="flex items-center justify-center gap-2 text-white/90"
                         >
                           <Pin class="w-4 h-4 shrink-0" />
-                          <p class="text-[17px] font-medium text-center">
+                          <p class="text-[16px] font-medium text-center">
                             {{ evento.ubicacion }}
                           </p>
                         </div>
@@ -1017,7 +979,6 @@ const closeSpeakerModal = () => {
                   <div
                     class="relative w-full rounded-3xl min-h-[350px] overflow-hidden bg-slate-50 border border-slate-200"
                   >
-                    <!-- Mancha de color detrás del cristal para que el blur resalte -->
                     <div
                       class="absolute -bottom-20 -left-20 w-72 h-72 opacity-40 blur-[70px] rounded-full pointer-events-none"
                       :style="{
@@ -1050,46 +1011,51 @@ const closeSpeakerModal = () => {
                                 evento?.area_formacion?.color_hex_principal || '#3b82f6',
                             }"
                           />
-                          <span class="text-[14px] font-bold text-slate-700 uppercase">{{
+                          <span class="text-[12px] font-bold text-slate-700 uppercase">{{
                             evento?.modalidad
                           }}</span>
                         </div>
                       </div>
 
-                      <div class="py-4 border-y border-slate-200/60 my-2">
-                        <div v-if="preciosVisibles.length > 1" class="flex items-center justify-between">
+                      <!-- PRECIOS UNIFORMES EN COLUMNA -->
+                      <div class="py-2 border-y border-slate-200/60 my-1">
+                      <!-- Indicador visual flotante si hay más de 2 precios para guiar al usuario -->
+  <div v-if="preciosVisibles.length > 2" class="absolute top-3 right-2 bg-slate-800 text-slate-300 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shadow-sm border border-slate-700 animate-pulse pointer-events-none z-10">
+    ↓ Desliza para ver más
+  </div>
+                        <div v-if="preciosVisibles.length > 1" class="flex flex-col gap-2.5 max-h-[150px] overflow-y-auto custom-scroll pr-1">
                           <div
                             v-for="(item, idx) in preciosVisibles"
                             :key="idx"
-                            class="flex w-full items-center justify-between bg-white/50 border border-white px-4 py-3 rounded-2xl shadow-sm"
+                            class="flex w-full items-center justify-between bg-white/50 border border-white px-4 py-2.5 rounded-2xl shadow-sm"
                           >
                             <div class="flex flex-col">
-                              <span class="text-slate-800 text-2xl font-black">{{
+                              <span
+                                class="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest"
+                                >{{ item.label }}</span
+                              >
+                              <span class="text-slate-800 text-lg font-black">{{
                                 formatPrice(item.value)
                               }}</span>
-                              
-                              <span
-                                class="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest mt-0.5"
-                                >{{ item.label }} • IVA Incl.</span
-                              >
                             </div>
+                            <span class="text-[9px] text-slate-400 font-bold uppercase">IVA Incl.</span>
                           </div>
                         </div>
                         <div
                           v-else-if="preciosVisibles.length === 1"
-                          class="flex flex-col"
+                          class="flex flex-col py-2"
                         >
-                          <p class="text-slate-800 text-5xl font-black">
+                          <p class="text-slate-800 text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
                           <p
-                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2"
+                            class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1"
                           >
                             Inversión Total • IVA Incl.
                           </p>
                         </div>
-                        <div v-else class="flex flex-col">
-                          <p class="text-slate-800 text-5xl font-black">Gratuito</p>
+                        <div v-else class="flex flex-col py-2">
+                          <p class="text-slate-800 text-4xl font-black">Gratuito</p>
                         </div>
                       </div>
 
@@ -1105,7 +1071,7 @@ const closeSpeakerModal = () => {
                                 evento?.area_formacion?.color_hex_principal || '#3b82f6',
                             }"
                           />
-                          <p class="text-[18px] font-medium">
+                          <p class="text-[16px] font-medium">
                             {{ evento.modalidad }} · {{ evento.ubicacion }}
                           </p>
                         </div>
@@ -1165,14 +1131,15 @@ const closeSpeakerModal = () => {
                                 evento?.area_formacion?.color_hex_principal || '#0ea5e9',
                             }"
                           />
-                          <span class="text-[14px] font-bold text-white uppercase">{{
+                          <span class="text-[12px] font-bold text-white uppercase">{{
                             evento?.modalidad
                           }}</span>
                         </div>
                       </div>
 
+                      <!-- PRECIOS UNIFORMES EN COLUMNA -->
                       <div
-                        class="py-4 my-2"
+                        class="py-2 my-1"
                         :style="{
                           borderTop: `1px dashed ${
                             evento?.area_formacion?.color_hex_principal || '#0ea5e9'
@@ -1182,11 +1149,11 @@ const closeSpeakerModal = () => {
                           }50`,
                         }"
                       >
-                        <div v-if="preciosVisibles.length > 1" class="flex items-center justify-between gap-5">
+                        <div v-if="preciosVisibles.length > 1" class="flex flex-col gap-2.5 max-h-[150px] overflow-y-auto custom-scroll pr-1">
                           <div
                             v-for="(item, idx) in preciosVisibles"
                             :key="idx"
-                            class="flex w-full items-center justify-between px-4 py-3 rounded-2xl bg-white/5"
+                            class="flex w-full items-center justify-between px-4 py-2.5 rounded-2xl bg-white/5"
                             :style="{
                               border: `1px solid ${
                                 evento?.area_formacion?.color_hex_principal || '#0ea5e9'
@@ -1194,41 +1161,42 @@ const closeSpeakerModal = () => {
                             }"
                           >
                             <div class="flex flex-col">
-                              <span class="text-white text-2xl font-black">{{
-                                formatPrice(item.value)
-                              }}</span>
                               <span
-                                class="text-[10px] font-extrabold uppercase tracking-widest mt-0.5"
+                                class="text-[10px] font-extrabold uppercase tracking-widest"
                                 :style="{
                                   color:
                                     evento?.area_formacion?.color_hex_principal ||
                                     '#0ea5e9',
                                 }"
-                                >{{ item.label }} • IVA Incl.</span
+                                >{{ item.label }}</span
                               >
+                              <span class="text-white text-lg font-black">{{
+                                formatPrice(item.value)
+                              }}</span>
                             </div>
+                            <span class="text-[9px] text-slate-400 font-bold uppercase">IVA Incl.</span>
                           </div>
                         </div>
-                        <div v-else-if="preciosVisibles.length === 1" class="flex">
+                        <div v-else-if="preciosVisibles.length === 1" class="flex flex-col py-2">
                           <p
-                            class="text-white text-5xl font-black"
+                            class="text-white text-4xl font-black"
                             :style="{
                               textShadow: `0 0 15px ${
                                 evento?.area_formacion?.color_hex_principal || '#0ea5e9'
                               }80`,
                             }"
                           >
-                            {{ formatPrice(preciosVisibles[0].value) }}ggg
+                            {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
                           <p
-                            class="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2"
+                            class="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1"
                           >
                             Inversión Total • IVA Incl.
                           </p>
                         </div>
-                        <div v-else class="flex flex-col">
+                        <div v-else class="flex flex-col py-2">
                           <p
-                            class="text-white text-5xl font-black"
+                            class="text-white text-4xl font-black"
                             :style="{
                               textShadow: `0 0 15px ${
                                 evento?.area_formacion?.color_hex_principal || '#0ea5e9'
@@ -1252,7 +1220,7 @@ const closeSpeakerModal = () => {
                                 evento?.area_formacion?.color_hex_principal || '#0ea5e9',
                             }"
                           />
-                          <p class="text-[18px] font-medium">
+                          <p class="text-[16px] font-medium">
                             {{ evento.modalidad }} · {{ evento.ubicacion }}
                           </p>
                         </div>

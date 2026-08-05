@@ -80,15 +80,21 @@ const form = useForm({
   estilo_temario: "lista",
   estilo_expertos: "lista",
   estilo_plantilla: "clasico",
-  estilo_card: "",
+  estilo_card: "minimalista",
   texto_dinamico: "",
   tipo_evento: null,
-  precio_seminario: 0,
+
   precio_jornada: 0,
+  precio_seminario: 0,
   precio_modulo: 0,
+  precio_modulo_virtual: 0,
   precio_cng: 0,
-  precio_curso_intensivo: 0,
-  precio_diplomado: 0,
+  precio_cng_virtual: 0,
+  precio_curso_intensivo_hibrido: 0,
+  precio_curso_intensivo_virtual: 0,
+  precio_diplomado_hibrido: 0,
+  precio_diplomado_virtual: 0,
+
   imagen_relacionada: null,
   url_folleto: null,
   url_formulario_inscripcion: null,
@@ -102,19 +108,35 @@ const form = useForm({
 });
 
 const camposPrecioActivos = computed(() => {
-  const map = {
-    JORNADA: ["precio_jornada"],
-    SEMINARIO: ["precio_seminario"],
-    MODULO: ["precio_modulo"],
-    CNG: ["precio_cng"],
-    CURSO_INTENSIVO: ["precio_curso_intensivo"],
-    DIPLOMADO: ["precio_diplomado"],
-    CI_CNG: ["precio_curso_intensivo", "precio_cng"],
-    JOR_MOD: ["precio_jornada", "precio_modulo"],
+  const mapa = {
+    'SEMINARIO': ['precio_seminario'],
+    'JORNADA': ['precio_jornada'],
+    'MODULO': ['precio_modulo'],
+    'MODULO_VIRTUAL': ['precio_modulo_virtual'],
+    'CNG': ['precio_cng'],
+    'CNG_VIRTUAL': ['precio_cng_virtual'],
+    'CURSO_INTENSIVO_VIRTUAL': ['precio_curso_intensivo_virtual'],
+    'CURSO_INTENSIVO_HIBRIDO': ['precio_curso_intensivo_hibrido'],
+    'DIPLOMADO_VIRTUAL': ['precio_diplomado_virtual'],
+    'DIPLOMADO_HIBRIDO': ['precio_diplomado_hibrido'],
+    
+    // Combos / Duplas (hasta 5 precios simultáneos si es necesario)
+    'CI_CNG': ['precio_curso_intensivo_hibrido', 'precio_cng'],
+    'JOR_MOD': ['precio_jornada', 'precio_modulo'],
+    'CUR_CNG_MOD_DUPLA': [
+      'precio_curso_intensivo_hibrido', 
+      'precio_curso_intensivo_virtual', 
+      'precio_cng',
+      'precio_cng_virtual', 
+      'precio_modulo_virtual'
+    ],
+    'CUR_DUPLA': ['precio_curso_intensivo_hibrido', 'precio_curso_intensivo_virtual'],
+    'CNG_DUPLA': ['precio_cng', 'precio_cng_virtual'],
+    'MOD_DUPLA': ['precio_modulo', 'precio_modulo_virtual']
   };
-  return map[form.tipo_evento] || [];
-});
 
+  return mapa[form.tipo_evento] || [];
+});
 const selectedArea = computed(
   () =>
     props.areas.find((a) => a.id === form.area_formacion_id) || {
@@ -214,9 +236,13 @@ const clearForm = () => {
   form.precio_jornada = 0;
   form.precio_seminario = 0;
   form.precio_modulo = 0;
+  form.precio_modulo_virtual = 0;
   form.precio_cng = 0;
-  form.precio_curso_intensivo = 0;
-  form.precio_diplomado = 0;
+  form.precio_cng_virtual = 0;
+  form.precio_curso_intensivo_hibrido = 0;
+  form.precio_curso_intensivo_virtual = 0;
+  form.precio_diplomado_hibrido = 0;
+  form.precio_diplomado_virtual = 0;
 
   form.tiene_oferta_valor = false;
   form.oferta_valor = "N/A";
@@ -228,7 +254,7 @@ const clearForm = () => {
   form.estilo_temario = "lista";
   form.estilo_expertos = "lista";
   form.estilo_plantilla = "";
-  form.estilo_card = "";
+  form.estilo_card = "minimalista";
   form.texto_dinamico = "";
 
   form.imagen_relacionada = null;
@@ -268,9 +294,13 @@ watch(
         form.precio_jornada = evento.precio_jornada || 0;
         form.precio_seminario = evento.precio_seminario || 0;
         form.precio_modulo = evento.precio_modulo || 0;
+        form.precio_modulo_virtual = evento.precio_modulo_virtual || 0;
         form.precio_cng = evento.precio_cng || 0;
-        form.precio_curso_intensivo = evento.precio_curso_intensivo || 0;
-        form.precio_diplomado = evento.precio_diplomado || 0;
+        form.precio_cng_virtual = evento.precio_cng_virtual || 0;
+        form.precio_curso_intensivo_hibrido = evento.precio_curso_intensivo_hibrido || 0;
+        form.precio_curso_intensivo_virtual = evento.precio_curso_intensivo_virtual || 0;
+        form.precio_diplomado_hibrido = evento.precio_diplomado_hibrido || 0;
+        form.precio_diplomado_virtual = evento.precio_diplomado_virtual || 0;
 
         form.tiene_oferta_valor = !!evento.oferta_valor;
         form.oferta_valor = evento.oferta_valor || null;
@@ -337,9 +367,13 @@ const submit = () => {
         "precio_jornada",
         "precio_seminario",
         "precio_modulo",
+        "precio_modulo_virtual",
         "precio_cng",
-        "precio_curso_intensivo",
-        "precio_diplomado",
+        "precio_cng_virtual",
+        "precio_curso_intensivo_hibrido",
+        "precio_curso_intensivo_virtual",
+        "precio_diplomado_hibrido",
+        "precio_diplomado_virtual",
       ];
       todosLosPrecios.forEach((campo) => {
         if (!camposPrecioActivos.value.includes(campo)) data[campo] = 0;
@@ -498,7 +532,7 @@ const toggleSubtemas = (modulo) => {
                   type="select"
                   v-model="form.modalidad"
                   :error="form.errors.modalidad"
-                  :options="['Presencial', 'Virtual', 'Híbrido']"
+                  :options="['Presencial', 'Virtual', 'Híbrida', 'Híbrido']"
                   :activeColor="selectedArea.color_hex_principal"
                   icon="sensors"
                   required
@@ -514,82 +548,98 @@ const toggleSubtemas = (modulo) => {
                   required
                 />
               </div>
-              <div class="flex items-center justify-between gap-4">
-                <FormInput
-                  label="Tipo de Evento"
-                  type="select"
-                  v-model="form.tipo_evento"
-                  :options="[
-                    'SEMINARIO',
-                    'JORNADA',
-                    'MODULO',
-                    'CNG',
-                    'CURSO_INTENSIVO',
-                    'DIPLOMADO',
-                    'CI_CNG',
-                    'JOR_MOD',
-                  ]"
-                  icon="category"
-                  :activeColor="selectedArea.color_hex_principal"
-                  :error="form.errors.tipo_evento"
-                  required
-                />
+             <div class="space-y-6">
+  <!-- Selector Principal -->
+  <FormInput
+    label="Tipo de Evento"
+    type="select"
+    v-model="form.tipo_evento"
+    :options="[
+      'SEMINARIO', 'JORNADA', 'MODULO', 'MODULO_VIRTUAL', 'CNG', 'CNG_VIRTUAL',
+      'CURSO_INTENSIVO_VIRTUAL', 'CURSO_INTENSIVO_HIBRIDO', 'DIPLOMADO_VIRTUAL',
+      'DIPLOMADO_HIBRIDO', 'CI_CNG', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA', 'CUR_DUPLA',
+      'CNG_DUPLA', 'MOD_DUPLA'
+    ]"
+    icon="category"
+    :activeColor="selectedArea?.color_hex_principal"
+    :error="form.errors.tipo_evento"
+    required
+  />
 
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_jornada')"
-                  label="Precio Jornada"
-                  type="number"
-                  v-model="form.precio_jornada"
-                  icon="payments"
-                  :error="form.errors.precio_jornada"
-                  required
-                />
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_seminario')"
-                  label="Precio Seminario"
-                  type="number"
-                  v-model="form.precio_seminario"
-                  icon="payments"
-                  :error="form.errors.precio_seminario"
-                  required
-                />
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_modulo')"
-                  label="Precio Módulo"
-                  type="number"
-                  v-model="form.precio_modulo"
-                  icon="payments"
-                  :error="form.errors.precio_modulo"
-                  required
-                />
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_cng')"
-                  label="Precio CNG"
-                  type="number"
-                  v-model="form.precio_cng"
-                  icon="payments"
-                  :error="form.errors.precio_cng"
-                  required
-                />
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_curso_intensivo')"
-                  label="Precio Curso Intensivo"
-                  type="number"
-                  v-model="form.precio_curso_intensivo"
-                  icon="payments"
-                  :error="form.errors.precio_curso_intensivo"
-                  required
-                />
-                <FormInput
-                  v-if="camposPrecioActivos.includes('precio_diplomado')"
-                  label="Precio Diplomado"
-                  type="number"
-                  v-model="form.precio_diplomado"
-                  icon="payments"
-                  :error="form.errors.precio_diplomado"
-                  required
-                />
-              </div>
+  <!-- Grid Dinámico de Precios -->
+  <div v-if="camposPrecioActivos.length > 0" class="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4">
+    <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Configuración de Tarifas
+    </h4>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-end">
+      
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_jornada')"
+        label="Precio Jornada" type="number" v-model="form.precio_jornada"
+        icon="payments" :error="form.errors.precio_jornada" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_seminario')"
+        label="Precio Seminario" type="number" v-model="form.precio_seminario"
+        icon="payments" :error="form.errors.precio_seminario" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_modulo')"
+        label="Precio Módulo (Presencial)" type="number" v-model="form.precio_modulo"
+        icon="payments" :error="form.errors.precio_modulo" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_modulo_virtual')"
+        label="Precio Módulo (Virtual)" type="number" v-model="form.precio_modulo_virtual"
+        icon="payments" :error="form.errors.precio_modulo_virtual" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_cng')"
+        label="Precio Congreso (Presencial)" type="number" v-model="form.precio_cng"
+        icon="payments" :error="form.errors.precio_cng" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_cng_virtual')"
+        label="Precio Congreso (Virtual)" type="number" v-model="form.precio_cng_virtual"
+        icon="payments" :error="form.errors.precio_cng_virtual" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_curso_intensivo_hibrido')"
+        label="Curso Intensivo (Híbrido)" type="number" v-model="form.precio_curso_intensivo_hibrido"
+        icon="payments" :error="form.errors.precio_curso_intensivo_hibrido" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_curso_intensivo_virtual')"
+        label="Curso Intensivo (Virtual)" type="number" v-model="form.precio_curso_intensivo_virtual"
+        icon="payments" :error="form.errors.precio_curso_intensivo_virtual" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_diplomado_hibrido')"
+        label="Diplomado (Híbrido)" type="number" v-model="form.precio_diplomado_hibrido"
+        icon="payments" :error="form.errors.precio_diplomado_hibrido" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_diplomado_virtual')"
+        label="Diplomado (Virtual)" type="number" v-model="form.precio_diplomado_virtual"
+        icon="payments" :error="form.errors.precio_diplomado_virtual" required
+      />
+
+    </div>
+  </div>
+</div>
             </div>
 
             <div v-if="currentStep === 3" class="space-y-6 animate-in">

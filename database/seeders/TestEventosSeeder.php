@@ -65,7 +65,12 @@ class TestEventosSeeder extends Seeder
         // ==========================================
         $this->command->info('Creando 10 Eventos y asignando conferencistas...');
 
-        $tiposEvento = ['SEMINARIO', 'JORNADA', 'MODULO', 'CNG', 'CURSO_INTENSIVO', 'DIPLOMADO', 'CI_CNG', 'JOR_MOD'];
+        // Lista actualizada de tipos de evento
+        $tiposEvento = [
+            'SEMINARIO', 'JORNADA', 'MODULO', 'MODULO_VIRTUAL', 'CNG', 'CNG_VIRTUAL', 
+            'CURSO_INTENSIVO_VIRTUAL', 'CURSO_INTENSIVO_HIBRIDO', 'DIPLOMADO_VIRTUAL', 
+            'DIPLOMADO_HIBRIDO', 'CI_CNG', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA'
+        ];
         
         for ($i = 0; $i < 10; $i++) {
             // Contenido Temático
@@ -94,12 +99,12 @@ class TestEventosSeeder extends Seeder
             $fechaInicio = Carbon::now()->addDays($diasOffset)->setTime(8, 0);
             $fechaFin = (clone $fechaInicio)->addDays(rand(0, 2))->setTime(17, 0);
 
-            // Crear el Evento
+            // Crear el Evento con los 10 campos de precios sincronizados
             $eventoId = DB::table('eventos')->insertGetId([
                 'organizador_id' => $organizadorId,
                 'contenido_tematico_id' => $contenidoTematicoId,
                 'estado_id' => $estadoId,
-                'area_formacion_id' => $faker->randomElement($areasIds), // Usa un ID real de tu DB
+                'area_formacion_id' => $faker->randomElement($areasIds),
                 'formulario_base_id' => null,
                 
                 'modo_evento' => 'Jornada de actualización',
@@ -110,19 +115,24 @@ class TestEventosSeeder extends Seeder
                 
                 'modalidad' => $modalidad,
                 'url_folleto' => 'dummy-brochure.pdf',
-                'url_folleto_secundario' => $tipo === 'CI_CNG' ? 'dummy-congreso.pdf' : null,
+                'url_folleto_secundario' => in_array($tipo, ['CI_CNG']) ? 'dummy-congreso.pdf' : null,
                 'url_formulario_inscripcion' => 'https://docs.google.com/forms/d/e/1FAIpQLSc...',
                 'ubicacion' => $modalidad === 'Virtual' ? null : 'Hotel Tequendama, Bogotá',
                 
                 'fecha_hora_inicio' => $fechaInicio,
                 'fecha_hora_fin' => $fechaFin,
                 
-                'precio_jornada' => in_array($tipo, ['JORNADA', 'JOR_MOD']) ? 1200000 : 0,
-                'precio_seminario' => $tipo === 'SEMINARIO' ? 950000 : 0,
-                'precio_modulo' => in_array($tipo, ['MODULO', 'JOR_MOD']) ? 600000 : 0,
-                'precio_cng' => in_array($tipo, ['CNG', 'CI_CNG']) ? 1950000 : 0,
-                'precio_curso_intensivo' => in_array($tipo, ['CURSO_INTENSIVO', 'CI_CNG']) ? 2195000 : 0,
-                'precio_diplomado' => $tipo === 'DIPLOMADO' ? 3500000 : 0,
+                // --- 10 CAMPOS DE PRECIOS ---
+                'precio_jornada'                  => in_array($tipo, ['JORNADA', 'JOR_MOD']) ? 1200000 : 0,
+                'precio_seminario'                => $tipo === 'SEMINARIO' ? 950000 : 0,
+                'precio_modulo'                   => in_array($tipo, ['MODULO', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA']) ? 600000 : 0,
+                'precio_modulo_virtual'           => $tipo === 'MODULO_VIRTUAL' ? 450000 : 0,
+                'precio_cng'                      => in_array($tipo, ['CNG', 'CI_CNG', 'CUR_CNG_MOD_DUPLA']) ? 1950000 : 0,
+                'precio_cng_virtual'              => $tipo === 'CNG_VIRTUAL' ? 1400000 : 0,
+                'precio_curso_intensivo_hibrido'  => in_array($tipo, ['CURSO_INTENSIVO_HIBRIDO', 'CI_CNG', 'CUR_CNG_MOD_DUPLA']) ? 2195000 : 0,
+                'precio_curso_intensivo_virtual'  => $tipo === 'CURSO_INTENSIVO_VIRTUAL' ? 1750000 : 0,
+                'precio_diplomado_hibrido'        => $tipo === 'DIPLOMADO_HIBRIDO' ? 3500000 : 0,
+                'precio_diplomado_virtual'        => $tipo === 'DIPLOMADO_VIRTUAL' ? 2800000 : 0,
                 
                 'tipo_evento' => $tipo,
                 'tiene_oferta_valor' => $faker->boolean(50),
@@ -138,7 +148,7 @@ class TestEventosSeeder extends Seeder
                 'updated_at' => now(),
             ]);
 
-            // Tabla pivote: Asignar 1 a 4 conferencistas a este evento
+            // Tabla pivote: Asignar de 1 a 4 conferencistas a este evento
             $conferencistasAsignados = $faker->randomElements($conferencistasIds, rand(1, 4));
             
             foreach ($conferencistasAsignados as $confId) {
@@ -151,6 +161,6 @@ class TestEventosSeeder extends Seeder
             }
         }
 
-        $this->command->info('¡Todo listo! Ve a probar tu interfaz.');
+        $this->command->info('¡Seeders ejecutados con éxito! Datos de prueba listos.');
     }
 }
