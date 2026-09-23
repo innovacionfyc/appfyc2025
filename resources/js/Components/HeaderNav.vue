@@ -24,6 +24,7 @@ const nav = [
     match: "/rincon-del-cliente",
   },
   { label: "Blog", href: "/blog", match: "/blog" },
+  { label: "Podcast", href: "/podcast", match: "/podcast" },
 ];
 
 const handleScroll = () => {
@@ -88,14 +89,15 @@ onUnmounted(() => {
               src="/images/logo-fyc.png"
               alt="F&C Consultores"
               class="w-auto object-contain transition-all duration-500 drop-shadow-sm"
-              :class="isScrolled || isMenuOpen ? 'h-10 md:h-16' : 'h-12 sm:h-14 md:h-20'"
+              :class="isScrolled || isMenuOpen ? 'h-10 md:h-16' : 'h-12 sm:h-14 md:h-20 xl:h-16 2xl:h-20'"
             />
           </div>
         </Link>
       </div>
 
+      <!-- En flujo (no absolute): con 7 ítems el centrado absoluto se solapaba con los CTAs a 1280px -->
       <nav
-        class="hidden xl:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 p-1.5 rounded-2xl transition-all duration-500 z-20"
+        class="hidden xl:flex shrink-0 mx-4 items-center gap-1 2xl:gap-1.5 p-1.5 rounded-2xl transition-all duration-500 z-20"
         :class="
           isScrolled
             ? 'bg-white/50 backdrop-blur-md border border-white/60 shadow-sm'
@@ -106,7 +108,7 @@ onUnmounted(() => {
           v-for="item in nav"
           :key="item.href"
           :href="item.href"
-          class="nav-pill group relative flex items-center px-4 py-2.5 rounded-xl text-sm 2xl:text-base font-bold tracking-wide transition-all duration-300 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50"
+          class="nav-pill group relative flex items-center px-3 2xl:px-4 py-2.5 rounded-xl text-[13px] 2xl:text-base font-bold tracking-wide whitespace-nowrap transition-all duration-300 overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50"
           :class="
             isActive(item)
               ? 'bg-primary-vinotinto text-mono-blanco shadow-md shadow-primary-vinotinto/20 scale-100'
@@ -273,6 +275,15 @@ onUnmounted(() => {
   margin-left: 8px;
   opacity: 1;
   transform: translateX(0) scale(1) rotate(0deg);
+}
+
+/* Entre 1280 y 1535px el nav va en flujo: Ovi no debe ensanchar el pill y empujar los CTAs */
+@media (max-width: 1535px) {
+  .group:hover .ovi-hover {
+    width: 0px;
+    margin-left: 0px;
+    opacity: 0;
+  }
 }
 
 /* Anular efecto si el elemento ya está activo (opcional) */

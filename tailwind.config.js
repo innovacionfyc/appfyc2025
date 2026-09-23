@@ -56,6 +56,13 @@ export default {
           default: '#030637',
           light: '#98A1BC',
           opacity: 'rgba(26, 33, 48, 0.479)'
+        },
+        // Sub-identidad del podcast "Íntimamente Hablando".
+        // acento no cumple contraste como texto pequeño sobre blanco: usarlo en rellenos,
+        // puntos, reglas y hovers, o con texto podcast-oscuro encima.
+        podcast: {
+          oscuro: '#3f4e54',
+          acento: '#c2c027',
         }
       },
       backgroundImage: {
