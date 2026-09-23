@@ -64,6 +64,15 @@ return [
         ],
 
         [
+            'slug'        => 'podcast',
+            'nombre'      => 'Podcast',
+            'descripcion' => 'Temporadas y episodios del podcast Íntimamente Hablando (videos alojados en YouTube).',
+            'icono'       => 'Mic',
+            'ruta_admin'  => '/admin/podcast/episodios',
+            'asignable'   => true,
+        ],
+
+        [
             'slug'        => 'equipo',
             'nombre'      => 'Equipo',
             'descripcion' => 'Gestión del equipo administrativo y conferencistas registrados.',
