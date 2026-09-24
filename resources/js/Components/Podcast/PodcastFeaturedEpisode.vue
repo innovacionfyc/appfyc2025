@@ -125,8 +125,8 @@ const fecha = computed(() =>
             </div>
           </div>
 
-          <!-- Fase 3: href al detalle del episodio -->
           <BtnSecundario
+            :href="episodio.url"
             label="Ver episodio"
             icon="arrow_forward"
             icon-position="right"

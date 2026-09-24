@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
 import HeaderNav from "@/Components/HeaderNav.vue";
 import SiteFooter from "@/Components/SiteFooter.vue";
@@ -122,10 +122,8 @@ const formatoCorto = (fecha) =>
                       :key="episodio.id"
                       class="flex-1 flex items-center"
                     >
-                      <!-- Fase 3: enlazar al detalle -->
-                      <a
-                        href="#"
-                        @click.prevent
+                      <Link
+                        :href="episodio.url"
                         class="group flex items-center gap-4 w-full py-4 rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
                       >
                         <div
@@ -158,7 +156,7 @@ const formatoCorto = (fecha) =>
                             {{ episodio.invitado }}
                           </p>
                         </div>
-                      </a>
+                      </Link>
                     </li>
                   </ul>
 
