@@ -8,11 +8,13 @@ import RevealSection from "@/Components/RevealSection.vue";
 import BtnUniversal from "@/Components/BtnUniversal.vue";
 import PodcastPlayer from "@/Components/Podcast/PodcastPlayer.vue";
 import PodcastEpisodeCard from "@/Components/Podcast/PodcastEpisodeCard.vue";
+import PodcastLikeButton from "@/Components/Podcast/PodcastLikeButton.vue";
 
 // Datos reales desde PodcastPublicController@show: el episodio ya viene validado como elegible.
 const props = defineProps({
   episodio: { type: Object, required: true },
   relacionados: { type: Array, default: () => [] },
+  reacciones: { type: Object, default: () => ({ total: 0, activo: false, url: "" }) },
   listadoUrl: { type: String, default: "/podcast" },
   canalUrl: { type: String, default: "https://www.youtube.com/FYCConsultores" },
 });
@@ -102,6 +104,14 @@ const ficha = computed(() =>
                     <span class="text-slate-500">{{ episodio.cargo }}</span>
                   </template>
                 </p>
+
+                <div class="mt-6">
+                  <PodcastLikeButton
+                    :total="reacciones.total"
+                    :activo="reacciones.activo"
+                    :url="reacciones.url"
+                  />
+                </div>
               </div>
 
               <PodcastPlayer

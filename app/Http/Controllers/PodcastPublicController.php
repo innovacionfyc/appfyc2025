@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\PodcastEpisodio;
+use App\Models\PodcastReaccion;
 use App\Models\PodcastTemporada;
 use App\Support\EstadoResolver;
+use App\Support\PodcastElegibilidad;
+use App\Support\PodcastVisitante;
 use App\Support\YouTubeUrl;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -57,22 +61,16 @@ class PodcastPublicController extends Controller
         ])->withViewData('seo', $this->seoListado());
     }
 
-    public function show(string $slug): Response
+    public function show(Request $request, string $slug): Response
     {
-        $temporadas = $this->temporadasElegibles();
-
         // Mismas reglas que el listado: episodio activo, no eliminado, de una temporada elegible.
         // Cualquier otro caso (inexistente, borrador, eliminado, temporada no elegible) es 404.
-        $episodio = PodcastEpisodio::with('temporada')
-            ->where('slug', $slug)
-            ->where('estado_id', EstadoResolver::activo())
-            ->whereIn('temporada_id', $temporadas->pluck('id'))
-            ->first();
+        $episodio = PodcastElegibilidad::episodioPorSlug($slug);
 
         abort_unless($episodio, 404);
 
         // Relacionados: primero los de la misma temporada, luego el resto, siempre del más reciente al más antiguo.
-        $relacionados = $this->episodiosElegibles($temporadas)
+        $relacionados = $this->episodiosElegibles($this->temporadasElegibles())
             ->reject(fn ($e) => $e->id === $episodio->id)
             ->sortBy(fn ($e) => $e->temporada_id === $episodio->temporada_id ? 0 : 1, SORT_NUMERIC, false)
             ->take(self::RELACIONADOS_MAX)
@@ -87,9 +85,29 @@ class PodcastPublicController extends Controller
                     : null,
             ]),
             'relacionados' => $relacionados->map(fn ($e) => $this->aDto($e))->values(),
+            'reacciones' => $this->reacciones($request, $episodio),
             'listadoUrl' => route('podcast.index'),
             'canalUrl' => self::CANAL_YOUTUBE,
         ])->withViewData('seo', $this->seoEpisodio($episodio));
+    }
+
+    /**
+     * Conteo de "me gusta" y si este visitante (cookie) ya lo dio. No expone el fingerprint.
+     * Sin cookie no se crea ninguna: solo aparece cuando el visitante interactúa.
+     */
+    private function reacciones(Request $request, PodcastEpisodio $episodio): array
+    {
+        $base = PodcastReaccion::where('episodio_id', $episodio->id)
+            ->where('tipo', PodcastReaccion::ME_GUSTA);
+
+        $uuid = PodcastVisitante::uuidDesde($request);
+
+        return [
+            'total' => (clone $base)->count(),
+            'activo' => $uuid !== null
+                && (clone $base)->where('fingerprint', PodcastVisitante::fingerprint($uuid))->exists(),
+            'url' => route('podcast.reaccion', $episodio->slug),
+        ];
     }
 
     /**
