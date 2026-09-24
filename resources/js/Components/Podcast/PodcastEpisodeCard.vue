@@ -1,16 +1,22 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 const props = defineProps({
   episodio: { type: Object, required: true },
 });
 
+// Si la miniatura (p. ej. la de YouTube) no carga, se muestra el placeholder
+const imagenRota = ref(false);
+watch(() => props.episodio.miniatura, () => (imagenRota.value = false));
+
 const numeroFormateado = computed(() => String(props.episodio.numero).padStart(2, "0"));
 
 const fecha = computed(() =>
-  new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(
-    new Date(props.episodio.fecha + "T12:00:00")
-  )
+  props.episodio.fecha
+    ? new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(
+        new Date(props.episodio.fecha + "T12:00:00")
+      )
+    : null
 );
 </script>
 
@@ -21,10 +27,12 @@ const fecha = computed(() =>
     <!-- Miniatura 16:9. Cuando exista video_id se reemplaza por la miniatura de YouTube. -->
     <div class="relative aspect-video overflow-hidden bg-podcast-oscuro">
       <img
-        v-if="episodio.miniatura"
+        v-if="episodio.miniatura && !imagenRota"
         :src="episodio.miniatura"
         :alt="episodio.titulo"
+        loading="lazy"
         class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        @error="imagenRota = true"
       />
       <template v-else>
         <div
@@ -52,6 +60,7 @@ const fecha = computed(() =>
       </div>
 
       <span
+        v-if="episodio.duracion"
         class="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md text-white text-[11px] font-bold tabular-nums"
       >
         {{ episodio.duracion }}
@@ -62,7 +71,8 @@ const fecha = computed(() =>
       <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">
         Episodio {{ numeroFormateado }}
         <span class="mx-1.5 text-slate-300">·</span>
-        <time :datetime="episodio.fecha">{{ fecha }}</time>
+        <time v-if="fecha" :datetime="episodio.fecha">{{ fecha }}</time>
+        <span v-else>Próximamente</span>
       </p>
 
       <h3 class="text-lg lg:text-xl font-bold text-slate-900 leading-snug line-clamp-2 mb-2">

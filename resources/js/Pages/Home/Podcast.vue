@@ -11,111 +11,45 @@ import PodcastFeaturedEpisode from "@/Components/Podcast/PodcastFeaturedEpisode.
 import PodcastEpisodeCard from "@/Components/Podcast/PodcastEpisodeCard.vue";
 import PodcastSeasonSelector from "@/Components/Podcast/PodcastSeasonSelector.vue";
 
-// ------------------------------------------------------------------
-// DATOS MOCK — Fase 0 (prototipo visual). Se reemplazan por props del
-// controlador en Fase 3. Los invitados de los episodios 02 a 04 son
-// ficticios y existen solo para probar el diseño.
-// ------------------------------------------------------------------
-const CANAL_YOUTUBE = "https://www.youtube.com/FYCConsultores";
+// Datos reales desde PodcastPublicController: solo temporadas y episodios activos y no eliminados.
+// `episodios` llega ordenado del más reciente al más antiguo.
+const props = defineProps({
+  temporadas: { type: Array, default: () => [] },
+  episodios: { type: Array, default: () => [] },
+  destacadoId: { type: Number, default: null },
+  temporadaInicial: { type: Number, default: null },
+  canalUrl: { type: String, default: "https://www.youtube.com/FYCConsultores" },
+});
 
-const temporadas = [
-  {
-    numero: 1,
-    titulo: "Quienes construyen lo público",
-    descripcion:
-      "Una primera temporada dedicada a las trayectorias que han dado forma a la administración pública colombiana: presupuesto, contratación, control y talento humano.",
-    disponible: true,
-  },
-  { numero: 2, titulo: "Próximamente", descripcion: "", disponible: false },
-];
+const hayContenido = computed(() => props.episodios.length > 0);
 
-const episodios = [
-  {
-    id: 1,
-    temporada: 1,
-    numero: 1,
-    slug: "t1-e01-tres-decadas-presupuesto-publico",
-    invitado: "Ezequiel Lenis Ramírez",
-    cargo: null,
-    titulo: "Tres décadas moldeando el presupuesto público de Colombia",
-    descripcion:
-      "Una conversación sobre cómo se construye, se negocia y se defiende el presupuesto de la Nación, y sobre las decisiones que dejan huella mucho después de aprobarse.",
-    fecha: "2026-08-14",
-    duracion: "47 min",
-    miniatura: null,
-    destacado: true,
-  },
-  {
-    id: 2,
-    temporada: 1,
-    numero: 2,
-    slug: "t1-e02-contratacion-estatal",
-    invitado: "Ana Lucía Gómez",
-    cargo: "Consultora en contratación pública",
-    titulo: "Contratación estatal: lo que la norma no explica",
-    descripcion:
-      "De los pliegos a la ejecución: los criterios prácticos que separan un proceso bien estructurado de uno que termina en controversia.",
-    fecha: "2026-08-28",
-    duracion: "39 min",
-    miniatura: null,
-    destacado: false,
-  },
-  {
-    id: 3,
-    temporada: 1,
-    numero: 3,
-    slug: "t1-e03-control-fiscal",
-    invitado: "Julián Restrepo",
-    cargo: "Auditor y docente universitario",
-    titulo: "Control fiscal: prevenir antes que sancionar",
-    descripcion:
-      "Cómo entender el control fiscal como una herramienta de gestión y no solo como una amenaza, desde la mirada de quien lo ejerce y lo enseña.",
-    fecha: "2026-09-11",
-    duracion: "52 min",
-    miniatura: null,
-    destacado: false,
-  },
-  {
-    id: 4,
-    temporada: 1,
-    numero: 4,
-    slug: "t1-e04-talento-humano-estado",
-    invitado: "María Fernanda Ortiz",
-    cargo: "Directora de talento humano, sector público",
-    titulo: "Liderar equipos en el Estado sin perder la vocación",
-    descripcion:
-      "Rotación, mérito y motivación: una charla franca sobre lo que significa dirigir personas dentro de una entidad pública hoy.",
-    fecha: "2026-09-18",
-    duracion: "44 min",
-    miniatura: null,
-    destacado: false,
-  },
-];
+const temporadaSeleccionada = ref(props.temporadaInicial ?? props.temporadas[0]?.numero ?? null);
 
-const temporadaSeleccionada = ref(1);
-
-const temporadaActual = computed(() =>
-  temporadas.find((t) => t.numero === temporadaSeleccionada.value)
+const temporadaActual = computed(
+  () => props.temporadas.find((t) => t.numero === temporadaSeleccionada.value) ?? null
 );
 
+// Destacado elegible; si no existe, el backend ya dejó el más reciente al inicio.
 const episodioDestacado = computed(
-  () => episodios.find((e) => e.destacado) ?? episodiosOrdenados.value[0]
+  () => props.episodios.find((e) => e.id === props.destacadoId) ?? props.episodios[0] ?? null
 );
-
-const episodiosOrdenados = computed(() => [...episodios].sort((a, b) => b.numero - a.numero));
 
 const ultimosEpisodios = computed(() =>
-  episodiosOrdenados.value.filter((e) => e.id !== episodioDestacado.value.id).slice(0, 3)
+  props.episodios.filter((e) => e.id !== episodioDestacado.value?.id).slice(0, 3)
 );
 
 const episodiosTemporada = computed(() =>
-  episodiosOrdenados.value.filter((e) => e.temporada === temporadaSeleccionada.value)
+  props.episodios
+    .filter((e) => e.temporada === temporadaSeleccionada.value)
+    .sort((a, b) => b.numero - a.numero)
 );
 
 const formatoCorto = (fecha) =>
-  new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(
-    new Date(fecha + "T12:00:00")
-  );
+  fecha
+    ? new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(
+        new Date(fecha + "T12:00:00")
+      )
+    : "Próximamente";
 </script>
 
 <template>
@@ -130,14 +64,43 @@ const formatoCorto = (fecha) =>
           <!-- A. Hero -->
           <RevealSection>
             <PodcastHero
-              :temporada-actual="temporadas[0]"
+              :temporada-actual="temporadaActual"
               :total-episodios="episodios.length"
-              :canal-url="CANAL_YOUTUBE"
+              :canal-url="canalUrl"
             />
           </RevealSection>
 
+          <!-- Estado vacío: sin temporadas o episodios elegibles -->
+          <RevealSection v-if="!hayContenido" id="episodio-destacado" class="scroll-mt-32">
+            <section
+              class="rounded-[2rem] md:rounded-[2.5rem] border border-dashed border-slate-300 bg-white/70 px-8 py-16 sm:py-20 text-center"
+            >
+              <span
+                class="material-symbols-rounded text-5xl text-podcast-oscuro/40 mb-4 inline-block"
+                >mic</span
+              >
+              <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-3">
+                Primer episodio en producción
+              </h2>
+              <p class="text-base text-slate-500 leading-relaxed max-w-md mx-auto mb-8">
+                Estamos grabando las primeras conversaciones de Íntimamente Hablando. Muy pronto
+                encontrarás aquí los episodios; mientras tanto, síguenos en el canal de YouTube.
+              </p>
+              <a :href="canalUrl" target="_blank" rel="noopener noreferrer" class="inline-block">
+                <BtnUniversal
+                  label="Ir al canal de YouTube"
+                  icon="smart_display"
+                  icon-position="right"
+                  size="md"
+                  activeColor="#3f4e54"
+                  class="w-auto"
+                />
+              </a>
+            </section>
+          </RevealSection>
+
           <!-- B + C. Episodio destacado y últimos episodios -->
-          <RevealSection id="episodio-destacado" class="scroll-mt-32">
+          <RevealSection v-if="hayContenido" id="episodio-destacado" class="scroll-mt-32">
             <section>
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
                 <div class="lg:col-span-2">
@@ -200,7 +163,7 @@ const formatoCorto = (fecha) =>
                   </ul>
 
                   <a
-                    :href="CANAL_YOUTUBE"
+                    :href="canalUrl"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="mt-auto pt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-podcast-oscuro transition-colors group"
@@ -217,7 +180,7 @@ const formatoCorto = (fecha) =>
           </RevealSection>
 
           <!-- D + E. Temporadas y grid de episodios -->
-          <RevealSection :repeat="true">
+          <RevealSection v-if="hayContenido && temporadaActual" :repeat="true">
             <section>
               <div
                 class="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-10"
@@ -301,7 +264,7 @@ const formatoCorto = (fecha) =>
                   </p>
                 </div>
                 <a
-                  :href="CANAL_YOUTUBE"
+                  :href="canalUrl"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="w-full sm:w-auto shrink-0"

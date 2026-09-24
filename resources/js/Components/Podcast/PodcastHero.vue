@@ -3,7 +3,7 @@ import { ref } from "vue";
 import BtnUniversal from "@/Components/BtnUniversal.vue";
 
 defineProps({
-  temporadaActual: { type: Object, required: true },
+  temporadaActual: { type: Object, default: null },
   totalEpisodios: { type: Number, default: 0 },
   canalUrl: { type: String, required: true },
 });
@@ -106,7 +106,7 @@ const usarPng = () => {
               ></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-podcast-acento"></span>
             </span>
-            Temporada {{ temporadaActual.numero }}
+            {{ temporadaActual ? `Temporada ${temporadaActual.numero}` : "Próximamente" }}
           </dd>
         </div>
         <div class="bg-podcast-oscuro px-5 py-4">
