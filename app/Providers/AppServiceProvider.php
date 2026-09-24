@@ -36,5 +36,16 @@ class AppServiceProvider extends ServiceProvider
 
             return $limites;
         });
+
+        // Envío de comentarios: pocos por ventana, por IP y por visitante. Los aprobados se moderan aparte.
+        RateLimiter::for('podcast-comentarios', function (Request $request) {
+            $limites = [Limit::perMinutes(10, 3)->by('ip:'.$request->ip())];
+
+            if ($uuid = PodcastVisitante::uuidDesde($request)) {
+                $limites[] = Limit::perMinutes(10, 3)->by('visitante:'.$uuid);
+            }
+
+            return $limites;
+        });
     }
 }

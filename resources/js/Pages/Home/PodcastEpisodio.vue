@@ -9,12 +9,21 @@ import BtnUniversal from "@/Components/BtnUniversal.vue";
 import PodcastPlayer from "@/Components/Podcast/PodcastPlayer.vue";
 import PodcastEpisodeCard from "@/Components/Podcast/PodcastEpisodeCard.vue";
 import PodcastLikeButton from "@/Components/Podcast/PodcastLikeButton.vue";
+import PodcastComentarios from "@/Components/Podcast/PodcastComentarios.vue";
 
 // Datos reales desde PodcastPublicController@show: el episodio ya viene validado como elegible.
 const props = defineProps({
   episodio: { type: Object, required: true },
   relacionados: { type: Array, default: () => [] },
   reacciones: { type: Object, default: () => ({ total: 0, activo: false, url: "" }) },
+  comentarios: {
+    type: Object,
+    default: () => ({
+      inicial: { total: 0, pagina: 1, hay_mas: false, comentarios: [] },
+      listar_url: "",
+      enviar_url: "",
+    }),
+  },
   listadoUrl: { type: String, default: "/podcast" },
   canalUrl: { type: String, default: "https://www.youtube.com/FYCConsultores" },
 });
@@ -202,7 +211,16 @@ const ficha = computed(() =>
             </section>
           </RevealSection>
 
-          <!-- C. Episodios relacionados -->
+          <!-- C. Comentarios (solo aprobados) y formulario -->
+          <RevealSection>
+            <PodcastComentarios
+              :inicial="comentarios.inicial"
+              :listar-url="comentarios.listar_url"
+              :enviar-url="comentarios.enviar_url"
+            />
+          </RevealSection>
+
+          <!-- D. Episodios relacionados -->
           <RevealSection v-if="relacionados.length">
             <section>
               <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -241,7 +259,7 @@ const ficha = computed(() =>
             </section>
           </RevealSection>
 
-          <!-- D. CTA YouTube -->
+          <!-- E. CTA YouTube -->
           <RevealSection>
             <section
               class="relative overflow-hidden bg-podcast-oscuro rounded-[2rem] md:rounded-[2.5rem] px-6 py-10 sm:px-10 sm:py-12 lg:px-16 lg:py-14"

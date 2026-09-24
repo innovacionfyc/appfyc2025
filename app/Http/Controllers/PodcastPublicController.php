@@ -6,6 +6,7 @@ use App\Models\PodcastEpisodio;
 use App\Models\PodcastReaccion;
 use App\Models\PodcastTemporada;
 use App\Support\EstadoResolver;
+use App\Support\PodcastComentariosPublicos;
 use App\Support\PodcastElegibilidad;
 use App\Support\PodcastVisitante;
 use App\Support\YouTubeUrl;
@@ -86,6 +87,12 @@ class PodcastPublicController extends Controller
             ]),
             'relacionados' => $relacionados->map(fn ($e) => $this->aDto($e))->values(),
             'reacciones' => $this->reacciones($request, $episodio),
+            // Solo la primera página de comentarios aprobados; el resto se pide por JSON.
+            'comentarios' => [
+                'inicial' => PodcastComentariosPublicos::pagina($episodio, 1),
+                'listar_url' => route('podcast.comentarios.index', $episodio->slug),
+                'enviar_url' => route('podcast.comentarios.store', $episodio->slug),
+            ],
             'listadoUrl' => route('podcast.index'),
             'canalUrl' => self::CANAL_YOUTUBE,
         ])->withViewData('seo', $this->seoEpisodio($episodio));
