@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { Head, Link } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
 import HeaderNav from "@/Components/HeaderNav.vue";
 import SiteFooter from "@/Components/SiteFooter.vue";
@@ -58,7 +58,8 @@ const ficha = computed(() =>
           <!-- A. Cabecera + reproductor -->
           <RevealSection>
             <section>
-              <Link
+              <!-- Enlaces reales (no Inertia Link): cada URL pública trae sus etiquetas SEO en el HTML inicial -->
+              <a
                 :href="listadoUrl"
                 class="group inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-podcast-oscuro transition-colors mb-8 rounded-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
               >
@@ -67,7 +68,7 @@ const ficha = computed(() =>
                   >arrow_back</span
                 >
                 Volver al podcast
-              </Link>
+              </a>
 
               <div class="max-w-4xl mb-8 lg:mb-10">
                 <p
@@ -208,7 +209,7 @@ const ficha = computed(() =>
                     Más episodios
                   </h2>
                 </div>
-                <Link
+                <a
                   :href="listadoUrl"
                   class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-podcast-oscuro transition-colors group"
                 >
@@ -217,7 +218,7 @@ const ficha = computed(() =>
                     class="material-symbols-rounded text-lg transition-transform group-hover:translate-x-0.5"
                     >arrow_forward</span
                   >
-                </Link>
+                </a>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">

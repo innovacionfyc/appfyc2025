@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref, watch } from "vue";
-import { Link } from "@inertiajs/vue3";
 
 const props = defineProps({
   episodio: { type: Object, required: true },
@@ -89,11 +88,11 @@ const fecha = computed(() =>
       ></div>
     </div>
 
-    <!-- Toda la card enlaza al detalle público del episodio -->
-    <Link
+    <!-- Toda la card enlaza al detalle público. Enlace real (no Inertia Link): el detalle trae su SEO en el HTML inicial. -->
+    <a
       :href="episodio.url"
       :aria-label="`Ver episodio ${numeroFormateado}: ${episodio.titulo}`"
       class="absolute inset-0 z-20 rounded-[2rem] focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
-    ></Link>
+    ></a>
   </article>
 </template>

@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref, watch } from "vue";
-import BtnSecundario from "@/Components/Shared/buttons/btnSecundario.vue";
 
 const props = defineProps({
   episodio: { type: Object, required: true },
@@ -125,15 +124,20 @@ const fecha = computed(() =>
             </div>
           </div>
 
-          <BtnSecundario
+          <!--
+            Enlace real al detalle (no Inertia Link) con la misma "cajita" de BtnSecundario:
+            el detalle trae sus etiquetas SEO en el HTML inicial y necesita carga completa.
+          -->
+          <a
             :href="episodio.url"
-            label="Ver episodio"
-            icon="arrow_forward"
-            icon-position="right"
-            size="md"
-            activeColor="#3f4e54"
-            class="shrink-0"
-          />
+            class="group/btn relative shrink-0 inline-flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold border-2 border-podcast-oscuro/20 bg-podcast-oscuro/[0.06] text-podcast-oscuro hover:bg-podcast-oscuro/[0.12] transition-all duration-300 active:scale-95 select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
+          >
+            Ver episodio
+            <span
+              class="material-symbols-rounded text-[1.3em] transition-transform duration-300 group-hover/btn:translate-x-1"
+              >arrow_forward</span
+            >
+          </a>
         </div>
       </div>
     </div>

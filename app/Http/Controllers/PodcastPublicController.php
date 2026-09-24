@@ -8,6 +8,7 @@ use App\Support\EstadoResolver;
 use App\Support\YouTubeUrl;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,6 +17,16 @@ class PodcastPublicController extends Controller
     private const CANAL_YOUTUBE = 'https://www.youtube.com/FYCConsultores';
 
     private const RELACIONADOS_MAX = 3;
+
+    private const SEO_SITE_NAME = 'F&C Consultores';
+
+    private const SEO_PODCAST = 'Íntimamente Hablando';
+
+    private const SEO_DESCRIPCION_LISTADO = 'Íntimamente Hablando es el podcast de F&C Consultores: conversaciones pausadas con las personas que han construido lo público en Colombia, su oficio, sus decisiones y lo que aprendieron en el camino.';
+
+    private const SEO_IMAGEN_PODCAST = 'images/podcast/intimamente-hablando.png';
+
+    private const SEO_DESCRIPCION_MAX = 160;
 
     public function index(): Response
     {
@@ -43,7 +54,7 @@ class PodcastPublicController extends Controller
             'destacadoId' => $destacado?->id,
             'temporadaInicial' => $temporadaInicial,
             'canalUrl' => self::CANAL_YOUTUBE,
-        ]);
+        ])->withViewData('seo', $this->seoListado());
     }
 
     public function show(string $slug): Response
@@ -78,7 +89,63 @@ class PodcastPublicController extends Controller
             'relacionados' => $relacionados->map(fn ($e) => $this->aDto($e))->values(),
             'listadoUrl' => route('podcast.index'),
             'canalUrl' => self::CANAL_YOUTUBE,
-        ]);
+        ])->withViewData('seo', $this->seoEpisodio($episodio));
+    }
+
+    /**
+     * Etiquetas SEO/OpenGraph del listado: datos institucionales e imagen oficial del podcast.
+     * Se renderizan en app.blade.php para que existan en el HTML inicial, sin SSR.
+     */
+    private function seoListado(): array
+    {
+        return [
+            'title' => 'Podcast '.self::SEO_PODCAST,
+            'description' => self::SEO_DESCRIPCION_LISTADO,
+            'url' => route('podcast.index'),
+            'type' => 'website',
+            'image' => asset(self::SEO_IMAGEN_PODCAST),
+            'image_alt' => self::SEO_PODCAST.', podcast de '.self::SEO_SITE_NAME,
+            'site_name' => self::SEO_SITE_NAME,
+            'locale' => 'es_CO',
+        ];
+    }
+
+    /**
+     * Etiquetas SEO/OpenGraph del detalle a partir de los datos públicos del episodio elegible.
+     * Con alternativas seguras si falta descripción o imagen; sin llamadas externas.
+     */
+    private function seoEpisodio(PodcastEpisodio $e): array
+    {
+        $descripcion = Str::limit(
+            trim(preg_replace('/\s+/u', ' ', strip_tags((string) $e->descripcion))),
+            self::SEO_DESCRIPCION_MAX
+        );
+
+        if ($descripcion === '') {
+            $descripcion = 'Conversación con '.$e->invitado_nombre
+                .($e->invitado_cargo ? ', '.$e->invitado_cargo : '')
+                .' en '.self::SEO_PODCAST.', el podcast de '.self::SEO_SITE_NAME.'.';
+        }
+
+        // Miniatura personalizada (absoluta) > miniatura de YouTube por URL > imagen oficial del podcast.
+        if ($e->imagen_miniatura) {
+            $imagen = url(Storage::url($e->imagen_miniatura));
+        } elseif (YouTubeUrl::esIdValido($e->youtube_video_id)) {
+            $imagen = YouTubeUrl::thumbnailUrl($e->youtube_video_id);
+        } else {
+            $imagen = asset(self::SEO_IMAGEN_PODCAST);
+        }
+
+        return [
+            'title' => $e->titulo.' · '.self::SEO_PODCAST,
+            'description' => $descripcion,
+            'url' => route('podcast.show', $e->slug),
+            'type' => 'article',
+            'image' => $imagen,
+            'image_alt' => $e->titulo.' — '.self::SEO_PODCAST,
+            'site_name' => self::SEO_SITE_NAME,
+            'locale' => 'es_CO',
+        ];
     }
 
     /**
