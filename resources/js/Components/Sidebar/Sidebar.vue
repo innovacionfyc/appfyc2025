@@ -21,6 +21,7 @@ import {
   Mic,
   Layers,
   ListVideo,
+  MessageSquare,
 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
@@ -72,6 +73,7 @@ const navItems = [
     submenu: [
       { name: "Temporadas", href: "/admin/podcast/temporadas", icon: Layers },
       { name: "Episodios", href: "/admin/podcast/episodios", icon: ListVideo },
+      { name: "Comentarios", href: "/admin/podcast/comentarios", icon: MessageSquare },
     ],
   },
   {

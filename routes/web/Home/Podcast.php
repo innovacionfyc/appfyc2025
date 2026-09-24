@@ -18,12 +18,13 @@ Route::post('/podcast/{slug}/reaccion', [PodcastReaccionController::class, 'stor
     ->name('podcast.reaccion');
 
 // Comentarios públicos: solo aprobados al listar (paginado); todo envío nuevo queda pendiente de moderación.
+// Nombres bajo "podcast.episodio." para no chocar con la moderación admin ("podcast.comentarios.*").
 Route::get('/podcast/{slug}/comentarios', [PodcastComentarioPublicController::class, 'index'])
     ->where('slug', '[a-z0-9-]+')
     ->middleware('throttle:60,1')
-    ->name('podcast.comentarios.index');
+    ->name('podcast.episodio.comentarios');
 
 Route::post('/podcast/{slug}/comentarios', [PodcastComentarioPublicController::class, 'store'])
     ->where('slug', '[a-z0-9-]+')
     ->middleware('throttle:podcast-comentarios')
-    ->name('podcast.comentarios.store');
+    ->name('podcast.episodio.comentar');

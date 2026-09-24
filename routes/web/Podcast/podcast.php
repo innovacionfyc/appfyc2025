@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Podcast\PodcastComentarioController;
 use App\Http\Controllers\Podcast\PodcastEpisodioController;
 use App\Http\Controllers\Podcast\PodcastTemporadaController;
 use Illuminate\Support\Facades\Route;
@@ -21,4 +22,11 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/podcast')->n
 
     // Solo parsea la URL pegada (sin HTTP externo); sirve para el preview en vivo del modal.
     Route::post('/episodios/validar-youtube', [PodcastEpisodioController::class, 'validarYoutube'])->name('episodios.validar-youtube');
+
+    // Moderación de comentarios: solo los aprobados y no eliminados salen al público.
+    Route::get('/comentarios', [PodcastComentarioController::class, 'index'])->name('comentarios.index');
+    Route::post('/comentarios/{comentario}/aprobar', [PodcastComentarioController::class, 'aprobar'])->name('comentarios.aprobar');
+    Route::post('/comentarios/{comentario}/rechazar', [PodcastComentarioController::class, 'rechazar'])->name('comentarios.rechazar');
+    Route::delete('/comentarios/{comentario}', [PodcastComentarioController::class, 'destroy'])->name('comentarios.destroy');
+    Route::post('/comentarios/{id}/restore', [PodcastComentarioController::class, 'restore'])->name('comentarios.restore');
 });

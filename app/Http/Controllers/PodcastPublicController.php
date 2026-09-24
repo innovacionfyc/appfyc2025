@@ -90,8 +90,8 @@ class PodcastPublicController extends Controller
             // Solo la primera página de comentarios aprobados; el resto se pide por JSON.
             'comentarios' => [
                 'inicial' => PodcastComentariosPublicos::pagina($episodio, 1),
-                'listar_url' => route('podcast.comentarios.index', $episodio->slug),
-                'enviar_url' => route('podcast.comentarios.store', $episodio->slug),
+                'listar_url' => route('podcast.episodio.comentarios', $episodio->slug),
+                'enviar_url' => route('podcast.episodio.comentar', $episodio->slug),
             ],
             'listadoUrl' => route('podcast.index'),
             'canalUrl' => self::CANAL_YOUTUBE,
