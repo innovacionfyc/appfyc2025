@@ -108,71 +108,127 @@ const formatoCorto = (fecha) =>
                 </div>
 
                 <aside class="flex flex-col">
-                  <h2
-                    class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-5 flex items-center gap-2.5"
-                  >
-                    <span class="w-2 h-2 rounded-full bg-podcast-acento"></span>
-                    Últimos episodios
-                  </h2>
-
-                  <!-- Los ítems se reparten a lo alto para acompañar la altura del destacado -->
-                  <ul class="flex-1 flex flex-col divide-y divide-slate-200/70">
-                    <li
-                      v-for="episodio in ultimosEpisodios"
-                      :key="episodio.id"
-                      class="flex-1 flex items-center"
+                  <template v-if="ultimosEpisodios.length">
+                    <h2
+                      class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-5 flex items-center gap-2.5"
                     >
-                      <!-- Enlace real (no Inertia Link): el detalle trae sus propias etiquetas SEO en el HTML inicial -->
-                      <a
-                        :href="episodio.url"
-                        class="group flex items-center gap-4 w-full py-4 rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
+                      <span class="w-2 h-2 rounded-full bg-podcast-acento"></span>
+                      Últimos episodios
+                    </h2>
+
+                    <!-- Los ítems se reparten a lo alto para acompañar la altura del destacado -->
+                    <ul class="flex-1 flex flex-col divide-y divide-slate-200/70">
+                      <li
+                        v-for="episodio in ultimosEpisodios"
+                        :key="episodio.id"
+                        class="flex-1 flex items-center"
                       >
-                        <div
-                          class="relative w-28 h-[4.5rem] shrink-0 rounded-xl overflow-hidden bg-podcast-oscuro"
+                        <!-- Enlace real (no Inertia Link): el detalle trae sus propias etiquetas SEO en el HTML inicial -->
+                        <a
+                          :href="episodio.url"
+                          class="group flex items-center gap-4 w-full py-4 rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-oscuro/20"
                         >
-                          <span
-                            aria-hidden="true"
-                            class="absolute -bottom-2 -right-1 text-4xl font-black text-white/10 select-none leading-none"
-                            >{{ String(episodio.numero).padStart(2, "0") }}</span
+                          <div
+                            class="relative w-28 h-[4.5rem] shrink-0 rounded-xl overflow-hidden bg-podcast-oscuro"
                           >
-                          <span
-                            class="absolute inset-0 flex items-center justify-center text-podcast-acento opacity-90 group-hover:opacity-100 transition-opacity"
-                          >
-                            <span class="material-symbols-rounded text-2xl">play_arrow</span>
-                          </span>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <p
-                            class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1"
-                          >
-                            EP {{ String(episodio.numero).padStart(2, "0") }} ·
-                            {{ formatoCorto(episodio.fecha) }}
-                          </p>
-                          <h3
-                            class="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-podcast-oscuro transition-colors"
-                          >
-                            {{ episodio.titulo }}
-                          </h3>
-                          <p class="text-xs text-slate-500 mt-1 truncate">
-                            {{ episodio.invitado }}
-                          </p>
-                        </div>
-                      </a>
-                    </li>
-                  </ul>
+                            <span
+                              aria-hidden="true"
+                              class="absolute -bottom-2 -right-1 text-4xl font-black text-white/10 select-none leading-none"
+                              >{{ String(episodio.numero).padStart(2, "0") }}</span
+                            >
+                            <span
+                              class="absolute inset-0 flex items-center justify-center text-podcast-acento opacity-90 group-hover:opacity-100 transition-opacity"
+                            >
+                              <span class="material-symbols-rounded text-2xl">play_arrow</span>
+                            </span>
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <p
+                              class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1"
+                            >
+                              EP {{ String(episodio.numero).padStart(2, "0") }} ·
+                              {{ formatoCorto(episodio.fecha) }}
+                            </p>
+                            <h3
+                              class="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-podcast-oscuro transition-colors"
+                            >
+                              {{ episodio.titulo }}
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1 truncate">
+                              {{ episodio.invitado }}
+                            </p>
+                          </div>
+                        </a>
+                      </li>
+                    </ul>
 
-                  <a
-                    :href="canalUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mt-auto pt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-podcast-oscuro transition-colors group"
-                  >
-                    Ver todos en YouTube
-                    <span
-                      class="material-symbols-rounded text-lg transition-transform group-hover:translate-x-0.5"
-                      >arrow_forward</span
+                    <a
+                      :href="canalUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-auto pt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-podcast-oscuro transition-colors group"
                     >
-                  </a>
+                      Ver todos en YouTube
+                      <span
+                        class="material-symbols-rounded text-lg transition-transform group-hover:translate-x-0.5"
+                        >arrow_forward</span
+                      >
+                    </a>
+                  </template>
+
+                  <!--
+                    Con un único episodio publicado no hay "últimos episodios" que listar:
+                    en su lugar, un panel de estreno que acompaña al destacado y ocupa su misma altura.
+                  -->
+                  <section
+                    v-else
+                    aria-labelledby="estreno-titulo"
+                    class="relative flex-1 flex flex-col justify-center gap-10 overflow-hidden bg-podcast-oscuro rounded-[2rem] md:rounded-[2.5rem] p-7 sm:p-8 lg:p-9 shadow-xl shadow-slate-300/40"
+                  >
+                    <div
+                      class="absolute inset-0 opacity-[0.06] pointer-events-none"
+                      style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 28px 28px"
+                    ></div>
+                    <span
+                      aria-hidden="true"
+                      class="absolute -top-6 -right-2 text-[11rem] leading-none font-black text-podcast-acento/10 select-none pointer-events-none"
+                      >“</span
+                    >
+
+                    <div class="relative z-10">
+                      <span
+                        class="inline-flex items-center gap-2.5 text-[11px] font-black uppercase tracking-widest text-slate-300"
+                      >
+                        <span class="w-2 h-2 rounded-full bg-podcast-acento"></span>
+                        Estreno
+                      </span>
+                      <h2
+                        id="estreno-titulo"
+                        class="mt-4 text-2xl sm:text-3xl lg:text-[2rem] font-black text-white leading-tight tracking-tight"
+                      >
+                        Aquí empieza la conversación.
+                      </h2>
+                      <p class="mt-4 text-[15px] text-slate-300 leading-relaxed">
+                        Este es el primer episodio de Íntimamente Hablando. Encontrarás los
+                        siguientes aquí cuando se publiquen.
+                      </p>
+                    </div>
+
+                    <div class="relative z-10 pt-8 border-t border-white/10">
+                      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        Para no perderte los próximos
+                      </p>
+                      <a
+                        :href="canalUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3 rounded-2xl text-sm font-bold text-podcast-oscuro bg-podcast-acento hover:brightness-105 transition-all duration-300 active:scale-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-podcast-acento/40"
+                      >
+                        <span class="material-symbols-rounded text-xl" aria-hidden="true">smart_display</span>
+                        Ver canal en YouTube
+                      </a>
+                    </div>
+                  </section>
                 </aside>
               </div>
             </section>

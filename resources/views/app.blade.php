@@ -5,7 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title inertia>{{ $seo['title'] ?? config('app.name', 'F&C') }}</title>
+    {{-- Título del HTML inicial: el SEO propio de la página o, en su defecto, la marca (no APP_NAME). --}}
+    <title inertia>{{ $seo['title'] ?? 'F&C Consultores' }}</title>
    <link rel="icon" href="{{ asset('images/logo-fyc-web.png') }}" type="image/png">
 
     {{-- SEO en el HTML inicial (sin SSR): solo cuando el controlador envía $seo con withViewData. --}}
