@@ -114,7 +114,7 @@ const usarPng = () => {
             Publicados
           </dt>
           <dd class="mt-1 text-white font-bold tabular-nums">
-            {{ totalEpisodios }} episodios
+            {{ totalEpisodios }} {{ totalEpisodios === 1 ? "episodio" : "episodios" }}
           </dd>
         </div>
         <div class="bg-podcast-oscuro px-5 py-4">
