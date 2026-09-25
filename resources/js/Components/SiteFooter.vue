@@ -8,7 +8,7 @@ const navigation = {
     { label: "Inicio", href: "/" },
     { label: "Líneas de negocio", href: "/" },
     { label: "Nosotros", href: "/nosotros" },
-    { label: "Públicaciones", href: "/responsabilidad-social" },
+    { label: "Publicaciones", href: "/responsabilidad-social" },
     { label: "Participantes", href: "/rincon-del-cliente" },
     { label: "Blog", href: "/blog" },
     { label: "Podcast", href: "/podcast" },

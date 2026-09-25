@@ -119,9 +119,14 @@ const usarPng = () => {
         </div>
         <div class="bg-podcast-oscuro px-5 py-4">
           <dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Frecuencia
+            Disponible en
           </dt>
-          <dd class="mt-1 text-white font-bold">Cada dos semanas</dd>
+          <dd class="mt-1 flex items-center gap-2 text-white font-bold">
+            <span class="material-symbols-rounded text-lg text-podcast-acento" aria-hidden="true"
+              >smart_display</span
+            >
+            YouTube
+          </dd>
         </div>
       </dl>
     </div>
