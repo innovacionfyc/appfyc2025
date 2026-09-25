@@ -33,7 +33,7 @@ class PodcastPublicController extends Controller
 
     private const SEO_DESCRIPCION_MAX = 160;
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $temporadas = $this->temporadasElegibles();
         $episodios = $this->episodiosElegibles($temporadas);
@@ -57,6 +57,8 @@ class PodcastPublicController extends Controller
             ])->values(),
             'episodios' => $episodios->map(fn ($e) => $this->aDto($e))->values(),
             'destacadoId' => $destacado?->id,
+            // Conteo y estado del visitante para el "me gusta" del destacado; solo lectura, no crea cookie.
+            'reaccionesDestacado' => $destacado ? $this->reacciones($request, $destacado) : null,
             'temporadaInicial' => $temporadaInicial,
             'canalUrl' => self::CANAL_YOUTUBE,
         ])->withViewData('seo', $this->seoListado());
