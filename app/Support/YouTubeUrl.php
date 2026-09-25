@@ -40,8 +40,8 @@ final class YouTubeUrl
             return null;
         }
 
-        if (!preg_match('#^[a-z][a-z0-9+.-]*://#i', $url)) {
-            $url = 'https://' . $url;
+        if (! preg_match('#^[a-z][a-z0-9+.-]*://#i', $url)) {
+            $url = 'https://'.$url;
         }
 
         $partes = parse_url($url);
@@ -76,20 +76,20 @@ final class YouTubeUrl
     {
         $parametros = array_merge(['rel' => 0, 'modestbranding' => 1], $parametros);
 
-        return 'https://www.youtube-nocookie.com/embed/' . $videoId . '?' . http_build_query($parametros);
+        return 'https://www.youtube-nocookie.com/embed/'.$videoId.'?'.http_build_query($parametros);
     }
 
     public static function thumbnailUrl(string $videoId, string $calidad = 'hqdefault'): string
     {
-        if (!in_array($calidad, self::CALIDADES_MINIATURA, true)) {
+        if (! in_array($calidad, self::CALIDADES_MINIATURA, true)) {
             $calidad = 'hqdefault';
         }
 
-        return 'https://i.ytimg.com/vi/' . $videoId . '/' . $calidad . '.jpg';
+        return 'https://i.ytimg.com/vi/'.$videoId.'/'.$calidad.'.jpg';
     }
 
     public static function watchUrl(string $videoId): string
     {
-        return 'https://www.youtube.com/watch?v=' . $videoId;
+        return 'https://www.youtube.com/watch?v='.$videoId;
     }
 }

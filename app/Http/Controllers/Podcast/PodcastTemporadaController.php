@@ -45,12 +45,12 @@ class PodcastTemporadaController extends Controller
         return Inertia::render('Podcast/Temporadas', [
             'temporadas' => $temporadas,
             'eliminadas' => $eliminadas,
-            'estados'    => $this->estadosPermitidos(),
-            'stats'      => [
-                'total'      => $temporadas->count(),
-                'activas'    => $temporadas->where('estado_id', $activoId)->count(),
+            'estados' => $this->estadosPermitidos(),
+            'stats' => [
+                'total' => $temporadas->count(),
+                'activas' => $temporadas->where('estado_id', $activoId)->count(),
                 'borradores' => $temporadas->where('estado_id', EstadoResolver::borrador())->count(),
-                'episodios'  => (int) $temporadas->sum('episodios_count'),
+                'episodios' => (int) $temporadas->sum('episodios_count'),
                 'eliminadas' => $eliminadas->count(),
             ],
         ]);
@@ -77,7 +77,8 @@ class PodcastTemporadaController extends Controller
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Error al crear temporada del podcast: ' . $e->getMessage());
+            Log::error('Error al crear temporada del podcast: '.$e->getMessage());
+
             return back()->withErrors(['general' => 'Ocurrió un error inesperado al crear la temporada.']);
         }
     }
@@ -118,7 +119,8 @@ class PodcastTemporadaController extends Controller
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Error al actualizar temporada del podcast: ' . $e->getMessage());
+            Log::error('Error al actualizar temporada del podcast: '.$e->getMessage());
+
             return back()->withErrors(['general' => 'Ocurrió un error inesperado al actualizar la temporada.']);
         }
     }
@@ -141,7 +143,8 @@ class PodcastTemporadaController extends Controller
             return back()->with('success', "La temporada {$temporada->numero} pasó a la papelera y puede restaurarse.");
 
         } catch (\Exception $e) {
-            Log::error('Error al eliminar temporada del podcast: ' . $e->getMessage());
+            Log::error('Error al eliminar temporada del podcast: '.$e->getMessage());
+
             return back()->with('error', 'Error al eliminar la temporada.');
         }
     }
@@ -169,30 +172,30 @@ class PodcastTemporadaController extends Controller
         }
 
         return [
-            'numero'         => ['required', 'integer', 'min:1', 'max:65535', $numeroUnico],
-            'titulo'         => ['required', 'string', 'max:200'],
-            'descripcion'    => ['nullable', 'string', 'max:2000'],
+            'numero' => ['required', 'integer', 'min:1', 'max:65535', $numeroUnico],
+            'titulo' => ['required', 'string', 'max:200'],
+            'descripcion' => ['nullable', 'string', 'max:2000'],
             'imagen_portada' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'estado_id'      => ['required', 'integer', Rule::in(EstadoResolver::ids(self::ESTADOS_PERMITIDOS))],
+            'estado_id' => ['required', 'integer', Rule::in(EstadoResolver::ids(self::ESTADOS_PERMITIDOS))],
         ];
     }
 
     private function mensajes(): array
     {
         return [
-            'numero.required'         => 'El número de la temporada es obligatorio.',
-            'numero.integer'          => 'El número de la temporada debe ser un entero.',
-            'numero.min'              => 'El número de la temporada debe ser mayor o igual a 1.',
-            'numero.unique'           => 'Ya existe una temporada con ese número (revisa también la papelera).',
-            'titulo.required'         => 'El título de la temporada es obligatorio.',
-            'titulo.max'              => 'El título no puede superar los 200 caracteres.',
-            'descripcion.max'         => 'La descripción no puede superar los 2000 caracteres.',
+            'numero.required' => 'El número de la temporada es obligatorio.',
+            'numero.integer' => 'El número de la temporada debe ser un entero.',
+            'numero.min' => 'El número de la temporada debe ser mayor o igual a 1.',
+            'numero.unique' => 'Ya existe una temporada con ese número (revisa también la papelera).',
+            'titulo.required' => 'El título de la temporada es obligatorio.',
+            'titulo.max' => 'El título no puede superar los 200 caracteres.',
+            'descripcion.max' => 'La descripción no puede superar los 2000 caracteres.',
             'imagen_portada.uploaded' => 'La portada no pudo subirse. Verifica que no supere el límite del servidor y vuelve a intentarlo.',
-            'imagen_portada.image'    => 'La portada debe ser una imagen válida.',
-            'imagen_portada.mimes'    => 'La portada debe estar en formato JPG, PNG o WEBP.',
-            'imagen_portada.max'      => 'La portada no puede superar los 4 MB.',
-            'estado_id.required'      => 'El estado de la temporada es obligatorio.',
-            'estado_id.in'            => 'El estado seleccionado no es válido para una temporada.',
+            'imagen_portada.image' => 'La portada debe ser una imagen válida.',
+            'imagen_portada.mimes' => 'La portada debe estar en formato JPG, PNG o WEBP.',
+            'imagen_portada.max' => 'La portada no puede superar los 4 MB.',
+            'estado_id.required' => 'El estado de la temporada es obligatorio.',
+            'estado_id.in' => 'El estado seleccionado no es válido para una temporada.',
         ];
     }
 
@@ -236,19 +239,19 @@ class PodcastTemporadaController extends Controller
     private function aDto(PodcastTemporada $t): array
     {
         return [
-            'id'                      => $t->id,
-            'numero'                  => $t->numero,
-            'titulo'                  => $t->titulo,
-            'slug'                    => $t->slug,
-            'descripcion'             => $t->descripcion,
-            'imagen_portada'          => $t->imagen_portada,
-            'imagen_portada_url'      => $t->imagen_portada ? Storage::url($t->imagen_portada) : null,
-            'estado_id'               => $t->estado_id,
-            'estado'                  => $t->estado?->tipo_estado,
-            'episodios_count'         => $t->episodios_count ?? 0,
+            'id' => $t->id,
+            'numero' => $t->numero,
+            'titulo' => $t->titulo,
+            'slug' => $t->slug,
+            'descripcion' => $t->descripcion,
+            'imagen_portada' => $t->imagen_portada,
+            'imagen_portada_url' => $t->imagen_portada ? Storage::url($t->imagen_portada) : null,
+            'estado_id' => $t->estado_id,
+            'estado' => $t->estado?->tipo_estado,
+            'episodios_count' => $t->episodios_count ?? 0,
             'episodios_activos_count' => $t->episodios_activos_count ?? 0,
-            'created_at'              => $t->created_at?->toDateTimeString(),
-            'deleted_at'              => $t->deleted_at?->toDateTimeString(),
+            'created_at' => $t->created_at?->toDateTimeString(),
+            'deleted_at' => $t->deleted_at?->toDateTimeString(),
         ];
     }
 }

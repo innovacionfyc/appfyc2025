@@ -24,6 +24,7 @@ use Inertia\Response;
 class PodcastEpisodioController extends Controller
 {
     private const CARPETA_INVITADOS = 'podcast/invitados';
+
     private const CARPETA_MINIATURAS = 'podcast/miniaturas';
 
     private const ESTADOS_PERMITIDOS = [EstadoResolver::ACTIVO, EstadoResolver::BORRADOR, EstadoResolver::ARCHIVADO];
@@ -32,8 +33,8 @@ class PodcastEpisodioController extends Controller
     {
         $filtros = [
             'temporada_id' => $request->integer('temporada_id') ?: null,
-            'estado_id'    => $request->integer('estado_id') ?: null,
-            'q'            => trim((string) $request->query('q', '')) ?: null,
+            'estado_id' => $request->integer('estado_id') ?: null,
+            'q' => trim((string) $request->query('q', '')) ?: null,
         ];
 
         $consulta = PodcastEpisodio::with(['temporada', 'estado'])
@@ -60,17 +61,17 @@ class PodcastEpisodioController extends Controller
         $destacado = PodcastEpisodio::where('destacado', true)->first();
 
         return Inertia::render('Podcast/Episodios', [
-            'episodios'  => $episodios,
+            'episodios' => $episodios,
             'eliminados' => $eliminados,
             'temporadas' => PodcastTemporada::orderBy('numero')->get(['id', 'numero', 'titulo', 'estado_id']),
-            'estados'    => $this->estadosPermitidos(),
-            'filtros'    => $filtros,
-            'stats'      => [
-                'total'                  => PodcastEpisodio::count(),
-                'activos'                => PodcastEpisodio::where('estado_id', $activoId)->count(),
-                'borradores'             => PodcastEpisodio::where('estado_id', EstadoResolver::borrador())->count(),
-                'eliminados'             => $eliminados->count(),
-                'destacado'              => $destacado ? $this->codigo($destacado) . ' · ' . $destacado->titulo : null,
+            'estados' => $this->estadosPermitidos(),
+            'filtros' => $filtros,
+            'stats' => [
+                'total' => PodcastEpisodio::count(),
+                'activos' => PodcastEpisodio::where('estado_id', $activoId)->count(),
+                'borradores' => PodcastEpisodio::where('estado_id', EstadoResolver::borrador())->count(),
+                'eliminados' => $eliminados->count(),
+                'destacado' => $destacado ? $this->codigo($destacado).' · '.$destacado->titulo : null,
                 'comentarios_pendientes' => PodcastComentario::where('estado_moderacion', PodcastComentario::PENDIENTE)->count(),
             ],
         ]);
@@ -112,7 +113,8 @@ class PodcastEpisodioController extends Controller
             throw $e;
         } catch (\Exception $e) {
             $this->borrarArchivos(array_filter($archivos));
-            Log::error('Error al crear episodio del podcast: ' . $e->getMessage());
+            Log::error('Error al crear episodio del podcast: '.$e->getMessage());
+
             return back()->withErrors(['general' => 'Ocurrió un error inesperado al crear el episodio.']);
         }
     }
@@ -172,7 +174,8 @@ class PodcastEpisodioController extends Controller
             throw $e;
         } catch (\Exception $e) {
             $this->borrarArchivos(array_filter($archivosNuevos));
-            Log::error('Error al actualizar episodio del podcast: ' . $e->getMessage());
+            Log::error('Error al actualizar episodio del podcast: '.$e->getMessage());
+
             return back()->withErrors(['general' => 'Ocurrió un error inesperado al actualizar el episodio.']);
         }
     }
@@ -194,7 +197,8 @@ class PodcastEpisodioController extends Controller
             return back()->with('success', "El episodio {$this->codigo($episodio)} pasó a la papelera y puede restaurarse.");
 
         } catch (\Exception $e) {
-            Log::error('Error al eliminar episodio del podcast: ' . $e->getMessage());
+            Log::error('Error al eliminar episodio del podcast: '.$e->getMessage());
+
             return back()->with('error', 'Error al eliminar el episodio.');
         }
     }
@@ -229,18 +233,18 @@ class PodcastEpisodioController extends Controller
         $url = (string) $request->input('url', '');
         $videoId = YouTubeUrl::extraerId($url);
 
-        if (!$videoId) {
+        if (! $videoId) {
             return response()->json([
-                'valido'  => false,
+                'valido' => false,
                 'mensaje' => 'No se reconoce un video de YouTube válido en esa URL.',
             ], 422);
         }
 
         return response()->json([
-            'valido'        => true,
-            'video_id'      => $videoId,
-            'watch_url'     => YouTubeUrl::watchUrl($videoId),
-            'embed_url'     => YouTubeUrl::embedUrl($videoId),
+            'valido' => true,
+            'video_id' => $videoId,
+            'watch_url' => YouTubeUrl::watchUrl($videoId),
+            'embed_url' => YouTubeUrl::embedUrl($videoId),
             'thumbnail_url' => YouTubeUrl::thumbnailUrl($videoId),
         ]);
     }
@@ -255,59 +259,59 @@ class PodcastEpisodioController extends Controller
         }
 
         return [
-            'temporada_id'      => ['required', 'integer', Rule::exists('podcast_temporadas', 'id')->whereNull('deleted_at')],
-            'numero'            => ['required', 'integer', 'min:1', 'max:65535', $numeroUnico],
-            'titulo'            => ['required', 'string', 'max:220'],
-            'invitado_nombre'   => ['required', 'string', 'max:150'],
-            'invitado_cargo'    => ['nullable', 'string', 'max:200'],
-            'invitado_foto'     => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'descripcion'       => ['required', 'string', 'max:5000'],
+            'temporada_id' => ['required', 'integer', Rule::exists('podcast_temporadas', 'id')->whereNull('deleted_at')],
+            'numero' => ['required', 'integer', 'min:1', 'max:65535', $numeroUnico],
+            'titulo' => ['required', 'string', 'max:220'],
+            'invitado_nombre' => ['required', 'string', 'max:150'],
+            'invitado_cargo' => ['nullable', 'string', 'max:200'],
+            'invitado_foto' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'descripcion' => ['required', 'string', 'max:5000'],
             'fecha_publicacion' => ['nullable', 'date'],
-            'youtube_url'       => ['required', 'string', 'max:500', function ($attr, $value, $fail) {
-                if (!YouTubeUrl::extraerId((string) $value)) {
+            'youtube_url' => ['required', 'string', 'max:500', function ($attr, $value, $fail) {
+                if (! YouTubeUrl::extraerId((string) $value)) {
                     $fail('No se reconoce un video de YouTube válido en la URL (usa watch?v=, youtu.be, shorts o live).');
                 }
             }],
-            'imagen_miniatura'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'imagen_miniatura' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'duracion_segundos' => ['nullable', 'integer', 'min:0', 'max:86400'],
-            'destacado'         => ['nullable', 'boolean'],
-            'estado_id'         => ['required', 'integer', Rule::in(EstadoResolver::ids(self::ESTADOS_PERMITIDOS))],
+            'destacado' => ['nullable', 'boolean'],
+            'estado_id' => ['required', 'integer', Rule::in(EstadoResolver::ids(self::ESTADOS_PERMITIDOS))],
         ];
     }
 
     private function mensajes(): array
     {
         return [
-            'temporada_id.required'       => 'Selecciona la temporada del episodio.',
-            'temporada_id.exists'         => 'La temporada seleccionada no existe o está en la papelera.',
-            'numero.required'             => 'El número del episodio es obligatorio.',
-            'numero.integer'              => 'El número del episodio debe ser un entero.',
-            'numero.min'                  => 'El número del episodio debe ser mayor o igual a 1.',
-            'numero.unique'               => 'Ya existe un episodio con ese número en esta temporada (revisa también la papelera).',
-            'titulo.required'             => 'El título del episodio es obligatorio.',
-            'titulo.max'                  => 'El título no puede superar los 220 caracteres.',
-            'invitado_nombre.required'    => 'El nombre del invitado es obligatorio.',
-            'invitado_nombre.max'         => 'El nombre del invitado no puede superar los 150 caracteres.',
-            'invitado_cargo.max'          => 'El cargo del invitado no puede superar los 200 caracteres.',
-            'invitado_foto.uploaded'      => 'La foto del invitado no pudo subirse. Verifica el tamaño y vuelve a intentarlo.',
-            'invitado_foto.image'         => 'La foto del invitado debe ser una imagen válida.',
-            'invitado_foto.mimes'         => 'La foto del invitado debe estar en formato JPG, PNG o WEBP.',
-            'invitado_foto.max'           => 'La foto del invitado no puede superar los 4 MB.',
-            'descripcion.required'        => 'La descripción del episodio es obligatoria.',
-            'descripcion.max'             => 'La descripción no puede superar los 5000 caracteres.',
-            'fecha_publicacion.date'      => 'La fecha de publicación no es válida.',
-            'youtube_url.required'        => 'La URL del video de YouTube es obligatoria.',
-            'youtube_url.max'             => 'La URL del video es demasiado larga.',
-            'imagen_miniatura.uploaded'   => 'La miniatura no pudo subirse. Verifica el tamaño y vuelve a intentarlo.',
-            'imagen_miniatura.image'      => 'La miniatura debe ser una imagen válida.',
-            'imagen_miniatura.mimes'      => 'La miniatura debe estar en formato JPG, PNG o WEBP.',
-            'imagen_miniatura.max'        => 'La miniatura no puede superar los 4 MB.',
-            'duracion_segundos.integer'   => 'La duración debe expresarse en segundos (entero).',
-            'duracion_segundos.min'       => 'La duración no puede ser negativa.',
-            'duracion_segundos.max'       => 'La duración no puede superar las 24 horas.',
-            'destacado.boolean'           => 'El campo destacado no es válido.',
-            'estado_id.required'          => 'El estado del episodio es obligatorio.',
-            'estado_id.in'                => 'El estado seleccionado no es válido para un episodio.',
+            'temporada_id.required' => 'Selecciona la temporada del episodio.',
+            'temporada_id.exists' => 'La temporada seleccionada no existe o está en la papelera.',
+            'numero.required' => 'El número del episodio es obligatorio.',
+            'numero.integer' => 'El número del episodio debe ser un entero.',
+            'numero.min' => 'El número del episodio debe ser mayor o igual a 1.',
+            'numero.unique' => 'Ya existe un episodio con ese número en esta temporada (revisa también la papelera).',
+            'titulo.required' => 'El título del episodio es obligatorio.',
+            'titulo.max' => 'El título no puede superar los 220 caracteres.',
+            'invitado_nombre.required' => 'El nombre del invitado es obligatorio.',
+            'invitado_nombre.max' => 'El nombre del invitado no puede superar los 150 caracteres.',
+            'invitado_cargo.max' => 'El cargo del invitado no puede superar los 200 caracteres.',
+            'invitado_foto.uploaded' => 'La foto del invitado no pudo subirse. Verifica el tamaño y vuelve a intentarlo.',
+            'invitado_foto.image' => 'La foto del invitado debe ser una imagen válida.',
+            'invitado_foto.mimes' => 'La foto del invitado debe estar en formato JPG, PNG o WEBP.',
+            'invitado_foto.max' => 'La foto del invitado no puede superar los 4 MB.',
+            'descripcion.required' => 'La descripción del episodio es obligatoria.',
+            'descripcion.max' => 'La descripción no puede superar los 5000 caracteres.',
+            'fecha_publicacion.date' => 'La fecha de publicación no es válida.',
+            'youtube_url.required' => 'La URL del video de YouTube es obligatoria.',
+            'youtube_url.max' => 'La URL del video es demasiado larga.',
+            'imagen_miniatura.uploaded' => 'La miniatura no pudo subirse. Verifica el tamaño y vuelve a intentarlo.',
+            'imagen_miniatura.image' => 'La miniatura debe ser una imagen válida.',
+            'imagen_miniatura.mimes' => 'La miniatura debe estar en formato JPG, PNG o WEBP.',
+            'imagen_miniatura.max' => 'La miniatura no puede superar los 4 MB.',
+            'duracion_segundos.integer' => 'La duración debe expresarse en segundos (entero).',
+            'duracion_segundos.min' => 'La duración no puede ser negativa.',
+            'duracion_segundos.max' => 'La duración no puede superar las 24 horas.',
+            'destacado.boolean' => 'El campo destacado no es válido.',
+            'estado_id.required' => 'El estado del episodio es obligatorio.',
+            'estado_id.in' => 'El estado seleccionado no es válido para un episodio.',
         ];
     }
 
@@ -383,41 +387,41 @@ class PodcastEpisodioController extends Controller
     private function aDto(PodcastEpisodio $e): array
     {
         return [
-            'id'                        => $e->id,
-            'temporada_id'              => $e->temporada_id,
-            'temporada'                 => $e->temporada ? [
-                'id'     => $e->temporada->id,
+            'id' => $e->id,
+            'temporada_id' => $e->temporada_id,
+            'temporada' => $e->temporada ? [
+                'id' => $e->temporada->id,
                 'numero' => $e->temporada->numero,
                 'titulo' => $e->temporada->titulo,
             ] : null,
-            'codigo'                    => $this->codigo($e),
-            'numero'                    => $e->numero,
-            'titulo'                    => $e->titulo,
-            'slug'                      => $e->slug,
-            'invitado_nombre'           => $e->invitado_nombre,
-            'invitado_cargo'            => $e->invitado_cargo,
-            'invitado_foto'             => $e->invitado_foto,
-            'invitado_foto_url'         => $e->invitado_foto ? Storage::url($e->invitado_foto) : null,
-            'descripcion'               => $e->descripcion,
-            'fecha_publicacion'         => $e->fecha_publicacion?->format('Y-m-d'),
-            'youtube_video_id'          => $e->youtube_video_id,
-            'youtube_url'               => $e->youtube_url,
-            'youtube_watch_url'         => YouTubeUrl::watchUrl($e->youtube_video_id),
-            'youtube_embed_url'         => YouTubeUrl::embedUrl($e->youtube_video_id),
-            'imagen_miniatura'          => $e->imagen_miniatura,
+            'codigo' => $this->codigo($e),
+            'numero' => $e->numero,
+            'titulo' => $e->titulo,
+            'slug' => $e->slug,
+            'invitado_nombre' => $e->invitado_nombre,
+            'invitado_cargo' => $e->invitado_cargo,
+            'invitado_foto' => $e->invitado_foto,
+            'invitado_foto_url' => $e->invitado_foto ? Storage::url($e->invitado_foto) : null,
+            'descripcion' => $e->descripcion,
+            'fecha_publicacion' => $e->fecha_publicacion?->format('Y-m-d'),
+            'youtube_video_id' => $e->youtube_video_id,
+            'youtube_url' => $e->youtube_url,
+            'youtube_watch_url' => YouTubeUrl::watchUrl($e->youtube_video_id),
+            'youtube_embed_url' => YouTubeUrl::embedUrl($e->youtube_video_id),
+            'imagen_miniatura' => $e->imagen_miniatura,
             // Miniatura personalizada si existe; si no, la de YouTube (no se descarga al servidor)
-            'miniatura_url'             => $e->imagen_miniatura
+            'miniatura_url' => $e->imagen_miniatura
                 ? Storage::url($e->imagen_miniatura)
                 : YouTubeUrl::thumbnailUrl($e->youtube_video_id),
-            'duracion_segundos'         => $e->duracion_segundos,
-            'destacado'                 => (bool) $e->destacado,
-            'estado_id'                 => $e->estado_id,
-            'estado'                    => $e->estado?->tipo_estado,
-            'comentarios_count'         => $e->comentarios_count ?? 0,
+            'duracion_segundos' => $e->duracion_segundos,
+            'destacado' => (bool) $e->destacado,
+            'estado_id' => $e->estado_id,
+            'estado' => $e->estado?->tipo_estado,
+            'comentarios_count' => $e->comentarios_count ?? 0,
             'comentarios_aprobados_count' => $e->comentarios_aprobados_count ?? 0,
-            'reacciones_count'          => $e->reacciones_count ?? 0,
-            'created_at'                => $e->created_at?->toDateTimeString(),
-            'deleted_at'                => $e->deleted_at?->toDateTimeString(),
+            'reacciones_count' => $e->reacciones_count ?? 0,
+            'created_at' => $e->created_at?->toDateTimeString(),
+            'deleted_at' => $e->deleted_at?->toDateTimeString(),
         ];
     }
 }

@@ -10,7 +10,9 @@ class PodcastComentario extends Model
     use SoftDeletes;
 
     public const PENDIENTE = 'pendiente';
+
     public const APROBADO = 'aprobado';
+
     public const RECHAZADO = 'rechazado';
 
     public const ESTADOS_MODERACION = [

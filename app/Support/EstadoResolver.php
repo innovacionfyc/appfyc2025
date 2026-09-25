@@ -12,7 +12,9 @@ use RuntimeException;
 final class EstadoResolver
 {
     public const ACTIVO = 'Activo';
+
     public const BORRADOR = 'Borrador';
+
     public const ARCHIVADO = 'Archivado';
 
     /** @var array<string, int> */
@@ -22,10 +24,10 @@ final class EstadoResolver
     {
         $clave = mb_strtolower(trim($nombre));
 
-        if (!isset(self::$cache[$clave])) {
+        if (! isset(self::$cache[$clave])) {
             $id = Estado::where('tipo_estado', $nombre)->value('id');
 
-            if (!$id) {
+            if (! $id) {
                 throw new RuntimeException("No existe el estado '{$nombre}' en la tabla estados. Ejecuta EstadosSeeder o revisa el catálogo.");
             }
 
@@ -53,7 +55,7 @@ final class EstadoResolver
     /**
      * IDs de una lista de nombres, en el mismo orden (útil para reglas `in:`).
      *
-     * @param  string[] $nombres
+     * @param  string[]  $nombres
      * @return int[]
      */
     public static function ids(array $nombres): array

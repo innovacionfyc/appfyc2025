@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\HasAuditFields;
 
 class PodcastTemporada extends Model
 {
-    use SoftDeletes, HasAuditFields;
+    use HasAuditFields, SoftDeletes;
 
     protected $table = 'podcast_temporadas';
 
