@@ -24,7 +24,9 @@ const nav = [
     match: "/rincon-del-cliente",
   },
   { label: "Blog", href: "/blog", match: "/blog" },
-  { label: "Podcast", href: "/podcast", match: "/podcast" },
+  // Podcast oculto temporalmente del menú público (la ruta /podcast sigue activa).
+  // Para volver a mostrarlo, descomentar la línea siguiente.
+  // { label: "Podcast", href: "/podcast", match: "/podcast" },
 ];
 
 const handleScroll = () => {
