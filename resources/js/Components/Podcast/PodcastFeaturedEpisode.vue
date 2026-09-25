@@ -1,9 +1,12 @@
 <script setup>
 import { computed, ref, watch } from "vue";
+import PodcastLikeButton from "@/Components/Podcast/PodcastLikeButton.vue";
 
 const props = defineProps({
   episodio: { type: Object, required: true },
   canalUrl: { type: String, required: true },
+  // { total, activo, url } calculado en el servidor; null cuando no aplica
+  reacciones: { type: Object, default: null },
 });
 
 const imagenRota = ref(false);
@@ -157,6 +160,16 @@ const fecha = computed(() =>
           <p class="text-[15px] lg:text-base text-slate-600 leading-relaxed line-clamp-3">
             {{ episodio.descripcion }}
           </p>
+
+          <!-- Mismo botón que el detalle: el estado inicial viene del servidor y el conteo es real -->
+          <div v-if="reacciones?.url" class="mt-5">
+            <PodcastLikeButton
+              :key="episodio.id"
+              :total="reacciones.total"
+              :activo="reacciones.activo"
+              :url="reacciones.url"
+            />
+          </div>
         </div>
 
         <div

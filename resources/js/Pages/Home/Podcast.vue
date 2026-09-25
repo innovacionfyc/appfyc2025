@@ -17,6 +17,8 @@ const props = defineProps({
   temporadas: { type: Array, default: () => [] },
   episodios: { type: Array, default: () => [] },
   destacadoId: { type: Number, default: null },
+  // "Me gusta" del destacado: conteo real y si este visitante ya lo dio (calculado en el servidor)
+  reaccionesDestacado: { type: Object, default: null },
   temporadaInicial: { type: Number, default: null },
   canalUrl: { type: String, default: "https://www.youtube.com/@FYCConsultores" },
 });
@@ -104,7 +106,11 @@ const formatoCorto = (fecha) =>
             <section>
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
                 <div class="lg:col-span-2">
-                  <PodcastFeaturedEpisode :episodio="episodioDestacado" :canal-url="canalUrl" />
+                  <PodcastFeaturedEpisode
+                    :episodio="episodioDestacado"
+                    :canal-url="canalUrl"
+                    :reacciones="reaccionesDestacado"
+                  />
                 </div>
 
                 <aside class="flex flex-col">
