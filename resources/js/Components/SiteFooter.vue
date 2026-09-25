@@ -11,6 +11,7 @@ const navigation = {
     { label: "Públicaciones", href: "/responsabilidad-social" },
     { label: "Participantes", href: "/rincon-del-cliente" },
     { label: "Blog", href: "/blog" },
+    { label: "Podcast", href: "/podcast" },
   ],
   áreas: [
     { label: "Formación jurídica", href: "/oferta" },

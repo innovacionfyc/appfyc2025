@@ -50,6 +50,7 @@ class RolSeeder extends Seeder
                     'eventos',
                     'academia',
                     'accesos-virtuales',
+                    'podcast',
                     'configuracion',
                     // Permisos de acción legacy (conservados, no eliminar todavía)
                     'crear_evento',
