@@ -3,12 +3,32 @@ import { computed, ref, watch } from "vue";
 
 const props = defineProps({
   episodio: { type: Object, required: true },
+  canalUrl: { type: String, required: true },
 });
 
 const imagenRota = ref(false);
-watch(() => props.episodio.miniatura, () => (imagenRota.value = false));
+// El reproductor se monta dentro de la misma portada solo al pulsar Play (un único iframe, sin audio oculto).
+const reproduciendo = ref(false);
+
+watch(
+  () => props.episodio.id,
+  () => {
+    imagenRota.value = false;
+    reproduciendo.value = false;
+  }
+);
 
 const numeroFormateado = computed(() => String(props.episodio.numero).padStart(2, "0"));
+
+const srcReproductor = computed(() =>
+  props.episodio.embed_url
+    ? `${props.episodio.embed_url}${props.episodio.embed_url.includes("?") ? "&" : "?"}autoplay=1`
+    : null
+);
+
+const reproducir = () => {
+  if (props.episodio.embed_url) reproduciendo.value = true;
+};
 
 const iniciales = computed(() =>
   props.episodio.invitado
@@ -32,51 +52,88 @@ const fecha = computed(() =>
   <article
     class="group relative h-full flex flex-col bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-200/40 overflow-hidden"
   >
-    <!-- Miniatura 16:9. En Fase 3 se sustituye por la miniatura de YouTube y luego el reproductor. -->
+    <!-- Portada 16:9: miniatura con Play real; al pulsarlo, el reproductor ocupa esta misma área. -->
     <div class="relative aspect-video bg-podcast-oscuro overflow-hidden">
-      <img
-        v-if="episodio.miniatura && !imagenRota"
-        :src="episodio.miniatura"
-        :alt="episodio.titulo"
-        class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-        @error="imagenRota = true"
-      />
+      <iframe
+        v-if="reproduciendo && srcReproductor"
+        :src="srcReproductor"
+        :title="`Reproductor: ${episodio.titulo}`"
+        class="absolute inset-0 w-full h-full"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+
       <template v-else>
-        <div
-          class="absolute inset-0 bg-gradient-to-br from-podcast-oscuro via-[#34424a] to-slate-900"
-        ></div>
-        <div
-          class="absolute inset-0 opacity-[0.08]"
-          style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 28px 28px"
-        ></div>
-        <span
-          aria-hidden="true"
-          class="absolute -bottom-10 -right-4 text-[12rem] lg:text-[18rem] leading-none font-black text-white/[0.06] select-none"
-          >{{ numeroFormateado }}</span
-        >
-      </template>
+        <img
+          v-if="episodio.miniatura && !imagenRota"
+          :src="episodio.miniatura"
+          :alt="episodio.titulo"
+          class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          @error="imagenRota = true"
+        />
+        <template v-else>
+          <div
+            class="absolute inset-0 bg-gradient-to-br from-podcast-oscuro via-[#34424a] to-slate-900"
+          ></div>
+          <div
+            class="absolute inset-0 opacity-[0.08]"
+            style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 28px 28px"
+          ></div>
+          <span
+            aria-hidden="true"
+            class="absolute -bottom-10 -right-4 text-[12rem] lg:text-[18rem] leading-none font-black text-white/[0.06] select-none"
+            >{{ numeroFormateado }}</span
+          >
+        </template>
 
-      <div class="absolute inset-0 flex items-center justify-center">
-        <span
-          class="w-20 h-20 rounded-full bg-podcast-acento text-podcast-oscuro flex items-center justify-center shadow-2xl shadow-black/30 ring-8 ring-white/10 transition-transform duration-500 group-hover:scale-110"
+        <!-- Con video válido: botón Play (no anidado en ningún enlace). Sin video: estado seguro con salida al canal. -->
+        <button
+          v-if="episodio.embed_url"
+          type="button"
+          :aria-label="`Reproducir episodio ${numeroFormateado}: ${episodio.titulo}`"
+          class="group/play absolute inset-0 flex items-center justify-center w-full h-full bg-black/5 hover:bg-black/15 transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-podcast-acento/60"
+          @click="reproducir"
         >
-          <span class="material-symbols-rounded text-5xl translate-x-[2px]">play_arrow</span>
+          <span
+            class="w-20 h-20 rounded-full bg-podcast-acento text-podcast-oscuro flex items-center justify-center shadow-2xl shadow-black/30 ring-8 ring-white/10 transition-transform duration-500 group-hover/play:scale-110"
+          >
+            <span class="material-symbols-rounded text-5xl translate-x-[2px]">play_arrow</span>
+          </span>
+        </button>
+
+        <div
+          v-else
+          class="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center bg-black/30"
+        >
+          <span class="material-symbols-rounded text-4xl text-white/70" aria-hidden="true">videocam_off</span>
+          <p class="text-white font-bold text-sm sm:text-base">Video no disponible por ahora</p>
+          <a
+            :href="canalUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/25 text-white text-xs font-bold hover:bg-white/20 transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30"
+          >
+            <span class="material-symbols-rounded text-base" aria-hidden="true">smart_display</span>
+            Ir al canal
+          </a>
+        </div>
+
+        <span
+          class="absolute top-4 left-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-black uppercase tracking-widest pointer-events-none"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-podcast-acento"></span>
+          Destacado
         </span>
-      </div>
 
-      <span
-        class="absolute top-4 left-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-black uppercase tracking-widest"
-      >
-        <span class="w-1.5 h-1.5 rounded-full bg-podcast-acento"></span>
-        Destacado
-      </span>
-
-      <span
-        v-if="episodio.duracion"
-        class="absolute bottom-4 right-4 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md text-white text-xs font-bold tabular-nums"
-      >
-        {{ episodio.duracion }}
-      </span>
+        <span
+          v-if="episodio.duracion && episodio.embed_url"
+          class="absolute bottom-4 right-4 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md text-white text-xs font-bold tabular-nums pointer-events-none"
+        >
+          {{ episodio.duracion }}
+        </span>
+      </template>
     </div>
 
     <div class="flex flex-col flex-1 p-7 sm:p-8 lg:p-10">

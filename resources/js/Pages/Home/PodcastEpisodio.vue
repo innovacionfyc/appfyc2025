@@ -25,7 +25,7 @@ const props = defineProps({
     }),
   },
   listadoUrl: { type: String, default: "/podcast" },
-  canalUrl: { type: String, default: "https://www.youtube.com/FYCConsultores" },
+  canalUrl: { type: String, default: "https://www.youtube.com/@FYCConsultores" },
 });
 
 const numeroFormateado = computed(() => String(props.episodio.numero).padStart(2, "0"));
@@ -48,6 +48,13 @@ const iniciales = computed(() =>
     .toUpperCase()
 );
 
+// Mismo criterio que el servidor: sin sufijo si el título ya nombra al podcast
+const tituloPagina = computed(() =>
+  props.episodio.titulo.includes("Íntimamente Hablando")
+    ? props.episodio.titulo
+    : `${props.episodio.titulo} · Íntimamente Hablando`
+);
+
 const ficha = computed(() =>
   [
     { etiqueta: "Temporada", valor: `Temporada ${props.episodio.temporada}` },
@@ -59,7 +66,7 @@ const ficha = computed(() =>
 </script>
 
 <template>
-  <Head :title="`${episodio.titulo} · Íntimamente Hablando`" />
+  <Head :title="tituloPagina" />
   <GuestLayout>
     <div class="min-h-screen bg-slate-50 flex flex-col overflow-x-clip">
       <HeaderNav />

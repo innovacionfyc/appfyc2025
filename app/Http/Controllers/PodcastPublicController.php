@@ -19,7 +19,7 @@ use Inertia\Response;
 
 class PodcastPublicController extends Controller
 {
-    private const CANAL_YOUTUBE = 'https://www.youtube.com/FYCConsultores';
+    private const CANAL_YOUTUBE = 'https://www.youtube.com/@FYCConsultores';
 
     private const RELACIONADOS_MAX = 3;
 
@@ -80,10 +80,6 @@ class PodcastPublicController extends Controller
         return Inertia::render('Home/PodcastEpisodio', [
             'episodio' => array_merge($this->aDto($episodio), [
                 'temporada_titulo' => $episodio->temporada->titulo,
-                // Reproductor en modo privacidad mejorada; null si el ID no permite construirlo.
-                'embed_url' => YouTubeUrl::esIdValido($episodio->youtube_video_id)
-                    ? YouTubeUrl::embedUrl($episodio->youtube_video_id)
-                    : null,
             ]),
             'relacionados' => $relacionados->map(fn ($e) => $this->aDto($e))->values(),
             'reacciones' => $this->reacciones($request, $episodio),
@@ -155,14 +151,19 @@ class PodcastPublicController extends Controller
         // Miniatura personalizada (absoluta) > miniatura de YouTube por URL > imagen oficial del podcast.
         if ($e->imagen_miniatura) {
             $imagen = url(Storage::url($e->imagen_miniatura));
-        } elseif (YouTubeUrl::esIdValido($e->youtube_video_id)) {
+        } elseif ($this->videoReproducible($e->youtube_video_id)) {
             $imagen = YouTubeUrl::thumbnailUrl($e->youtube_video_id);
         } else {
             $imagen = asset(self::SEO_IMAGEN_PODCAST);
         }
 
+        // Si el título ya nombra al podcast (formato del canal), no se repite el sufijo.
+        $titulo = str_contains($e->titulo, self::SEO_PODCAST)
+            ? $e->titulo
+            : $e->titulo.' · '.self::SEO_PODCAST;
+
         return [
-            'title' => $e->titulo.' · '.self::SEO_PODCAST,
+            'title' => $titulo,
             'description' => $descripcion,
             'url' => route('podcast.show', $e->slug),
             'type' => 'article',
@@ -202,9 +203,18 @@ class PodcastPublicController extends Controller
             ->values();
     }
 
+    /**
+     * Un video es reproducible en público si su ID es válido y no es un marcador de posición "DEMO…"
+     * (datos de prueba locales): así no se ofrece Play ni enlace a un video inexistente.
+     */
+    private function videoReproducible(?string $videoId): bool
+    {
+        return YouTubeUrl::esIdValido($videoId) && ! preg_match('/^DEMO/i', $videoId);
+    }
+
     private function aDto(PodcastEpisodio $e): array
     {
-        $videoValido = YouTubeUrl::esIdValido($e->youtube_video_id);
+        $videoValido = $this->videoReproducible($e->youtube_video_id);
 
         return [
             'id' => $e->id,
@@ -224,6 +234,8 @@ class PodcastPublicController extends Controller
                 ? Storage::url($e->imagen_miniatura)
                 : ($videoValido ? YouTubeUrl::thumbnailUrl($e->youtube_video_id) : null),
             'youtube_watch_url' => $videoValido ? YouTubeUrl::watchUrl($e->youtube_video_id) : null,
+            // Reproductor en modo privacidad mejorada (detalle y portada destacada); null si el ID no lo permite.
+            'embed_url' => $videoValido ? YouTubeUrl::embedUrl($e->youtube_video_id) : null,
             'destacado' => (bool) $e->destacado,
         ];
     }

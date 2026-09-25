@@ -49,18 +49,25 @@ const fecha = computed(() =>
         >
       </template>
 
-      <div
-        class="absolute inset-0 flex items-center justify-center"
-      >
+      <!-- Con video: círculo de Play (decorativo; la card entera enlaza al detalle). Sin video: aviso. -->
+      <div class="absolute inset-0 flex items-center justify-center">
         <span
+          v-if="episodio.embed_url"
           class="w-14 h-14 rounded-full bg-podcast-acento text-podcast-oscuro flex items-center justify-center shadow-lg shadow-black/20 transition-transform duration-500 group-hover:scale-110"
         >
           <span class="material-symbols-rounded text-3xl translate-x-[1px]">play_arrow</span>
         </span>
+        <span
+          v-else
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-black uppercase tracking-widest"
+        >
+          <span class="material-symbols-rounded text-sm" aria-hidden="true">videocam_off</span>
+          Video próximamente
+        </span>
       </div>
 
       <span
-        v-if="episodio.duracion"
+        v-if="episodio.duracion && episodio.embed_url"
         class="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md text-white text-[11px] font-bold tabular-nums"
       >
         {{ episodio.duracion }}
