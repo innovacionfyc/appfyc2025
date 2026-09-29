@@ -277,6 +277,8 @@ const obtenerPrecioPrincipal = (evento) => {
     return { etiqueta: "Por Módulo", valor: evento.precio_modulo };
   if (evento.precio_cng > 0) return { etiqueta: "Precio CNG", valor: evento.precio_cng };
   if (evento.precio_seminario > 0) return { etiqueta: "Seminario", valor: evento.precio_seminario };
+  if (evento.precio_seminario_virtual > 0)
+    return { etiqueta: "Seminario virtual", valor: evento.precio_seminario_virtual };
 
   return { etiqueta: "Inversión", valor: 0 };
 };

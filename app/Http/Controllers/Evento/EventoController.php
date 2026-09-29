@@ -26,6 +26,52 @@ class EventoController extends Controller
 {
     use SoftDeletes;
 
+    private const MENSAJES_URL_INSCRIPCION = [
+        'url_formulario_inscripcion.required' => 'Ingresa la URL del formulario de inscripción.',
+        'url_formulario_inscripcion.url' => 'La URL del formulario de inscripción no es válida.',
+        'url_formulario_inscripcion.max' => 'La URL del formulario de inscripción no puede superar 255 caracteres.',
+    ];
+
+    private function esSeminarioDupla(Request $request): bool
+    {
+        return $request->input('tipo_evento') === 'SEM_DUPLA';
+    }
+
+    /**
+     * Reglas del tipo SEM_DUPLA: modalidad Virtual y sus dos tarifas obligatorias.
+     * Para los demás tipos, los precios del seminario dupla son opcionales como el resto.
+     */
+    private function reglasSeminarioDupla(Request $request): array
+    {
+        if (! $this->esSeminarioDupla($request)) {
+            return [
+                'precio_seminario_virtual' => 'nullable|numeric|min:0',
+                'precio_seminario_streaming' => 'nullable|numeric|min:0',
+            ];
+        }
+
+        return [
+            'modalidad' => 'required|string|in:Virtual',
+            'precio_seminario_virtual' => 'required|numeric|gt:0',
+            'precio_seminario_streaming' => 'required|numeric|gt:0',
+        ];
+    }
+
+    private function mensajesSeminarioDupla(Request $request): array
+    {
+        if (! $this->esSeminarioDupla($request)) {
+            return [];
+        }
+
+        return [
+            'modalidad.in' => 'El seminario dupla solo está disponible en modalidad Virtual.',
+            'precio_seminario_virtual.required' => 'Ingresa el precio del seminario (virtual).',
+            'precio_seminario_virtual.gt' => 'El precio del seminario (virtual) debe ser mayor que 0.',
+            'precio_seminario_streaming.required' => 'Ingresa el precio del seminario (streaming).',
+            'precio_seminario_streaming.gt' => 'El precio del seminario (streaming) debe ser mayor que 0.',
+        ];
+    }
+
     public function show(): Response
     {
         $eventos = Evento::with([
@@ -175,6 +221,7 @@ class EventoController extends Controller
                 'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
+                ...$this->reglasSeminarioDupla($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -186,12 +233,13 @@ class EventoController extends Controller
                 'contenido_tematico.*.subtemas.*' => 'nullable|string',
                 'color_hex_secundario' => 'nullable|string|max:7',
                 'texto_dinamico' => 'nullable|string',
-                'url_formulario_inscripcion' => 'nullable|url|max:255',
+                // La columna no admite vacío: al editar también es obligatoria.
+                'url_formulario_inscripcion' => 'required|url|max:255',
                 'estilo_temario' => 'nullable|string',
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesSeminarioDupla($request)]);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';
@@ -309,6 +357,7 @@ class EventoController extends Controller
                 'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
+                ...$this->reglasSeminarioDupla($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -327,7 +376,7 @@ class EventoController extends Controller
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesSeminarioDupla($request)]);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';
@@ -434,6 +483,8 @@ class EventoController extends Controller
                     'precio_curso_intensivo_virtual' => $validated['precio_curso_intensivo_virtual'] ?? 0,
                     'precio_diplomado_hibrido' => $validated['precio_diplomado_hibrido'] ?? 0,
                     'precio_diplomado_virtual' => $validated['precio_diplomado_virtual'] ?? 0,
+                    'precio_seminario_virtual' => $validated['precio_seminario_virtual'] ?? 0,
+                    'precio_seminario_streaming' => $validated['precio_seminario_streaming'] ?? 0,
 
                     'tiene_oferta_valor' => $validated['tiene_oferta_valor'],
                     'oferta_valor' => $validated['tiene_oferta_valor'] ? $validated['oferta_valor'] : null,
