@@ -305,7 +305,7 @@ const preciosVisibles = computed(() => {
   const mapaPrecios = [
     { label: "Jornada Completa", value: parseFloat(evento?.precio_jornada) || 0 },
     { label: "Seminario", value: parseFloat(evento?.precio_seminario) || 0 },
-    { label: "Seminario Virtual", value: parseFloat(evento?.precio_seminario_virtual) || 0 },
+    { label: "Seminario Presencial", value: parseFloat(evento?.precio_seminario_presencial) || 0 },
     { label: "Seminario Streaming", value: parseFloat(evento?.precio_seminario_streaming) || 0 },
     { label: "Módulo Presencial", value: parseFloat(evento?.precio_modulo) || 0 },
     { label: "Módulo Virtual", value: parseFloat(evento?.precio_modulo_virtual) || 0 },

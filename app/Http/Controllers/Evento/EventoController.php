@@ -38,21 +38,23 @@ class EventoController extends Controller
     }
 
     /**
-     * Reglas del tipo SEM_DUPLA: modalidad Virtual y sus dos tarifas obligatorias.
+     * Reglas del tipo SEM_DUPLA (asistencia presencial y por streaming): modalidad Híbrido,
+     * sede presencial y sus dos tarifas obligatorias.
      * Para los demás tipos, los precios del seminario dupla son opcionales como el resto.
      */
     private function reglasSeminarioDupla(Request $request): array
     {
         if (! $this->esSeminarioDupla($request)) {
             return [
-                'precio_seminario_virtual' => 'nullable|numeric|min:0',
+                'precio_seminario_presencial' => 'nullable|numeric|min:0',
                 'precio_seminario_streaming' => 'nullable|numeric|min:0',
             ];
         }
 
         return [
-            'modalidad' => 'required|string|in:Virtual',
-            'precio_seminario_virtual' => 'required|numeric|gt:0',
+            'modalidad' => 'required|string|in:Híbrido',
+            'ubicacion' => 'required|string|max:255',
+            'precio_seminario_presencial' => 'required|numeric|gt:0',
             'precio_seminario_streaming' => 'required|numeric|gt:0',
         ];
     }
@@ -64,9 +66,11 @@ class EventoController extends Controller
         }
 
         return [
-            'modalidad.in' => 'El seminario dupla solo está disponible en modalidad Virtual.',
-            'precio_seminario_virtual.required' => 'Ingresa el precio del seminario (virtual).',
-            'precio_seminario_virtual.gt' => 'El precio del seminario (virtual) debe ser mayor que 0.',
+            'modalidad.in' => 'El seminario dupla (presencial y streaming) debe tener modalidad Híbrido.',
+            'ubicacion.required' => 'Ingresa la sede de la asistencia presencial.',
+            'ubicacion.max' => 'La sede no puede superar 255 caracteres.',
+            'precio_seminario_presencial.required' => 'Ingresa el precio del seminario (presencial).',
+            'precio_seminario_presencial.gt' => 'El precio del seminario (presencial) debe ser mayor que 0.',
             'precio_seminario_streaming.required' => 'Ingresa el precio del seminario (streaming).',
             'precio_seminario_streaming.gt' => 'El precio del seminario (streaming) debe ser mayor que 0.',
         ];
@@ -483,7 +487,7 @@ class EventoController extends Controller
                     'precio_curso_intensivo_virtual' => $validated['precio_curso_intensivo_virtual'] ?? 0,
                     'precio_diplomado_hibrido' => $validated['precio_diplomado_hibrido'] ?? 0,
                     'precio_diplomado_virtual' => $validated['precio_diplomado_virtual'] ?? 0,
-                    'precio_seminario_virtual' => $validated['precio_seminario_virtual'] ?? 0,
+                    'precio_seminario_presencial' => $validated['precio_seminario_presencial'] ?? 0,
                     'precio_seminario_streaming' => $validated['precio_seminario_streaming'] ?? 0,
 
                     'tiene_oferta_valor' => $validated['tiene_oferta_valor'],

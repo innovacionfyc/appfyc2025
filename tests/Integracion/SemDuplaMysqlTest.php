@@ -218,7 +218,10 @@ class SemDuplaMysqlTest extends TestCase
             'JORNADA' => ['JORNADA', ['precio_jornada' => 200000]],
             'CNG_DUPLA' => ['CNG_DUPLA', ['precio_cng' => 900000, 'precio_cng_virtual' => 600000, 'modalidad' => 'Híbrido']],
             'MOD_DUPLA' => ['MOD_DUPLA', ['precio_modulo' => 300000, 'precio_modulo_virtual' => 250000]],
-            'SEM_DUPLA' => ['SEM_DUPLA', ['precio_seminario_virtual' => 350000, 'precio_seminario_streaming' => 250000]],
+            'SEM_DUPLA' => ['SEM_DUPLA', [
+                'precio_seminario_presencial' => 350000, 'precio_seminario_streaming' => 250000,
+                'modalidad' => 'Híbrido', 'ubicacion' => 'Sede de prueba',
+            ]],
         ];
     }
 
@@ -248,7 +251,121 @@ class SemDuplaMysqlTest extends TestCase
         }
     }
 
+    // ── SEM_DUPLA: asistencia presencial y por streaming ─────────────
+
+    public function test_sem_dupla_guarda_modalidad_hibrida_sede_y_ambas_tarifas(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $evento = $this->crearEventoPorHttp('SEM_DUPLA', [
+            'precio_seminario_presencial' => 120000, 'precio_seminario_streaming' => 80000,
+            'modalidad' => 'Híbrido', 'ubicacion' => 'Bogotá, sede de prueba',
+        ]);
+
+        $this->assertSame('Híbrido', $evento->modalidad);
+        $this->assertSame('Bogotá, sede de prueba', $evento->ubicacion);
+        $this->assertSame('120000.00', (string) $evento->precio_seminario_presencial);
+        $this->assertSame('80000.00', (string) $evento->precio_seminario_streaming);
+        $this->assertSame('0.00', (string) DB::table('eventos')->where('id', $evento->id)->value('precio_seminario_virtual'),
+            'la columna virtual heredada no se usa para SEM_DUPLA');
+    }
+
+    public static function semDuplaInvalidos(): array
+    {
+        return [
+            'modalidad Virtual' => [['modalidad' => 'Virtual'], 'modalidad', 'El seminario dupla (presencial y streaming) debe tener modalidad Híbrido.'],
+            'modalidad Presencial' => [['modalidad' => 'Presencial'], 'modalidad', 'El seminario dupla (presencial y streaming) debe tener modalidad Híbrido.'],
+            'sin sede' => [['ubicacion' => ''], 'ubicacion', 'Ingresa la sede de la asistencia presencial.'],
+            'sin tarifa presencial' => [['precio_seminario_presencial' => ''], 'precio_seminario_presencial', 'Ingresa el precio del seminario (presencial).'],
+            'tarifa presencial en 0' => [['precio_seminario_presencial' => 0], 'precio_seminario_presencial', 'El precio del seminario (presencial) debe ser mayor que 0.'],
+            'sin tarifa streaming' => [['precio_seminario_streaming' => ''], 'precio_seminario_streaming', 'Ingresa el precio del seminario (streaming).'],
+        ];
+    }
+
+    #[DataProvider('semDuplaInvalidos')]
+    public function test_sem_dupla_rechaza_datos_invalidos(array $cambios, string $campo, string $mensaje): void
+    {
+        $this->iniciarTransaccionHttp();
+        $antes = Evento::withTrashed()->count();
+
+        $validos = [
+            'precio_seminario_presencial' => 120000, 'precio_seminario_streaming' => 80000,
+            'modalidad' => 'Híbrido', 'ubicacion' => 'Sede de prueba',
+        ];
+        $datos = $this->datosEvento('SEM_DUPLA', [...$validos, ...$cambios]);
+        $datos['url_folleto'] = UploadedFile::fake()->create('folleto.pdf', 10, 'application/pdf');
+
+        $this->from('/admin/eventos/data')->post(route('eventos.store'), $datos)
+            ->assertSessionHasErrors([$campo => $mensaje]);
+
+        $this->assertSame($antes, Evento::withTrashed()->count());
+    }
+
+    public function test_los_demas_tipos_no_exigen_sede_ni_modalidad_hibrida(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $evento = $this->crearEventoPorHttp('CNG_DUPLA', [
+            'precio_cng' => 900000, 'precio_cng_virtual' => 600000, 'modalidad' => 'Presencial', 'ubicacion' => 'O 100% Virtual',
+        ]);
+        $this->assertSame('Presencial', $evento->modalidad);
+
+        $jornada = $this->crearEventoPorHttp('JORNADA', ['precio_jornada' => 200000, 'modalidad' => 'Virtual', 'ubicacion' => null]);
+        $this->assertNull($jornada->ubicacion);
+    }
+
+    // ── Migración: tarifa presencial ─────────────────────────────────
+
+    public function test_migracion_presencial_anade_la_columna_sin_tocar_la_tarifa_virtual(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('SEMINARIO','SEM_DUPLA') NOT NULL DEFAULT 'SEMINARIO'");
+        DB::statement("ALTER TABLE `{$tabla}` ADD `precio_seminario_virtual` decimal(10,2) NULL DEFAULT 0, ADD `precio_seminario_streaming` decimal(10,2) NULL DEFAULT 0");
+        DB::table($tabla)->insert([
+            ['tipo_evento' => 'SEM_DUPLA', 'precio_seminario' => null, 'precio_seminario_virtual' => 120000, 'precio_seminario_streaming' => 80000],
+            ['tipo_evento' => 'SEMINARIO', 'precio_seminario' => 500000, 'precio_seminario_virtual' => 0, 'precio_seminario_streaming' => 0],
+        ]);
+        $antes = DB::table($tabla)->orderBy('id')->get(['id', 'precio_seminario', 'precio_seminario_virtual', 'precio_seminario_streaming'])->toArray();
+
+        $migracion = $this->migracionPresencial($tabla);
+        $migracion->up();
+        $migracion->up();
+
+        $columnas = array_column(DB::select("SHOW COLUMNS FROM `{$tabla}`"), 'Field');
+        $this->assertSame('precio_seminario_presencial', $columnas[array_search('precio_seminario', $columnas) + 1]);
+        $this->assertEquals($antes, DB::table($tabla)->orderBy('id')->get(['id', 'precio_seminario', 'precio_seminario_virtual', 'precio_seminario_streaming'])->toArray());
+        $this->assertSame(['0.00', '0.00'], DB::table($tabla)->orderBy('id')->pluck('precio_seminario_presencial')->all(),
+            'no se copia la tarifa virtual a presencial');
+    }
+
+    public function test_migracion_presencial_down_no_elimina_importes(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('SEMINARIO','SEM_DUPLA') NOT NULL DEFAULT 'SEMINARIO'");
+        $migracion = $this->migracionPresencial($tabla);
+        $migracion->up();
+        DB::table($tabla)->insert(['tipo_evento' => 'SEM_DUPLA', 'precio_seminario_presencial' => 120000, 'deleted_at' => now()]);
+
+        try {
+            $migracion->down();
+            $this->fail('down() debía negarse a revertir.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('importe en precio_seminario_presencial', $e->getMessage());
+        }
+        $this->assertTrue(Schema::hasColumn($tabla, 'precio_seminario_presencial'));
+
+        DB::table($tabla)->update(['precio_seminario_presencial' => 0]);
+        $migracion->down();
+        $this->assertFalse(Schema::hasColumn($tabla, 'precio_seminario_presencial'));
+    }
+
     // ── Utilidades ───────────────────────────────────────────────────
+
+    private function migracionPresencial(string $tabla): object
+    {
+        $migracion = require database_path('migrations/2026_09_29_150000_add_precio_seminario_presencial_to_eventos_table.php');
+        $migracion->tabla = $tabla;
+
+        return $migracion;
+    }
 
     private function crearTablaEventos(string $definicionTipo): string
     {
@@ -317,7 +434,7 @@ class SemDuplaMysqlTest extends TestCase
             'correo' => 'prueba.integracion.'.Str::random(6).'@appfyc2025.test', 'areas_encargadas' => [1], 'url_hv' => 'prueba',
         ])->id;
 
-        $precios = array_fill_keys(['precio_jornada', 'precio_seminario', 'precio_seminario_virtual', 'precio_seminario_streaming',
+        $precios = array_fill_keys(['precio_jornada', 'precio_seminario', 'precio_seminario_presencial', 'precio_seminario_streaming',
             'precio_modulo', 'precio_modulo_virtual', 'precio_cng', 'precio_cng_virtual', 'precio_curso_intensivo_hibrido',
             'precio_curso_intensivo_virtual', 'precio_diplomado_hibrido', 'precio_diplomado_virtual'], 0);
 
