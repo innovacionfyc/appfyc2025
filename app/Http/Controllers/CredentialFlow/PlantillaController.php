@@ -20,12 +20,13 @@ class PlantillaController extends Controller
     {
         $plantillas = Plantilla::query()
             ->latest()
-            ->get(['id', 'nombre', 'descripcion', 'nombre_archivo_original', 'created_at'])
+            ->get(['id', 'nombre', 'descripcion', 'nombre_archivo_original', 'diseno', 'created_at'])
             ->map(fn (Plantilla $p) => [
                 'id' => $p->id,
                 'nombre' => $p->nombre,
                 'descripcion' => $p->descripcion,
                 'nombre_archivo_original' => $p->nombre_archivo_original,
+                'elementos' => count($p->diseno['elements'] ?? []),
                 'created_at' => $p->created_at?->toIso8601String(),
             ]);
 

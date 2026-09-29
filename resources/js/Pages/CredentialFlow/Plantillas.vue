@@ -8,7 +8,7 @@ import BtnUniversal from "@/Components/BtnUniversal.vue";
 import ConfirmacionesPop from "@/Components/Modales/Confirmaciones/ConfirmacionesPop.vue";
 import PlantillaModal from "@/Components/CredentialFlow/PlantillaModal.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
-import { LayoutTemplate, FileText, Trash2, Search, CalendarDays } from "lucide-vue-next";
+import { LayoutTemplate, FileText, Trash2, Search, CalendarDays, SquarePen, Type } from "lucide-vue-next";
 
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
@@ -209,7 +209,20 @@ const eliminar = (plantilla) => {
               <dt class="sr-only">Fecha de creación</dt>
               <dd>Creada el {{ formatFecha(p.created_at) }}</dd>
             </div>
+            <div class="flex items-center gap-2">
+              <Type class="w-4 h-4 text-slate-400 shrink-0" />
+              <dt class="sr-only">Elementos del diseño</dt>
+              <dd>{{ p.elementos === 0 ? "Sin diseño todavía" : `${p.elementos} elemento${p.elementos === 1 ? "" : "s"} en el diseño` }}</dd>
+            </div>
           </dl>
+
+          <Link
+            :href="route('credential-flow.plantillas.editor', p.id)"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto/10 text-sm font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all"
+          >
+            <SquarePen class="w-4 h-4" />
+            Editar diseño
+          </Link>
         </article>
       </div>
     </Sidebar>
