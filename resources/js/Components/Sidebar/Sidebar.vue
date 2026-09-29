@@ -22,6 +22,7 @@ import {
   Layers,
   ListVideo,
   MessageSquare,
+  FileBadge,
 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
@@ -57,6 +58,13 @@ const navItems = [
       { name: "Programas", href: "/admin/programas", icon: Library },
       { name: "Memorias", href: "/admin/memorias", icon: BookOpen },
     ],
+  },
+  {
+    name: "Credential Flow",
+    icon: FileBadge,
+    href: "/admin/credential-flow",
+    module: "credential-flow",
+    roles: ["super-admin", "admin"],
   },
   {
     name: "Accesos Virtuales",
