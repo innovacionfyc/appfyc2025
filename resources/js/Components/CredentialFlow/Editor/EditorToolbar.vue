@@ -8,6 +8,8 @@ defineProps({
   guardando: { type: Boolean, default: false },
   puedeAgregar: { type: Boolean, default: true },
   deshabilitado: { type: Boolean, default: false },
+  // Hay un campo dinámico desconocido: no se puede guardar hasta elegir uno válido.
+  guardarBloqueado: { type: Boolean, default: false },
 });
 
 defineEmits(["agregar-texto", "centrar-horizontal", "centrar-vertical", "eliminar", "guardar"]);
@@ -94,8 +96,9 @@ const boton =
         :loading="guardando"
         :disabled="guardando"
         process="Guardando..."
-        :class="['sm:w-auto', !guardando && (deshabilitado || !sinGuardar) ? 'opacity-50 pointer-events-none' : '']"
-        :aria-disabled="!guardando && (deshabilitado || !sinGuardar)"
+        :class="['sm:w-auto', !guardando && (deshabilitado || guardarBloqueado || !sinGuardar) ? 'opacity-50 pointer-events-none' : '']"
+        :aria-disabled="!guardando && (deshabilitado || guardarBloqueado || !sinGuardar)"
+        :title="guardarBloqueado ? 'Elige un campo válido en los elementos marcados para poder guardar' : undefined"
         @click="$emit('guardar')"
       />
     </div>

@@ -3,21 +3,23 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { Loader2, FileWarning } from "lucide-vue-next";
 import { cargarPdf } from "@/Composables/CredentialFlow/pdfjs";
 import { calcularEscala, ptAPx, pxAPt } from "@/Composables/CredentialFlow/coordenadas";
+import {
+  ESTILO_SIN_KERNING,
+  FUENTES_CSS,
+  prepararFuentes,
+  useCamposDinamicos,
+} from "@/Composables/CredentialFlow/camposDinamicos";
 
 const props = defineProps({
   pdfUrl: { type: String, required: true },
   pagina: { type: Object, required: true }, // { width, height } en puntos PDF
   elementos: { type: Array, default: () => [] },
   seleccionId: { type: String, default: null },
+  schema: { type: Object, required: true }, // catálogo de campos y constantes del autoajuste
 });
 
 const emit = defineEmits(["seleccionar", "mover", "pdf-listo", "pdf-error"]);
 
-const FUENTES_CSS = {
-  Figtree: "'Figtree', sans-serif",
-  Arial: "Arial, Helvetica, sans-serif",
-  "sans-serif": "sans-serif",
-};
 const JUSTIFICADO = { left: "flex-start", center: "center", right: "flex-end" };
 
 const contenedor = ref(null);
@@ -121,17 +123,58 @@ watch(
 );
 
 // ── Elementos ─────────────────────────────────────────────────────────────────
+const campos = useCamposDinamicos(props.schema);
+
+// Antes de medir hay que esperar a que carguen las fuentes de los campos dinámicos.
+watch(
+  () => JSON.stringify(campos.usosDeFuentes(props.elementos)),
+  () => prepararFuentes(campos.usosDeFuentes(props.elementos)),
+  { immediate: true }
+);
+
+// Tamaño con el que se DIBUJA un elemento. El tamaño configurado (el que se guarda) no cambia:
+// el autoajuste de los campos dinámicos es solo de representación.
+const tamanoVisual = (el) => campos.ajusteDe(el)?.size ?? el.fontSize;
+const noCabe = (el) => campos.ajusteDe(el)?.noCabe === true;
+
+const clasesContorno = (el) => {
+  const problema = campos.esDesconocido(el) || noCabe(el);
+  if (el.id === props.seleccionId) {
+    return ["!outline-2 !outline-solid !outline-primary-vinotinto z-10", problema ? "bg-red-500/10" : "bg-primary-vinotinto/5"];
+  }
+  if (problema) return ["outline-red-500 bg-red-500/10"];
+  if (campos.esDinamico(el)) return ["outline-sky-500 bg-sky-500/5 hover:outline-sky-600"];
+  return ["outline-slate-400/70 hover:outline-slate-500"];
+};
+
+// Etiqueta sobre el elemento: distingue campos dinámicos y avisa de los que no caben. Se coloca
+// debajo cuando el elemento está pegado al borde superior para que el lienzo no la recorte.
+const chip = (el) => {
+  if (!campos.esDinamico(el)) return null;
+  const etiqueta = campos.catalogo[el.field]?.etiqueta;
+  const abajo = ptAPx(el.y, escala.value) < 20;
+  const posicion = abajo ? "top-full mt-0.5" : "-top-[18px]";
+
+  if (campos.esDesconocido(el)) return { texto: "Campo desconocido", clase: `bg-red-600 text-white ${posicion}` };
+  if (noCabe(el)) return { texto: `No cabe · ${etiqueta}`, clase: `bg-red-600 text-white ${posicion}` };
+
+  const ajuste = campos.ajusteDe(el);
+  const detalle = ajuste?.reducido ? ` · ${ajuste.size} pt` : "";
+  return { texto: `${etiqueta}${detalle}`, clase: `bg-sky-600 text-white ${posicion}` };
+};
+
 const estiloElemento = (el) => ({
   left: `${ptAPx(el.x, escala.value)}px`,
   top: `${ptAPx(el.y, escala.value)}px`,
   width: `${ptAPx(el.width, escala.value)}px`,
   height: `${ptAPx(el.height, escala.value)}px`,
-  fontSize: `${ptAPx(el.fontSize, escala.value)}px`,
+  fontSize: `${ptAPx(tamanoVisual(el), escala.value)}px`,
   fontFamily: FUENTES_CSS[el.fontFamily] ?? FUENTES_CSS["sans-serif"],
   fontWeight: el.fontWeight,
   color: el.color,
   textAlign: el.align,
   justifyContent: JUSTIFICADO[el.align] ?? "center",
+  ...ESTILO_SIN_KERNING, // TCPDF no aplica kerning ni ligaduras: se desactivan para reducir diferencias
 });
 
 // ── Arrastre con Pointer Events (mouse y touch) ───────────────────────────────
@@ -216,18 +259,33 @@ const centradoV = computed(
         v-for="el in elementos"
         :key="el.id"
         :data-elemento="el.id"
-        class="absolute flex items-center touch-none cursor-move outline outline-dashed outline-1 outline-slate-400/70"
-        :class="[
-          el.id === seleccionId ? '!outline-2 !outline-solid !outline-primary-vinotinto bg-primary-vinotinto/5 z-10' : 'hover:outline-slate-500',
-          arrastrando && el.id === seleccionId ? 'cursor-grabbing' : '',
-        ]"
+        class="absolute flex items-center touch-none cursor-move outline outline-dashed outline-1"
+        :class="[clasesContorno(el), arrastrando && el.id === seleccionId ? 'cursor-grabbing' : '']"
+        :data-campo="el.field ?? undefined"
+        :data-no-cabe="campos.esDinamico(el) ? (noCabe(el) ? 'si' : 'no') : undefined"
+        :data-tamano-visual="tamanoVisual(el)"
         :style="estiloElemento(el)"
         @pointerdown.stop="iniciarArrastre($event, el)"
         @pointermove="moverArrastre"
         @pointerup="terminarArrastre"
         @pointercancel="terminarArrastre"
       >
-        <span class="block w-full whitespace-pre-wrap break-words leading-[1.2] pointer-events-none">{{ el.text }}</span>
+        <!-- Campo dinámico: una sola línea, sin salto automático (se reduce hasta el 70 %). -->
+        <span
+          v-if="campos.esDinamico(el)"
+          class="flex-none whitespace-nowrap leading-[1.2] pointer-events-none"
+        >{{ campos.textoVisible(el) }}</span>
+        <span
+          v-else
+          class="block w-full whitespace-pre-wrap break-words leading-[1.2] pointer-events-none"
+        >{{ el.text }}</span>
+
+        <span
+          v-if="chip(el)"
+          class="absolute left-0 px-1.5 py-1 rounded text-[10px] leading-none font-bold whitespace-nowrap pointer-events-none z-20"
+          :class="chip(el).clase"
+          data-chip-campo
+        >{{ chip(el).texto }}</span>
       </div>
     </div>
   </div>

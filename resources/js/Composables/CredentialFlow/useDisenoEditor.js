@@ -10,6 +10,7 @@ import {
 } from "@/Composables/CredentialFlow/coordenadas";
 
 const ALTO_MIN_POR_TAMANO = 1.25; // la caja no debe quedar más baja que el texto
+const TEXTO_FIJO_POR_DEFECTO = "Texto de ejemplo";
 
 export function useDisenoEditor(schema) {
   const pagina = ref({ width: 0, height: 0 });
@@ -17,11 +18,25 @@ export function useDisenoEditor(schema) {
   const seleccionId = ref(null);
   const base = ref(""); // instantánea del último estado guardado (o cargado)
 
+  // Claves del catálogo (vienen del backend en schema.campos).
+  const clavesCatalogo = new Set((schema.campos ?? []).map((c) => c.key));
+
+  // Texto fijo de cada elemento mientras se convierte en campo dinámico, por id. Solo vive en
+  // memoria: no se guarda en el diseño (un campo dinámico persiste con text = '').
+  const textosFijosRecordados = new Map();
+
   const serializar = () =>
     JSON.stringify({ page: pagina.value, elements: elementos.value });
 
-  const sinGuardar = computed(() => serializar() !== base.value);
+  // Sin instantánea base (antes de iniciar()) no hay nada que comparar: no hay cambios pendientes.
+  const sinGuardar = computed(() => base.value !== "" && serializar() !== base.value);
   const seleccionado = computed(() => elementos.value.find((e) => e.id === seleccionId.value) ?? null);
+
+  // Elementos cuyo `field` ya no existe en el catálogo: no se sustituyen ni se borran; hay que
+  // elegir una opción válida antes de poder guardar.
+  const conCampoDesconocido = computed(() =>
+    elementos.value.filter((e) => e.field !== null && e.field !== undefined && !clavesCatalogo.has(e.field))
+  );
 
   // Carga el diseño guardado (o uno vacío). Las medidas de la página son las REALES del PDF.
   function iniciar(disenoGuardado, ancho, alto) {
@@ -42,7 +57,7 @@ export function useDisenoEditor(schema) {
       id: nuevoUuid(),
       type: "text",
       field: null,
-      text: "Texto de ejemplo",
+      text: TEXTO_FIJO_POR_DEFECTO,
       x: 0,
       y: 0,
       width,
@@ -73,6 +88,8 @@ export function useDisenoEditor(schema) {
     if (!el) return;
 
     const c = { ...cambios };
+    // En un campo dinámico `text` no tiene semántica: nunca se modifica desde aquí.
+    if (el.field !== null && el.field !== undefined) delete c.text;
     if ("fontSize" in c) {
       const fs = Number(c.fontSize);
       if (!Number.isFinite(fs)) delete c.fontSize;
@@ -95,6 +112,31 @@ export function useDisenoEditor(schema) {
 
   const mover = (id, x, y) => actualizar(id, { x, y });
 
+  // Cambia el contenido de un elemento: null = texto fijo, o una clave del catálogo.
+  //  - fijo → dinámico: recuerda el texto fijo (en memoria), asigna `field` y deja text = ''.
+  //  - dinámico → fijo: field = null y recupera el texto recordado; si no existe (p. ej. se
+  //    recargó la página) usa «Texto de ejemplo».
+  //  - dinámico → dinámico: cambia solo `field`; posición, caja y estilos no se tocan.
+  function cambiarOrigen(id, valor) {
+    const el = buscar(id);
+    if (!el) return;
+
+    const nuevo = valor === "" || valor === undefined ? null : valor;
+    const actual = el.field ?? null;
+    if (nuevo === actual) return;
+
+    if (actual === null) {
+      textosFijosRecordados.set(id, el.text);
+      el.field = nuevo;
+      el.text = "";
+    } else if (nuevo === null) {
+      el.field = null;
+      el.text = textosFijosRecordados.has(id) ? textosFijosRecordados.get(id) : TEXTO_FIJO_POR_DEFECTO;
+    } else {
+      el.field = nuevo;
+    }
+  }
+
   function centrarHorizontal() {
     const el = seleccionado.value;
     if (el) el.x = xCentrada(el, pagina.value);
@@ -113,6 +155,7 @@ export function useDisenoEditor(schema) {
   function eliminarSeleccionado() {
     const i = elementos.value.findIndex((e) => e.id === seleccionId.value);
     if (i < 0) return;
+    textosFijosRecordados.delete(elementos.value[i].id);
     elementos.value.splice(i, 1);
     seleccionId.value = null;
   }
@@ -125,7 +168,7 @@ export function useDisenoEditor(schema) {
         id: e.id,
         type: e.type,
         field: e.field ?? null,
-        text: e.text,
+        text: e.field ? "" : e.text, // un campo dinámico siempre se guarda con text = ''
         x: e.x,
         y: e.y,
         width: e.width,
@@ -148,12 +191,14 @@ export function useDisenoEditor(schema) {
     elementos,
     seleccionId,
     seleccionado,
+    conCampoDesconocido,
     sinGuardar,
     iniciar,
     agregarTexto,
     seleccionar,
     actualizar,
     mover,
+    cambiarOrigen,
     centrarHorizontal,
     centrarVertical,
     empujar,

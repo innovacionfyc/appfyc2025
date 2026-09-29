@@ -8,6 +8,7 @@ import EditorCanvas from "@/Components/CredentialFlow/Editor/EditorCanvas.vue";
 import EditorToolbar from "@/Components/CredentialFlow/Editor/EditorToolbar.vue";
 import EditorInspector from "@/Components/CredentialFlow/Editor/EditorInspector.vue";
 import { useDisenoEditor } from "@/Composables/CredentialFlow/useDisenoEditor";
+import { useCamposDinamicos } from "@/Composables/CredentialFlow/camposDinamicos";
 import { Monitor, Info, CircleAlert, ArrowLeft } from "lucide-vue-next";
 
 const props = defineProps({
@@ -18,6 +19,13 @@ const props = defineProps({
 });
 
 const editor = useDisenoEditor(props.schema);
+const campos = useCamposDinamicos(props.schema);
+
+// Autoajuste del elemento seleccionado (solo campos dinámicos) y cuántos no caben aun al mínimo.
+const ajusteSeleccionado = computed(() =>
+  editor.seleccionado.value ? campos.ajusteDe(editor.seleccionado.value) : null
+);
+const cantidadNoCabe = computed(() => editor.elementos.value.filter((e) => campos.ajusteDe(e)?.noCabe).length);
 
 const pdfListo = ref(false);
 const pdfConError = ref(false);
@@ -43,6 +51,8 @@ const alCargarPdf = ({ ancho, alto, paginas: n }) => {
 // ── Guardar ───────────────────────────────────────────────────────────────────
 const guardar = () => {
   if (guardando.value || !pdfListo.value || !editor.sinGuardar.value) return;
+  // Un campo desconocido no se sustituye ni se borra en silencio: hay que elegir uno válido.
+  if (editor.conCampoDesconocido.value.length) return;
 
   router.put(
     route("credential-flow.plantillas.diseno.update", props.plantilla.id),
@@ -162,6 +172,7 @@ const headerStats = computed(() => [
           :guardando="guardando"
           :puede-agregar="editor.elementos.value.length < schema.maxElementos"
           :deshabilitado="!pdfListo"
+          :guardar-bloqueado="editor.conCampoDesconocido.value.length > 0"
           @agregar-texto="editor.agregarTexto"
           @centrar-horizontal="editor.centrarHorizontal"
           @centrar-vertical="editor.centrarVertical"
@@ -176,6 +187,27 @@ const headerStats = computed(() => [
         >
           <Info class="w-4 h-4 mt-0.5 shrink-0" />
           Este PDF tiene {{ paginas }} páginas. En esta primera versión solo se edita la página 1.
+        </div>
+
+        <div
+          v-if="editor.conCampoDesconocido.value.length"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold"
+          role="alert"
+          data-aviso="campo-desconocido"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          {{ editor.conCampoDesconocido.value.length === 1 ? "Hay 1 elemento con un campo dinámico desconocido" : `Hay ${editor.conCampoDesconocido.value.length} elementos con un campo dinámico desconocido` }}.
+          Elige un contenido válido en cada uno para poder guardar.
+        </div>
+
+        <div
+          v-if="cantidadNoCabe"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-700 text-[13px] font-semibold"
+          data-aviso="no-cabe"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          {{ cantidadNoCabe === 1 ? "Hay 1 campo que no cabe" : `Hay ${cantidadNoCabe} campos que no caben` }} en su caja aun reduciendo su tamaño al
+          {{ Math.round(schema.escalaMinima * 100) }} %. Ensancha la caja o baja el tamaño.
         </div>
 
         <div
@@ -197,6 +229,7 @@ const headerStats = computed(() => [
               :pagina="editor.pagina.value"
               :elementos="editor.elementos.value"
               :seleccion-id="editor.seleccionId.value"
+              :schema="schema"
               @pdf-listo="alCargarPdf"
               @pdf-error="pdfConError = true"
               @seleccionar="editor.seleccionar"
@@ -209,7 +242,9 @@ const headerStats = computed(() => [
             :elementos="editor.elementos.value"
             :schema="schema"
             :pagina="editor.pagina.value"
+            :ajuste="ajusteSeleccionado"
             @actualizar="(cambios) => editor.actualizar(editor.seleccionId.value, cambios)"
+            @cambiar-origen="(valor) => editor.cambiarOrigen(editor.seleccionId.value, valor)"
             @seleccionar="editor.seleccionar"
           />
         </div>

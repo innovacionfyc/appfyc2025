@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CredentialFlow;
 
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema as S;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -33,7 +34,8 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*' => ['array:id,type,field,text,x,y,width,height,fontFamily,fontSize,fontWeight,color,align'],
             'diseno.elements.*.id' => ['required', 'uuid', 'distinct:strict'],
             'diseno.elements.*.type' => ['required', Rule::in(S::TIPOS)],
-            'diseno.elements.*.field' => ['nullable', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
+            // null = texto fijo; si no, una clave EXACTA del catálogo (mayúsculas u otras variantes → 422).
+            'diseno.elements.*.field' => ['nullable', 'string', Rule::in(CamposDinamicos::claves())],
             // Un texto vacío llega como null (ConvertEmptyStringsToNull); se normaliza al guardar.
             'diseno.elements.*.text' => ['nullable', 'string', 'max:'.S::TEXTO_MAX],
             'diseno.elements.*.x' => ['required', 'numeric', 'between:0,'.S::PAGINA_MAX],
@@ -58,6 +60,8 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*.id.distinct' => 'Hay elementos con el mismo identificador.',
             'diseno.elements.*.id.uuid' => 'Un elemento tiene un identificador no válido.',
             'diseno.elements.*.type.in' => 'Un elemento tiene un tipo no permitido.',
+            'diseno.elements.*.field.in' => 'Un elemento usa un campo dinámico que no existe en el catálogo.',
+            'diseno.elements.*.field.string' => 'Un elemento tiene un campo dinámico no válido.',
             'diseno.elements.*.text.max' => 'Un texto no puede superar los '.S::TEXTO_MAX.' caracteres.',
             'diseno.elements.*.fontFamily.in' => 'Un elemento usa una fuente no permitida.',
             'diseno.elements.*.fontWeight.in' => 'Un elemento usa un grosor de fuente no permitido.',
@@ -97,7 +101,8 @@ class UpdateDisenoRequest extends FormRequest
 
     /**
      * Diseño listo para guardar: solo claves conocidas, números redondeados a 2 decimales y
-     * texto nulo convertido en cadena vacía.
+     * texto nulo convertido en cadena vacía. Si el elemento es un campo dinámico, `text` no tiene
+     * semántica y se guarda siempre como ''; si es texto fijo, se conserva.
      */
     public function diseno(): array
     {
@@ -112,7 +117,7 @@ class UpdateDisenoRequest extends FormRequest
                 'id' => strtolower($e['id']),
                 'type' => $e['type'],
                 'field' => $e['field'] ?? null,
-                'text' => $e['text'] ?? '',
+                'text' => ($e['field'] ?? null) === null ? ($e['text'] ?? '') : '',
                 'x' => round((float) $e['x'], 2),
                 'y' => round((float) $e['y'], 2),
                 'width' => round((float) $e['width'], 2),

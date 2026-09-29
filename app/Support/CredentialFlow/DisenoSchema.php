@@ -10,6 +10,13 @@ namespace App\Support\CredentialFlow;
  *
  * Todas las medidas están en PUNTOS PDF (1 pt = 1/72 in), con origen en la esquina superior
  * izquierda de la página. Nunca se guardan píxeles del navegador.
+ *
+ * Contenido de un elemento de texto (schema_version 1):
+ *  - `field` === null  → texto fijo: `text` contiene el texto.
+ *  - `field` !== null  → campo dinámico (clave de CamposDinamicos): `text` NO tiene semántica y
+ *    se guarda siempre como ''. El valor de ejemplo del editor no se guarda en el diseño.
+ * El catálogo de campos vive en CamposDinamicos; aquí solo están las reglas de estructura y de
+ * presentación.
  */
 final class DisenoSchema
 {
@@ -34,6 +41,25 @@ final class DisenoSchema
 
     public const TEXTO_MAX = 500;
 
+    /**
+     * Autoajuste de los campos dinámicos (una sola línea). Se reproduce igual en el editor y, más
+     * adelante, en el generador de PDF:
+     *  1. Se mide el ancho del valor con la fuente y el tamaño configurados (sin kerning).
+     *  2. Si cabe en la caja, se usa el tamaño configurado.
+     *  3. Si no, se reduce proporcionalmente (tamaño × ancho de la caja / ancho medido) y se
+     *     redondea HACIA ABAJO en pasos de PASO_AJUSTE_PT.
+     *  4. Nunca baja de ESCALA_MINIMA_TEXTO_DINAMICO × tamaño configurado (el piso se redondea
+     *     hacia ARRIBA al mismo paso, para no quedar por debajo del porcentaje).
+     *  5. Si aun así no cabe, NO se trunca: el elemento queda en estado «No cabe».
+     * El tamaño configurado guardado en el diseño no cambia: el ajustado es solo de representación.
+     */
+    public const ESCALA_MINIMA_TEXTO_DINAMICO = 0.70;
+
+    public const PASO_AJUSTE_PT = 0.25;
+
+    /** Holgura (pt) al comparar un ancho medido con el de la caja. */
+    public const TOLERANCIA_AJUSTE_PT = 0.01;
+
     public const FONT_SIZE_MIN = 4;
 
     public const FONT_SIZE_MAX = 200;
@@ -56,6 +82,10 @@ final class DisenoSchema
             'fontSizeMin' => self::FONT_SIZE_MIN,
             'fontSizeMax' => self::FONT_SIZE_MAX,
             'elementoMin' => self::ELEMENTO_MIN,
+            'campos' => CamposDinamicos::paraEditor(),
+            'escalaMinima' => self::ESCALA_MINIMA_TEXTO_DINAMICO,
+            'pasoAjuste' => self::PASO_AJUSTE_PT,
+            'toleranciaAjuste' => self::TOLERANCIA_AJUSTE_PT,
         ];
     }
 }

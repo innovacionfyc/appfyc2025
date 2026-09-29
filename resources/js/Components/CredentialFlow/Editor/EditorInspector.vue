@@ -7,9 +7,11 @@ const props = defineProps({
   elementos: { type: Array, default: () => [] },
   schema: { type: Object, required: true },
   pagina: { type: Object, required: true },
+  // Estado del autoajuste del elemento seleccionado (solo campos dinámicos): { size, reducido, noCabe }
+  ajuste: { type: Object, default: null },
 });
 
-const emit = defineEmits(["actualizar", "seleccionar"]);
+const emit = defineEmits(["actualizar", "seleccionar", "cambiar-origen"]);
 
 const ALINEACIONES = [
   { valor: "left", etiqueta: "Izquierda", icono: AlignLeft },
@@ -18,6 +20,14 @@ const ALINEACIONES = [
 ];
 
 const NOMBRES_PESO = { 300: "Ligera (300)", 400: "Normal (400)", 500: "Media (500)", 600: "Seminegrita (600)", 700: "Negrita (700)", 800: "Extranegrita (800)" };
+
+// ── Contenido: texto fijo o campo dinámico ────────────────────────────────────
+const catalogo = computed(() => Object.fromEntries(props.schema.campos.map((c) => [c.key, c])));
+const campoActual = computed(() => props.elemento?.field ?? null);
+const esDinamico = computed(() => campoActual.value !== null);
+const esDesconocido = computed(() => esDinamico.value && !catalogo.value[campoActual.value]);
+const infoCampo = computed(() => catalogo.value[campoActual.value] ?? null);
+const porcentajeMinimo = computed(() => Math.round(props.schema.escalaMinima * 100));
 
 const cambiar = (campo, valor) => emit("actualizar", { [campo]: valor });
 // Mientras se teclea solo se aplican valores ya válidos (así "3" de camino a "30" no se convierte
@@ -41,7 +51,11 @@ const cambiarColorTexto = (e) => {
   if (/^#[0-9a-fA-F]{6}$/.test(v)) cambiar("color", v.toLowerCase());
 };
 
-const resumen = (el) => (el.text?.trim() ? el.text.trim().split("\n")[0].slice(0, 32) : "(texto vacío)");
+const resumen = (el) => {
+  // Un campo dinámico se muestra por su etiqueta, no por el texto (que siempre está vacío).
+  if (el.field !== null && el.field !== undefined) return `⟨${catalogo.value[el.field]?.etiqueta ?? "Campo desconocido"}⟩`;
+  return el.text?.trim() ? el.text.trim().split("\n")[0].slice(0, 32) : "(texto vacío)";
+};
 
 const campo =
   "w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-vinotinto/30 focus:border-primary-vinotinto/40 transition-all";
@@ -69,7 +83,22 @@ const posicion = computed(() => [
       </div>
 
       <div>
-        <label :class="etiqueta" for="cf-texto">Contenido</label>
+        <label :class="etiqueta" for="cf-origen">Contenido</label>
+        <select
+          id="cf-origen"
+          :value="campoActual ?? ''"
+          :class="campo"
+          @change="emit('cambiar-origen', $event.target.value)"
+        >
+          <option value="">Texto fijo</option>
+          <option v-for="c in schema.campos" :key="c.key" :value="c.key">{{ c.etiqueta }}</option>
+          <option v-if="esDesconocido" :value="campoActual" disabled>Campo desconocido ({{ campoActual }})</option>
+        </select>
+      </div>
+
+      <!-- Texto fijo: el texto manual de siempre -->
+      <div v-if="!esDinamico">
+        <label :class="etiqueta" for="cf-texto">Texto</label>
         <textarea
           id="cf-texto"
           rows="3"
@@ -78,6 +107,47 @@ const posicion = computed(() => [
           :class="[campo, 'resize-none']"
           @input="cambiar('text', $event.target.value)"
         />
+      </div>
+
+      <!-- Campo dinámico: solo lectura (el valor de ejemplo nunca se guarda en el diseño) -->
+      <div
+        v-else-if="!esDesconocido"
+        class="rounded-2xl border border-sky-200 bg-sky-50 p-4 space-y-1.5"
+        data-tarjeta-campo
+      >
+        <p class="text-[11px] font-black uppercase tracking-widest text-sky-600">{{ infoCampo.etiqueta }}</p>
+        <p class="text-sm font-bold text-slate-800 break-words">{{ infoCampo.preview }}</p>
+        <p class="text-[12px] font-medium text-slate-500 leading-snug">
+          Se reemplaza con los datos de cada participante al generar
+        </p>
+      </div>
+
+      <div
+        v-else
+        class="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-1.5 text-red-700"
+        role="alert"
+        data-tarjeta-desconocido
+      >
+        <p class="text-[11px] font-black uppercase tracking-widest">Campo desconocido</p>
+        <p class="text-[13px] font-semibold break-words">«{{ campoActual }}» ya no existe en el catálogo.</p>
+        <p class="text-[12px] font-medium leading-snug">Elige una opción válida en «Contenido» para poder guardar. No se ha cambiado nada.</p>
+      </div>
+
+      <div
+        v-if="ajuste?.noCabe"
+        class="rounded-2xl border border-red-200 bg-red-50 p-3 text-[12px] font-semibold text-red-700 leading-snug"
+        role="alert"
+        data-estado-ajuste="no-cabe"
+      >
+        No cabe: aun reducido al {{ porcentajeMinimo }} % ({{ ajuste.size }} pt) el texto excede el ancho de la caja.
+        Ensancha la caja o baja el tamaño.
+      </div>
+      <div
+        v-else-if="ajuste?.reducido"
+        class="rounded-2xl border border-sky-200 bg-white p-3 text-[12px] font-semibold text-slate-600 leading-snug"
+        data-estado-ajuste="reducido"
+      >
+        Se reduce a {{ ajuste.size }} pt (configurado: {{ elemento.fontSize }} pt) para caber en la caja.
       </div>
 
       <div class="grid grid-cols-2 gap-3">
