@@ -86,7 +86,7 @@ const form = useForm({
 
   precio_jornada: 0,
   precio_seminario: 0,
-  precio_seminario_virtual: 0,
+  precio_seminario_presencial: 0,
   precio_seminario_streaming: 0,
   precio_modulo: 0,
   precio_modulo_virtual: 0,
@@ -135,17 +135,17 @@ const camposPrecioActivos = computed(() => {
     'CUR_DUPLA': ['precio_curso_intensivo_hibrido', 'precio_curso_intensivo_virtual'],
     'CNG_DUPLA': ['precio_cng', 'precio_cng_virtual'],
     'MOD_DUPLA': ['precio_modulo', 'precio_modulo_virtual'],
-    'SEM_DUPLA': ['precio_seminario_virtual', 'precio_seminario_streaming']
+    'SEM_DUPLA': ['precio_seminario_presencial', 'precio_seminario_streaming']
   };
 
   return mapa[form.tipo_evento] || [];
 });
 
-// El seminario dupla solo existe en modalidad Virtual.
+// El seminario dupla combina asistencia presencial y por streaming: modalidad Híbrido.
 watch(
   () => form.tipo_evento,
   (tipo) => {
-    if (tipo === 'SEM_DUPLA') form.modalidad = 'Virtual';
+    if (tipo === 'SEM_DUPLA') form.modalidad = 'Híbrido';
   }
 );
 const selectedArea = computed(
@@ -246,7 +246,7 @@ const clearForm = () => {
 
   form.precio_jornada = 0;
   form.precio_seminario = 0;
-  form.precio_seminario_virtual = 0;
+  form.precio_seminario_presencial = 0;
   form.precio_seminario_streaming = 0;
   form.precio_modulo = 0;
   form.precio_modulo_virtual = 0;
@@ -306,7 +306,7 @@ watch(
 
         form.precio_jornada = evento.precio_jornada || 0;
         form.precio_seminario = evento.precio_seminario || 0;
-        form.precio_seminario_virtual = evento.precio_seminario_virtual || 0;
+        form.precio_seminario_presencial = evento.precio_seminario_presencial || 0;
         form.precio_seminario_streaming = evento.precio_seminario_streaming || 0;
         form.precio_modulo = evento.precio_modulo || 0;
         form.precio_modulo_virtual = evento.precio_modulo_virtual || 0;
@@ -381,7 +381,7 @@ const submit = () => {
       const todosLosPrecios = [
         "precio_jornada",
         "precio_seminario",
-        "precio_seminario_virtual",
+        "precio_seminario_presencial",
         "precio_seminario_streaming",
         "precio_modulo",
         "precio_modulo_virtual",
@@ -549,14 +549,14 @@ const toggleSubtemas = (modulo) => {
                   type="select"
                   v-model="form.modalidad"
                   :error="form.errors.modalidad"
-                  :options="form.tipo_evento === 'SEM_DUPLA' ? ['Virtual'] : ['Presencial', 'Virtual', 'Híbrida', 'Híbrido']"
+                  :options="form.tipo_evento === 'SEM_DUPLA' ? ['Híbrido'] : ['Presencial', 'Virtual', 'Híbrida', 'Híbrido']"
                   :activeColor="selectedArea.color_hex_principal"
                   icon="sensors"
                   required
                 />
                 <FormInput
-                  v-if="form.modalidad === 'Presencial'"
-                  label="Ubicación / Link"
+                  v-if="form.modalidad === 'Presencial' || form.tipo_evento === 'SEM_DUPLA'"
+                  :label="form.tipo_evento === 'SEM_DUPLA' ? 'Sede presencial' : 'Ubicación / Link'"
                   v-model="form.ubicacion"
                   :error="form.errors.ubicacion"
                   icon="map"
@@ -607,9 +607,9 @@ const toggleSubtemas = (modulo) => {
       />
 
       <FormInput
-        v-if="camposPrecioActivos.includes('precio_seminario_virtual')"
-        label="Precio seminario (virtual)" type="number" v-model="form.precio_seminario_virtual"
-        icon="payments" :error="form.errors.precio_seminario_virtual" required
+        v-if="camposPrecioActivos.includes('precio_seminario_presencial')"
+        label="Precio seminario (presencial)" type="number" v-model="form.precio_seminario_presencial"
+        icon="payments" :error="form.errors.precio_seminario_presencial" required
       />
 
       <FormInput

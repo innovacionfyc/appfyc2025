@@ -277,8 +277,8 @@ const obtenerPrecioPrincipal = (evento) => {
     return { etiqueta: "Por Módulo", valor: evento.precio_modulo };
   if (evento.precio_cng > 0) return { etiqueta: "Precio CNG", valor: evento.precio_cng };
   if (evento.precio_seminario > 0) return { etiqueta: "Seminario", valor: evento.precio_seminario };
-  if (evento.precio_seminario_virtual > 0)
-    return { etiqueta: "Seminario virtual", valor: evento.precio_seminario_virtual };
+  if (evento.precio_seminario_presencial > 0)
+    return { etiqueta: "Seminario presencial", valor: evento.precio_seminario_presencial };
 
   return { etiqueta: "Inversión", valor: 0 };
 };
@@ -455,12 +455,17 @@ const obtenerPrecioPrincipal = (evento) => {
 
               <div class="flex items-center gap-1.5 mb-5">
                 <MapPin
-                  v-if="evento.modalidad === 'Presencial'"
+                  v-if="evento.modalidad === 'Presencial' || evento.tipo_evento === 'SEM_DUPLA'"
                   class="w-5 h-5 opacity-40"
                 />
                 <Monitor v-else class="w-3 h-3 opacity-40" />
                 <span class="text-[16px] font-bold">
-                  {{ evento.modalidad === "Presencial" ? evento.ubicacion : "Virtual" }}
+                  <template v-if="evento.tipo_evento === 'SEM_DUPLA'">
+                    {{ evento.ubicacion || "Presencial" }} · Streaming
+                  </template>
+                  <template v-else>
+                    {{ evento.modalidad === "Presencial" ? evento.ubicacion : "Virtual" }}
+                  </template>
                 </span>
               </div>
 
