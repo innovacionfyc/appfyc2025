@@ -62,6 +62,12 @@ class PlantillaController extends Controller
 
     public function destroy(Plantilla $plantilla)
     {
+        // Con lotes vigentes la plantilla (y su PDF base) siguen haciendo falta para generar credenciales.
+        if ($plantilla->lotes()->exists()) {
+            return to_route('credential-flow.plantillas.index')
+                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene lotes de participantes y no se puede eliminar. Elimina primero esos lotes.");
+        }
+
         $nombre = $plantilla->nombre;
         $archivoBorrado = $this->plantillas->eliminar($plantilla);
 

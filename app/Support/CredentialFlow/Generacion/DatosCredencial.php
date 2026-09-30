@@ -30,6 +30,12 @@ final readonly class DatosCredencial
     /** @param array<string,string> $valores */
     public static function fromArray(array $valores): self
     {
+        // Última barrera antes de generar: claves EXACTAS del catálogo, valores string, NFC, sin
+        // caracteres de control y dentro de maxLongitud. Las reglas de negocio (mayúsculas, documentos,
+        // duplicados…) viven en la importación; aquí solo se comprueba que el dato sea imprimible.
+        $catalogo = CamposDinamicos::todos();
+        $limpios = [];
+
         foreach ($valores as $clave => $valor) {
             if (! CamposDinamicos::existe((string) $clave)) {
                 throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_DESCONOCIDO, 'Los datos incluyen un campo que no existe en el catálogo.');
@@ -37,9 +43,23 @@ final readonly class DatosCredencial
             if (! is_string($valor)) {
                 throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_SIN_VALOR, 'Un dato de la credencial no es texto.');
             }
+            $etiqueta = $catalogo[$clave]['etiqueta'];
+            if (! mb_check_encoding($valor, 'UTF-8')) {
+                throw GeneracionCredencialException::con(GeneracionCredencialException::DATO_INVALIDO, "El dato «{$etiqueta}» no es UTF-8 válido.");
+            }
+            $nfc = \Normalizer::normalize($valor, \Normalizer::FORM_C);
+            $valor = $nfc === false ? $valor : $nfc;
+            if (preg_match('/\p{Cc}/u', $valor) === 1) {
+                throw GeneracionCredencialException::con(GeneracionCredencialException::DATO_INVALIDO, "El dato «{$etiqueta}» tiene caracteres de control no permitidos.");
+            }
+            $max = $catalogo[$clave]['maxLongitud'];
+            if (mb_strlen($valor) > $max) {
+                throw GeneracionCredencialException::con(GeneracionCredencialException::DATO_INVALIDO, "El dato «{$etiqueta}» supera los {$max} caracteres.");
+            }
+            $limpios[$clave] = $valor;
         }
 
-        return new self($valores);
+        return new self($limpios);
     }
 
     /** Valor de un campo dinámico. Nunca devuelve un sustituto: si falta, falla. */

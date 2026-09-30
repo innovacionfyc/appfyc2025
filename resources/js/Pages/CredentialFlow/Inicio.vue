@@ -5,7 +5,7 @@ import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import { LayoutTemplate, Users, Sparkles, History, Construction, ArrowRight } from "lucide-vue-next";
 
-// Presentación del flujo. Solo "Plantillas" está disponible (tiene `ruta`); el resto es informativo.
+// Presentación del flujo. "Plantillas" y "Participantes" están disponibles (tienen `ruta`); el resto es informativo.
 const pasos = [
   {
     titulo: "Plantillas",
@@ -17,6 +17,7 @@ const pasos = [
   {
     titulo: "Participantes",
     descripcion: "Importa la lista de asistentes desde un archivo CSV o Excel y revisa sus datos antes de generar.",
+    ruta: "credential-flow.lotes.index",
     icono: Users,
     acento: "text-primary-naranja bg-primary-naranja/10",
   },

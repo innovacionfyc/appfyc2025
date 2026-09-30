@@ -32,6 +32,8 @@ final class GeneracionCredencialException extends RuntimeException
 
     public const PDF_ILEGIBLE = 'PDF_ILEGIBLE';
 
+    public const DATO_INVALIDO = 'DATO_INVALIDO';
+
     public function __construct(public readonly string $codigo, string $mensaje, public readonly ?string $elementoId = null)
     {
         parent::__construct($mensaje);

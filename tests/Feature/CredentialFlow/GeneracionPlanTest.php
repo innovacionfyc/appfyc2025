@@ -192,13 +192,25 @@ class GeneracionPlanTest extends TestCase
         $this->assertSame(1.2, DisenoSchema::INTERLINEADO_TEXTO_FIJO);
     }
 
-    public function test_un_campo_dinamico_es_siempre_una_linea(): void
+    public function test_un_campo_dinamico_es_siempre_una_linea_y_los_datos_no_admiten_saltos(): void
     {
-        $d = DatosCredencial::fromArray(['evento' => "LINEA UNO\nLINEA DOS"]);
-        $p = $this->planificar([$this->el(['field' => 'evento', 'fontSize' => 16])], $d)[0];
-
+        $p = $this->planificar([$this->el(['field' => 'evento', 'fontSize' => 16])])[0];
         $this->assertCount(1, $p->lineas);
-        $this->assertSame('LINEA UNO LINEA DOS', $p->lineas[0]['texto']);
+
+        // Un salto de línea en un dato es un carácter de control: DatosCredencial lo rechaza antes de planificar.
+        $this->assertCodigo(E::DATO_INVALIDO, fn () => DatosCredencial::fromArray(['evento' => "LINEA UNO\nLINEA DOS"]));
+    }
+
+    public function test_datos_credencial_ultima_barrera(): void
+    {
+        $this->assertCodigo(E::DATO_INVALIDO, fn () => DatosCredencial::fromArray(['nombre_completo' => str_repeat('A', 101)]));
+        $this->assertCodigo(E::DATO_INVALIDO, fn () => DatosCredencial::fromArray(['documento' => "12\x0034"]));
+        $this->assertCodigo(E::DATO_INVALIDO, fn () => DatosCredencial::fromArray(['documento' => "\xC3\x28"]));
+        $this->assertCodigo(E::CAMPO_DESCONOCIDO, fn () => DatosCredencial::fromArray(['NOMBRE_COMPLETO' => 'X']));
+        $this->assertCodigo(E::CAMPO_SIN_VALOR, fn () => DatosCredencial::fromArray(['documento' => 123456]));
+
+        // NFC: e + acento combinado se guarda como é
+        $this->assertSame("Caf\u{00E9}", DatosCredencial::fromArray(['evento' => "Cafe\u{0301}"])->valor('evento'));
     }
 
     public function test_texto_fijo_largo_no_se_reduce_ni_se_trunca(): void

@@ -4,6 +4,7 @@ namespace App\Models\CredentialFlow;
 
 use App\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Plantilla extends Model
@@ -31,6 +32,12 @@ class Plantilla extends Model
         'diseno' => 'array',
         'schema_version' => 'integer',
     ];
+
+    /** Lotes de participantes que usan esta plantilla (los eliminados no cuentan). */
+    public function lotes(): HasMany
+    {
+        return $this->hasMany(Lote::class);
+    }
 
     /** Carpeta de la plantilla, calculada solo a partir de su id (nunca de datos del navegador). */
     public function carpeta(): string

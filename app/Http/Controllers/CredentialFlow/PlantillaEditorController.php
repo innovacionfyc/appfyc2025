@@ -3,24 +3,24 @@
 namespace App\Http\Controllers\CredentialFlow;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\CredentialFlow\Concerns\RespondePdfDeCredencial;
 use App\Http\Requests\CredentialFlow\UpdateDisenoRequest;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
-use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
-use Throwable;
 
 /** Editor visual de una plantilla: página, PDF privado y guardado del diseño. */
 class PlantillaEditorController extends Controller
 {
+    use RespondePdfDeCredencial;
+
     public function show(Plantilla $plantilla): Response
     {
         return Inertia::render('CredentialFlow/Editor', [
@@ -64,34 +64,12 @@ class PlantillaEditorController extends Controller
      */
     public function pdfPrueba(Plantilla $plantilla): HttpResponse|JsonResponse
     {
-        try {
-            $bytes = GeneradorCredencialPdf::generar($plantilla, DatosCredencial::qa());
-        } catch (GeneracionCredencialException $e) {
-            Log::warning('Credential Flow: PDF de prueba no generado', [
-                'plantilla' => $plantilla->id,
-                'codigo' => $e->codigo,
-                'elemento' => $e->elementoId,
-            ]);
-
-            return response()->json(['error' => ['code' => $e->codigo, 'message' => $e->getMessage()]], 422);
-        } catch (Throwable $e) {
-            Log::error('Credential Flow: error inesperado al generar el PDF de prueba', [
-                'plantilla' => $plantilla->id,
-                'error' => $e::class.': '.$e->getMessage(),
-            ]);
-
-            return response()->json(['error' => [
-                'code' => 'ERROR_INESPERADO',
-                'message' => 'No se pudo generar el PDF de prueba. Inténtalo de nuevo; si continúa, avisa al equipo técnico.',
-            ]], 500);
-        }
-
-        return response($bytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="credencial-prueba-'.$plantilla->id.'.pdf"',
-            'Cache-Control' => 'private, no-store',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return $this->respuestaPdf(
+            fn () => GeneradorCredencialPdf::generar($plantilla, DatosCredencial::qa()),
+            'PDF de prueba',
+            ['plantilla' => $plantilla->id],
+            'credencial-prueba-'.$plantilla->id.'.pdf',
+        );
     }
 
     public function update(UpdateDisenoRequest $request, Plantilla $plantilla)
