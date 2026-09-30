@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\CredentialFlow\VerificacionPublicaController;
 use App\Support\PodcastVisitante;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -25,6 +26,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // Verificación pública de credenciales: límite general por IP (holgado para móviles). El límite de consultas
+        // fallidas por IP vive en VerificacionPublicaController.
+        RateLimiter::for('cf-verificacion', fn (Request $request) => Limit::perMinute((int) config('credential_flow.verificacion.limite_por_minuto'))
+            ->by('cf-verificacion:'.$request->ip())
+            ->response(fn (Request $request, array $cabeceras) => VerificacionPublicaController::limitada($request, (int) ($cabeceras['Retry-After'] ?? 60), $cabeceras)));
 
         // Interacciones anónimas del podcast: límite por IP y, si existe, por visitante (cookie).
         RateLimiter::for('podcast-reacciones', function (Request $request) {

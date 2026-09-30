@@ -55,6 +55,15 @@ return [
         ],
 
         [
+            'slug'        => 'credential-flow',
+            'nombre'      => 'Credential Flow',
+            'descripcion' => 'Diseño y generación de certificados a partir de plantillas PDF y listas de participantes.',
+            'icono'       => 'FileBadge',
+            'ruta_admin'  => '/admin/credential-flow',
+            'asignable'   => true,
+        ],
+
+        [
             'slug'        => 'accesos-virtuales',
             'nombre'      => 'Accesos Virtuales',
             'descripcion' => 'Páginas públicas de acceso a reuniones virtuales (Zoom, Teams, etc.).',
