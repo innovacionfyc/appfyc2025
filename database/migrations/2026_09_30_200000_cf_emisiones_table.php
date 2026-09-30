@@ -46,7 +46,11 @@ return new class extends Migration
             $table->char('pdf_hash', 64);
             $table->unsignedBigInteger('pdf_bytes');
 
-            $table->timestamp('emitido_at');
+            // useCurrent() fija un DEFAULT explícito: así, con explicit_defaults_for_timestamp = 0 (MariaDB 10.6 de
+            // producción) la primera columna TIMESTAMP NOT NULL NO recibe el ON UPDATE CURRENT_TIMESTAMP implícito, que
+            // cambiaría la fecha de emisión en cualquier UPDATE posterior (p. ej. al revocar). El valor real lo asigna
+            // siempre el código de emisión.
+            $table->timestamp('emitido_at')->useCurrent();
             $table->unsignedBigInteger('emitido_por')->nullable();
             $table->timestamp('revocado_at')->nullable();
             $table->unsignedBigInteger('revocado_por')->nullable();
