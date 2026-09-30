@@ -96,7 +96,7 @@ final class EmisorCredencial
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).
         [$base, $hashPlantilla] = SnapshotCredencial::cargarPlantilla($plantilla);
         $snapshot = SnapshotCredencial::capturar($participante, $lote, $plantilla, $hashPlantilla);
-        $bytes = GeneradorCredencialPdf::generarDesde($snapshot->diseno, $base, $snapshot->datosCredencial(), $snapshot->schemaVersion, ['participante' => $participante->id]);
+        $bytes = GeneradorCredencialPdf::generarDesde($snapshot->diseno, $base, $snapshot->datosCredencial(), $snapshot->schemaVersion, ['participante' => $participante->id], $snapshot->urlVerificacion());
         $hash = hash('sha256', $bytes);
         $tamano = strlen($bytes);
 

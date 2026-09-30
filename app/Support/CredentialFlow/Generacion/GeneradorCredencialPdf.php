@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Generacion;
 use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
+use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\PdfParser\StreamReader;
@@ -26,7 +27,7 @@ final class GeneradorCredencialPdf
      * (matemática, línea base, autoajuste, interpretación del schema, motor PDF…); no depende de commits.
      * Cada emisión la guarda en su snapshot.
      */
-    public const GENERADOR_VERSION = 1;
+    public const GENERADOR_VERSION = 2; // 2 = añade el elemento `qr` (schema 2); la salida de los diseños sin QR no cambia
 
     /** Devuelve los bytes del PDF generado con el diseño VIVO de la plantilla. @throws GeneracionCredencialException */
     public static function generar(Plantilla $plantilla, DatosCredencial $datos): string
@@ -44,7 +45,10 @@ final class GeneradorCredencialPdf
             throw GeneracionCredencialException::con(GeneracionCredencialException::SIN_DISENO, 'La plantilla no tiene un diseño guardado. Guarda el diseño en el editor primero.');
         }
 
-        return self::generarDesde($diseno, $disco->get($ruta), $datos, (int) $plantilla->schema_version, ['plantilla' => $plantilla->id]);
+        // PDF de prueba/preview: si el diseño lleva QR se dibuja uno REAL con el código de ejemplo (que no existe en BD).
+        $url = DisenoSchema::tieneQr($diseno) ? UrlVerificacion::ejemplo() : null;
+
+        return self::generarDesde($diseno, $disco->get($ruta), $datos, (int) $plantilla->schema_version, ['plantilla' => $plantilla->id], $url);
     }
 
     /**
@@ -56,7 +60,7 @@ final class GeneradorCredencialPdf
      *
      * @throws GeneracionCredencialException
      */
-    public static function generarDesde(array $diseno, string $pdfBase, DatosCredencial $datos, int $schemaVersion, array $contexto = []): string
+    public static function generarDesde(array $diseno, string $pdfBase, DatosCredencial $datos, int $schemaVersion, array $contexto = [], ?string $urlVerificacion = null): string
     {
         if (! isset($diseno['page'], $diseno['elements'])) {
             throw GeneracionCredencialException::con(GeneracionCredencialException::SIN_DISENO, 'La plantilla no tiene un diseño guardado. Guarda el diseño en el editor primero.');
@@ -74,12 +78,21 @@ final class GeneradorCredencialPdf
             $schemaVersion
         );
 
+        $qr = PlanificadorQr::planificar($diseno, ['width' => (float) $tamano['width'], 'height' => (float) $tamano['height']], $schemaVersion);
+        if ($qr !== null && ($urlVerificacion === null || $urlVerificacion === '')) {
+            throw GeneracionCredencialException::con(GeneracionCredencialException::QR_SIN_URL, 'El diseño lleva un QR pero no se recibió la URL de verificación.');
+        }
+
         // Formato [ancho, alto] en puntos; la orientación explícita evita que TCPDF los intercambie.
         $pdf->AddPage($tamano['width'] >= $tamano['height'] ? 'L' : 'P', [$tamano['width'], $tamano['height']]);
         $pdf->useTemplate($plantillaPdf, 0, 0, $tamano['width'], $tamano['height']);
 
         foreach ($planes as $plan) {
             self::pintar($pdf, $plan);
+        }
+
+        if ($qr !== null) {
+            DibujanteQr::dibujar($pdf, $qr, $urlVerificacion);
         }
 
         return $pdf->Output('', 'S');

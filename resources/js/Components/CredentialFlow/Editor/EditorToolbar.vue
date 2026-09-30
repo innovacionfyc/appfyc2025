@@ -1,5 +1,5 @@
 <script setup>
-import { Plus, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Trash2, Check, CircleAlert, FileDown, Loader2 } from "lucide-vue-next";
+import { Plus, QrCode, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Trash2, Check, CircleAlert, FileDown, Loader2 } from "lucide-vue-next";
 import BtnUniversal from "@/Components/BtnUniversal.vue";
 
 defineProps({
@@ -7,6 +7,8 @@ defineProps({
   sinGuardar: { type: Boolean, default: false },
   guardando: { type: Boolean, default: false },
   puedeAgregar: { type: Boolean, default: true },
+  // QR de verificación (opcional): solo uno por plantilla; el botón se deshabilita si ya existe.
+  puedeAgregarQr: { type: Boolean, default: true },
   deshabilitado: { type: Boolean, default: false },
   // Hay un campo desconocido o una fuente sin cargar: no se puede guardar hasta corregirlo.
   guardarBloqueado: { type: Boolean, default: false },
@@ -16,7 +18,7 @@ defineProps({
   motivoNoGenerar: { type: String, default: null },
 });
 
-defineEmits(["agregar-texto", "centrar-horizontal", "centrar-vertical", "eliminar", "guardar", "generar-prueba"]);
+defineEmits(["agregar-texto", "agregar-qr", "centrar-horizontal", "centrar-vertical", "eliminar", "guardar", "generar-prueba"]);
 
 const COLOR = "#942934";
 
@@ -38,6 +40,18 @@ const boton =
     >
       <Plus class="w-4 h-4" />
       Agregar texto
+    </button>
+
+    <button
+      type="button"
+      :class="[boton, 'bg-slate-50 text-slate-700 hover:bg-slate-100']"
+      :disabled="deshabilitado || !puedeAgregarQr"
+      :title="puedeAgregarQr ? 'Agrega un QR que lleva a la página pública de verificación de cada credencial. Es opcional: sin este elemento las credenciales no llevan QR.' : 'Esta plantilla ya tiene su QR de verificación (máximo uno).'"
+      data-accion="agregar-qr"
+      @click="$emit('agregar-qr')"
+    >
+      <QrCode class="w-4 h-4" />
+      QR de verificación (opcional)
     </button>
 
     <span class="hidden sm:block w-px h-6 bg-slate-200" />

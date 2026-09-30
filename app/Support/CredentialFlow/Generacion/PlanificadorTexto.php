@@ -19,7 +19,7 @@ final class PlanificadorTexto
      */
     public static function planificar(array $diseno, DatosCredencial $datos, array $paginaReal, int $schemaVersion = DisenoSchema::VERSION): array
     {
-        if ($schemaVersion !== DisenoSchema::VERSION) {
+        if (! DisenoSchema::soportada($schemaVersion)) {
             throw GeneracionCredencialException::con(GeneracionCredencialException::SCHEMA_NO_SOPORTADO, 'La versión del diseño de esta plantilla no está soportada por el generador.');
         }
 
@@ -38,6 +38,13 @@ final class PlanificadorTexto
 
         $planes = [];
         foreach ($diseno['elements'] ?? [] as $el) {
+            $tipo = $el['type'] ?? null;
+            if ($tipo === DisenoSchema::TIPO_QR && $schemaVersion >= DisenoSchema::VERSION_QR) {
+                continue; // el QR lo planifica PlanificadorQr; aquí solo hay texto
+            }
+            if ($tipo !== DisenoSchema::TIPO_TEXTO) {
+                throw GeneracionCredencialException::con(GeneracionCredencialException::SCHEMA_NO_SOPORTADO, 'El diseño contiene un elemento que la versión de su esquema no soporta.', (string) ($el['id'] ?? ''));
+            }
             $planes[] = self::planificarElemento($el, $datos, (float) $pagina['width'], (float) $pagina['height']);
         }
 

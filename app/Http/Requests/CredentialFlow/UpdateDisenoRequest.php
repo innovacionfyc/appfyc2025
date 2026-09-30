@@ -49,11 +49,12 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*.y' => ['required', 'numeric', 'between:0,'.S::PAGINA_MAX],
             'diseno.elements.*.width' => ['required', 'numeric', 'between:'.S::ELEMENTO_MIN.','.S::PAGINA_MAX],
             'diseno.elements.*.height' => ['required', 'numeric', 'between:'.S::ELEMENTO_MIN.','.S::PAGINA_MAX],
-            'diseno.elements.*.fontFamily' => ['required', Rule::in(FuentesCredential::familias())],
-            'diseno.elements.*.fontSize' => ['required', 'numeric', 'between:'.S::FONT_SIZE_MIN.','.S::FONT_SIZE_MAX],
-            'diseno.elements.*.fontWeight' => ['required', 'integer', Rule::in(S::PESOS)],
-            'diseno.elements.*.color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'diseno.elements.*.align' => ['required', Rule::in(S::ALINEACIONES)],
+            // Propiedades de TEXTO: obligatorias solo en elementos `text`. Un QR no lleva ninguna (se valida en after()).
+            'diseno.elements.*.fontFamily' => ['required_if:diseno.elements.*.type,text', 'nullable', Rule::in(FuentesCredential::familias())],
+            'diseno.elements.*.fontSize' => ['required_if:diseno.elements.*.type,text', 'nullable', 'numeric', 'between:'.S::FONT_SIZE_MIN.','.S::FONT_SIZE_MAX],
+            'diseno.elements.*.fontWeight' => ['required_if:diseno.elements.*.type,text', 'nullable', 'integer', Rule::in(S::PESOS)],
+            'diseno.elements.*.color' => ['required_if:diseno.elements.*.type,text', 'nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'diseno.elements.*.align' => ['required_if:diseno.elements.*.type,text', 'nullable', Rule::in(S::ALINEACIONES)],
         ];
     }
 
@@ -92,6 +93,7 @@ class UpdateDisenoRequest extends FormRequest
             $alto = (float) $pagina['height'] + S::TOLERANCIA;
 
             $vistos = [];
+            $qrs = 0;
             foreach ((array) $this->input('diseno.elements', []) as $i => $e) {
                 $id = strtolower((string) $e['id']);
                 if (isset($vistos[$id])) {
@@ -99,7 +101,10 @@ class UpdateDisenoRequest extends FormRequest
                 }
                 $vistos[$id] = true;
 
-                if (! FuentesCredential::combinacionValida((string) $e['fontFamily'], (int) $e['fontWeight'])) {
+                if ($e['type'] === S::TIPO_QR) {
+                    $qrs++;
+                    $this->validarQr($validator, $i, $e);
+                } elseif (! FuentesCredential::combinacionValida((string) $e['fontFamily'], (int) $e['fontWeight'])) {
                     $validator->errors()->add("diseno.elements.$i.fontWeight", 'La fuente elegida no está disponible en ese grosor.');
                 }
 
@@ -107,7 +112,32 @@ class UpdateDisenoRequest extends FormRequest
                     $validator->errors()->add("diseno.elements.$i", 'Un elemento queda fuera de los límites de la página.');
                 }
             }
+
+            if ($qrs > S::QR_MAX) {
+                $validator->errors()->add('diseno.elements', 'Solo se permite un QR de verificación por plantilla.');
+            }
         }];
+    }
+
+    /** Reglas del elemento QR (schema 2): sin propiedades de texto, cuadrado, tamaño permitido y uno solo. */
+    private function validarQr(Validator $validator, int $i, array $e): void
+    {
+        $textoPresente = ($e['field'] ?? null) !== null || ($e['text'] ?? null) !== null;
+        foreach (['fontFamily', 'fontSize', 'fontWeight', 'color', 'align'] as $clave) {
+            $textoPresente = $textoPresente || ($e[$clave] ?? null) !== null;
+        }
+        if ($textoPresente) {
+            $validator->errors()->add("diseno.elements.$i", 'Un QR no admite propiedades de texto.');
+        }
+
+        $ancho = (float) $e['width'];
+        $alto = (float) $e['height'];
+        if (round(abs($ancho - $alto), 4) > S::QR_TOLERANCIA_CUADRADO_PT) {
+            $validator->errors()->add("diseno.elements.$i.width", 'El QR debe ser cuadrado.');
+        }
+        if ($ancho < S::QR_MIN_PT - S::QR_TOLERANCIA_CUADRADO_PT || $ancho > S::QR_MAX_PT + S::QR_TOLERANCIA_CUADRADO_PT) {
+            $validator->errors()->add("diseno.elements.$i.width", 'El QR debe medir entre '.S::QR_MIN_PT.' y '.S::QR_MAX_PT.' pt.');
+        }
     }
 
     /**
@@ -124,7 +154,14 @@ class UpdateDisenoRequest extends FormRequest
                 'width' => round((float) $diseno['page']['width'], 2),
                 'height' => round((float) $diseno['page']['height'], 2),
             ],
-            'elements' => array_values(array_map(fn (array $e) => [
+            'elements' => array_values(array_map(fn (array $e) => $e['type'] === S::TIPO_QR ? [
+                'id' => strtolower($e['id']),
+                'type' => S::TIPO_QR,
+                'x' => round((float) $e['x'], 2),
+                'y' => round((float) $e['y'], 2),
+                'width' => round((float) $e['width'], 2),
+                'height' => round((float) $e['height'], 2),
+            ] : [
                 'id' => strtolower($e['id']),
                 'type' => $e['type'],
                 'field' => $e['field'] ?? null,

@@ -175,6 +175,32 @@ final class InspectorPdf
         return $salida;
     }
 
+    /**
+     * Rectángulos rellenos (`re f`) del contenido de la página, en orden, con el color de relleno vigente y medidos
+     * desde ARRIBA a la izquierda (pt): x, y (borde superior), ancho y alto positivos. Sirve para localizar el QR
+     * vectorial (fondo blanco + módulos negros) sin decodificarlo.
+     *
+     * @return array<int,array{color:string, x:float, y:float, w:float, h:float}>
+     */
+    public function rectangulosRellenos(): array
+    {
+        [, $alto] = $this->mediaBox();
+        $salida = [];
+        $color = '0 0 0';
+        preg_match_all('/([\d.]+) ([\d.]+) ([\d.]+) rg|([\d.\-]+) ([\d.\-]+) ([\d.\-]+) ([\d.\-]+) re f/', $this->contenidoPagina(), $ops, PREG_SET_ORDER);
+        foreach ($ops as $op) {
+            if (($op[1] ?? '') !== '') {
+                $color = round((float) $op[1], 2).' '.round((float) $op[2], 2).' '.round((float) $op[3], 2);
+
+                continue;
+            }
+            [$x, $y, $w, $h] = [(float) $op[4], (float) $op[5], (float) $op[6], (float) $op[7]];
+            $salida[] = ['color' => $color, 'x' => $x, 'y' => $alto - max($y, $y + $h), 'w' => abs($w), 'h' => abs($h)];
+        }
+
+        return $salida;
+    }
+
     /** Quita los escapes de una cadena PDF y la decodifica (códigos de 2 bytes = Unicode). */
     private static function decodificar(string $literal): string
     {

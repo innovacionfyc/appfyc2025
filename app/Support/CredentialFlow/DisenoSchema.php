@@ -20,11 +20,38 @@ namespace App\Support\CredentialFlow;
  */
 final class DisenoSchema
 {
+    /** Versión base: solo elementos de texto. Las plantillas existentes se quedan aquí mientras no lleven QR. */
     public const VERSION = 1;
+
+    /** Versión que añade el elemento `qr`. Es la MÍNIMA requerida: un diseño de solo texto sigue siendo schema 1. */
+    public const VERSION_QR = 2;
+
+    public const VERSIONES_SOPORTADAS = [self::VERSION, self::VERSION_QR];
 
     public const TIPO_TEXTO = 'text';
 
-    public const TIPOS = [self::TIPO_TEXTO];
+    public const TIPO_QR = 'qr';
+
+    public const TIPOS = [self::TIPO_TEXTO, self::TIPO_QR];
+
+    /**
+     * QR de verificación (schema 2): elemento OPCIONAL, como máximo uno por plantilla y solo en la página 1.
+     * Es cuadrado; su caja INCLUYE la zona de silencio (QR_QUIET_MODULOS módulos por lado) y un fondo blanco.
+     * Negro sobre blanco y corrección de errores M fijos. Tamaño mínimo 85 pt (≈3 cm): decisión tomada con la evidencia de decodificación simulada (ver el reporte de la Fase 8); pendiente de confirmar con un celular real.
+     */
+    public const QR_MAX = 1;
+
+    public const QR_MIN_PT = 85;
+
+    public const QR_MAX_PT = 240;
+
+    public const QR_RECOMENDADO_PT = 100;
+
+    public const QR_TOLERANCIA_CUADRADO_PT = 0.01;
+
+    public const QR_ECC = 'M';
+
+    public const QR_QUIET_MODULOS = 4;
 
     /** Familias HEREDADAS (siguen validando, sin soporte PDF). Las reproducibles viven en FuentesCredential. */
     public const FUENTES = ['Figtree', 'Arial', 'sans-serif'];
@@ -81,11 +108,43 @@ final class DisenoSchema
     /** Tolerancia (pt) para que un elemento pegado al borde no falle por redondeos del navegador. */
     public const TOLERANCIA = 0.5;
 
+    public static function soportada(int $version): bool
+    {
+        return in_array($version, self::VERSIONES_SOPORTADAS, true);
+    }
+
+    /** @param  array<int,mixed>  $elementos */
+    public static function contarQr(array $elementos): int
+    {
+        return count(array_filter($elementos, fn ($e) => is_array($e) && ($e['type'] ?? null) === self::TIPO_QR));
+    }
+
+    /** @param  array<string,mixed>  $diseno */
+    public static function tieneQr(array $diseno): bool
+    {
+        return self::contarQr($diseno['elements'] ?? []) > 0;
+    }
+
+    /** Versión MÍNIMA que necesita un diseño: 2 si lleva QR, 1 si es solo texto (las plantillas existentes no cambian). */
+    public static function versionPara(array $diseno): int
+    {
+        return self::tieneQr($diseno) ? self::VERSION_QR : self::VERSION;
+    }
+
     /** Valores que el editor necesita conocer. */
     public static function paraEditor(): array
     {
         return [
             'version' => self::VERSION,
+            'versionQr' => self::VERSION_QR,
+            'qr' => [
+                'max' => self::QR_MAX,
+                'minimo' => self::QR_MIN_PT,
+                'maximo' => self::QR_MAX_PT,
+                'recomendado' => self::QR_RECOMENDADO_PT,
+                'quietModulos' => self::QR_QUIET_MODULOS,
+                'ecc' => self::QR_ECC,
+            ],
             'fuentes' => FuentesCredential::paraEditor(),
             'pesos' => self::PESOS,
             'alineaciones' => self::ALINEACIONES,

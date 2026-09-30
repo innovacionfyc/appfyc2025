@@ -36,6 +36,10 @@ final class GeneracionCredencialException extends RuntimeException
 
     public const PLANTILLA_ALTERADA = 'PLANTILLA_ALTERADA';
 
+    public const QR_NO_VALIDO = 'QR_NO_VALIDO';
+
+    public const QR_SIN_URL = 'QR_SIN_URL';
+
     public function __construct(public readonly string $codigo, string $mensaje, public readonly ?string $elementoId = null)
     {
         parent::__construct($mensaje);

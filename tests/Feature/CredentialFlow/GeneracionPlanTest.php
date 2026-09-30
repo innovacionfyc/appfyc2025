@@ -268,7 +268,7 @@ class GeneracionPlanTest extends TestCase
         $this->assertSame([], PlanificadorTexto::planificar($this->diseno([]), DatosCredencial::qa(), ['width' => 792.04, 'height' => 611.96]));
         $this->assertCodigo(E::PAGINA_DISTINTA, fn () => PlanificadorTexto::planificar($this->diseno([]), DatosCredencial::qa(), ['width' => 792.06, 'height' => 612.0]));
 
-        $this->assertCodigo(E::SCHEMA_NO_SOPORTADO, fn () => PlanificadorTexto::planificar($this->diseno([]), DatosCredencial::qa(), self::PAGINA, 2));
+        $this->assertCodigo(E::SCHEMA_NO_SOPORTADO, fn () => PlanificadorTexto::planificar($this->diseno([]), DatosCredencial::qa(), self::PAGINA, 3));
         $this->assertCodigo(E::SIN_DISENO, fn () => PlanificadorTexto::planificar(['elements' => []], DatosCredencial::qa(), self::PAGINA));
     }
 }

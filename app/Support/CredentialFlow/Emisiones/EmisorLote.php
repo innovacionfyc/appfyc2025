@@ -9,6 +9,7 @@ use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +78,7 @@ final class EmisorLote
             try {
                 $snapshot = SnapshotCredencial::capturar($participante, $lote, $plantilla, $hashPlantilla);
                 PlanificadorTexto::planificar($snapshot->diseno, $snapshot->datosCredencial(), $pagina, $snapshot->schemaVersion);
+                PlanificadorQr::planificar($snapshot->diseno, $pagina, $snapshot->schemaVersion);
                 $snapshots[$participante->id] = $snapshot;
             } catch (GeneracionCredencialException $e) {
                 $fallos[] = ['participante_id' => $participante->id, 'nombre' => $participante->nombre_completo, 'codigo' => $e->codigo, 'mensaje' => $e->getMessage()];
@@ -102,7 +104,7 @@ final class EmisorLote
         try {
             foreach ($pendientes as $i => $participante) {
                 $snapshot = $snapshots[$participante->id];
-                $bytes = GeneradorCredencialPdf::generarDesde($snapshot->diseno, $base, $snapshot->datosCredencial(), $snapshot->schemaVersion, ['participante' => $participante->id]);
+                $bytes = GeneradorCredencialPdf::generarDesde($snapshot->diseno, $base, $snapshot->datosCredencial(), $snapshot->schemaVersion, ['participante' => $participante->id], $snapshot->urlVerificacion());
 
                 $rutaStaging = AlmacenEmisiones::rutaStaging($operacion, $i);
                 AlmacenEmisiones::guardarStaging($rutaStaging, $bytes);

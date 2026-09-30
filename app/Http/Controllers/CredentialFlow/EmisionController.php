@@ -111,6 +111,7 @@ class EmisionController extends Controller
             'revocado_at' => $e->revocado_at?->toIso8601String(),
             'motivo_revocacion' => $e->motivo_revocacion,
             'pdf_bytes' => $e->pdf_bytes,
+            'con_qr' => isset($e->generador_snapshot['qr']), // derivado del snapshot: sin columna nueva
         ];
     }
 

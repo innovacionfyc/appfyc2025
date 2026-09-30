@@ -16,6 +16,8 @@ const props = defineProps({
   diseno: { type: Object, default: null },
   pdfUrl: { type: String, required: true },
   schema: { type: Object, required: true },
+  // URL de EJEMPLO del QR (código QA fijo que no existe en la base): solo para la vista del editor, no se guarda.
+  qrUrlEjemplo: { type: String, default: "" },
 });
 
 const editor = useDisenoEditor(props.schema);
@@ -236,11 +238,13 @@ const headerStats = computed(() => [
           :sin-guardar="editor.sinGuardar.value"
           :guardando="guardando"
           :puede-agregar="editor.elementos.value.length < schema.maxElementos"
+          :puede-agregar-qr="editor.puedeAgregarQr.value"
           :deshabilitado="!pdfListo"
           :guardar-bloqueado="guardarBloqueado"
           :generando="generando"
           :motivo-no-generar="motivoNoGenerar"
           @agregar-texto="editor.agregarTexto"
+          @agregar-qr="editor.agregarQr"
           @centrar-horizontal="editor.centrarHorizontal"
           @centrar-vertical="editor.centrarVertical"
           @eliminar="editor.eliminarSeleccionado"
@@ -339,6 +343,7 @@ const headerStats = computed(() => [
               :elementos="editor.elementos.value"
               :seleccion-id="editor.seleccionId.value"
               :schema="schema"
+              :qr-url-ejemplo="qrUrlEjemplo"
               @pdf-listo="alCargarPdf"
               @pdf-error="pdfConError = true"
               @seleccionar="editor.seleccionar"

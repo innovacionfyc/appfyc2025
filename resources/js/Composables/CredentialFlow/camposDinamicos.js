@@ -62,6 +62,7 @@ export function useCamposDinamicos(schema) {
   //  - "noSoportado":  algún carácter no existe en la fuente → error visible, bloquea el guardado.
   //  - "heredada":     Figtree/Arial/sans-serif → se dibuja con la fuente del navegador, con aviso.
   const renderDe = (el) => {
+    if (el.type === "qr") return { estado: "qr", faltantes: [] }; // el QR no tiene texto ni fuente
     if (esDesconocido(el)) return { estado: "desconocido", faltantes: [] };
     if (!esReproducible(el.fontFamily, el.fontWeight)) {
       return { estado: estadoFuente(el.fontFamily, el.fontWeight) === "heredada" ? "heredada" : "desconocido", faltantes: [] };

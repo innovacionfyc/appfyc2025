@@ -69,7 +69,7 @@ watch(() => props.version, () => cargar(1));
         <tbody class="divide-y divide-slate-100">
           <tr v-for="e in filas" :key="e.id" :data-emision="e.id" :data-estado="e.estado">
             <td class="px-6 py-3 font-bold text-slate-800 break-words">{{ e.participante }}</td>
-            <td class="px-4 py-3 font-mono text-[12px] text-slate-500">v{{ e.version }}</td>
+            <td class="px-4 py-3 font-mono text-[12px] text-slate-500">v{{ e.version }}<span class="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-black text-slate-500 font-sans" :data-qr="e.con_qr ? 1 : 0">{{ e.con_qr ? "Con QR" : "Sin QR" }}</span></td>
             <td class="px-4 py-3">
               <span class="px-2.5 py-1 rounded-full text-[11px] font-black" :class="e.estado === 'emitida' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'">{{ e.estado === "emitida" ? "Vigente" : "Revocada" }}</span>
             </td>

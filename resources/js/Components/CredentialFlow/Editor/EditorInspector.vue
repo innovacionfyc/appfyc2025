@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { AlignLeft, AlignCenter, AlignRight, Type, MousePointer2 } from "lucide-vue-next";
+import { AlignLeft, AlignCenter, AlignRight, Type, MousePointer2, QrCode, Info } from "lucide-vue-next";
 import { AVISO_HEREDADA } from "@/Composables/CredentialFlow/fuentesCredential";
 
 const props = defineProps({
@@ -64,7 +64,13 @@ const cambiarColorTexto = (e) => {
   if (/^#[0-9a-fA-F]{6}$/.test(v)) cambiar("color", v.toLowerCase());
 };
 
+// QR de verificación: solo posición y un tamaño cuadrado (el mismo valor en ancho y alto).
+const qr = computed(() => props.schema.qr ?? { minimo: 85, maximo: 240, recomendado: 100 });
+const ladoMaximoQr = computed(() => Math.min(qr.value.maximo, props.pagina.width, props.pagina.height));
+const qrPequeno = computed(() => props.elemento?.type === "qr" && props.elemento.width < qr.value.recomendado);
+
 const resumen = (el) => {
+  if (el.type === "qr") return "QR de verificación (opcional)";
   // Un campo dinámico se muestra por su etiqueta, no por el texto (que siempre está vacío).
   if (el.field !== null && el.field !== undefined) return `⟨${catalogo.value[el.field]?.etiqueta ?? "Campo desconocido"}⟩`;
   return el.text?.trim() ? el.text.trim().split("\n")[0].slice(0, 32) : "(texto vacío)";
@@ -84,7 +90,54 @@ const posicion = computed(() => [
 
 <template>
   <aside class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 flex flex-col gap-5" aria-label="Propiedades">
-    <template v-if="elemento">
+    <template v-if="elemento?.type === 'qr'">
+      <div class="flex items-center gap-3" data-inspector-qr>
+        <div class="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center">
+          <QrCode class="w-5 h-5" />
+        </div>
+        <div>
+          <h3 class="text-base font-extrabold text-slate-900 leading-tight">QR de verificación (opcional)</h3>
+          <p class="text-[11px] font-semibold text-slate-400">Elemento seleccionado</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-[12px] font-medium text-slate-600 leading-snug">
+        <p class="flex items-start gap-2"><Info class="w-4 h-4 mt-0.5 shrink-0 text-slate-400" /> Cada credencial emitida lleva un QR que abre su página pública de verificación. Si no quieres QR, elimina este elemento.</p>
+        <p>Negro sobre fondo blanco, con su zona de silencio dentro de la caja. Siempre es cuadrado.</p>
+        <p class="font-bold">Lo que ves es un ejemplo: no es un código real.</p>
+      </div>
+
+      <div
+        v-if="qrPequeno"
+        class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[12px] font-semibold text-amber-800 leading-snug"
+        data-aviso-qr-pequeno
+      >
+        Se recomienda un tamaño de al menos {{ qr.recomendado }} pt para que se lea bien al imprimir.
+      </div>
+
+      <div>
+        <span :class="etiqueta">Posición y tamaño (pt)</span>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1" for="cf-qr-x">X</label>
+            <input id="cf-qr-x" type="number" step="0.5" :min="0" :max="pagina.width" :value="elemento.x" :class="campo" @input="cambiarNumero('x', $event, 0, pagina.width)" @change="confirmarNumero('x', $event, 0, pagina.width)" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1" for="cf-qr-y">Y</label>
+            <input id="cf-qr-y" type="number" step="0.5" :min="0" :max="pagina.height" :value="elemento.y" :class="campo" @input="cambiarNumero('y', $event, 0, pagina.height)" @change="confirmarNumero('y', $event, 0, pagina.height)" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-[11px] font-bold text-slate-400 mb-1" for="cf-qr-tamano">Tamaño (pt, cuadrado {{ qr.minimo }}–{{ ladoMaximoQr }})</label>
+            <input id="cf-qr-tamano" type="number" step="1" :min="qr.minimo" :max="ladoMaximoQr" :value="elemento.width" :class="campo" @input="cambiarNumero('width', $event, qr.minimo, ladoMaximoQr)" @change="confirmarNumero('width', $event, qr.minimo, ladoMaximoQr)" />
+          </div>
+        </div>
+        <p class="mt-2 text-[11px] font-medium text-slate-400">
+          Página de {{ pagina.width }} × {{ pagina.height }} pt. Origen arriba a la izquierda.
+        </p>
+      </div>
+    </template>
+
+    <template v-else-if="elemento">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-primary-vinotinto/10 text-primary-vinotinto flex items-center justify-center">
           <Type class="w-5 h-5" />

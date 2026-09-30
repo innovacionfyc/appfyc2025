@@ -5,6 +5,7 @@ import { cargarPdf } from "@/Composables/CredentialFlow/pdfjs";
 import { calcularEscala, ptAPx, pxAPt } from "@/Composables/CredentialFlow/coordenadas";
 import { ESTILO_SIN_KERNING, useCamposDinamicos } from "@/Composables/CredentialFlow/camposDinamicos";
 import { AVISO_HEREDADA, cargarFuentes, cssFamilia } from "@/Composables/CredentialFlow/fuentesCredential";
+import { esQr, matrizQr } from "@/Composables/CredentialFlow/qrVerificacion";
 
 const props = defineProps({
   pdfUrl: { type: String, required: true },
@@ -12,6 +13,7 @@ const props = defineProps({
   elementos: { type: Array, default: () => [] },
   seleccionId: { type: String, default: null },
   schema: { type: Object, required: true }, // catálogo de campos y constantes del autoajuste
+  qrUrlEjemplo: { type: String, default: "" }, // URL de EJEMPLO que codifica el QR de la vista (no se guarda)
 });
 
 const emit = defineEmits(["seleccionar", "mover", "pdf-listo", "pdf-error"]);
@@ -124,8 +126,8 @@ const campos = useCamposDinamicos(props.schema);
 // Todas las combinaciones familia+peso reproducibles en uso se cargan (FontFace real, sin
 // sustitución silenciosa); mientras cargan, o si fallan, el texto NO se dibuja.
 watch(
-  () => JSON.stringify([...new Set(props.elementos.map((e) => `${e.fontFamily}|${e.fontWeight}`))]),
-  () => cargarFuentes(props.elementos.map((e) => ({ familia: e.fontFamily, peso: e.fontWeight }))),
+  () => JSON.stringify([...new Set(props.elementos.filter((e) => !esQr(e)).map((e) => `${e.fontFamily}|${e.fontWeight}`))]),
+  () => cargarFuentes(props.elementos.filter((e) => !esQr(e)).map((e) => ({ familia: e.fontFamily, peso: e.fontWeight }))),
   { immediate: true }
 );
 
@@ -150,9 +152,23 @@ const clasesContorno = (el) => {
 // Etiqueta sobre el elemento: distingue campos dinámicos y avisa de cualquier problema (no cabe,
 // fuente sin cargar o con error, carácter no soportado, fuente heredada). Se coloca debajo cuando
 // el elemento está pegado al borde superior para que el lienzo no la recorte.
+// QR de verificación (opcional): QR REAL de la URL de ejemplo (la matriz puede usar otra máscara que la de TCPDF,
+// pero codifica la misma URL con ECC M y el mismo número de módulos). La caja incluye la zona de silencio.
+const qrDibujo = computed(() => {
+  if (!props.qrUrlEjemplo || !props.schema.qr) return null;
+  try {
+    const { n, ruta } = matrizQr(props.qrUrlEjemplo, props.schema.qr.ecc);
+    const q = props.schema.qr.quietModulos;
+    return { total: n + 2 * q, quiet: q, ruta };
+  } catch {
+    return null;
+  }
+});
+
 const chip = (el) => {
   const abajo = ptAPx(el.y, escala.value) < 20;
   const posicion = abajo ? "top-full mt-0.5" : "-top-[18px]";
+  if (esQr(el)) return { texto: "QR de verificación (opcional)", clase: `bg-slate-800 text-white ${posicion}` };
   const rojo = `bg-red-600 text-white ${posicion}`;
   const render = estadoRender(el);
 
@@ -303,6 +319,26 @@ const centradoV = computed(
       >
         <!-- Una sola línea, sin salto automático (el autoajuste reduce los campos dinámicos hasta el 70 %). -->
         <svg
+          v-if="esQr(el)"
+          class="absolute inset-0 w-full h-full pointer-events-none"
+          :viewBox="qrDibujo ? `0 0 ${qrDibujo.total} ${qrDibujo.total}` : '0 0 1 1'"
+          preserveAspectRatio="none"
+          shape-rendering="crispEdges"
+          role="img"
+          aria-label="QR de verificación de ejemplo"
+          data-qr-svg
+        >
+          <rect width="100%" height="100%" fill="#ffffff" />
+          <path v-if="qrDibujo" :d="qrDibujo.ruta" fill="#000000" :transform="`translate(${qrDibujo.quiet} ${qrDibujo.quiet})`" />
+          <path v-else d="M0 0h1v1h-1z" fill="#e2e8f0" />
+        </svg>
+        <span
+          v-if="esQr(el)"
+          class="absolute left-0 top-full mt-0.5 px-1.5 py-1 rounded bg-white/95 ring-1 ring-slate-300 text-[10px] leading-none font-bold text-slate-600 whitespace-nowrap pointer-events-none z-20"
+          data-qr-ejemplo
+        >Vista de ejemplo, no es un código real</span>
+        <svg
+          v-if="!esQr(el)"
           class="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
           :viewBox="`0 0 ${el.width} ${el.height}`"
           preserveAspectRatio="none"

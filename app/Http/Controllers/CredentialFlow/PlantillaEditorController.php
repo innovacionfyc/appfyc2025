@@ -10,6 +10,7 @@ use App\Models\Movimiento;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -33,6 +34,8 @@ class PlantillaEditorController extends Controller
             'diseno' => $plantilla->diseno,
             'pdfUrl' => route('credential-flow.plantillas.pdf', $plantilla, false),
             'schema' => DisenoSchema::paraEditor(),
+            // URL de EJEMPLO para el QR del editor (código QA fijo que no existe en BD); no se guarda en el diseño.
+            'qrUrlEjemplo' => UrlVerificacion::ejemplo(),
         ]);
     }
 
@@ -74,9 +77,11 @@ class PlantillaEditorController extends Controller
 
     public function update(UpdateDisenoRequest $request, Plantilla $plantilla)
     {
+        $diseno = $request->diseno();
+        // Versión MÍNIMA que necesita el diseño: 2 solo si lleva QR; las plantillas de solo texto siguen en 1.
         $plantilla->update([
-            'diseno' => $request->diseno(),
-            'schema_version' => DisenoSchema::VERSION,
+            'diseno' => $diseno,
+            'schema_version' => DisenoSchema::versionPara($diseno),
         ]);
 
         Movimiento::registrar(

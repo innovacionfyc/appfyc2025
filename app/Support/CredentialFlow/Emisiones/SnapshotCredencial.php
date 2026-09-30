@@ -5,11 +5,13 @@ namespace App\Support\CredentialFlow\Emisiones;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
+use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\Storage;
 
@@ -90,6 +92,12 @@ final readonly class SnapshotCredencial
         );
     }
 
+    /** URL pública que codifica el QR de esta emisión, o null si el diseño no lleva QR. */
+    public function urlVerificacion(): ?string
+    {
+        return DisenoSchema::tieneQr($this->diseno) ? UrlVerificacion::para($this->codigo) : null;
+    }
+
     /** Solo los cinco valores impresos (sin los nombres administrativos). */
     public function datosCredencial(): DatosCredencial
     {
@@ -130,13 +138,25 @@ final readonly class SnapshotCredencial
         unset($pesos);
         ksort($fuentes);
 
-        return [
+        $generador = [
             'generador_version' => GeneradorCredencialPdf::GENERADOR_VERSION,
             'tcpdf' => InstalledVersions::getPrettyVersion('tecnickcom/tcpdf'),
             'fpdi' => InstalledVersions::getPrettyVersion('setasign/fpdi'),
             'fuentes' => $fuentes,
             'metricas_sha256' => hash_file('sha256', FuentesCredential::rutaMetricas()),
         ];
+
+        // Solo cuando REALMENTE hay QR: cómo se dibujó y qué dominio quedó impreso (los QR impresos no se pueden cambiar).
+        if (DisenoSchema::tieneQr($diseno)) {
+            $generador['qr'] = [
+                'libreria' => 'tcpdf',
+                'ecc' => DisenoSchema::QR_ECC,
+                'quiet_modulos' => DisenoSchema::QR_QUIET_MODULOS,
+                'url_base' => UrlVerificacion::base(),
+            ];
+        }
+
+        return $generador;
     }
 
     /** @param  array<string,mixed>  $datos */

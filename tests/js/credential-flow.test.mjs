@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { medirTexto, lineaBase, faltantesEnLineas } from "../../resources/js/Composables/CredentialFlow/textoMetrico.js";
 import { calcularAjuste } from "../../resources/js/Composables/CredentialFlow/autoajuste.js";
 import { planearTexto } from "../../resources/js/Composables/CredentialFlow/planTexto.js";
+import { matrizQr, ladoQrPermitido, normalizarQr, nuevoQr, aplicarCambiosQr, payloadQr, esQr } from "../../resources/js/Composables/CredentialFlow/qrVerificacion.js";
 
 const leer = (ruta) => JSON.parse(readFileSync(new URL(ruta, import.meta.url), "utf8"));
 const tabla = leer("../../resources/fonts/credential-flow/metricas.json");
@@ -145,6 +146,71 @@ prueba("interlineado del texto fijo: 1,2 × tamaño y bloque centrado", () => {
   const p = planearTexto(tabla, cfgPlan, el, "a\nb\nc");
   cerca(p.lineas[1].baseline - p.lineas[0].baseline, 1.2 * 22, "paso");
   cerca((p.lineas[0].baseline + p.lineas[2].baseline) / 2, planearTexto(tabla, cfgPlan, el, "a").lineas[0].baseline, "centro");
+});
+
+// ── QR de verificación (schema 2, opcional) ─────────────────────────────────────────────────────────────
+const QR = { minimo: 85, maximo: 240, recomendado: 100, quietModulos: 4, ecc: "M" };
+const PAG = { width: 792, height: 612 };
+const URL_EJEMPLO = "https://fycconsultores.com/verificar/QA234567ABCDEFGHJKMN";
+
+prueba("QR: la URL de ejemplo (57 caracteres, ECC M) da 33×33 módulos, igual que TCPDF (comprobado también en PHPUnit)", () => {
+  const { n: lado, ruta } = matrizQr(URL_EJEMPLO, "M");
+  assert.equal(lado, 33);
+  assert.ok((ruta.match(/M/g) ?? []).length > 200, "hay módulos oscuros");
+  assert.equal(matrizQr(URL_EJEMPLO, "L").n, 29);
+  assert.equal(matrizQr(URL_EJEMPLO, "H").n, 41);
+});
+
+prueba("QR: dos códigos distintos dan matrices distintas", () => {
+  assert.notEqual(matrizQr(URL_EJEMPLO).ruta, matrizQr(URL_EJEMPLO.replace("QA2345", "QA9999")).ruta);
+});
+
+prueba("QR: lado permitido entre 85 y 240 y sin superar la página", () => {
+  assert.equal(ladoQrPermitido(10, QR, PAG), 85);
+  assert.equal(ladoQrPermitido(500, QR, PAG), 240);
+  assert.equal(ladoQrPermitido(100, QR, { width: 90, height: 612 }), 90);
+  assert.equal(ladoQrPermitido(96.004, QR, PAG), 96);
+});
+
+prueba("QR: nuevo elemento cuadrado, dentro de la página, tamaño 100 y sin propiedades de texto", () => {
+  const el = nuevoQr("00000000-0000-4000-8000-000000000001", QR, PAG);
+  assert.equal(el.type, "qr");
+  assert.equal(el.width, el.height);
+  assert.equal(el.width, 100);
+  assert.ok(el.x >= 0 && el.y >= 0 && el.x + el.width <= PAG.width && el.y + el.height <= PAG.height);
+  assert.deepEqual(Object.keys(payloadQr(el)), ["id", "type", "x", "y", "width", "height"]);
+  assert.ok(esQr(el) && !esQr({ type: "text" }));
+});
+
+prueba("QR: el resize mantiene 1:1 (ancho o alto) y respeta mínimo y máximo", () => {
+  const el = nuevoQr("00000000-0000-4000-8000-000000000001", QR, PAG);
+  let r = aplicarCambiosQr(el, { width: 120 }, QR, PAG);
+  assert.deepEqual([r.width, r.height], [120, 120]);
+  r = aplicarCambiosQr(el, { height: 150 }, QR, PAG);
+  assert.deepEqual([r.width, r.height], [150, 150]);
+  r = aplicarCambiosQr(el, { width: 10 }, QR, PAG);
+  assert.deepEqual([r.width, r.height], [85, 85]);
+  r = aplicarCambiosQr(el, { width: 999 }, QR, PAG);
+  assert.deepEqual([r.width, r.height], [240, 240]);
+  r = aplicarCambiosQr(el, { width: "abc" }, QR, PAG);
+  assert.deepEqual([r.width, r.height], [100, 100]);
+});
+
+prueba("QR: no puede salir de la página al arrastrar, al agrandar ni desde el inspector", () => {
+  const el = { ...nuevoQr("00000000-0000-4000-8000-000000000001", QR, PAG), x: 100, y: 100 };
+  let r = aplicarCambiosQr(el, { x: 5000, y: 5000 }, QR, PAG);
+  assert.equal(r.x, PAG.width - 100);
+  assert.equal(r.y, PAG.height - 100);
+  r = aplicarCambiosQr(el, { x: -20, y: -20 }, QR, PAG);
+  assert.deepEqual([r.x, r.y], [0, 0]);
+  r = aplicarCambiosQr({ ...el, x: 700, y: 500 }, { width: 200 }, QR, PAG);
+  assert.ok(r.x + r.width <= PAG.width && r.y + r.height <= PAG.height, "al agrandar se reubica dentro de la página");
+});
+
+prueba("QR: un QR guardado no cuadrado o fuera de rango se normaliza a un cuadrado válido", () => {
+  const r = normalizarQr({ id: "x", type: "qr", x: 0, y: 0, width: 50, height: 300 }, QR, PAG);
+  assert.equal(r.width, r.height);
+  assert.equal(r.width, 85);
 });
 
 console.log(`${n} pruebas correctas${process.exitCode ? " (hay fallas)" : ""}`);

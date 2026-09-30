@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CredentialFlow\Emision;
+use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Emisiones\AlmacenEmisiones;
 use App\Support\CredentialFlow\Emisiones\CodigoEmision;
 use Illuminate\Console\Command;
@@ -113,6 +114,57 @@ class CredentialFlowVerificarEmisiones extends Command
         }
         if (! CodigoEmision::valido((string) $e->codigo)) {
             $this->problemas[] = "{$id}: el código de emisión no tiene el formato esperado.";
+        }
+        $this->verificarQr($e, $id);
+    }
+
+    /** Coherencia del QR opcional (Fase 8) entre diseño, versiones y generador. No decodifica el PDF ni repara nada. */
+    private function verificarQr(Emision $e, string $id): void
+    {
+        $diseno = $e->diseno_snapshot;
+        $generador = is_array($e->generador_snapshot) ? $e->generador_snapshot : [];
+        $elementos = is_array($diseno) ? (array) ($diseno['elements'] ?? []) : [];
+        $cantidad = DisenoSchema::contarQr($elementos);
+
+        if ($cantidad === 0) {
+            if (isset($generador['qr'])) {
+                $this->problemas[] = "{$id}: generador_snapshot tiene bloque qr pero el diseño no tiene QR.";
+            }
+
+            return;
+        }
+
+        if ($cantidad > DisenoSchema::QR_MAX) {
+            $this->problemas[] = "{$id}: el diseño tiene más de un QR.";
+        }
+        if ((int) $e->schema_version < DisenoSchema::VERSION_QR) {
+            $this->problemas[] = "{$id}: el diseño tiene QR pero schema_version es menor que ".DisenoSchema::VERSION_QR.'.';
+        }
+        if ((int) ($generador['generador_version'] ?? 0) < 2) {
+            $this->problemas[] = "{$id}: el diseño tiene QR pero generador_version es menor que 2.";
+        }
+        $qr = $generador['qr'] ?? null;
+        if (! is_array($qr) || ($qr['libreria'] ?? null) !== 'tcpdf' || ($qr['ecc'] ?? null) !== DisenoSchema::QR_ECC
+            || (int) ($qr['quiet_modulos'] ?? -1) !== DisenoSchema::QR_QUIET_MODULOS || ! is_string($qr['url_base'] ?? null) || $qr['url_base'] === '') {
+            $this->problemas[] = "{$id}: el diseño tiene QR pero generador_snapshot.qr falta o es inválido.";
+        }
+
+        foreach ($elementos as $el) {
+            if (! is_array($el) || ($el['type'] ?? null) !== DisenoSchema::TIPO_QR) {
+                continue;
+            }
+            [$x, $y, $w, $h] = [(float) ($el['x'] ?? 0), (float) ($el['y'] ?? 0), (float) ($el['width'] ?? 0), (float) ($el['height'] ?? 0)];
+            if (round(abs($w - $h), 4) > DisenoSchema::QR_TOLERANCIA_CUADRADO_PT) {
+                $this->problemas[] = "{$id}: el QR no es cuadrado.";
+            }
+            if ($w < DisenoSchema::QR_MIN_PT - DisenoSchema::QR_TOLERANCIA_CUADRADO_PT || $w > DisenoSchema::QR_MAX_PT + DisenoSchema::QR_TOLERANCIA_CUADRADO_PT) {
+                $this->problemas[] = "{$id}: el tamaño del QR está fuera del rango permitido.";
+            }
+            $pagina = (array) ($diseno['page'] ?? []);
+            $t = DisenoSchema::TOLERANCIA;
+            if ($x < -$t || $y < -$t || $x + $w > (float) ($pagina['width'] ?? 0) + $t || $y + $h > (float) ($pagina['height'] ?? 0) + $t) {
+                $this->problemas[] = "{$id}: el QR queda fuera de la página.";
+            }
         }
     }
 

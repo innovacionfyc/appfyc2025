@@ -8,6 +8,7 @@ import {
   yCentrada,
   nuevoUuid,
 } from "@/Composables/CredentialFlow/coordenadas";
+import { esQr, nuevoQr, normalizarQr, aplicarCambiosQr, payloadQr } from "@/Composables/CredentialFlow/qrVerificacion";
 
 const ALTO_MIN_POR_TAMANO = 1.25; // la caja no debe quedar más baja que el texto
 const TEXTO_FIJO_POR_DEFECTO = "Texto de ejemplo";
@@ -42,7 +43,7 @@ export function useDisenoEditor(schema) {
   function iniciar(disenoGuardado, ancho, alto) {
     pagina.value = { width: redondear(ancho), height: redondear(alto) };
     elementos.value = (disenoGuardado?.elements ?? []).map((e) =>
-      limitarElemento({ ...e }, pagina.value, schema.elementoMin)
+      esQr(e) ? normalizarQr({ ...e }, schema.qr, pagina.value) : limitarElemento({ ...e }, pagina.value, schema.elementoMin)
     );
     seleccionId.value = null;
     base.value = serializar();
@@ -78,6 +79,19 @@ export function useDisenoEditor(schema) {
 
   const buscar = (id) => elementos.value.find((e) => e.id === id);
 
+  // QR de verificación (OPCIONAL): un elemento aparte. Su presencia en el diseño es la activación; como máximo uno.
+  const tieneQr = computed(() => elementos.value.some(esQr));
+  const puedeAgregarQr = computed(() => !tieneQr.value && elementos.value.length < schema.maxElementos);
+
+  function agregarQr() {
+    if (!puedeAgregarQr.value || !schema.qr) return false;
+
+    const el = nuevoQr(nuevoUuid(), schema.qr, pagina.value);
+    elementos.value.push(el);
+    seleccionId.value = el.id;
+    return true;
+  }
+
   function seleccionar(id) {
     seleccionId.value = id ?? null;
   }
@@ -86,6 +100,12 @@ export function useDisenoEditor(schema) {
   function actualizar(id, cambios) {
     const el = buscar(id);
     if (!el) return;
+
+    // El QR solo tiene posición y un tamaño cuadrado (1:1); nada de propiedades de texto.
+    if (esQr(el)) {
+      Object.assign(el, aplicarCambiosQr(el, cambios, schema.qr, pagina.value));
+      return;
+    }
 
     const c = { ...cambios };
     // En un campo dinámico `text` no tiene semántica: nunca se modifica desde aquí.
@@ -164,7 +184,7 @@ export function useDisenoEditor(schema) {
   function payload() {
     return {
       page: { width: pagina.value.width, height: pagina.value.height },
-      elements: elementos.value.map((e) => ({
+      elements: elementos.value.map((e) => esQr(e) ? payloadQr(e) : ({
         id: e.id,
         type: e.type,
         field: e.field ?? null,
@@ -195,6 +215,9 @@ export function useDisenoEditor(schema) {
     sinGuardar,
     iniciar,
     agregarTexto,
+    agregarQr,
+    tieneQr,
+    puedeAgregarQr,
     seleccionar,
     actualizar,
     mover,
