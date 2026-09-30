@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { AlignLeft, AlignCenter, AlignRight, Type, MousePointer2 } from "lucide-vue-next";
+import { AVISO_HEREDADA } from "@/Composables/CredentialFlow/fuentesCredential";
 
 const props = defineProps({
   elemento: { type: Object, default: null },
@@ -9,6 +10,8 @@ const props = defineProps({
   pagina: { type: Object, required: true },
   // Estado del autoajuste del elemento seleccionado (solo campos dinámicos): { size, reducido, noCabe }
   ajuste: { type: Object, default: null },
+  // Qué se puede dibujar del elemento seleccionado: { estado, faltantes } (ver useCamposDinamicos.renderDe)
+  render: { type: Object, default: () => ({ estado: "lista", faltantes: [] }) },
 });
 
 const emit = defineEmits(["actualizar", "seleccionar", "cambiar-origen"]);
@@ -20,6 +23,16 @@ const ALINEACIONES = [
 ];
 
 const NOMBRES_PESO = { 300: "Ligera (300)", 400: "Normal (400)", 500: "Media (500)", 600: "Seminegrita (600)", 700: "Negrita (700)", 800: "Extranegrita (800)" };
+
+// ── Fuente ────────────────────────────────────────────────────────────────────
+// Solo se ofrecen familias reproducibles; una fuente heredada aparece únicamente si el elemento
+// ya la usa (para poder verla y cambiarla), nunca como opción para elegir de nuevo.
+const familiaActual = computed(() => props.schema.fuentes.familias.find((f) => f.valor === props.elemento?.fontFamily) ?? null);
+const opcionesFamilia = computed(() =>
+  props.schema.fuentes.familias.filter((f) => !f.heredada || f.valor === props.elemento?.fontFamily)
+);
+const pesosDisponibles = computed(() => familiaActual.value?.pesos ?? props.schema.pesos);
+const esHeredada = computed(() => familiaActual.value?.heredada === true);
 
 // ── Contenido: texto fijo o campo dinámico ────────────────────────────────────
 const catalogo = computed(() => Object.fromEntries(props.schema.campos.map((c) => [c.key, c])));
@@ -154,8 +167,20 @@ const posicion = computed(() => [
         <div class="col-span-2">
           <label :class="etiqueta" for="cf-fuente">Fuente</label>
           <select id="cf-fuente" :value="elemento.fontFamily" :class="campo" @change="cambiar('fontFamily', $event.target.value)">
-            <option v-for="f in schema.fuentes" :key="f" :value="f">{{ f }}</option>
+            <option v-for="f in opcionesFamilia" :key="f.valor" :value="f.valor">{{ f.etiqueta }}{{ f.heredada ? " (heredada)" : "" }}</option>
           </select>
+          <p v-if="esHeredada" class="mt-1.5 text-[11px] font-semibold text-amber-700 leading-snug" data-aviso-heredada>
+            {{ AVISO_HEREDADA }}
+          </p>
+          <p v-else-if="render.estado === 'error'" class="mt-1.5 text-[11px] font-semibold text-red-600 leading-snug" data-aviso-fuente>
+            No se pudo cargar la fuente. Recarga la página; no se puede guardar hasta entonces.
+          </p>
+          <p v-else-if="render.estado === 'cargando'" class="mt-1.5 text-[11px] font-semibold text-slate-500 leading-snug" data-aviso-fuente>
+            Cargando fuente…
+          </p>
+          <p v-else-if="render.estado === 'noSoportado'" class="mt-1.5 text-[11px] font-semibold text-red-600 leading-snug" data-aviso-fuente>
+            La fuente no tiene: {{ render.faltantes.map((c) => `«${c}»`).join(" ") }}. Corrígelo o quítalo: no se dibuja con otra fuente y no se puede guardar mientras tanto.
+          </p>
         </div>
         <div>
           <label :class="etiqueta" for="cf-tamano">Tamaño (pt)</label>
@@ -174,7 +199,7 @@ const posicion = computed(() => [
         <div>
           <label :class="etiqueta" for="cf-peso">Grosor</label>
           <select id="cf-peso" :value="elemento.fontWeight" :class="campo" @change="cambiar('fontWeight', Number($event.target.value))">
-            <option v-for="p in schema.pesos" :key="p" :value="p">{{ NOMBRES_PESO[p] ?? p }}</option>
+            <option v-for="p in pesosDisponibles" :key="p" :value="p">{{ NOMBRES_PESO[p] ?? p }}</option>
           </select>
         </div>
       </div>

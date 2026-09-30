@@ -8,7 +8,7 @@ defineProps({
   guardando: { type: Boolean, default: false },
   puedeAgregar: { type: Boolean, default: true },
   deshabilitado: { type: Boolean, default: false },
-  // Hay un campo dinámico desconocido: no se puede guardar hasta elegir uno válido.
+  // Hay un campo desconocido o una fuente sin cargar: no se puede guardar hasta corregirlo.
   guardarBloqueado: { type: Boolean, default: false },
 });
 
@@ -98,7 +98,7 @@ const boton =
         process="Guardando..."
         :class="['sm:w-auto', !guardando && (deshabilitado || guardarBloqueado || !sinGuardar) ? 'opacity-50 pointer-events-none' : '']"
         :aria-disabled="!guardando && (deshabilitado || guardarBloqueado || !sinGuardar)"
-        :title="guardarBloqueado ? 'Elige un campo válido en los elementos marcados para poder guardar' : undefined"
+        :title="guardarBloqueado ? 'Corrige los elementos marcados en rojo para poder guardar' : undefined"
         @click="$emit('guardar')"
       />
     </div>

@@ -27,6 +27,19 @@ const ajusteSeleccionado = computed(() =>
 );
 const cantidadNoCabe = computed(() => editor.elementos.value.filter((e) => campos.ajusteDe(e)?.noCabe).length);
 
+// Fuente reproducible que no cargó: bloquea el guardado (no hay sustitución silenciosa).
+const conErrorDeFuente = computed(() => editor.elementos.value.filter((e) => campos.renderDe(e).estado === "error"));
+// Textos con caracteres que su fuente reproducible (Outfit) no tiene: no se dibujan con otra fuente
+// y bloquean el guardado. Las fuentes heredadas no se validan (no hay métricas autoritativas).
+const conCaracterNoSoportado = computed(() => editor.elementos.value.filter((e) => campos.renderDe(e).estado === "noSoportado"));
+const conFuenteHeredada = computed(() => editor.elementos.value.filter((e) => campos.renderDe(e).estado === "heredada"));
+const renderSeleccionado = computed(() =>
+  editor.seleccionado.value ? campos.renderDe(editor.seleccionado.value) : undefined
+);
+const guardarBloqueado = computed(
+  () => editor.conCampoDesconocido.value.length > 0 || conErrorDeFuente.value.length > 0 || conCaracterNoSoportado.value.length > 0
+);
+
 const pdfListo = ref(false);
 const pdfConError = ref(false);
 const paginas = ref(1);
@@ -52,7 +65,7 @@ const alCargarPdf = ({ ancho, alto, paginas: n }) => {
 const guardar = () => {
   if (guardando.value || !pdfListo.value || !editor.sinGuardar.value) return;
   // Un campo desconocido no se sustituye ni se borra en silencio: hay que elegir uno válido.
-  if (editor.conCampoDesconocido.value.length) return;
+  if (guardarBloqueado.value) return;
 
   router.put(
     route("credential-flow.plantillas.diseno.update", props.plantilla.id),
@@ -172,7 +185,7 @@ const headerStats = computed(() => [
           :guardando="guardando"
           :puede-agregar="editor.elementos.value.length < schema.maxElementos"
           :deshabilitado="!pdfListo"
-          :guardar-bloqueado="editor.conCampoDesconocido.value.length > 0"
+          :guardar-bloqueado="guardarBloqueado"
           @agregar-texto="editor.agregarTexto"
           @centrar-horizontal="editor.centrarHorizontal"
           @centrar-vertical="editor.centrarVertical"
@@ -198,6 +211,35 @@ const headerStats = computed(() => [
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
           {{ editor.conCampoDesconocido.value.length === 1 ? "Hay 1 elemento con un campo dinámico desconocido" : `Hay ${editor.conCampoDesconocido.value.length} elementos con un campo dinámico desconocido` }}.
           Elige un contenido válido en cada uno para poder guardar.
+        </div>
+
+        <div
+          v-if="conErrorDeFuente.length"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold"
+          role="alert"
+          data-aviso="error-fuente"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          No se pudo cargar una fuente de Outfit. Recarga la página; no se puede guardar hasta que cargue.
+        </div>
+
+        <div
+          v-if="conCaracterNoSoportado.length"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold"
+          role="alert"
+          data-aviso="caracter-no-soportado"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          {{ conCaracterNoSoportado.length === 1 ? "Hay 1 texto" : `Hay ${conCaracterNoSoportado.length} textos` }} con caracteres que la fuente Outfit no tiene y no se dibujan con otra fuente. No se puede guardar el diseño hasta corregir o quitar esos caracteres.
+        </div>
+
+        <div
+          v-if="conFuenteHeredada.length"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-700 text-[13px] font-semibold"
+          data-aviso="fuente-heredada"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          {{ conFuenteHeredada.length === 1 ? "Hay 1 elemento" : `Hay ${conFuenteHeredada.length} elementos` }} con fuente heredada, no preparada para generación PDF. Cambia a Outfit para una salida reproducible.
         </div>
 
         <div
@@ -243,6 +285,7 @@ const headerStats = computed(() => [
             :schema="schema"
             :pagina="editor.pagina.value"
             :ajuste="ajusteSeleccionado"
+            :render="renderSeleccionado"
             @actualizar="(cambios) => editor.actualizar(editor.seleccionId.value, cambios)"
             @cambiar-origen="(valor) => editor.cambiarOrigen(editor.seleccionId.value, valor)"
             @seleccionar="editor.seleccionar"

@@ -1,0 +1,181 @@
+{
+ "anchos": [
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "Juan Pérez",
+   "ancho": 111.694,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 400,
+   "fontSize": 22,
+   "texto": "Ñandú ÁÉÍÓÚ áéíóú ü",
+   "ancho": 209.462,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 300,
+   "fontSize": 40,
+   "texto": "MARÍA JOSÉ DE LOS ÁNGELES",
+   "ancho": 562.88,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 800,
+   "fontSize": 40,
+   "texto": "Certificado de Asistencia",
+   "ancho": 472.48,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 600,
+   "fontSize": 22,
+   "texto": "Seminario 2026 — 12 h",
+   "ancho": 221.892,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 500,
+   "fontSize": 22,
+   "texto": "1.234.567-8 / 100%",
+   "ancho": 184.294,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "Ana  María",
+   "ancho": 110.638,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "ffi fl ff Fi",
+   "ancho": 90.706,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "AVATAR To Yo",
+   "ancho": 155.078,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "Café (e + acento combinado)",
+   "ancho": 287.848,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 400,
+   "fontSize": 22,
+   "texto": "«Título» “comillas” ¿Qué? ¡Hola!",
+   "ancho": 307.516,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "日本語",
+   "ancho": 0.0,
+   "faltantes": [
+    "日",
+    "本",
+    "語"
+   ]
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "Emoji 😀",
+   "ancho": 61.336,
+   "faltantes": [
+    "😀"
+   ]
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "texto": "",
+   "ancho": 0.0,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 300,
+   "fontSize": 4,
+   "texto": "a",
+   "ancho": 2.34,
+   "faltantes": []
+  },
+  {
+   "familia": "outfit",
+   "peso": 800,
+   "fontSize": 200,
+   "texto": "W",
+   "ancho": 202.4,
+   "faltantes": []
+  }
+ ],
+ "lineasBase": [
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 22,
+   "y": 100,
+   "alto": 40,
+   "lineaBase": 128.14
+  },
+  {
+   "familia": "outfit",
+   "peso": 700,
+   "fontSize": 40,
+   "y": 100.5,
+   "alto": 50,
+   "lineaBase": 140.3
+  },
+  {
+   "familia": "outfit",
+   "peso": 300,
+   "fontSize": 22,
+   "y": 0,
+   "alto": 27.5,
+   "lineaBase": 21.89
+  },
+  {
+   "familia": "outfit",
+   "peso": 800,
+   "fontSize": 40,
+   "y": 333.33,
+   "alto": 50,
+   "lineaBase": 373.13
+  },
+  {
+   "familia": "outfit",
+   "peso": 400,
+   "fontSize": 22,
+   "y": 10,
+   "alto": 28,
+   "lineaBase": 32.14
+  }
+ ],
+ "tolerancia": 1e-06
+}

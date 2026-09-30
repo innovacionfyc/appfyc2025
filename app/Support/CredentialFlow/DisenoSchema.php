@@ -26,6 +26,7 @@ final class DisenoSchema
 
     public const TIPOS = [self::TIPO_TEXTO];
 
+    /** Familias HEREDADAS (siguen validando, sin soporte PDF). Las reproducibles viven en FuentesCredential. */
     public const FUENTES = ['Figtree', 'Arial', 'sans-serif'];
 
     public const PESOS = [300, 400, 500, 600, 700, 800];
@@ -74,7 +75,7 @@ final class DisenoSchema
     {
         return [
             'version' => self::VERSION,
-            'fuentes' => self::FUENTES,
+            'fuentes' => FuentesCredential::paraEditor(),
             'pesos' => self::PESOS,
             'alineaciones' => self::ALINEACIONES,
             'maxElementos' => self::MAX_ELEMENTOS,

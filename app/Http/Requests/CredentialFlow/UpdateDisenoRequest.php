@@ -4,6 +4,7 @@ namespace App\Http\Requests\CredentialFlow;
 
 use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema as S;
+use App\Support\CredentialFlow\FuentesCredential;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,6 +12,12 @@ use Illuminate\Validation\Rule;
 /**
  * Valida el diseño completo de una plantilla. No se acepta JSON arbitrario: cada clave se
  * declara aquí y `validated()` descarta todo lo demás.
+ *
+ * Separación de responsabilidades (Fase 4): aquí se valida la pareja familia+peso, pero NO la
+ * cobertura de caracteres de la fuente. Esa regla (un texto Outfit con un carácter que la fuente no
+ * tiene) la aplica el editor, que bloquea «Guardar diseño»; el generador de PDF volverá a
+ * comprobarla con FuentesCredential::medirTexto() antes de dibujar. Duplicarla aquí obligaría a
+ * resolver también el texto de los campos dinámicos en cada guardado.
  */
 class UpdateDisenoRequest extends FormRequest
 {
@@ -42,7 +49,7 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*.y' => ['required', 'numeric', 'between:0,'.S::PAGINA_MAX],
             'diseno.elements.*.width' => ['required', 'numeric', 'between:'.S::ELEMENTO_MIN.','.S::PAGINA_MAX],
             'diseno.elements.*.height' => ['required', 'numeric', 'between:'.S::ELEMENTO_MIN.','.S::PAGINA_MAX],
-            'diseno.elements.*.fontFamily' => ['required', Rule::in(S::FUENTES)],
+            'diseno.elements.*.fontFamily' => ['required', Rule::in(FuentesCredential::familias())],
             'diseno.elements.*.fontSize' => ['required', 'numeric', 'between:'.S::FONT_SIZE_MIN.','.S::FONT_SIZE_MAX],
             'diseno.elements.*.fontWeight' => ['required', 'integer', Rule::in(S::PESOS)],
             'diseno.elements.*.color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -91,6 +98,10 @@ class UpdateDisenoRequest extends FormRequest
                     $validator->errors()->add("diseno.elements.$i.id", 'Hay elementos con el mismo identificador.');
                 }
                 $vistos[$id] = true;
+
+                if (! FuentesCredential::combinacionValida((string) $e['fontFamily'], (int) $e['fontWeight'])) {
+                    $validator->errors()->add("diseno.elements.$i.fontWeight", 'La fuente elegida no está disponible en ese grosor.');
+                }
 
                 if ((float) $e['x'] + (float) $e['width'] > $ancho || (float) $e['y'] + (float) $e['height'] > $alto) {
                     $validator->errors()->add("diseno.elements.$i", 'Un elemento queda fuera de los límites de la página.');

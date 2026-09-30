@@ -72,7 +72,7 @@ class PlantillaEditorTest extends CredentialFlowTestCase
                 ->where('diseno', null)
                 ->where('pdfUrl', "/admin/credential-flow/plantillas/{$p->id}/pdf")
                 ->where('schema.version', 1)
-                ->where('schema.fuentes', ['Figtree', 'Arial', 'sans-serif'])
+                ->where('schema.fuentes.porDefecto', ['familia' => 'outfit', 'peso' => 700])
                 ->missing('plantilla.archivo_pdf')
                 ->missing('plantilla.hash_sha256'));
     }

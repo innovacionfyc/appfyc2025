@@ -399,7 +399,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
                 ->where('schema.escalaMinima', 0.7)
                 ->where('schema.pasoAjuste', 0.25)
                 ->where('schema.version', 1)
-                ->where('schema.fuentes', ['Figtree', 'Arial', 'sans-serif']));
+                ->where('schema.fuentes.porDefecto', ['familia' => 'outfit', 'peso' => 700]));
     }
 
     // ── Aislamiento ───────────────────────────────────────────────────────────

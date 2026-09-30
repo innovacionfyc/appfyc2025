@@ -62,9 +62,9 @@ export function useDisenoEditor(schema) {
       y: 0,
       width,
       height,
-      fontFamily: "Figtree",
+      fontFamily: schema.fuentes.porDefecto.familia,
       fontSize: 22,
-      fontWeight: 700,
+      fontWeight: schema.fuentes.porDefecto.peso,
       color: "#000000",
       align: "center",
     };
