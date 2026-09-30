@@ -41,6 +41,7 @@ abstract class CredentialFlowTestCase extends TestCase
         'database/migrations/2026_09_29_160000_cf_plantillas_table.php',
         'database/migrations/2026_09_30_100000_cf_lotes_table.php',
         'database/migrations/2026_09_30_100100_cf_participantes_table.php',
+        'database/migrations/2026_09_30_200000_cf_emisiones_table.php',
     ];
 
     protected function setUp(): void

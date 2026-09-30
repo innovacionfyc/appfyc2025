@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
+use App\Http\Controllers\CredentialFlow\EmisionController;
 use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
 use App\Http\Controllers\CredentialFlow\PlantillaController;
@@ -42,4 +43,14 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::get('/lotes/{lote}/participantes/{participante}/pdf', [ParticipanteController::class, 'pdf'])
         ->middleware('throttle:20,1')
         ->name('participantes.pdf');
+
+    // Fase 7: emisiones oficiales (PDF persistido, snapshot inmutable, revocación, reemisión, ZIP)
+    Route::post('/lotes/{lote}/participantes/{participante}/emitir', [EmisionController::class, 'emitir'])->middleware('throttle:30,1')->name('participantes.emitir');
+    Route::get('/lotes/{lote}/emision/resumen', [EmisionController::class, 'resumen'])->name('lotes.emision.resumen');
+    Route::post('/lotes/{lote}/emitir', [EmisionController::class, 'emitirLote'])->middleware('throttle:6,1')->name('lotes.emitir');
+    Route::get('/lotes/{lote}/zip', [EmisionController::class, 'zip'])->middleware('throttle:10,1')->name('lotes.zip');
+    Route::get('/lotes/{lote}/emisiones', [EmisionController::class, 'historial'])->name('lotes.emisiones');
+    Route::get('/emisiones/{emision}/descargar', [EmisionController::class, 'descargar'])->middleware('throttle:60,1')->name('emisiones.descargar');
+    Route::post('/emisiones/{emision}/revocar', [EmisionController::class, 'revocar'])->middleware('throttle:30,1')->name('emisiones.revocar');
+    Route::post('/emisiones/{emision}/reemitir', [EmisionController::class, 'reemitir'])->middleware('throttle:30,1')->name('emisiones.reemitir');
 });

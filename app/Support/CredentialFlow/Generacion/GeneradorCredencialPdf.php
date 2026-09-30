@@ -21,7 +21,14 @@ use Throwable;
  */
 final class GeneradorCredencialPdf
 {
-    /** Devuelve los bytes del PDF generado. @throws GeneracionCredencialException */
+    /**
+     * Versión del comportamiento de dibujo. Se incrementa SOLO cuando cambia algo que puede alterar la salida
+     * (matemática, línea base, autoajuste, interpretación del schema, motor PDF…); no depende de commits.
+     * Cada emisión la guarda en su snapshot.
+     */
+    public const GENERADOR_VERSION = 1;
+
+    /** Devuelve los bytes del PDF generado con el diseño VIVO de la plantilla. @throws GeneracionCredencialException */
     public static function generar(Plantilla $plantilla, DatosCredencial $datos): string
     {
         $disco = Storage::disk(Plantilla::DISCO);
@@ -37,28 +44,34 @@ final class GeneradorCredencialPdf
             throw GeneracionCredencialException::con(GeneracionCredencialException::SIN_DISENO, 'La plantilla no tiene un diseño guardado. Guarda el diseño en el editor primero.');
         }
 
+        return self::generarDesde($diseno, $disco->get($ruta), $datos, (int) $plantilla->schema_version, ['plantilla' => $plantilla->id]);
+    }
+
+    /**
+     * Renderiza con un diseño y un PDF base EXPLÍCITOS (sin leer el modelo vivo): es lo que usan las emisiones
+     * para dibujar desde su snapshot inmutable. Misma matemática que generar(); nada se escribe en disco.
+     *
+     * @param  array<string,mixed>  $diseno
+     * @param  array<string,mixed>  $contexto  solo para el log (ids, nunca datos personales)
+     *
+     * @throws GeneracionCredencialException
+     */
+    public static function generarDesde(array $diseno, string $pdfBase, DatosCredencial $datos, int $schemaVersion, array $contexto = []): string
+    {
+        if (! isset($diseno['page'], $diseno['elements'])) {
+            throw GeneracionCredencialException::con(GeneracionCredencialException::SIN_DISENO, 'La plantilla no tiene un diseño guardado. Guarda el diseño en el editor primero.');
+        }
+
         FuentesTcpdf::configurar();
         $pdf = self::nuevoPdf();
 
-        try {
-            // Desde memoria: sin manejar rutas del servidor ni dejar un archivo abierto.
-            $pdf->setSourceFile(StreamReader::createByString($disco->get($ruta)));
-            $plantillaPdf = $pdf->importPage(1);
-            $tamano = $pdf->getTemplateSize($plantillaPdf);
-        } catch (Throwable $e) {
-            Log::warning('Credential Flow: no se pudo importar el PDF base', ['plantilla' => $plantilla->id, 'error' => $e::class.': '.$e->getMessage()]);
-
-            throw GeneracionCredencialException::con(
-                GeneracionCredencialException::PDF_ILEGIBLE,
-                'No se pudo leer el PDF base de la plantilla. Puede estar dañado o usar un formato que el generador todavía no soporta.'
-            );
-        }
+        [$plantillaPdf, $tamano] = self::importar($pdf, $pdfBase, $contexto);
 
         $planes = PlanificadorTexto::planificar(
             $diseno,
             $datos,
             ['width' => (float) $tamano['width'], 'height' => (float) $tamano['height']],
-            (int) $plantilla->schema_version
+            $schemaVersion
         );
 
         // Formato [ancho, alto] en puntos; la orientación explícita evita que TCPDF los intercambie.
@@ -70,6 +83,34 @@ final class GeneradorCredencialPdf
         }
 
         return $pdf->Output('', 'S');
+    }
+
+    /** Tamaño visible (pt) de la primera página del PDF base. @return array{width:float, height:float} */
+    public static function tamanoPagina(string $pdfBase, array $contexto = []): array
+    {
+        FuentesTcpdf::configurar();
+        [, $tamano] = self::importar(self::nuevoPdf(), $pdfBase, $contexto);
+
+        return ['width' => (float) $tamano['width'], 'height' => (float) $tamano['height']];
+    }
+
+    /** @return array{0:string,1:array} plantilla importada y su tamaño */
+    private static function importar(Fpdi $pdf, string $pdfBase, array $contexto): array
+    {
+        try {
+            // Desde memoria: sin manejar rutas del servidor ni dejar un archivo abierto.
+            $pdf->setSourceFile(StreamReader::createByString($pdfBase));
+            $plantillaPdf = $pdf->importPage(1);
+
+            return [$plantillaPdf, $pdf->getTemplateSize($plantillaPdf)];
+        } catch (Throwable $e) {
+            Log::warning('Credential Flow: no se pudo importar el PDF base', $contexto + ['error' => $e::class.': '.$e->getMessage()]);
+
+            throw GeneracionCredencialException::con(
+                GeneracionCredencialException::PDF_ILEGIBLE,
+                'No se pudo leer el PDF base de la plantilla. Puede estar dañado o usar un formato que el generador todavía no soporta.'
+            );
+        }
     }
 
     private static function nuevoPdf(): Fpdi

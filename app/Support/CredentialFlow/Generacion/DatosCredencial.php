@@ -76,6 +76,12 @@ final readonly class DatosCredencial
         return $this->valores[$clave];
     }
 
+    /** Todos los valores tal como se imprimirán. @return array<string,string> */
+    public function todos(): array
+    {
+        return $this->valores;
+    }
+
     /** @return array<int,string> */
     public function claves(): array
     {

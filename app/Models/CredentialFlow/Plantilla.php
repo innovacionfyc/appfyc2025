@@ -39,6 +39,12 @@ class Plantilla extends Model
         return $this->hasMany(Lote::class);
     }
 
+    /** Emisiones (de cualquier estado) hechas con esta plantilla: nunca deben perder su PDF base. */
+    public function emisiones(): HasMany
+    {
+        return $this->hasMany(Emision::class);
+    }
+
     /** Carpeta de la plantilla, calculada solo a partir de su id (nunca de datos del navegador). */
     public function carpeta(): string
     {

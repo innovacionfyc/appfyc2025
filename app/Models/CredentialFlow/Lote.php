@@ -36,6 +36,11 @@ class Lote extends Model
         return $this->belongsTo(Plantilla::class);
     }
 
+    public function emisiones(): HasMany
+    {
+        return $this->hasMany(Emision::class);
+    }
+
     public function participantes(): HasMany
     {
         return $this->hasMany(Participante::class);

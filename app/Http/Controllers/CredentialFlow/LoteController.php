@@ -5,9 +5,12 @@ namespace App\Http\Controllers\CredentialFlow;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CredentialFlow\StoreLoteRequest;
 use App\Http\Requests\CredentialFlow\UpdateLoteRequest;
+use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Lote;
+use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Participantes\ImportacionInvalidaException;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\LectorArchivo;
@@ -122,9 +125,22 @@ class LoteController extends Controller
 
         $participantes = $lote->participantes()
             ->when($busqueda !== '', fn ($q) => $q->where(fn ($w) => $w->where('nombre_completo', 'like', $like)->orWhere('documento', 'like', $like)))
+            ->with('emisionVigente:id,participante_id,version,codigo')
+            ->withCount('emisiones')
             ->orderBy('id')
             ->paginate(self::POR_PAGINA_PARTICIPANTES, ['id', 'nombre_completo', 'documento', 'fila_origen'])
-            ->withQueryString();
+            ->withQueryString()
+            // Estado DERIVADO de cf_emisiones (no hay columna de estado en el participante):
+            // sin emisiones = «sin_emitir», una vigente = «emitida», solo historial = «revocada».
+            ->through(fn (Participante $p) => [
+                'id' => $p->id,
+                'nombre_completo' => $p->nombre_completo,
+                'documento' => $p->documento,
+                'fila_origen' => $p->fila_origen,
+                'emisiones_count' => $p->emisiones_count,
+                'estado_emision' => $p->emisionVigente ? 'emitida' : ($p->emisiones_count > 0 ? 'revocada' : 'sin_emitir'),
+                'emision' => $p->emisionVigente ? ['id' => $p->emisionVigente->id, 'version' => $p->emisionVigente->version] : null,
+            ]);
 
         return Inertia::render('CredentialFlow/Lotes/Show', [
             'lote' => [
@@ -136,6 +152,7 @@ class LoteController extends Controller
                 'plantilla' => $lote->plantilla ? ['id' => $lote->plantilla->id, 'nombre' => $lote->plantilla->nombre] : null,
                 'created_at' => $lote->created_at?->toIso8601String(),
                 'total' => $lote->participantes()->count(),
+                'emision' => app(EmisorLote::class)->resumen($lote),
             ],
             'participantes' => $participantes,
             'filtros' => ['q' => $busqueda],
@@ -163,6 +180,12 @@ class LoteController extends Controller
     /** Soft delete: los participantes no se borran; quedan ocultos porque solo se consultan a través de su lote. */
     public function destroy(Lote $lote)
     {
+        // Con emisiones vigentes no se puede ocultar el lote: hay que revocarlas primero. Con solo revocadas se
+        // permite (soft delete): las emisiones permanecen y el historial las resuelve con withTrashed.
+        if ($lote->emisiones()->where('estado', Emision::EMITIDA)->exists()) {
+            return back()->with('error', "El lote \"{$lote->nombre}\" tiene credenciales emitidas vigentes. Revócalas antes de eliminarlo.");
+        }
+
         $nombre = $lote->nombre;
         $lote->delete();
 

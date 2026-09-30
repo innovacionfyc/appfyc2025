@@ -62,6 +62,13 @@ class PlantillaController extends Controller
 
     public function destroy(Plantilla $plantilla)
     {
+        // Con cualquier emisión (aunque esté revocada o su lote eliminado) la plantilla y su PDF base se conservan:
+        // son parte de la evidencia de esa emisión.
+        if ($plantilla->emisiones()->exists()) {
+            return to_route('credential-flow.plantillas.index')
+                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene credenciales emitidas y no se puede eliminar: su PDF base forma parte del historial de emisiones.");
+        }
+
         // Con lotes vigentes la plantilla (y su PDF base) siguen haciendo falta para generar credenciales.
         if ($plantilla->lotes()->exists()) {
             return to_route('credential-flow.plantillas.index')

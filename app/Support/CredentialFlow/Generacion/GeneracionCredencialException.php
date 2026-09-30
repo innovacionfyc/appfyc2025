@@ -34,6 +34,8 @@ final class GeneracionCredencialException extends RuntimeException
 
     public const DATO_INVALIDO = 'DATO_INVALIDO';
 
+    public const PLANTILLA_ALTERADA = 'PLANTILLA_ALTERADA';
+
     public function __construct(public readonly string $codigo, string $mensaje, public readonly ?string $elementoId = null)
     {
         parent::__construct($mensaje);

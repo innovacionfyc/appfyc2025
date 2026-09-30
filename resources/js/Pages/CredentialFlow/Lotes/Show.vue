@@ -7,10 +7,13 @@ import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import ConfirmacionesPop from "@/Components/Modales/Confirmaciones/ConfirmacionesPop.vue";
 import ParticipanteModal from "@/Components/CredentialFlow/Lotes/ParticipanteModal.vue";
 import LoteEditModal from "@/Components/CredentialFlow/Lotes/LoteEditModal.vue";
+import MotivoEmisionModal from "@/Components/CredentialFlow/Lotes/MotivoEmisionModal.vue";
+import HistorialEmisiones from "@/Components/CredentialFlow/Lotes/HistorialEmisiones.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
 import { useDescargaPdf } from "@/Composables/CredentialFlow/useDescargaPdf";
+import { useEmisiones } from "@/Composables/CredentialFlow/useEmisiones";
 import {
-  ArrowLeft, Search, UserPlus, SquarePen, Trash2, FileDown, Loader2, CircleAlert, ChevronLeft, ChevronRight, LayoutTemplate, FileSpreadsheet, CalendarDays,
+  ArrowLeft, Search, UserPlus, SquarePen, Trash2, FileDown, Loader2, CircleAlert, ChevronLeft, ChevronRight, LayoutTemplate, FileSpreadsheet, CalendarDays, BadgeCheck, RefreshCw, Ban, Archive, CircleCheck,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -22,7 +25,12 @@ const props = defineProps({
 const { confirmationState, openConfirmationModal, closeConfirmationModal, handleConfirm } = useConfirmationModal();
 const { generando, error: errorPdf, descargar } = useDescargaPdf();
 
+const { enCurso, error: errorEmision, ejecutar } = useEmisiones();
+
 const procesando = ref(false);
+const versionHistorial = ref(0); // se incrementa para recargar el historial
+const avisoExito = ref(null);
+const motivoModal = ref({ abierto: false, modo: "revocar", participante: null });
 const modalParticipante = ref({ abierto: false, participante: null });
 const modalLote = ref(false);
 
@@ -85,7 +93,72 @@ const eliminarLote = () => {
 };
 
 const generarPdf = (p) =>
-  descargar(p.id, route("credential-flow.participantes.pdf", [props.lote.id, p.id]), `credencial-${p.id}.pdf`);
+  descargar(p.id, route("credential-flow.participantes.pdf", [props.lote.id, p.id]), `vista-previa-${p.id}.pdf`);
+
+// ── Emisiones oficiales ───────────────────────────────────────────────────────
+const resumen = computed(() => props.lote.emision);
+const recargar = () => {
+  versionHistorial.value++;
+  router.reload({ only: ["lote", "participantes"], preserveScroll: true });
+};
+const hayError = computed(() => errorEmision.value ?? errorPdf.value);
+const cerrarError = () => {
+  errorEmision.value = null;
+  errorPdf.value = null;
+};
+
+const emitir = async (p) => {
+  avisoExito.value = null;
+  const r = await ejecutar(`emitir-${p.id}`, route("credential-flow.participantes.emitir", [props.lote.id, p.id]));
+  if (r) {
+    avisoExito.value = `Credencial emitida (v${r.emision.version}).`;
+    recargar();
+  }
+};
+
+const emitirPendientes = () => {
+  const n = resumen.value.a_emitir;
+  const resto = resumen.value.pendientes - n;
+  openConfirmationModal({
+    title: "Emitir pendientes",
+    icon: "check",
+    confirmText: `Emitir ${n}`,
+    message:
+      `Se emitirán ${n} credencial(es) oficiales. Es todo o nada: si una falla, no se emite ninguna.` +
+      (resto > 0 ? ` Quedarán ${resto} pendientes para otra pulsación (máximo ${resumen.value.limite} por vez).` : "") +
+      " Las emisiones no cambian si luego editas los datos.",
+    onConfirm: async () => {
+      procesando.value = true;
+      avisoExito.value = null;
+      const r = await ejecutar("emitir-lote", route("credential-flow.lotes.emitir", props.lote.id));
+      procesando.value = false;
+      closeConfirmationModal();
+      if (r) {
+        avisoExito.value = `Se emitieron ${r.resultado.total} credenciales.` + (r.resultado.restantes > 0 ? ` Quedan ${r.resultado.restantes} pendientes.` : "");
+        recargar();
+      }
+    },
+  });
+};
+
+const descargarEmision = (emision) =>
+  descargar(`e${emision.id}`, route("credential-flow.emisiones.descargar", emision.id), `credencial-${emision.id}-v${emision.version}.pdf`);
+
+const descargarZip = () => descargar("zip", route("credential-flow.lotes.zip", props.lote.id), `credenciales-lote-${props.lote.id}.zip`);
+
+const abrirMotivo = (modo, p) => {
+  errorEmision.value = null;
+  motivoModal.value = { abierto: true, modo, participante: p };
+};
+const confirmarMotivo = async (motivo) => {
+  const { modo, participante } = motivoModal.value;
+  const r = await ejecutar(`${modo}-${participante.id}`, route(`credential-flow.emisiones.${modo}`, participante.emision.id), { motivo });
+  if (r) {
+    motivoModal.value.abierto = false;
+    avisoExito.value = modo === "revocar" ? "Credencial revocada." : `Credencial reemitida (v${r.emision.version}).`;
+    recargar();
+  }
+};
 </script>
 
 <template>
@@ -103,6 +176,16 @@ const generarPdf = (p) =>
 
       <DashboardHeader :title="lote.nombre" :subtitle="lote.descripcion || 'Lote de participantes'" :stats="headerStats">
         <template #actions>
+          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.pendientes === 0" data-accion="emitir-pendientes" @click="emitirPendientes">
+            <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
+            <BadgeCheck v-else class="w-4 h-4" />
+            Emitir pendientes (hasta {{ resumen.limite }})<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50" :disabled="generando !== null || resumen.vigentes === 0" data-accion="descargar-zip" @click="descargarZip">
+            <Loader2 v-if="generando === 'zip'" class="w-4 h-4 animate-spin" />
+            <Archive v-else class="w-4 h-4" />
+            {{ generando === "zip" ? "Preparando ZIP…" : "Descargar ZIP" }}
+          </button>
           <Link :href="route('credential-flow.lotes.index')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
             <ArrowLeft class="w-4 h-4" />
             Volver a lotes
@@ -166,11 +249,26 @@ const generarPdf = (p) =>
         </button>
       </div>
 
-      <div v-if="errorPdf" class="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold" role="alert" data-aviso="error-pdf" :data-codigo="errorPdf.code">
-        <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-        <span class="flex-1">No se pudo generar el PDF: {{ errorPdf.message }}</span>
-        <button type="button" class="text-[12px] underline" @click="errorPdf = null">Cerrar</button>
+      <div v-if="hayError && !motivoModal.abierto" class="mt-4 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold" role="alert" data-aviso="error-pdf" :data-codigo="hayError.code">
+        <div class="flex items-start gap-3">
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          <span class="flex-1">{{ hayError.message }}</span>
+          <button type="button" class="text-[12px] underline" @click="cerrarError">Cerrar</button>
+        </div>
+        <ul v-if="hayError.detalles?.length" class="mt-2 ml-7 list-disc space-y-0.5 text-[12px] font-medium max-h-48 overflow-y-auto" data-detalles-error>
+          <li v-for="d in hayError.detalles" :key="d.participante_id"><strong>{{ d.nombre }}</strong>: {{ d.mensaje }}</li>
+        </ul>
       </div>
+
+      <div v-if="avisoExito" class="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-700 text-[13px] font-semibold" role="status" data-aviso="exito">
+        <CircleCheck class="w-4 h-4 mt-0.5 shrink-0" />
+        <span class="flex-1">{{ avisoExito }}</span>
+        <button type="button" class="text-[12px] underline" @click="avisoExito = null">Cerrar</button>
+      </div>
+
+      <p class="mt-4 px-1 text-[12px] font-semibold text-slate-500" data-resumen-emision>
+        {{ resumen.vigentes }} vigente(s) · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} revocado(s). Las credenciales emitidas no cambian si editas después al participante, el lote o la plantilla: para actualizar una, reemítela.
+      </p>
 
       <!-- Tabla -->
       <div v-if="participantes.data.length === 0" class="mt-6 text-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-200" data-sin-participantes>
@@ -185,6 +283,7 @@ const generarPdf = (p) =>
               <tr>
                 <th class="text-left font-black px-6 py-4">Nombre completo</th>
                 <th class="text-left font-black px-4 py-4">Documento</th>
+                <th class="text-left font-black px-4 py-4">Emisión</th>
                 <th class="text-left font-black px-4 py-4 w-28">Fila origen</th>
                 <th class="px-6 py-4 text-right">Acciones</th>
               </tr>
@@ -193,14 +292,35 @@ const generarPdf = (p) =>
               <tr v-for="p in participantes.data" :key="p.id" class="hover:bg-slate-50/60 transition-colors" :data-participante="p.id">
                 <td class="px-6 py-3 font-extrabold text-slate-900 break-words">{{ p.nombre_completo }}</td>
                 <td class="px-4 py-3 font-semibold text-slate-600 break-words">{{ p.documento }}</td>
+                <td class="px-4 py-3" data-estado-emision :data-estado="p.estado_emision">
+                  <span v-if="p.estado_emision === 'emitida'" class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black">Emitida v{{ p.emision.version }}</span>
+                  <span v-else-if="p.estado_emision === 'revocada'" class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 text-[11px] font-black">Revocada</span>
+                  <span v-else class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[11px] font-black">Sin emitir</span>
+                </td>
                 <td class="px-4 py-3 font-mono text-[12px] text-slate-400">{{ p.fila_origen ?? "manual" }}</td>
                 <td class="px-6 py-3">
                   <div class="flex items-center justify-end gap-1.5">
-                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all disabled:opacity-50" :disabled="generando !== null" :aria-label="`Generar PDF de ${p.nombre_completo}`" data-accion="pdf" @click="generarPdf(p)">
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all disabled:opacity-50" :disabled="generando !== null" :aria-label="`Generar PDF de ${p.nombre_completo}`" data-accion="pdf" @click="generarPdf(p)">
                       <Loader2 v-if="generando === p.id" class="w-3.5 h-3.5 animate-spin" />
                       <FileDown v-else class="w-3.5 h-3.5" />
-                      {{ generando === p.id ? "Generando…" : "Generar PDF" }}
+                      {{ generando === p.id ? "Generando…" : "Vista previa PDF" }}
                     </button>
+                    <button v-if="p.estado_emision === 'sin_emitir'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Emitir credencial de ${p.nombre_completo}`" data-accion="emitir" @click="emitir(p)">
+                      <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
+                      <BadgeCheck v-else class="w-3.5 h-3.5" />
+                      Emitir credencial
+                    </button>
+                    <template v-if="p.estado_emision === 'emitida'">
+                      <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-50 text-[12px] font-bold text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50" :disabled="generando !== null" :aria-label="`Descargar credencial de ${p.nombre_completo}`" data-accion="descargar" @click="descargarEmision({ id: p.emision.id, version: p.emision.version })">
+                        <FileDown class="w-3.5 h-3.5" /> Descargar
+                      </button>
+                      <button type="button" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all disabled:opacity-50" :disabled="enCurso !== null" title="Reemitir" :aria-label="`Reemitir a ${p.nombre_completo}`" data-accion="reemitir" @click="abrirMotivo('reemitir', p)">
+                        <RefreshCw class="w-4 h-4" />
+                      </button>
+                      <button type="button" class="p-2 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50" :disabled="enCurso !== null" title="Revocar" :aria-label="`Revocar a ${p.nombre_completo}`" data-accion="revocar" @click="abrirMotivo('revocar', p)">
+                        <Ban class="w-4 h-4" />
+                      </button>
+                    </template>
                     <button type="button" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all" title="Editar" :aria-label="`Editar a ${p.nombre_completo}`" data-accion="editar" @click="abrirEdicion(p)">
                       <SquarePen class="w-4 h-4" />
                     </button>
@@ -224,11 +344,14 @@ const generarPdf = (p) =>
           </button>
         </div>
       </div>
+
+      <HistorialEmisiones :lote-id="lote.id" :version="versionHistorial" :descargando="generando" @descargar="descargarEmision" />
     </Sidebar>
   </AuthenticatedLayout>
 
   <ParticipanteModal :show="modalParticipante.abierto" :lote-id="lote.id" :participante="modalParticipante.participante" @close="modalParticipante.abierto = false" />
   <LoteEditModal :show="modalLote" :lote="lote" @close="modalLote = false" />
+  <MotivoEmisionModal :show="motivoModal.abierto" :modo="motivoModal.modo" :participante="motivoModal.participante?.nombre_completo ?? ''" :procesando="enCurso !== null" :error="errorEmision" @close="motivoModal.abierto = false" @confirmar="confirmarMotivo" />
 
   <ConfirmacionesPop
     :is-open="confirmationState.isOpen"
