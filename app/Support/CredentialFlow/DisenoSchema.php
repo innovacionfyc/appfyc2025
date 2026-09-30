@@ -61,6 +61,17 @@ final class DisenoSchema
     /** Holgura (pt) al comparar un ancho medido con el de la caja. */
     public const TOLERANCIA_AJUSTE_PT = 0.01;
 
+    /**
+     * Interlineado del texto fijo con saltos manuales: cada línea baja INTERLINEADO × tamaño y el
+     * bloque completo queda centrado verticalmente en la caja. El editor y el generador de PDF
+     * usan este mismo valor. (No hay wrap automático: solo saltos manuales; los campos dinámicos
+     * son siempre una línea.)
+     */
+    public const INTERLINEADO_TEXTO_FIJO = 1.2;
+
+    /** Holgura (pt) al comparar el tamaño del PDF base con `page` del diseño. */
+    public const TOLERANCIA_PAGINA_PDF_PT = 0.05;
+
     public const FONT_SIZE_MIN = 4;
 
     public const FONT_SIZE_MAX = 200;
@@ -87,6 +98,7 @@ final class DisenoSchema
             'escalaMinima' => self::ESCALA_MINIMA_TEXTO_DINAMICO,
             'pasoAjuste' => self::PASO_AJUSTE_PT,
             'toleranciaAjuste' => self::TOLERANCIA_AJUSTE_PT,
+            'interlineadoTextoFijo' => self::INTERLINEADO_TEXTO_FIJO,
         ];
     }
 }

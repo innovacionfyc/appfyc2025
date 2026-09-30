@@ -4,7 +4,7 @@ import { Loader2, FileWarning } from "lucide-vue-next";
 import { cargarPdf } from "@/Composables/CredentialFlow/pdfjs";
 import { calcularEscala, ptAPx, pxAPt } from "@/Composables/CredentialFlow/coordenadas";
 import { ESTILO_SIN_KERNING, useCamposDinamicos } from "@/Composables/CredentialFlow/camposDinamicos";
-import { AVISO_HEREDADA, cargarFuentes, cssFamilia, lineaBase } from "@/Composables/CredentialFlow/fuentesCredential";
+import { AVISO_HEREDADA, cargarFuentes, cssFamilia } from "@/Composables/CredentialFlow/fuentesCredential";
 
 const props = defineProps({
   pdfUrl: { type: String, required: true },
@@ -181,20 +181,18 @@ const chip = (el) => {
 // explícita: y_base = alto/2 + ((ascent + descent) / 2 / unitsPerEm) × fontSize, con las métricas
 // de la fuente (la misma fórmula del generador). Sin factores de calibración.
 const puedeDibujar = (el) => ["lista", "heredada"].includes(estadoRender(el).estado);
-const xTexto = (el) => (el.align === "left" ? 0 : el.align === "right" ? el.width : el.width / 2);
-// Un texto fijo con saltos manuales dibuja una línea por salto (interlineado 1,2 × tamaño, como
-// antes de la Fase 4) y el bloque queda centrado en la caja; con una sola línea coincide con la
-// fórmula de línea base. Un campo dinámico es siempre una línea.
-const INTERLINEADO = 1.2;
+// Posición del texto: la calcula planTexto.js (puntos PDF, absolutos en la página). El SVG de cada
+// elemento tiene su origen en la esquina de la caja, así que se resta x/y del elemento.
+const xTexto = (el) => campos.planDe(el).xAncla - el.x;
 const lineasSvg = (el) => {
-  const lineas = campos.lineasDe(el);
-  const size = tamanoVisual(el);
-  const base =
-    estadoRender(el).estado === "lista"
-      ? lineaBase(el.fontFamily, el.fontWeight, size, 0, el.height)
-      : el.height / 2; // heredada: sin métricas, se centra con dominant-baseline
-  return lineas.map((texto, i) => ({ texto, y: base + (i - (lineas.length - 1) / 2) * INTERLINEADO * size }));
+  const plan = campos.planDe(el);
+  // heredada: sin métricas, se centra la línea con dominant-baseline (sin paridad con el PDF)
+  return plan.lineas.map((l, i) => ({
+    texto: l.texto,
+    y: l.baseline === null ? el.height / 2 + (i - (plan.lineas.length - 1) / 2) * INTERLINEADO * plan.size : l.baseline - el.y,
+  }));
 };
+const INTERLINEADO = props.schema.interlineadoTextoFijo;
 const estiloTexto = (el) => ({
   fontFamily: cssFamilia(el.fontFamily),
   fontWeight: el.fontWeight,

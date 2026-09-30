@@ -8,7 +8,8 @@
 // redondeo. El ancho sale de la tabla de métricas (metricas.json, hmtx de los TTF), NO del
 // navegador: es la misma cuenta que hará el generador PHP.
 import { calcularAjuste } from "./autoajuste";
-import { estadoFuente, esReproducible, faltantesDeLineas, medirTexto } from "@/Composables/CredentialFlow/fuentesCredential";
+import { lineasDeContenido, planearTexto } from "./planTexto";
+import { estadoFuente, esReproducible, metricas } from "@/Composables/CredentialFlow/fuentesCredential";
 
 // Mismos ajustes en todos los textos del lienzo: TCPDF no aplica kerning ni ligaduras.
 export const ESTILO_SIN_KERNING = {
@@ -16,8 +17,6 @@ export const ESTILO_SIN_KERNING = {
   fontVariantLigatures: "none",
   fontFeatureSettings: '"kern" 0, "liga" 0, "clig" 0',
 };
-
-const ajustes = new Map(); // clave completa del cálculo → resultado (función pura de la tabla)
 
 export { calcularAjuste };
 
@@ -27,6 +26,7 @@ export function useCamposDinamicos(schema) {
     escalaMinima: schema.escalaMinima,
     pasoAjuste: schema.pasoAjuste,
     tolerancia: schema.toleranciaAjuste,
+    interlineado: schema.interlineadoTextoFijo,
   };
 
   const esDinamico = (el) => el.field !== null && el.field !== undefined;
@@ -38,20 +38,22 @@ export function useCamposDinamicos(schema) {
     return catalogo[el.field]?.preview ?? "Campo desconocido";
   };
 
-  // Líneas que se dibujan:
-  //  - campo dinámico (V1): una sola línea, como TCPDF Cell; cualquier salto se muestra como espacio.
-  //  - texto fijo: conserva sus saltos manuales (una línea por cada salto). La paridad del texto
-  //    fijo multilínea con el PDF se resolverá en la fase de generación.
-  const lineasDe = (el) => {
-    if (esDinamico(el)) return [String(textoVisible(el)).replace(/\r?\n/g, " ")];
-    return String(el.text ?? "").split(/\r?\n/);
+  // Plan de dibujo del elemento (líneas, tamaño efectivo, x y línea base): planTexto.js, el mismo
+  // contrato que implementa el generador de PDF. No depende de que la fuente haya cargado.
+  const planes = new Map();
+  const planDe = (el) => {
+    const contenido = textoVisible(el);
+    const clave = [el.fontFamily, el.fontWeight, el.fontSize, el.x, el.y, el.width, el.height, el.align, esDinamico(el), contenido].join("|");
+    let plan = planes.get(clave);
+    if (!plan) {
+      if (planes.size > 500) planes.clear();
+      plan = planearTexto(metricas, config, el, contenido);
+      planes.set(clave, plan);
+    }
+    return plan;
   };
+  const lineasDe = (el) => lineasDeContenido(textoVisible(el), esDinamico(el));
   const textoLinea = (el) => lineasDe(el)[0];
-
-  // Cobertura de la fuente sobre TODO el texto visible (no depende de que la fuente haya cargado:
-  // sale de la tabla de métricas). Solo aplica a fuentes reproducibles; las heredadas no tienen
-  // métricas autoritativas y no se validan.
-  const faltantesDe = (el) => faltantesDeLineas(el.fontFamily, el.fontWeight, lineasDe(el));
 
   // Qué se puede dibujar de un elemento (sin sustituir fuentes en silencio):
   //  - "lista":        fuente reproducible cargada y todos los caracteres existen → se dibuja.
@@ -64,7 +66,9 @@ export function useCamposDinamicos(schema) {
     if (!esReproducible(el.fontFamily, el.fontWeight)) {
       return { estado: estadoFuente(el.fontFamily, el.fontWeight) === "heredada" ? "heredada" : "desconocido", faltantes: [] };
     }
-    const faltantes = faltantesDe(el);
+    // Cobertura sobre TODO el texto visible (sale de la tabla de métricas). Las heredadas no tienen
+    // métricas autoritativas y no se validan.
+    const { faltantes } = planDe(el);
     if (faltantes.length) return { estado: "noSoportado", faltantes };
 
     return { estado: estadoFuente(el.fontFamily, el.fontWeight), faltantes: [] };
@@ -75,16 +79,9 @@ export function useCamposDinamicos(schema) {
   const ajusteDe = (el) => {
     if (!esDinamico(el) || renderDe(el).estado !== "lista") return null;
 
-    const texto = textoLinea(el);
-    const clave = `${el.fontFamily}|${el.fontWeight}|${texto}|${el.fontSize}|${el.width}`;
-    const previo = ajustes.get(clave);
-    if (previo) return previo;
-
-    const { ancho } = medirTexto(el.fontFamily, el.fontWeight, el.fontSize, texto);
-    const resultado = calcularAjuste({ ancho, anchoCaja: el.width, fontSize: el.fontSize, ...config });
-    ajustes.set(clave, resultado);
-    return resultado;
+    const plan = planDe(el);
+    return { size: plan.size, reducido: plan.reducido, noCabe: plan.noCabe, ancho: plan.lineas[0].ancho };
   };
 
-  return { catalogo, esDinamico, esDesconocido, textoVisible, textoLinea, lineasDe, renderDe, ajusteDe };
+  return { catalogo, esDinamico, esDesconocido, textoVisible, textoLinea, lineasDe, renderDe, ajusteDe, planDe };
 }

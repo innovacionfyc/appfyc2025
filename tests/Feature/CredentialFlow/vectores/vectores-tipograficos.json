@@ -177,5 +177,521 @@
    "lineaBase": 32.14
   }
  ],
- "tolerancia": 1e-06
+ "tolerancia": 1e-06,
+ "ajustes": [
+  {
+   "ancho": 100,
+   "anchoCaja": 120,
+   "fontSize": 22,
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "ancho": 100
+   }
+  },
+  {
+   "ancho": 120.01,
+   "anchoCaja": 120,
+   "fontSize": 22,
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "ancho": 120.01
+   }
+  },
+  {
+   "ancho": 120.0101,
+   "anchoCaja": 120,
+   "fontSize": 22,
+   "esperado": {
+    "size": 21.75,
+    "reducido": true,
+    "noCabe": false,
+    "ancho": 118.64634886363636
+   }
+  },
+  {
+   "ancho": 300,
+   "anchoCaja": 260,
+   "fontSize": 22,
+   "esperado": {
+    "size": 19.0,
+    "reducido": true,
+    "noCabe": false,
+    "ancho": 259.0909090909091
+   }
+  },
+  {
+   "ancho": 400,
+   "anchoCaja": 320,
+   "fontSize": 40,
+   "esperado": {
+    "size": 32.0,
+    "reducido": true,
+    "noCabe": false,
+    "ancho": 320.0
+   }
+  },
+  {
+   "ancho": 500,
+   "anchoCaja": 120,
+   "fontSize": 22,
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "ancho": 352.2727272727273
+   }
+  },
+  {
+   "ancho": 400,
+   "anchoCaja": 200,
+   "fontSize": 22,
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "ancho": 281.8181818181818
+   }
+  },
+  {
+   "ancho": 333.3,
+   "anchoCaja": 300,
+   "fontSize": 28,
+   "esperado": {
+    "size": 25.0,
+    "reducido": true,
+    "noCabe": false,
+    "ancho": 297.5892857142857
+   }
+  },
+  {
+   "ancho": 250,
+   "anchoCaja": 240,
+   "fontSize": 16.5,
+   "esperado": {
+    "size": 15.75,
+    "reducido": true,
+    "noCabe": false,
+    "ancho": 238.63636363636365
+   }
+  },
+  {
+   "ancho": 1000,
+   "anchoCaja": 100,
+   "fontSize": 40,
+   "esperado": {
+    "size": 28.0,
+    "reducido": true,
+    "noCabe": true,
+    "ancho": 700.0
+   }
+  }
+ ],
+ "planes": [
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "Texto fijo centrado",
+    "x": 96,
+    "y": 200,
+    "width": 600,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "center"
+   },
+   "contenido": "Texto fijo centrado",
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "Texto fijo centrado",
+      "ancho": 194.678,
+      "xInicio": 298.661,
+      "baseline": 228.14
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "Texto a la izquierda",
+    "x": 96,
+    "y": 100.5,
+    "width": 600,
+    "height": 50,
+    "fontFamily": "outfit",
+    "fontSize": 40,
+    "fontWeight": 400,
+    "color": "#000000",
+    "align": "left"
+   },
+   "contenido": "Texto a la izquierda",
+   "esperado": {
+    "size": 40,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "Texto a la izquierda",
+      "ancho": 348.88,
+      "xInicio": 96,
+      "baseline": 140.3
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "Derecha ÁÉÍÓÚ ñ",
+    "x": 96,
+    "y": 333.33,
+    "width": 600,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 300,
+    "color": "#000000",
+    "align": "right"
+   },
+   "contenido": "Derecha ÁÉÍÓÚ ñ",
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "Derecha ÁÉÍÓÚ ñ",
+      "ancho": 172.06199999999998,
+      "xInicio": 523.938,
+      "baseline": 361.46999999999997
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "LÍNEA UNO\nLÍNEA DOS",
+    "x": 96,
+    "y": 20,
+    "width": 600,
+    "height": 60,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "center"
+   },
+   "contenido": "LÍNEA UNO\nLÍNEA DOS",
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "LÍNEA UNO",
+      "ancho": 118.184,
+      "xInicio": 336.908,
+      "baseline": 44.94
+     },
+     {
+      "texto": "LÍNEA DOS",
+      "ancho": 115.918,
+      "xInicio": 338.041,
+      "baseline": 71.34
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "A\nBB\nCCC",
+    "x": 96,
+    "y": 100,
+    "width": 600,
+    "height": 90,
+    "fontFamily": "outfit",
+    "fontSize": 28,
+    "fontWeight": 500,
+    "color": "#000000",
+    "align": "left"
+   },
+   "contenido": "A\nBB\nCCC",
+   "esperado": {
+    "size": 28,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "A",
+      "ancho": 19.656,
+      "xInicio": 96,
+      "baseline": 121.76000000000002
+     },
+     {
+      "texto": "BB",
+      "ancho": 34.832,
+      "xInicio": 96,
+      "baseline": 155.36
+     },
+     {
+      "texto": "CCC",
+      "ancho": 57.372,
+      "xInicio": 96,
+      "baseline": 188.96
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": null,
+    "text": "Uno\n\nTres",
+    "x": 96,
+    "y": 250.25,
+    "width": 600,
+    "height": 80,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 600,
+    "color": "#000000",
+    "align": "right"
+   },
+   "contenido": "Uno\n\nTres",
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "Uno",
+      "ancho": 40.194,
+      "xInicio": 655.806,
+      "baseline": 271.99
+     },
+     {
+      "texto": "",
+      "ancho": 0.0,
+      "xInicio": 696.0,
+      "baseline": 298.39
+     },
+     {
+      "texto": "Tres",
+      "ancho": 45.056,
+      "xInicio": 650.944,
+      "baseline": 324.78999999999996
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "nombre_completo",
+    "text": "",
+    "x": 96,
+    "y": 200,
+    "width": 600,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 28,
+    "fontWeight": 800,
+    "color": "#000000",
+    "align": "center"
+   },
+   "contenido": "JUAN CARLOS PÉREZ GÓMEZ",
+   "esperado": {
+    "size": 28,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "JUAN CARLOS PÉREZ GÓMEZ",
+      "ancho": 399.336,
+      "xInicio": 196.332,
+      "baseline": 230.36
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "nombre_completo",
+    "text": "",
+    "x": 96,
+    "y": 200,
+    "width": 300,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 28,
+    "fontWeight": 800,
+    "color": "#000000",
+    "align": "left"
+   },
+   "contenido": "JUAN CARLOS PÉREZ GÓMEZ",
+   "esperado": {
+    "size": 21.0,
+    "reducido": true,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "JUAN CARLOS PÉREZ GÓMEZ",
+      "ancho": 299.502,
+      "xInicio": 96,
+      "baseline": 227.77
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "evento",
+    "text": "",
+    "x": 96,
+    "y": 200,
+    "width": 340,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 600,
+    "color": "#000000",
+    "align": "right"
+   },
+   "contenido": "GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL",
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "lineas": [
+     {
+      "texto": "GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL",
+      "ancho": 366.88500000000005,
+      "xInicio": 69.11499999999995,
+      "baseline": 225.735
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "evento",
+    "text": "",
+    "x": 96,
+    "y": 200,
+    "width": 150,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 22,
+    "fontWeight": 400,
+    "color": "#000000",
+    "align": "center"
+   },
+   "contenido": "GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL",
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "lineas": [
+     {
+      "texto": "GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL",
+      "ancho": 361.28950000000003,
+      "xInicio": -9.644750000000016,
+      "baseline": 225.735
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "documento",
+    "text": "",
+    "x": 96,
+    "y": 246.18,
+    "width": 300,
+    "height": 30,
+    "fontFamily": "outfit",
+    "fontSize": 19,
+    "fontWeight": 500,
+    "color": "#000000",
+    "align": "center"
+   },
+   "contenido": "C.C. 1.023.456.789",
+   "esperado": {
+    "size": 19,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "C.C. 1.023.456.789",
+      "ancho": 160.455,
+      "xInicio": 165.77249999999998,
+      "baseline": 268.21
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "fecha",
+    "text": "",
+    "x": 96,
+    "y": 470.61,
+    "width": 500,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 16,
+    "fontWeight": 300,
+    "color": "#000000",
+    "align": "left"
+   },
+   "contenido": "29 DE SEPTIEMBRE DE 2026",
+   "esperado": {
+    "size": 16,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "29 DE SEPTIEMBRE DE 2026",
+      "ancho": 205.232,
+      "xInicio": 96,
+      "baseline": 496.53000000000003
+     }
+    ]
+   }
+  }
+ ]
 }

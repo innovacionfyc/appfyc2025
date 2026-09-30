@@ -416,8 +416,8 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $rutas = collect(app('router')->getRoutes()->getRoutes())->map(fn ($r) => $r->uri());
         $delModulo = $rutas->filter(fn ($u) => str_contains($u, 'credential-flow'));
 
-        // Esta fase no agrega rutas: siguen siendo las 7 de las fases 1 y 2, todas administrativas.
-        $this->assertCount(7, $delModulo);
+        // Las 7 de las fases 1 y 2 más el PDF de prueba de la fase 5, todas administrativas.
+        $this->assertCount(8, $delModulo);
         $this->assertCount(0, $delModulo->reject(fn ($u) => str_starts_with($u, 'admin/credential-flow')));
     }
 }

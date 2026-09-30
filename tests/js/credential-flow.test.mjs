@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { medirTexto, lineaBase, faltantesEnLineas } from "../../resources/js/Composables/CredentialFlow/textoMetrico.js";
 import { calcularAjuste } from "../../resources/js/Composables/CredentialFlow/autoajuste.js";
+import { planearTexto } from "../../resources/js/Composables/CredentialFlow/planTexto.js";
 
 const leer = (ruta) => JSON.parse(readFileSync(new URL(ruta, import.meta.url), "utf8"));
 const tabla = leer("../../resources/fonts/credential-flow/metricas.json");
@@ -106,6 +107,44 @@ prueba("autoajuste: no baja del 70 % y marca «No cabe»", () => {
 prueba("autoajuste: tolerancia de 0,01 pt", () => {
   const r = calcularAjuste({ ancho: 200.01, anchoCaja: 200, fontSize: 22, ...cfg });
   assert.equal(r.reducido, false);
+});
+
+
+const cerca = (a, b, m) => assert.ok(Math.abs(a - b) <= vectores.tolerancia + 1e-9, `${m}: ${a} != ${b}`);
+const cfgPlan = { ...cfg, interlineado: 1.2 };
+
+vectores.ajustes.forEach((v, i) => {
+  prueba(`vector de autoajuste #${i}`, () => {
+    const r = calcularAjuste({ ancho: v.ancho, anchoCaja: v.anchoCaja, fontSize: v.fontSize, ...cfg });
+    assert.equal(r.size, v.esperado.size);
+    assert.equal(r.reducido, v.esperado.reducido);
+    assert.equal(r.noCabe, v.esperado.noCabe);
+    cerca(r.ancho, v.esperado.ancho, "ancho");
+  });
+});
+
+vectores.planes.forEach((v, i) => {
+  prueba(`plan completo #${i} (${v.elemento.align}, ${v.elemento.field ?? "fijo"})`, () => {
+    const p = planearTexto(tabla, cfgPlan, v.elemento, v.contenido);
+    assert.equal(p.size, v.esperado.size);
+    assert.equal(p.reducido, v.esperado.reducido);
+    assert.equal(p.noCabe, v.esperado.noCabe);
+    assert.equal(p.lineas.length, v.esperado.lineas.length);
+    p.lineas.forEach((l, j) => {
+      const e = v.esperado.lineas[j];
+      assert.equal(l.texto, e.texto);
+      cerca(l.ancho, e.ancho, "ancho línea");
+      cerca(l.xInicio, e.xInicio, "xInicio");
+      cerca(l.baseline, e.baseline, "baseline");
+    });
+  });
+});
+
+prueba("interlineado del texto fijo: 1,2 × tamaño y bloque centrado", () => {
+  const el = { ...vectores.planes[3].elemento };
+  const p = planearTexto(tabla, cfgPlan, el, "a\nb\nc");
+  cerca(p.lineas[1].baseline - p.lineas[0].baseline, 1.2 * 22, "paso");
+  cerca((p.lineas[0].baseline + p.lineas[2].baseline) / 2, planearTexto(tabla, cfgPlan, el, "a").lineas[0].baseline, "centro");
 });
 
 console.log(`${n} pruebas correctas${process.exitCode ? " (hay fallas)" : ""}`);

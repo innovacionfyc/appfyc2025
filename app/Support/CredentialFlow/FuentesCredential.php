@@ -198,7 +198,14 @@ final class FuentesCredential
             throw new RuntimeException('Falta metricas.json: ejecuta php artisan credential-flow:fuentes-metricas.');
         }
 
-        return json_decode(file_get_contents($ruta), true, 512, JSON_THROW_ON_ERROR);
+        // Se decodifica una sola vez por proceso (y de nuevo si el archivo cambia).
+        static $cache = null;
+        $marca = filemtime($ruta).':'.filesize($ruta);
+        if ($cache === null || $cache[0] !== $marca) {
+            $cache = [$marca, json_decode(file_get_contents($ruta), true, 512, JSON_THROW_ON_ERROR)];
+        }
+
+        return $cache[1];
     }
 
     /**

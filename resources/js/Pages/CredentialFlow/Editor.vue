@@ -40,6 +40,58 @@ const guardarBloqueado = computed(
   () => editor.conCampoDesconocido.value.length > 0 || conErrorDeFuente.value.length > 0 || conCaracterNoSoportado.value.length > 0
 );
 
+// ── PDF de prueba ────────────────────────────────────────────────────────────
+// Se genera en el servidor SIEMPRE desde el diseño guardado (no se envía el JSON del editor), con un
+// dataset QA fijo. Solo se habilita si no hay nada que el editor ya sepa que impedirá generarlo.
+const generando = ref(false);
+const errorGeneracion = ref(null); // { code, message }
+
+const motivoNoGenerar = computed(() => {
+  if (editor.conCampoDesconocido.value.length) return "Hay un campo dinámico desconocido: corrígelo para poder generar.";
+  if (conErrorDeFuente.value.length) return "Una fuente Outfit no cargó: recarga la página.";
+  if (conCaracterNoSoportado.value.length) return "Hay textos con caracteres que Outfit no tiene: corrígelos para poder generar.";
+  if (conFuenteHeredada.value.length) return "Hay elementos con fuente heredada: cambia a Outfit para poder generar.";
+  if (cantidadNoCabe.value) return "Hay campos que no caben en su caja: ensancha la caja o baja el tamaño.";
+  if (editor.sinGuardar.value) return "Guarda el diseño primero: el PDF de prueba se genera con el diseño guardado.";
+  return null;
+});
+
+async function generarPrueba() {
+  if (generando.value || motivoNoGenerar.value || !pdfListo.value) return;
+
+  generando.value = true;
+  errorGeneracion.value = null;
+  try {
+    const respuesta = await fetch(route("credential-flow.plantillas.pdf-prueba", props.plantilla.id), {
+      credentials: "same-origin",
+      headers: { Accept: "application/pdf, application/json", "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    if (respuesta.ok && (respuesta.headers.get("Content-Type") ?? "").includes("application/pdf")) {
+      const url = URL.createObjectURL(await respuesta.blob());
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `credencial-prueba-${props.plantilla.id}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return;
+    }
+
+    if (respuesta.status === 429) {
+      errorGeneracion.value = { code: "DEMASIADAS_SOLICITUDES", message: "Demasiadas solicitudes seguidas. Espera un minuto e inténtalo de nuevo." };
+      return;
+    }
+    const cuerpo = await respuesta.json().catch(() => null);
+    errorGeneracion.value = cuerpo?.error ?? { code: "ERROR", message: "No se pudo generar el PDF de prueba." };
+  } catch {
+    errorGeneracion.value = { code: "RED", message: "No se pudo contactar con el servidor. Revisa tu conexión e inténtalo de nuevo." };
+  } finally {
+    generando.value = false;
+  }
+}
+
 const pdfListo = ref(false);
 const pdfConError = ref(false);
 const paginas = ref(1);
@@ -186,11 +238,14 @@ const headerStats = computed(() => [
           :puede-agregar="editor.elementos.value.length < schema.maxElementos"
           :deshabilitado="!pdfListo"
           :guardar-bloqueado="guardarBloqueado"
+          :generando="generando"
+          :motivo-no-generar="motivoNoGenerar"
           @agregar-texto="editor.agregarTexto"
           @centrar-horizontal="editor.centrarHorizontal"
           @centrar-vertical="editor.centrarVertical"
           @eliminar="editor.eliminarSeleccionado"
           @guardar="guardar"
+          @generar-prueba="generarPrueba"
         />
 
         <div
@@ -250,6 +305,18 @@ const headerStats = computed(() => [
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
           {{ cantidadNoCabe === 1 ? "Hay 1 campo que no cabe" : `Hay ${cantidadNoCabe} campos que no caben` }} en su caja aun reduciendo su tamaño al
           {{ Math.round(schema.escalaMinima * 100) }} %. Ensancha la caja o baja el tamaño.
+        </div>
+
+        <div
+          v-if="errorGeneracion"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-50 text-red-700 text-[13px] font-semibold"
+          role="alert"
+          data-aviso="error-generacion"
+          :data-codigo="errorGeneracion.code"
+        >
+          <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
+          <span class="flex-1">No se pudo generar el PDF de prueba: {{ errorGeneracion.message }}</span>
+          <button type="button" class="text-[12px] underline" @click="errorGeneracion = null">Cerrar</button>
         </div>
 
         <div

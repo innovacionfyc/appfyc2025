@@ -18,5 +18,9 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     // Fase 2: editor visual (el PDF base es privado y solo se sirve por esta ruta autenticada)
     Route::get('/plantillas/{plantilla}/editor', [PlantillaEditorController::class, 'show'])->name('plantillas.editor');
     Route::get('/plantillas/{plantilla}/pdf', [PlantillaEditorController::class, 'pdf'])->name('plantillas.pdf');
+    // Fase 5: PDF de prueba con el diseño guardado y un dataset QA fijo (sin participantes, sin persistencia)
+    Route::get('/plantillas/{plantilla}/pdf-prueba', [PlantillaEditorController::class, 'pdfPrueba'])
+        ->middleware('throttle:6,1')
+        ->name('plantillas.pdf-prueba');
     Route::put('/plantillas/{plantilla}/diseno', [PlantillaEditorController::class, 'update'])->name('plantillas.diseno.update');
 });

@@ -1,5 +1,5 @@
 <script setup>
-import { Plus, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Trash2, Check, CircleAlert } from "lucide-vue-next";
+import { Plus, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, Trash2, Check, CircleAlert, FileDown, Loader2 } from "lucide-vue-next";
 import BtnUniversal from "@/Components/BtnUniversal.vue";
 
 defineProps({
@@ -10,9 +10,13 @@ defineProps({
   deshabilitado: { type: Boolean, default: false },
   // Hay un campo desconocido o una fuente sin cargar: no se puede guardar hasta corregirlo.
   guardarBloqueado: { type: Boolean, default: false },
+  // PDF de prueba: se genera siempre desde el diseño GUARDADO. `motivoNoGenerar` explica por qué el
+  // botón está deshabilitado (null = disponible).
+  generando: { type: Boolean, default: false },
+  motivoNoGenerar: { type: String, default: null },
 });
 
-defineEmits(["agregar-texto", "centrar-horizontal", "centrar-vertical", "eliminar", "guardar"]);
+defineEmits(["agregar-texto", "centrar-horizontal", "centrar-vertical", "eliminar", "guardar", "generar-prueba"]);
 
 const COLOR = "#942934";
 
@@ -86,6 +90,19 @@ const boton =
         <Check class="w-3.5 h-3.5" />
         Guardado
       </span>
+
+      <button
+        type="button"
+        :class="[boton, 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+        :disabled="deshabilitado || generando || !!motivoNoGenerar"
+        :title="motivoNoGenerar ?? 'Genera un PDF con el diseño guardado y datos de prueba'"
+        data-accion="generar-pdf-prueba"
+        @click="$emit('generar-prueba')"
+      >
+        <Loader2 v-if="generando" class="w-4 h-4 animate-spin" />
+        <FileDown v-else class="w-4 h-4" />
+        {{ generando ? "Generando…" : "Generar PDF de prueba" }}
+      </button>
 
       <BtnUniversal
         label="Guardar diseño"
