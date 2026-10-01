@@ -18,6 +18,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
 use Composer\InstalledVersions;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -587,6 +588,63 @@ class EmisionesTest extends EmisionesTestCase
         $this->assertSame(2, $r->json('emision.version'));
         $this->assertSame(2, Emision::where('participante_id', $p->id)->count());
         $this->assertSame(1, Emision::where('participante_id', $p->id)->where('estado', 'emitida')->count());
+    }
+
+    /**
+     * La UI decide las acciones solo por `estado_emision`: sin_emitir → Emitir; emitida → Descargar/Reemitir/Revocar;
+     * revocada (historial y ninguna vigente) → Volver a emitir, que llama al MISMO endpoint de emitir.
+     */
+    public function test_volver_a_emitir_tras_revocar_refresca_el_estado_y_no_toca_la_historica(): void
+    {
+        $lote = $this->loteCon(2);
+        [$a, $b] = $lote->participantes()->orderBy('id')->get()->all();
+        $v1 = Emision::findOrFail($this->emitirPor($lote, $a)->assertCreated()->json('emision.id'));
+        $this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.revocar', $v1), ['motivo' => 'Revocada para volver a emitir'])->assertOk();
+        $historica = $v1->fresh()->only(['estado', 'version', 'codigo', 'pdf_hash', 'pdf_bytes', 'revocado_at', 'motivo_revocacion', 'datos_snapshot', 'schema_version']);
+        $historica['emitido_at'] = $v1->fresh()->getRawOriginal('emitido_at');
+
+        $estados = fn () => collect($this->actingAs($this->admin())->get(route('credential-flow.lotes.show', $lote))->viewData('page')['props']['participantes']['data'])
+            ->mapWithKeys(fn ($p) => [$p['id'] => $p['estado_emision']])->all();
+
+        // Antes: a revocada (sin vigente → "Volver a emitir"), b nunca emitida (→ "Emitir").
+        $this->assertSame('revocada', $estados()[$a->id]);
+        $this->assertSame('sin_emitir', $estados()[$b->id]);
+
+        // Cambian los datos actuales: la nueva versión debe usarlos, la histórica no.
+        $a->update(['nombre_completo' => 'NOMBRE ACTUALIZADO']);
+        $r = $this->emitirPor($lote, $a)->assertCreated();
+
+        $this->assertSame(2, $r->json('emision.version'));
+        $this->assertSame('emitida', $estados()[$a->id]);
+        $this->assertSame(2, Emision::where('participante_id', $a->id)->count());
+        $this->assertSame(1, Emision::where('participante_id', $a->id)->where('estado', 'emitida')->count());
+
+        $despues = $v1->fresh();
+        $this->assertSame($historica['emitido_at'], $despues->getRawOriginal('emitido_at'));
+        $this->assertEquals(
+            Arr::except($historica, 'emitido_at'),
+            $despues->only(array_keys(Arr::except($historica, 'emitido_at')))
+        );
+        $this->assertNotSame($v1->codigo, $r->json('emision.codigo'));
+        $this->assertStringContainsString('NOMBRE ACTUALIZADO', json_encode(Emision::findOrFail($r->json('emision.id'))->datos_snapshot));
+
+        // Una vez vigente ya no se puede emitir otra vez (doble clic o petición repetida): 409 y sigue habiendo una sola vigente.
+        $this->emitirPor($lote, $a)->assertStatus(409);
+        $this->assertSame(1, Emision::where('participante_id', $a->id)->where('estado', 'emitida')->count());
+        $this->assertSame(2, Emision::where('participante_id', $a->id)->count());
+    }
+
+    /** Contrato de la vista (no hay infraestructura de pruebas de componentes Vue): cada estado deriva a su acción. */
+    public function test_la_vista_ofrece_volver_a_emitir_solo_para_participantes_revocados(): void
+    {
+        $vue = file_get_contents(resource_path('js/Pages/CredentialFlow/Lotes/Show.vue'));
+
+        $this->assertMatchesRegularExpression('/v-if="p\.estado_emision === \'sin_emitir\'"[^>]*data-accion="emitir"/', $vue);
+        $this->assertMatchesRegularExpression('/v-if="p\.estado_emision === \'revocada\'"[^>]*data-accion="volver-a-emitir"[^>]*@click="volverAEmitir\(p\)"/', $vue);
+        $this->assertStringContainsString('<template v-if="p.estado_emision === \'emitida\'">', $vue);
+        // Reutiliza el endpoint existente y la confirmación del módulo; no hay ruta nueva.
+        $this->assertMatchesRegularExpression('/const volverAEmitir[\s\S]*?credential-flow\.participantes\.emitir/', $vue);
+        $this->assertStringContainsString('"Volver a emitir"', $vue);
     }
 
     // ── Reemisión ─────────────────────────────────────────────────────────────
