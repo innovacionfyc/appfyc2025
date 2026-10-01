@@ -46,7 +46,7 @@ const boton =
       type="button"
       :class="[boton, 'bg-slate-50 text-slate-700 hover:bg-slate-100']"
       :disabled="deshabilitado || !puedeAgregarQr"
-      :title="puedeAgregarQr ? 'Agrega un QR que lleva a la página pública de verificación de cada credencial. Es opcional: sin este elemento las credenciales no llevan QR.' : 'Esta plantilla ya tiene su QR de verificación (máximo uno).'"
+      :title="puedeAgregarQr ? 'Agrega un QR que lleva a la página donde se verifica cada certificado. Es opcional: sin él, los certificados no llevan QR.' : 'Esta plantilla ya tiene su QR (solo se permite uno).'"
       data-accion="agregar-qr"
       @click="$emit('agregar-qr')"
     >
@@ -60,7 +60,7 @@ const boton =
       type="button"
       :class="[boton, 'bg-slate-50 text-slate-600 hover:bg-slate-100']"
       :disabled="deshabilitado || !haySeleccion"
-      title="Centrar horizontalmente en la página"
+      title="Centrar de izquierda a derecha"
       @click="$emit('centrar-horizontal')"
     >
       <AlignHorizontalJustifyCenter class="w-4 h-4" />
@@ -70,7 +70,7 @@ const boton =
       type="button"
       :class="[boton, 'bg-slate-50 text-slate-600 hover:bg-slate-100']"
       :disabled="deshabilitado || !haySeleccion"
-      title="Centrar verticalmente en la página"
+      title="Centrar de arriba a abajo"
       @click="$emit('centrar-vertical')"
     >
       <AlignVerticalJustifyCenter class="w-4 h-4" />
@@ -109,13 +109,13 @@ const boton =
         type="button"
         :class="[boton, 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
         :disabled="deshabilitado || generando || !!motivoNoGenerar"
-        :title="motivoNoGenerar ?? 'Genera un PDF con el diseño guardado y datos de prueba'"
+        :title="motivoNoGenerar ?? 'Genera un PDF con el diseño guardado y datos de ejemplo'"
         data-accion="generar-pdf-prueba"
         @click="$emit('generar-prueba')"
       >
         <Loader2 v-if="generando" class="w-4 h-4 animate-spin" />
         <FileDown v-else class="w-4 h-4" />
-        {{ generando ? "Generando…" : "Generar PDF de prueba" }}
+        {{ generando ? "Generando…" : "Probar con un PDF" }}
       </button>
 
       <BtnUniversal
@@ -129,7 +129,7 @@ const boton =
         process="Guardando..."
         :class="['sm:w-auto', !guardando && (deshabilitado || guardarBloqueado || !sinGuardar) ? 'opacity-50 pointer-events-none' : '']"
         :aria-disabled="!guardando && (deshabilitado || guardarBloqueado || !sinGuardar)"
-        :title="guardarBloqueado ? 'Corrige los elementos marcados en rojo para poder guardar' : undefined"
+        :title="guardarBloqueado ? 'Corrige lo marcado en rojo para poder guardar' : undefined"
         @click="$emit('guardar')"
       />
     </div>

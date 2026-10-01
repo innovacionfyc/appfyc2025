@@ -59,12 +59,12 @@ final class EmisorLote
     {
         $plantilla = $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de este lote ya no está disponible.', 409);
+            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
 
         $pendientes = $lote->participantes()->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
         if ($pendientes->isEmpty()) {
-            throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay participantes pendientes de emitir en este lote.', 409);
+            throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay participantes pendientes de emitir en esta base.', 409);
         }
 
         // 1–2: snapshots + huellas y prevalidación total (todo o nada).
@@ -212,6 +212,6 @@ final class EmisorLote
 
     private function cambiaron(): EmisionException
     {
-        return new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía el lote. No se emitió nada: vuelve a intentarlo.', 409);
+        return new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitían los certificados. No se emitió nada: vuelve a intentarlo.', 409);
     }
 }

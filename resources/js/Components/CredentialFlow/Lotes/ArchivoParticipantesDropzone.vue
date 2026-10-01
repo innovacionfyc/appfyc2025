@@ -24,11 +24,11 @@ const aceptar = (archivo) => {
   errorLocal.value = "";
   if (!archivo) return;
   if (!/\.(xlsx|csv)$/i.test(archivo.name)) {
-    errorLocal.value = "Solo se aceptan archivos .xlsx o .csv.";
+    errorLocal.value = "Usa un archivo de Excel (.xlsx) o CSV.";
     return;
   }
   if (archivo.size > props.maxMb * 1024 * 1024) {
-    errorLocal.value = `El archivo no puede superar los ${props.maxMb} MB.`;
+    errorLocal.value = `El archivo pesa más de ${props.maxMb} MB.`;
     return;
   }
   emit("clearError");
@@ -55,7 +55,7 @@ const abrirSelector = () => {
 <template>
   <div>
     <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 px-1">
-      Archivo de participantes <span class="text-primary-vinotinto">*</span>
+      Lista de participantes <span class="text-primary-vinotinto">*</span>
     </label>
 
     <input

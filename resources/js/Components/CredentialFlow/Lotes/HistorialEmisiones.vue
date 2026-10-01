@@ -3,7 +3,7 @@ import { ref, watch, onMounted } from "vue";
 import axios from "axios";
 import { FileDown, ChevronLeft, ChevronRight } from "lucide-vue-next";
 
-// Historial de emisiones del lote (más recientes primero). Se recarga cuando cambia `version`.
+// Historial de emisiones de la base (más recientes primero). Se recarga cuando cambia `version`.
 const props = defineProps({
   loteId: { type: Number, required: true },
   version: { type: Number, default: 0 },
@@ -47,12 +47,12 @@ watch(() => props.version, () => cargar(1));
 <template>
   <section class="mt-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" data-historial-emisiones>
     <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-      <h3 class="text-sm font-black text-slate-900">Historial de emisiones</h3>
-      <span class="text-[12px] font-bold text-slate-400">{{ total }} registro(s)</span>
+      <h3 class="text-sm font-black text-slate-900">Historial de certificados</h3>
+      <span class="text-[12px] font-bold text-slate-400">{{ total }} {{ total === 1 ? "registro" : "registros" }}</span>
     </div>
 
     <p v-if="error" class="px-6 py-6 text-sm font-semibold text-red-600" role="alert">No se pudo cargar el historial.</p>
-    <p v-else-if="!cargando && filas.length === 0" class="px-6 py-8 text-sm font-medium text-slate-400 text-center" data-historial-vacio>Todavía no se ha emitido ninguna credencial de este lote.</p>
+    <p v-else-if="!cargando && filas.length === 0" class="px-6 py-8 text-sm font-medium text-slate-400 text-center" data-historial-vacio>Todavía no se ha emitido ningún certificado de esta base.</p>
 
     <div v-else class="overflow-x-auto">
       <table class="min-w-full text-sm">
@@ -61,9 +61,9 @@ watch(() => props.version, () => cargar(1));
             <th class="text-left font-black px-6 py-3">Participante</th>
             <th class="text-left font-black px-4 py-3">Versión</th>
             <th class="text-left font-black px-4 py-3">Estado</th>
-            <th class="text-left font-black px-4 py-3">Emitida</th>
-            <th class="text-left font-black px-4 py-3">Revocación</th>
-            <th class="px-6 py-3 text-right">PDF</th>
+            <th class="text-left font-black px-4 py-3">Emitido</th>
+            <th class="text-left font-black px-4 py-3">Revocado</th>
+            <th class="px-6 py-3 text-right">Archivo</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">

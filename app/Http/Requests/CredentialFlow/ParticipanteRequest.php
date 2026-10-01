@@ -64,7 +64,7 @@ class ParticipanteRequest extends FormRequest
                     ->exists();
 
                 if ($duplicado) {
-                    $validator->errors()->add('documento', 'Ya existe un participante con ese documento en este lote.');
+                    $validator->errors()->add('documento', 'Ya existe un participante con ese documento en esta base.');
                 }
             }
         }];

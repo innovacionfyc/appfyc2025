@@ -41,7 +41,7 @@ final readonly class DatosCredencial
                 throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_DESCONOCIDO, 'Los datos incluyen un campo que no existe en el catálogo.');
             }
             if (! is_string($valor)) {
-                throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_SIN_VALOR, 'Un dato de la credencial no es texto.');
+                throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_SIN_VALOR, 'Un dato del certificado no es texto.');
             }
             $etiqueta = $catalogo[$clave]['etiqueta'];
             if (! mb_check_encoding($valor, 'UTF-8')) {
@@ -70,7 +70,7 @@ final readonly class DatosCredencial
         }
         if (! array_key_exists($clave, $this->valores) || $this->valores[$clave] === '') {
             $etiqueta = CamposDinamicos::todos()[$clave]['etiqueta'];
-            throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_SIN_VALOR, "Falta el dato «{$etiqueta}» para generar la credencial.");
+            throw GeneracionCredencialException::con(GeneracionCredencialException::CAMPO_SIN_VALOR, "Falta el dato «{$etiqueta}» para generar el certificado.");
         }
 
         return $this->valores[$clave];

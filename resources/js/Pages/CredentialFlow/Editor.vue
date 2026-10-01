@@ -49,12 +49,12 @@ const generando = ref(false);
 const errorGeneracion = ref(null); // { code, message }
 
 const motivoNoGenerar = computed(() => {
-  if (editor.conCampoDesconocido.value.length) return "Hay un campo dinámico desconocido: corrígelo para poder generar.";
-  if (conErrorDeFuente.value.length) return "Una fuente Outfit no cargó: recarga la página.";
-  if (conCaracterNoSoportado.value.length) return "Hay textos con caracteres que Outfit no tiene: corrígelos para poder generar.";
-  if (conFuenteHeredada.value.length) return "Hay elementos con fuente heredada: cambia a Outfit para poder generar.";
-  if (cantidadNoCabe.value) return "Hay campos que no caben en su caja: ensancha la caja o baja el tamaño.";
-  if (editor.sinGuardar.value) return "Guarda el diseño primero: el PDF de prueba se genera con el diseño guardado.";
+  if (editor.conCampoDesconocido.value.length) return "Hay un campo que no existe: corrígelo para poder generar la prueba.";
+  if (conErrorDeFuente.value.length) return "Una fuente del diseño no cargó: recarga la página.";
+  if (conCaracterNoSoportado.value.length) return "Hay textos con caracteres que la fuente no tiene: corrígelos para poder generar la prueba.";
+  if (conFuenteHeredada.value.length) return "Hay textos con una fuente que no se puede usar: cámbiala a Outfit para generar la prueba.";
+  if (cantidadNoCabe.value) return "Hay textos que no caben en su caja: hazla más ancha o baja el tamaño.";
+  if (editor.sinGuardar.value) return "Guarda el diseño primero: la prueba se hace con el diseño guardado.";
   return null;
 });
 
@@ -82,13 +82,13 @@ async function generarPrueba() {
     }
 
     if (respuesta.status === 429) {
-      errorGeneracion.value = { code: "DEMASIADAS_SOLICITUDES", message: "Demasiadas solicitudes seguidas. Espera un minuto e inténtalo de nuevo." };
+      errorGeneracion.value = { code: "DEMASIADAS_SOLICITUDES", message: "Hiciste demasiadas solicitudes seguidas. Espera un minuto e inténtalo de nuevo." };
       return;
     }
     const cuerpo = await respuesta.json().catch(() => null);
-    errorGeneracion.value = cuerpo?.error ?? { code: "ERROR", message: "No se pudo generar el PDF de prueba." };
+    errorGeneracion.value = cuerpo?.error ?? { code: "ERROR", message: "No se pudo generar la prueba." };
   } catch {
-    errorGeneracion.value = { code: "RED", message: "No se pudo contactar con el servidor. Revisa tu conexión e inténtalo de nuevo." };
+    errorGeneracion.value = { code: "RED", message: "No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo." };
   } finally {
     generando.value = false;
   }
@@ -181,7 +181,7 @@ const headerStats = computed(() => [
 </script>
 
 <template>
-  <Head :title="`Credential Flow · Editor · ${plantilla.nombre}`" />
+  <Head :title="`Credential Flow · Diseño · ${plantilla.nombre}`" />
 
   <AuthenticatedLayout>
     <Sidebar>
@@ -190,12 +190,12 @@ const headerStats = computed(() => [
         <span>/</span>
         <Link :href="route('credential-flow.plantillas.index')" class="hover:text-primary-vinotinto transition-colors">Plantillas</Link>
         <span>/</span>
-        <span class="text-slate-600">Editor</span>
+        <span class="text-slate-600">Diseño</span>
       </nav>
 
       <DashboardHeader
         :title="plantilla.nombre"
-        :subtitle="`Editor de diseño · PDF base: ${plantilla.nombre_archivo_original}`"
+        :subtitle="`Diseña tu certificado sobre el PDF ${plantilla.nombre_archivo_original}`"
         :stats="headerStats"
       >
         <template #actions>
@@ -218,9 +218,9 @@ const headerStats = computed(() => [
         <div class="w-16 h-16 mx-auto rounded-3xl bg-primary-vinotinto/10 text-primary-vinotinto flex items-center justify-center">
           <Monitor class="w-8 h-8" />
         </div>
-        <p class="text-lg font-extrabold text-slate-800">Para editar una plantilla usa una pantalla más grande</p>
+        <p class="text-lg font-extrabold text-slate-800">Para diseñar usa una pantalla más grande</p>
         <p class="text-sm text-slate-500 max-w-sm mx-auto">
-          El editor necesita espacio para mostrar el PDF y sus propiedades. Ábrelo desde un computador de escritorio o una tablet en horizontal.
+          El diseño necesita espacio. Ábrelo desde un computador o una tablet en horizontal.
         </p>
         <Link
           :href="route('credential-flow.plantillas.index')"
@@ -258,7 +258,7 @@ const headerStats = computed(() => [
           data-aviso="varias-paginas"
         >
           <Info class="w-4 h-4 mt-0.5 shrink-0" />
-          Este PDF tiene {{ paginas }} páginas. En esta primera versión solo se edita la página 1.
+          Este PDF tiene {{ paginas }} páginas. Por ahora solo se puede diseñar la página 1.
         </div>
 
         <div
@@ -268,7 +268,7 @@ const headerStats = computed(() => [
           data-aviso="campo-desconocido"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          {{ editor.conCampoDesconocido.value.length === 1 ? "Hay 1 elemento con un campo dinámico desconocido" : `Hay ${editor.conCampoDesconocido.value.length} elementos con un campo dinámico desconocido` }}.
+          {{ editor.conCampoDesconocido.value.length === 1 ? "Hay 1 elemento con un campo que no existe" : `Hay ${editor.conCampoDesconocido.value.length} elementos con un campo que no existe` }}.
           Elige un contenido válido en cada uno para poder guardar.
         </div>
 
@@ -279,7 +279,7 @@ const headerStats = computed(() => [
           data-aviso="error-fuente"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          No se pudo cargar una fuente de Outfit. Recarga la página; no se puede guardar hasta que cargue.
+          No se pudo cargar una fuente. Recarga la página: no se puede guardar hasta que cargue.
         </div>
 
         <div
@@ -289,7 +289,7 @@ const headerStats = computed(() => [
           data-aviso="caracter-no-soportado"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          {{ conCaracterNoSoportado.length === 1 ? "Hay 1 texto" : `Hay ${conCaracterNoSoportado.length} textos` }} con caracteres que la fuente Outfit no tiene y no se dibujan con otra fuente. No se puede guardar el diseño hasta corregir o quitar esos caracteres.
+          {{ conCaracterNoSoportado.length === 1 ? "Hay 1 texto" : `Hay ${conCaracterNoSoportado.length} textos` }} con caracteres que la fuente no tiene. Corrígelos o quítalos para poder guardar el diseño.
         </div>
 
         <div
@@ -298,7 +298,7 @@ const headerStats = computed(() => [
           data-aviso="fuente-heredada"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          {{ conFuenteHeredada.length === 1 ? "Hay 1 elemento" : `Hay ${conFuenteHeredada.length} elementos` }} con fuente heredada, no preparada para generación PDF. Cambia a Outfit para una salida reproducible.
+          {{ conFuenteHeredada.length === 1 ? "Hay 1 elemento" : `Hay ${conFuenteHeredada.length} elementos` }} con una fuente que no se puede usar en el certificado. Cámbiala a Outfit.
         </div>
 
         <div
@@ -307,8 +307,8 @@ const headerStats = computed(() => [
           data-aviso="no-cabe"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          {{ cantidadNoCabe === 1 ? "Hay 1 campo que no cabe" : `Hay ${cantidadNoCabe} campos que no caben` }} en su caja aun reduciendo su tamaño al
-          {{ Math.round(schema.escalaMinima * 100) }} %. Ensancha la caja o baja el tamaño.
+          {{ cantidadNoCabe === 1 ? "Hay 1 campo que no cabe" : `Hay ${cantidadNoCabe} campos que no caben` }} en su caja, ni siquiera reduciendo el texto al
+          {{ Math.round(schema.escalaMinima * 100) }} %. Haz la caja más ancha o baja el tamaño.
         </div>
 
         <div
@@ -319,7 +319,7 @@ const headerStats = computed(() => [
           :data-codigo="errorGeneracion.code"
         >
           <CircleAlert class="w-4 h-4 mt-0.5 shrink-0" />
-          <span class="flex-1">No se pudo generar el PDF de prueba: {{ errorGeneracion.message }}</span>
+          <span class="flex-1">No se pudo generar la prueba: {{ errorGeneracion.message }}</span>
           <button type="button" class="text-[12px] underline" @click="errorGeneracion = null">Cerrar</button>
         </div>
 

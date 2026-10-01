@@ -102,9 +102,9 @@ const posicion = computed(() => [
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-[12px] font-medium text-slate-600 leading-snug">
-        <p class="flex items-start gap-2"><Info class="w-4 h-4 mt-0.5 shrink-0 text-slate-400" /> Cada credencial emitida lleva un QR que abre su página pública de verificación. Si no quieres QR, elimina este elemento.</p>
-        <p>Negro sobre fondo blanco, con su zona de silencio dentro de la caja. Siempre es cuadrado.</p>
-        <p class="font-bold">Lo que ves es un ejemplo: no es un código real.</p>
+        <p class="flex items-start gap-2"><Info class="w-4 h-4 mt-0.5 shrink-0 text-slate-400" /> Cada certificado lleva un QR que abre su página de verificación. Si no lo quieres, elimina este elemento.</p>
+        <p>Siempre es cuadrado, negro sobre fondo blanco.</p>
+        <p class="font-bold">Lo que ves es un ejemplo, no un código real.</p>
       </div>
 
       <div
@@ -194,9 +194,9 @@ const posicion = computed(() => [
         role="alert"
         data-tarjeta-desconocido
       >
-        <p class="text-[11px] font-black uppercase tracking-widest">Campo desconocido</p>
+        <p class="text-[11px] font-black uppercase tracking-widest">Campo que no existe</p>
         <p class="text-[13px] font-semibold break-words">«{{ campoActual }}» ya no existe en el catálogo.</p>
-        <p class="text-[12px] font-medium leading-snug">Elige una opción válida en «Contenido» para poder guardar. No se ha cambiado nada.</p>
+        <p class="text-[12px] font-medium leading-snug">Elige una opción válida en «Contenido» para poder guardar. Nada se ha modificado.</p>
       </div>
 
       <div

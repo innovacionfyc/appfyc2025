@@ -57,7 +57,7 @@ const submit = () => {
               </div>
               <div>
                 <h3 id="cf-participante-titulo" class="text-lg font-black text-slate-900">{{ participante ? "Editar participante" : "Agregar participante" }}</h3>
-                <p class="text-xs font-medium text-slate-400">Mismas reglas que la importación</p>
+                <p class="text-xs font-medium text-slate-400">Escribe los datos como deben verse en el certificado</p>
               </div>
             </div>
             <button type="button" class="w-9 h-9 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all" aria-label="Cerrar" :disabled="form.processing" @click="cerrar">

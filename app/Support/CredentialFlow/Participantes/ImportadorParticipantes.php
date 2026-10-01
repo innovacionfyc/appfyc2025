@@ -84,7 +84,7 @@ final class ImportadorParticipantes
                 continue;
             }
             if ($this->buscar(self::NIVEL_LOTE, $norm) !== null) {
-                $errores[] = ErrorFila::error(ErrorFila::COLUMNA_NIVEL_LOTE, "La columna «{$original}» no va en el archivo: el evento, la fecha y la intensidad horaria se definen una sola vez en el formulario del lote.", $encabezado['fila'], $original);
+                $errores[] = ErrorFila::error(ErrorFila::COLUMNA_NIVEL_LOTE, "La columna «{$original}» no va en el archivo: el evento, la fecha y la intensidad horaria se escriben una sola vez en el formulario de la base.", $encabezado['fila'], $original);
 
                 continue;
             }

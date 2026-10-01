@@ -41,8 +41,8 @@ class StoreLoteRequest extends FormRequest
     {
         return [
             'plantilla_id.required' => 'Elige una plantilla.',
-            'nombre.required' => 'El nombre del lote es obligatorio.',
-            'nombre.max' => 'El nombre del lote no puede superar los 200 caracteres.',
+            'nombre.required' => 'El nombre de la base es obligatorio.',
+            'nombre.max' => 'El nombre de la base no puede superar los 200 caracteres.',
             'descripcion.max' => 'La descripción no puede superar los 1000 caracteres.',
             'evento.required' => 'El evento es obligatorio.',
             'fecha.required' => 'La fecha es obligatoria.',
@@ -63,13 +63,13 @@ class StoreLoteRequest extends FormRequest
             if (! $plantilla) {
                 $validator->errors()->add('plantilla_id', 'La plantilla elegida no existe.');
             } elseif (empty($plantilla->diseno['elements'] ?? null)) {
-                $validator->errors()->add('plantilla_id', 'La plantilla no tiene un diseño guardado. Diséñala en el editor antes de crear un lote.');
+                $validator->errors()->add('plantilla_id', 'La plantilla no tiene un diseño guardado. Diséñala en el editor antes de crear una base.');
             } else {
                 $this->plantillaResuelta = $plantilla;
             }
 
             if (Texto::limpiar((string) $this->input('nombre')) === '') {
-                $validator->errors()->add('nombre', 'El nombre del lote es obligatorio.');
+                $validator->errors()->add('nombre', 'El nombre de la base es obligatorio.');
             }
 
             $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::CAMPOS));

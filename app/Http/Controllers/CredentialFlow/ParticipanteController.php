@@ -53,7 +53,7 @@ class ParticipanteController extends Controller
 
         // Con una emisión vigente hay que revocarla primero; con solo revocadas se permite (las emisiones permanecen).
         if ($participante->emisionVigente()->exists()) {
-            return back()->with('error', 'Este participante tiene una credencial emitida vigente. Revócala antes de eliminarlo.');
+            return back()->with('error', 'Este participante tiene un certificado vigente. Revócalo antes de eliminarlo.');
         }
 
         $participante->delete();

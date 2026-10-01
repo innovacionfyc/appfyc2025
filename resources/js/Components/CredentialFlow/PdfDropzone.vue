@@ -28,11 +28,11 @@ const aceptar = (archivo) => {
   if (!archivo) return;
 
   if (!/\.pdf$/i.test(archivo.name)) {
-    errorLocal.value = "Solo se aceptan archivos PDF.";
+    errorLocal.value = "Usa un archivo PDF.";
     return;
   }
   if (archivo.size > props.maxMb * 1024 * 1024) {
-    errorLocal.value = `El PDF no puede superar los ${props.maxMb} MB.`;
+    errorLocal.value = `El PDF pesa más de ${props.maxMb} MB.`;
     return;
   }
 
@@ -65,7 +65,7 @@ const abrirSelector = () => {
 <template>
   <div>
     <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 px-1">
-      PDF base <span class="text-primary-vinotinto">*</span>
+      Fondo del certificado (PDF) <span class="text-primary-vinotinto">*</span>
     </label>
 
     <input

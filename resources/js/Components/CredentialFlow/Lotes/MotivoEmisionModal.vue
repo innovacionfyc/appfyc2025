@@ -17,8 +17,8 @@ watch(() => props.show, (v) => v && (motivo.value = ""));
 
 const textos = computed(() =>
   props.modo === "revocar"
-    ? { titulo: "Revocar credencial", boton: "Revocar", ayuda: "La credencial quedará revocada. El PDF anterior se conserva en el historial." }
-    : { titulo: "Reemitir credencial", boton: "Reemitir", ayuda: "Se creará una nueva versión con los datos actuales y la versión anterior quedará revocada." }
+    ? { titulo: "Revocar certificado", boton: "Revocar", ayuda: "El certificado dejará de ser válido. Su archivo se conserva en el historial." }
+    : { titulo: "Reemitir certificado", boton: "Reemitir", ayuda: "Se creará una nueva versión con los datos actuales y la versión anterior quedará revocada." }
 );
 const largo = computed(() => motivo.value.trim().length);
 const valido = computed(() => largo.value >= 5 && largo.value <= 500);
@@ -47,7 +47,7 @@ const confirmar = () => {
         <p class="mt-4 text-[13px] font-medium text-slate-600">{{ textos.ayuda }}</p>
 
         <label class="mt-4 block text-[11px] font-black uppercase tracking-widest text-slate-400" for="cf-motivo">Motivo (obligatorio)</label>
-        <textarea id="cf-motivo" v-model="motivo" rows="3" maxlength="500" class="mt-1 w-full rounded-2xl border-slate-200 text-sm font-medium focus:ring-primary-vinotinto/30 focus:border-primary-vinotinto" placeholder="Describe el motivo (mínimo 5 caracteres)" data-motivo />
+        <textarea id="cf-motivo" v-model="motivo" rows="3" maxlength="500" class="mt-1 w-full rounded-2xl border-slate-200 text-sm font-medium focus:ring-primary-vinotinto/30 focus:border-primary-vinotinto" placeholder="Cuéntanos el motivo (mínimo 5 caracteres)" data-motivo />
         <p class="text-right text-[11px] font-bold" :class="valido || largo === 0 ? 'text-slate-400' : 'text-rose-500'">{{ largo }}/500</p>
 
         <div v-if="error" class="mt-3 flex items-start gap-2 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-[13px] font-semibold" role="alert" :data-codigo="error.code">

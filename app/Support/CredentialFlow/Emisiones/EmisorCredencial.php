@@ -52,7 +52,7 @@ final class EmisorCredencial
         $participante = Participante::find($vigente->participante_id);
         $lote = Lote::find($vigente->lote_id);
         if (! $participante || ! $lote) {
-            throw new EmisionException(EmisionException::PARTICIPANTE_NO_DISPONIBLE, 'El participante o el lote de esta emisión ya no están disponibles.', 409);
+            throw new EmisionException(EmisionException::PARTICIPANTE_NO_DISPONIBLE, 'El participante o la base de esta emisión ya no están disponibles.', 409);
         }
 
         return $this->crear($participante, $lote, $vigente, $motivo, $usuarioId);
@@ -90,7 +90,7 @@ final class EmisorCredencial
     {
         $plantilla = $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de este lote ya no está disponible.', 409);
+            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
 
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).
@@ -112,7 +112,7 @@ final class EmisorCredencial
                 $loteActual = Lote::find($lote->id);
                 $plantillaActual = Plantilla::find($plantilla->id);
                 if (! $bloqueado || ! $loteActual || ! $plantillaActual) {
-                    throw new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía la credencial. No se emitió nada: inténtalo de nuevo.', 409);
+                    throw new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía el certificado. No se emitió nada: inténtalo de nuevo.', 409);
                 }
 
                 $anterior = null;
@@ -126,7 +126,7 @@ final class EmisorCredencial
                 }
 
                 if (! hash_equals($snapshot->huella, SnapshotCredencial::huella($bloqueado, $loteActual, $plantillaActual))) {
-                    throw new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía la credencial. No se emitió nada: inténtalo de nuevo.', 409);
+                    throw new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía el certificado. No se emitió nada: inténtalo de nuevo.', 409);
                 }
 
                 $version = (int) Emision::where('participante_id', $bloqueado->id)->max('version') + 1;
@@ -208,7 +208,7 @@ final class EmisorCredencial
     private function comprobarPertenencia(Participante $participante, Lote $lote): void
     {
         if ($participante->lote_id !== $lote->id) {
-            throw new EmisionException(EmisionException::PARTICIPANTE_NO_DISPONIBLE, 'El participante no pertenece a este lote.', 404);
+            throw new EmisionException(EmisionException::PARTICIPANTE_NO_DISPONIBLE, 'El participante no pertenece a esta base.', 404);
         }
     }
 

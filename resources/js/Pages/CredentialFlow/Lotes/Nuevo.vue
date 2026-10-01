@@ -30,12 +30,12 @@ const form = reactive({
 
 const errores = ref({}); // errores de formulario por campo
 const errorGeneral = ref("");
-const resultado = ref(null); // resultado de «Validar archivo» (preview)
+const resultado = ref(null); // resultado de «Revisar archivo»
 const validando = ref(false);
 const importando = ref(false);
 const ocupado = computed(() => validando.value || importando.value);
 
-// El preview solo vale para el formulario y el archivo con los que se generó: si algo cambia, se descarta.
+// La revisión solo vale para el formulario y el archivo con los que se generó: si algo cambia, se descarta.
 // (La importación vuelve a validar desde cero de todos modos.)
 watch(
   () => JSON.stringify({ ...form, archivo: form.archivo ? [form.archivo.name, form.archivo.size, form.archivo.lastModified] : null }),
@@ -60,14 +60,14 @@ const aplicarErrores = (e) => {
   const r = e.response;
   if (r?.status === 422 && r.data?.errors) {
     errores.value = Object.fromEntries(Object.entries(r.data.errors).map(([k, v]) => [k, v[0]]));
-    errorGeneral.value = "Revisa los campos marcados en el formulario.";
+    errorGeneral.value = "Revisa los campos marcados.";
     return true;
   }
   return false;
 };
 
 const mensajeInesperado = (e) =>
-  e.response?.data?.error?.message ?? "No se pudo completar la operación. Inténtalo de nuevo; si continúa, avisa al equipo técnico.";
+  e.response?.data?.error?.message ?? "No se pudo completar. Inténtalo de nuevo y, si sigue igual, avisa al equipo técnico.";
 
 async function validar() {
   if (ocupado.value) return;
@@ -97,7 +97,7 @@ async function importar() {
     if (e.response?.status === 422 && e.response.data?.resultado) {
       // La confirmación volvió a validar y encontró errores: no se creó nada.
       resultado.value = e.response.data.resultado;
-      errorGeneral.value = e.response.data.error?.message ?? "El archivo tiene errores.";
+      errorGeneral.value = e.response.data.error?.message ?? "El archivo tiene errores. Revísalos y vuelve a cargarlo.";
     } else if (!aplicarErrores(e)) {
       errorGeneral.value = mensajeInesperado(e);
     }
@@ -117,26 +117,26 @@ const headerStats = computed(() => [
 </script>
 
 <template>
-  <Head title="Credential Flow · Nuevo lote" />
+  <Head title="Credential Flow · Nueva base de participantes" />
 
   <AuthenticatedLayout>
     <Sidebar>
       <nav class="mb-3 flex flex-wrap items-center gap-2 text-[12px] font-bold text-slate-400" aria-label="Ruta de navegación">
         <Link :href="route('credential-flow.index')" class="hover:text-primary-vinotinto transition-colors">Credential Flow</Link>
         <span>/</span>
-        <Link :href="route('credential-flow.lotes.index')" class="hover:text-primary-vinotinto transition-colors">Lotes</Link>
+        <Link :href="route('credential-flow.lotes.index')" class="hover:text-primary-vinotinto transition-colors">Bases de participantes</Link>
         <span>/</span>
-        <span class="text-slate-600">Nuevo lote</span>
+        <span class="text-slate-600">Nueva base</span>
       </nav>
 
-      <DashboardHeader title="Nuevo lote" subtitle="Importa una lista de participantes desde un archivo Excel o CSV" :stats="headerStats">
+      <DashboardHeader title="Nueva base" subtitle="Carga la lista de participantes y revisa que sus datos estén correctos" :stats="headerStats">
         <template #actions>
           <Link
             :href="route('credential-flow.lotes.index')"
             class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
           >
             <ArrowLeft class="w-4 h-4" />
-            Volver a lotes
+            Volver a las bases
           </Link>
         </template>
       </DashboardHeader>
@@ -146,17 +146,17 @@ const headerStats = computed(() => [
         <div class="w-16 h-16 mx-auto rounded-3xl bg-slate-100 flex items-center justify-center">
           <LayoutTemplate class="w-8 h-8 text-slate-400" />
         </div>
-        <p class="text-lg font-bold text-slate-700">Primero necesitas una plantilla con diseño</p>
-        <p class="text-sm text-slate-500 max-w-md mx-auto">Un lote se asocia a una plantilla cuyo diseño ya esté guardado en el editor.</p>
+        <p class="text-lg font-bold text-slate-700">Primero necesitas una plantilla con diseño guardado</p>
+        <p class="text-sm text-slate-500 max-w-md mx-auto">Cada base usa una plantilla. Diseña una en el editor y guárdala.</p>
         <Link :href="route('credential-flow.plantillas.index')" class="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto/10 text-sm font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all">
           Ir a plantillas
         </Link>
       </div>
 
       <form v-else class="mt-8 space-y-6" novalidate @submit.prevent="validar">
-        <!-- Datos del lote -->
+        <!-- Datos de la base -->
         <section class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-5">
-          <h3 class="text-lg font-extrabold text-slate-900">1. Datos del lote</h3>
+          <h3 class="text-lg font-extrabold text-slate-900">1. Datos de la base</h3>
 
           <FormInput
             v-model="form.plantilla_id"
@@ -172,12 +172,12 @@ const headerStats = computed(() => [
           />
 
           <div class="grid gap-5 md:grid-cols-2">
-            <FormInput v-model="form.nombre" label="Nombre del lote" type="text" icon="badge" placeholder="Ej: Congreso de finanzas 2026" :max="200" :required="true" :activeColor="COLOR" :error="errores.nombre" @clearError="limpiarError('nombre')" />
-            <FormInput v-model="form.descripcion" label="Descripción (opcional)" type="text" icon="notes" placeholder="Notas internas del lote" :max="1000" :activeColor="COLOR" :error="errores.descripcion" @clearError="limpiarError('descripcion')" />
+            <FormInput v-model="form.nombre" label="Nombre de la base" type="text" icon="badge" placeholder="Ej: Congreso de finanzas 2026" :max="200" :required="true" :activeColor="COLOR" :error="errores.nombre" @clearError="limpiarError('nombre')" />
+            <FormInput v-model="form.descripcion" label="Descripción (opcional)" type="text" icon="notes" placeholder="Notas para ti (opcional)" :max="1000" :activeColor="COLOR" :error="errores.descripcion" @clearError="limpiarError('descripcion')" />
           </div>
 
           <p class="text-[12px] font-semibold text-slate-500 bg-slate-50 rounded-2xl px-4 py-3">
-            El evento, la fecha y la intensidad horaria se escriben una sola vez y valen para todos los participantes del lote. No van en el archivo.
+            El evento, la fecha y la intensidad horaria se escriben aquí una sola vez y valen para todos los participantes. No van en el archivo.
           </p>
 
           <div class="grid gap-5 md:grid-cols-3">
@@ -190,20 +190,20 @@ const headerStats = computed(() => [
         <!-- Archivo -->
         <section class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h3 class="text-lg font-extrabold text-slate-900">2. Archivo de participantes</h3>
+            <h3 class="text-lg font-extrabold text-slate-900">2. Lista de participantes</h3>
             <a
               :href="route('credential-flow.lotes.plantilla-excel')"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-all"
               data-descargar-plantilla
             >
               <Download class="w-4 h-4" />
-              Descargar plantilla Excel
+              Descargar modelo de Excel
             </a>
           </div>
 
           <p class="text-sm font-medium text-slate-500">
-            Dos columnas: <strong>nombre_completo</strong> y <strong>documento</strong> (el documento tal como debe imprimirse, por ejemplo
-            <em>C.C. 1.023.456.789</em>). Máximo {{ limites.filas }} participantes.
+            El archivo debe tener dos columnas: <strong>nombre_completo</strong> y <strong>documento</strong>. Escribe el documento tal como
+            debe verse en el certificado, por ejemplo <em>C.C. 1.023.456.789</em>. Máximo {{ limites.filas }} participantes.
           </p>
 
           <ArchivoParticipantesDropzone v-model="form.archivo" :max-mb="limites.archivoMb" :disabled="ocupado" :error="errores.archivo" @clearError="limpiarError('archivo')" />
@@ -218,24 +218,24 @@ const headerStats = computed(() => [
         <div class="flex flex-wrap items-center gap-3">
           <BtnUniversal
             type="submit"
-            label="Validar archivo"
+            label="Revisar archivo"
             icon="fact_check"
             icon-position="right"
             size="md"
             :activeColor="COLOR"
             :loading="validando"
             :disabled="validando"
-            process="Validando..."
+            process="Revisando..."
             :class="['sm:w-auto', !validando && (importando || !form.archivo) ? 'opacity-50 pointer-events-none' : '']"
             :aria-disabled="!validando && (importando || !form.archivo)"
             data-accion="validar"
           />
-          <span v-if="!form.archivo" class="text-[12px] font-semibold text-slate-400">Elige un archivo para validarlo.</span>
+          <span v-if="!form.archivo" class="text-[12px] font-semibold text-slate-400">Elige un archivo para revisarlo.</span>
         </div>
 
         <!-- Preview -->
         <section v-if="resultado" class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-6">
-          <h3 class="text-lg font-extrabold text-slate-900">3. Preview de la importación</h3>
+          <h3 class="text-lg font-extrabold text-slate-900">3. Revisión del archivo</h3>
           <PreviewImportacion :resultado="resultado" />
 
           <!-- Acción 2: confirmar -->
@@ -248,7 +248,7 @@ const headerStats = computed(() => [
               @click="corregir"
             >
               <RotateCcw class="w-4 h-4" />
-              Corregir archivo
+              Cargar otro archivo
             </button>
             <BtnUniversal
               v-if="resultado.valido"
@@ -260,7 +260,7 @@ const headerStats = computed(() => [
               :activeColor="COLOR"
               :loading="importando"
               :disabled="importando"
-              process="Importando..."
+              process="Creando la base..."
               class="sm:w-auto"
               data-accion="importar"
               @click="importar"

@@ -66,13 +66,13 @@ class PlantillaController extends Controller
         // son parte de la evidencia de esa emisión.
         if ($plantilla->emisiones()->exists()) {
             return to_route('credential-flow.plantillas.index')
-                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene credenciales emitidas y no se puede eliminar: su PDF base forma parte del historial de emisiones.");
+                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene certificados emitidos y no se puede eliminar: forma parte del historial.");
         }
 
         // Con lotes vigentes la plantilla (y su PDF base) siguen haciendo falta para generar credenciales.
         if ($plantilla->lotes()->exists()) {
             return to_route('credential-flow.plantillas.index')
-                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene lotes de participantes y no se puede eliminar. Elimina primero esos lotes.");
+                ->with('error', "La plantilla \"{$plantilla->nombre}\" tiene bases de participantes y no se puede eliminar. Elimina primero esas bases.");
         }
 
         $nombre = $plantilla->nombre;
