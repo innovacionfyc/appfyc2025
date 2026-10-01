@@ -27,12 +27,12 @@ final class GeneradorZip
     {
         $emisiones = Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->orderBy('id')->get();
         if ($emisiones->isEmpty()) {
-            throw new EmisionException(EmisionException::SIN_EMISIONES_VIGENTES, 'Este lote no tiene emisiones vigentes que descargar.', 409);
+            throw new EmisionException(EmisionException::SIN_EMISIONES_VIGENTES, 'Esta base no tiene certificados vigentes que descargar.', 409);
         }
 
         $total = (int) $emisiones->sum('pdf_bytes');
         if ($total > self::LIMITE_BYTES) {
-            throw new EmisionException(EmisionException::ZIP_MUY_GRANDE, 'El ZIP superaría los '.(self::LIMITE_BYTES / 1024 / 1024).' MB permitidos. Descarga las credenciales de forma individual.', 409);
+            throw new EmisionException(EmisionException::ZIP_MUY_GRANDE, 'El ZIP superaría los '.(self::LIMITE_BYTES / 1024 / 1024).' MB permitidos. Descarga los certificados de uno en uno.', 409);
         }
 
         $temporal = sys_get_temp_dir();

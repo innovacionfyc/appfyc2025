@@ -254,7 +254,7 @@ const fileMetadata = computed(() => {
         </template>
 
         <template v-else-if="props.type === 'select'">
-          {{ currentCount }} opciones
+          {{ currentCount }} {{ currentCount === 1 ? "opción" : "opciones" }}
         </template>
 
         <template v-else> {{ currentCount }}/{{ max }} </template>

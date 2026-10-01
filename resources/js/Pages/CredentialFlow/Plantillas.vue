@@ -68,7 +68,7 @@ const eliminar = (plantilla) => {
     title: "Eliminar plantilla",
     icon: "delete",
     confirmText: "Eliminar",
-    message: `"${plantilla.nombre}" y su PDF base se eliminarán. Esta acción no se puede deshacer.`,
+    message: `Se eliminará la plantilla "${plantilla.nombre}". No se puede deshacer.`,
     onConfirm: () =>
       router.delete(route("credential-flow.plantillas.destroy", plantilla.id), {
         preserveScroll: true,
@@ -94,7 +94,7 @@ const eliminar = (plantilla) => {
 
       <DashboardHeader
         title="Plantillas"
-        subtitle="El PDF base de tus certificados, listo para reutilizar"
+        subtitle="Los diseños que usarás para tus certificados"
         :stats="headerStats"
       >
         <template #actions>
@@ -119,7 +119,7 @@ const eliminar = (plantilla) => {
             <LayoutTemplate class="w-5 h-5 text-secondary-vinotinto2" />
           </div>
           <div class="min-w-0">
-            <h2 class="text-[18px] font-black text-white truncate">Credential Flow</h2>
+            <h2 class="text-[18px] font-black text-white truncate">Tus plantillas</h2>
             <p class="text-[14px] font-bold text-slate-500">
               {{ filtradas.length }} plantilla{{ filtradas.length !== 1 ? "s" : "" }}
               <span v-if="searchQuery" class="text-slate-600">· filtradas</span>
@@ -132,7 +132,7 @@ const eliminar = (plantilla) => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar por nombre o PDF..."
+            placeholder="Buscar plantilla..."
             aria-label="Buscar plantillas"
             class="w-full pl-11 pr-4 py-3 bg-white/5 border-none rounded-2xl text-white placeholder:text-slate-600 focus:ring-1 focus:ring-secondary-vinotinto2/40 focus:bg-white/10 transition-all text-xs font-medium"
           />
@@ -152,9 +152,9 @@ const eliminar = (plantilla) => {
           <p class="text-slate-400 text-sm">No encontramos plantillas que coincidan con "{{ searchQuery }}".</p>
         </template>
         <template v-else>
-          <p class="text-slate-600 font-bold text-lg">Aún no hay plantillas</p>
+          <p class="text-slate-600 font-bold text-lg">Aún no tienes plantillas</p>
           <p class="text-slate-400 text-sm max-w-md mx-auto px-4">
-            Una plantilla guarda el PDF base de tus certificados. Crea la primera para empezar.
+            Una plantilla es el diseño de tus certificados. Crea la primera para empezar.
           </p>
           <div class="pt-2 flex justify-center">
             <BtnUniversal
@@ -212,7 +212,7 @@ const eliminar = (plantilla) => {
             <div class="flex items-center gap-2">
               <Type class="w-4 h-4 text-slate-400 shrink-0" />
               <dt class="sr-only">Elementos del diseño</dt>
-              <dd>{{ p.elementos === 0 ? "Sin diseño todavía" : `${p.elementos} elemento${p.elementos === 1 ? "" : "s"} en el diseño` }}</dd>
+              <dd>{{ p.elementos === 0 ? "Aún sin diseño" : `${p.elementos} elemento${p.elementos === 1 ? "" : "s"} en el diseño` }}</dd>
             </div>
           </dl>
 

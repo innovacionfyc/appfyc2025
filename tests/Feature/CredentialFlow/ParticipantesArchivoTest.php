@@ -291,7 +291,7 @@ class ParticipantesArchivoTest extends TestCase
             $r = $this->validar(A::xlsx([['nombre_completo', 'documento', $columna], ['Ana Ruiz', 'CC 22223333', 'x']]));
 
             $this->assertSame([E::COLUMNA_NIVEL_LOTE], $this->codigos($r), $columna);
-            $this->assertStringContainsString('formulario del lote', $r->errores[0]->mensaje);
+            $this->assertStringContainsString('formulario de la base', $r->errores[0]->mensaje);
         }
     }
 

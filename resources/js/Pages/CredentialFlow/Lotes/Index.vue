@@ -12,7 +12,7 @@ const props = defineProps({
 });
 
 const headerStats = computed(() => [
-  { label: "Lotes", value: props.lotes.total ?? 0, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
+  { label: "Bases", value: props.lotes.total ?? 0, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
 ]);
 
 const formatFecha = (iso) => {
@@ -26,17 +26,17 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
 </script>
 
 <template>
-  <Head title="Credential Flow · Lotes" />
+  <Head title="Credential Flow · Bases de participantes" />
 
   <AuthenticatedLayout>
     <Sidebar>
       <nav class="mb-3 flex items-center gap-2 text-[12px] font-bold text-slate-400" aria-label="Ruta de navegación">
         <Link :href="route('credential-flow.index')" class="hover:text-primary-vinotinto transition-colors">Credential Flow</Link>
         <span>/</span>
-        <span class="text-slate-600">Lotes</span>
+        <span class="text-slate-600">Bases de participantes</span>
       </nav>
 
-      <DashboardHeader title="Lotes de participantes" subtitle="Listas de asistentes importadas, listas para generar credenciales" :stats="headerStats">
+      <DashboardHeader title="Bases de participantes" subtitle="Las listas de personas a las que les generarás certificados" :stats="headerStats">
         <template #actions>
           <Link
             :href="route('credential-flow.lotes.nuevo')"
@@ -44,7 +44,7 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
             data-accion="nuevo-lote"
           >
             <Plus class="w-4 h-4" />
-            Nuevo lote
+            Nueva base
           </Link>
         </template>
       </DashboardHeader>
@@ -53,13 +53,13 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
         <div class="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto">
           <Users class="w-9 h-9 text-slate-400" />
         </div>
-        <p class="text-slate-600 font-bold text-lg">Aún no hay lotes</p>
+        <p class="text-slate-600 font-bold text-lg">Aún no tienes bases de participantes</p>
         <p class="text-slate-400 text-sm max-w-md mx-auto px-4">
-          Un lote agrupa a los participantes de un evento con una plantilla. Importa el primero desde un Excel o CSV.
+          Crea una base para organizar a los participantes de un evento y generar sus certificados.
         </p>
         <div class="pt-2 flex justify-center">
           <Link :href="route('credential-flow.lotes.nuevo')" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all">
-            Crear primer lote
+            Crear primera base
           </Link>
         </div>
       </div>
@@ -69,7 +69,7 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
           <table class="min-w-full text-sm" data-tabla-lotes>
             <thead class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
               <tr>
-                <th class="text-left font-black px-6 py-4">Lote</th>
+                <th class="text-left font-black px-6 py-4">Base</th>
                 <th class="text-left font-black px-4 py-4">Plantilla</th>
                 <th class="text-left font-black px-4 py-4">Evento</th>
                 <th class="text-left font-black px-4 py-4">Fecha</th>
@@ -91,7 +91,7 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
                   <span class="inline-flex items-center gap-1.5"><CalendarDays class="w-3.5 h-3.5 text-slate-400" />{{ formatFecha(l.created_at) }}</span>
                 </td>
                 <td class="px-6 py-4 text-right">
-                  <Link :href="route('credential-flow.lotes.show', l.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all" :aria-label="`Abrir el lote ${l.nombre}`">
+                  <Link :href="route('credential-flow.lotes.show', l.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all" :aria-label="`Abrir la base ${l.nombre}`">
                     Abrir <ArrowRight class="w-3.5 h-3.5" />
                   </Link>
                 </td>

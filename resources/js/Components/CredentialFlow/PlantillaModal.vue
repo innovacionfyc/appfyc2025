@@ -119,7 +119,7 @@ const submit = () => {
                   label="Descripción (opcional)"
                   type="textarea"
                   icon="notes"
-                  placeholder="Para qué eventos se usa esta plantilla..."
+                  placeholder="Para qué eventos usarás esta plantilla"
                   :max="1000"
                   :rows="3"
                   :activeColor="COLOR"

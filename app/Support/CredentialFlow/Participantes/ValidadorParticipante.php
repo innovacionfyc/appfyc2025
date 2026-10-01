@@ -181,6 +181,6 @@ final class ValidadorParticipante
     {
         $lista = implode(' ', array_map(fn (string $c) => "«{$c}»", array_slice($faltantes, 0, 5)));
 
-        return ErrorFila::error(ErrorFila::CARACTER_NO_SOPORTADO, "La fuente Outfit no tiene estos caracteres: {$lista}. No se pueden imprimir en la credencial.", $fila, $col, $valor);
+        return ErrorFila::error(ErrorFila::CARACTER_NO_SOPORTADO, "La fuente Outfit no tiene estos caracteres: {$lista}. No se pueden imprimir en el certificado.", $fila, $col, $valor);
     }
 }

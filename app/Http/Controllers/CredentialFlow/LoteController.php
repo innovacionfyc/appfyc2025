@@ -113,7 +113,7 @@ class LoteController extends Controller
             return $this->errorInesperado();
         }
 
-        session()->flash('success', "El lote \"{$lote->nombre}\" se importó con éxito.");
+        session()->flash('success', "La base \"{$lote->nombre}\" se creó con éxito.");
 
         return response()->json(['redirect' => route('credential-flow.lotes.show', $lote, false)]);
     }
@@ -174,7 +174,7 @@ class LoteController extends Controller
             extra: ['lote_id' => $lote->id],
         );
 
-        return back()->with('success', 'El lote se actualizó correctamente.');
+        return back()->with('success', 'La base se actualizó correctamente.');
     }
 
     /** Soft delete: los participantes no se borran; quedan ocultos porque solo se consultan a través de su lote. */
@@ -183,7 +183,7 @@ class LoteController extends Controller
         // Con emisiones vigentes no se puede ocultar el lote: hay que revocarlas primero. Con solo revocadas se
         // permite (soft delete): las emisiones permanecen y el historial las resuelve con withTrashed.
         if ($lote->emisiones()->where('estado', Emision::EMITIDA)->exists()) {
-            return back()->with('error', "El lote \"{$lote->nombre}\" tiene credenciales emitidas vigentes. Revócalas antes de eliminarlo.");
+            return back()->with('error', "La base \"{$lote->nombre}\" tiene certificados vigentes. Revócalos antes de eliminarla.");
         }
 
         $nombre = $lote->nombre;
@@ -196,7 +196,7 @@ class LoteController extends Controller
             extra: ['lote_id' => $lote->id],
         );
 
-        return to_route('credential-flow.lotes.index')->with('success', "El lote \"{$nombre}\" se eliminó correctamente.");
+        return to_route('credential-flow.lotes.index')->with('success', "La base \"{$nombre}\" se eliminó correctamente.");
     }
 
     private function errorInesperado(): JsonResponse

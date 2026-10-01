@@ -54,7 +54,7 @@ final class PlantillaExcelParticipantes
             ['', false],
             ['1. Escribe los participantes en la hoja «Participantes», una persona por fila, debajo del encabezado.', false],
             ['2. Solo hay dos columnas: nombre_completo y documento. El orden no importa.', false],
-            ['3. El evento, la fecha y la intensidad horaria NO van en el archivo: se escriben una sola vez al crear el lote.', false],
+            ['3. El evento, la fecha y la intensidad horaria NO van en el archivo: se escriben una sola vez al crear la base.', false],
             ['4. El documento se escribe tal como debe imprimirse. Ejemplos: C.C. 1.023.456.789 · PASAPORTE AB1234567 · NIT 900.123.456-7', false],
             ['5. Antes de pegar los documentos, formatea la columna «documento» como Texto (clic derecho > Formato de celdas > Texto).', false],
             ['   Así Excel no convierte los documentos en números, no borra los ceros iniciales ni usa notación científica.', false],

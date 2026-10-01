@@ -32,8 +32,8 @@ class UpdateLoteRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nombre.required' => 'El nombre del lote es obligatorio.',
-            'nombre.max' => 'El nombre del lote no puede superar los 200 caracteres.',
+            'nombre.required' => 'El nombre de la base es obligatorio.',
+            'nombre.max' => 'El nombre de la base no puede superar los 200 caracteres.',
             'descripcion.max' => 'La descripción no puede superar los 1000 caracteres.',
             'evento.required' => 'El evento es obligatorio.',
             'fecha.required' => 'La fecha es obligatoria.',
@@ -48,7 +48,7 @@ class UpdateLoteRequest extends FormRequest
                 return;
             }
             if (Texto::limpiar((string) $this->input('nombre')) === '') {
-                $validator->errors()->add('nombre', 'El nombre del lote es obligatorio.');
+                $validator->errors()->add('nombre', 'El nombre de la base es obligatorio.');
             }
             $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::CAMPOS));
             foreach ($comunes['errores'] as $campo => $mensaje) {

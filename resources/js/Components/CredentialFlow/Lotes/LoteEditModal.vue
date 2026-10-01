@@ -52,8 +52,8 @@ const submit = () => {
                 <SquarePen class="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 id="cf-lote-titulo" class="text-lg font-black text-slate-900">Editar lote</h3>
-                <p class="text-xs font-medium text-slate-400">La plantilla no se puede cambiar</p>
+                <h3 id="cf-lote-titulo" class="text-lg font-black text-slate-900">Editar base</h3>
+                <p class="text-xs font-medium text-slate-400">La plantilla de una base no se puede cambiar</p>
               </div>
             </div>
             <button type="button" class="w-9 h-9 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all" aria-label="Cerrar" :disabled="form.processing" @click="cerrar">
@@ -63,7 +63,7 @@ const submit = () => {
 
           <form class="flex flex-col min-h-0" @submit.prevent="submit">
             <div class="flex-grow overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
-              <FormInput v-model="form.nombre" label="Nombre del lote" type="text" icon="badge" :max="200" :required="true" :activeColor="COLOR" :error="form.errors.nombre" @clearError="form.clearErrors('nombre')" />
+              <FormInput v-model="form.nombre" label="Nombre de la base" type="text" icon="badge" :max="200" :required="true" :activeColor="COLOR" :error="form.errors.nombre" @clearError="form.clearErrors('nombre')" />
               <FormInput v-model="form.descripcion" label="Descripción (opcional)" type="text" icon="notes" :max="1000" :activeColor="COLOR" :error="form.errors.descripcion" @clearError="form.clearErrors('descripcion')" />
               <FormInput v-model="form.evento" label="Evento" type="text" icon="event" :max="200" :required="true" :activeColor="COLOR" :error="form.errors.evento" @clearError="form.clearErrors('evento')" />
               <div class="grid gap-5 sm:grid-cols-2">

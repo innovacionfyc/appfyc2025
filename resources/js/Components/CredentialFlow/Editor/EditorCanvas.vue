@@ -66,7 +66,7 @@ async function dibujar() {
     await tarea.promise;
   } catch (e) {
     if (e?.name !== "RenderingCancelledException") {
-      errorPdf.value = "No se pudo dibujar el PDF.";
+      errorPdf.value = "No se pudo mostrar el PDF.";
       emit("pdf-error", e);
     }
   }
@@ -184,7 +184,7 @@ const chip = (el) => {
   }
   const etiqueta = campos.catalogo[el.field]?.etiqueta;
 
-  if (campos.esDesconocido(el)) return { texto: "Campo desconocido", clase: rojo };
+  if (campos.esDesconocido(el)) return { texto: "Campo que no existe", clase: rojo };
   if (noCabe(el)) return { texto: `No cabe · ${etiqueta}`, clase: rojo };
   if (render.estado === "heredada") return { texto: `${etiqueta} · Fuente heredada`, clase: `bg-amber-600 text-white ${posicion}`, titulo: AVISO_HEREDADA };
 
@@ -270,11 +270,11 @@ const centradoV = computed(
       <template v-if="errorPdf">
         <FileWarning class="w-10 h-10 text-rose-400" />
         <p class="font-bold text-slate-700">{{ errorPdf }}</p>
-        <p class="text-sm text-slate-400 max-w-sm">Recarga la página. Si el problema continúa, avisa al equipo técnico.</p>
+        <p class="text-sm text-slate-400 max-w-sm">Recarga la página. Si sigue igual, avisa al equipo técnico.</p>
       </template>
       <template v-else>
         <Loader2 class="w-8 h-8 text-primary-vinotinto animate-spin" />
-        <p class="text-sm font-bold text-slate-500">Cargando PDF…</p>
+        <p class="text-sm font-bold text-slate-500">Cargando el PDF…</p>
       </template>
     </div>
 
@@ -336,7 +336,7 @@ const centradoV = computed(
           v-if="esQr(el)"
           class="absolute left-0 top-full mt-0.5 px-1.5 py-1 rounded bg-white/95 ring-1 ring-slate-300 text-[10px] leading-none font-bold text-slate-600 whitespace-nowrap pointer-events-none z-20"
           data-qr-ejemplo
-        >Vista de ejemplo, no es un código real</span>
+        >Ejemplo, no es un código real</span>
         <svg
           v-if="!esQr(el)"
           class="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
