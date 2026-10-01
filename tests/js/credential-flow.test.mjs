@@ -4,6 +4,7 @@
 // independiente con fontTools a partir de los TTF, y la misma metricas.json que lee PHP.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { parse, compileScript } from "@vue/compiler-sfc";
 import { medirTexto, lineaBase, faltantesEnLineas } from "../../resources/js/Composables/CredentialFlow/textoMetrico.js";
 import { calcularAjuste } from "../../resources/js/Composables/CredentialFlow/autoajuste.js";
 import { planearTexto } from "../../resources/js/Composables/CredentialFlow/planTexto.js";
@@ -211,6 +212,17 @@ prueba("QR: un QR guardado no cuadrado o fuera de rango se normaliza a un cuadra
   const r = normalizarQr({ id: "x", type: "qr", x: 0, y: 0, width: 50, height: 300 }, QR, PAG);
   assert.equal(r.width, r.height);
   assert.equal(r.width, 85);
+});
+
+// MensajesLayout: Vue no deja pasar `clearTimeout` como global en un template con <script setup> y lo compila como
+// `_ctx.clearTimeout(...)` (TypeError al pasar el ratón por el toast). El handler debe vivir en el script.
+prueba("MensajesLayout: el toast no llama a clearTimeout desde el template compilado", () => {
+  const origen = readFileSync(new URL("../../resources/js/Layouts/MensajesLayout.vue", import.meta.url), "utf8");
+  const { descriptor } = parse(origen);
+  const compilado = compileScript(descriptor, { id: "mensajes-layout", inlineTemplate: true }).content;
+  assert.ok(!compilado.includes("_ctx.clearTimeout"), "el template no debe resolver clearTimeout contra la instancia");
+  assert.match(compilado, /onMouseenter:[^\n]*pausarTimer/, "mouseenter usa el handler del script");
+  assert.match(descriptor.scriptSetup.content, /const pausarTimer = \(\) => \{\s*clearTimeout\(timer\);/);
 });
 
 console.log(`${n} pruebas correctas${process.exitCode ? " (hay fallas)" : ""}`);

@@ -32,6 +32,12 @@ const iniciarTimer = () => {
   timer = setTimeout(() => cerrarNotificacion(), 5000);
 };
 
+// Pausa el cierre automático mientras el ratón está sobre el toast. Va en el script: en el template Vue resolvería
+// clearTimeout como propiedad de la instancia (no es un global permitido) y lanzaría un TypeError.
+const pausarTimer = () => {
+  clearTimeout(timer);
+};
+
 const cerrarNotificacion = () => {
   mostrarNotificacion.value = false;
 };
@@ -82,7 +88,7 @@ watch(
             overflow-hidden group ring-1
           "
           :class="styles.ring"
-          @mouseenter="clearTimeout(timer)" 
+          @mouseenter="pausarTimer"
           @mouseleave="iniciarTimer"
         >
           <div class="p-4 pl-5 flex items-center gap-4">
