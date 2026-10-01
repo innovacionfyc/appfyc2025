@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\CredentialFlow;
 
+use App\Support\CredentialFlow\Plantillas\ImagenAPdf;
+use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 
@@ -32,15 +34,34 @@ class StorePlantillaRequest extends FormRequest
         return [
             'nombre' => ['required', 'string', 'max:200'],
             'descripcion' => ['nullable', 'string', 'max:1000'],
+            // El campo se sigue llamando `pdf` por compatibilidad: acepta el PDF de siempre o una imagen PNG/JPG, que se
+            // convierte UNA vez a PDF al crear la plantilla. El tipo se decide por el CONTENIDO, no por la extensión.
             'pdf' => [
                 'required',
                 'file',
-                'extensions:pdf',
-                'mimetypes:application/pdf',
+                'extensions:pdf,png,jpg,jpeg',
+                'mimetypes:application/pdf,image/png,image/jpeg',
                 'max:'.self::MAX_KB,
                 function (string $atributo, mixed $valor, \Closure $fallo) {
-                    if (! $valor instanceof UploadedFile || ! $valor->isValid() || ! self::tieneCabeceraPdf($valor)) {
-                        $fallo('El archivo no es un PDF válido.');
+                    if (! $valor instanceof UploadedFile || ! $valor->isValid()) {
+                        $fallo('Este archivo no es un PDF, PNG o JPG válido.');
+
+                        return;
+                    }
+
+                    if (strtolower($valor->getClientOriginalExtension()) === 'pdf') {
+                        if (! self::tieneCabeceraPdf($valor)) {
+                            $fallo('Este archivo no es un PDF, PNG o JPG válido.');
+                        }
+
+                        return;
+                    }
+
+                    // Imagen: tipo real, dimensiones y límites (la decodificación completa ocurre al convertirla).
+                    try {
+                        ImagenAPdf::analizar((string) file_get_contents($valor->getRealPath()));
+                    } catch (ImagenInvalidaException $e) {
+                        $fallo($e->getMessage());
                     }
                 },
             ],
@@ -53,12 +74,12 @@ class StorePlantillaRequest extends FormRequest
             'nombre.required' => 'El nombre de la plantilla es obligatorio.',
             'nombre.max' => 'El nombre no puede superar los 200 caracteres.',
             'descripcion.max' => 'La descripción no puede superar los 1000 caracteres.',
-            'pdf.required' => 'Debes seleccionar el PDF base.',
-            'pdf.file' => 'El PDF base no se pudo cargar correctamente.',
-            'pdf.uploaded' => 'El PDF no se pudo subir. Comprueba que no supere el límite del servidor.',
-            'pdf.extensions' => 'El archivo debe tener extensión .pdf.',
-            'pdf.mimetypes' => 'El archivo debe ser un PDF.',
-            'pdf.max' => 'El PDF no puede superar los 20 MB.',
+            'pdf.required' => 'Debes seleccionar un archivo: PDF, PNG o JPG.',
+            'pdf.file' => 'El archivo no se pudo cargar correctamente.',
+            'pdf.uploaded' => 'El archivo no se pudo subir. Comprueba que no supere el límite del servidor.',
+            'pdf.extensions' => 'Este archivo no es un PDF, PNG o JPG válido.',
+            'pdf.mimetypes' => 'Este archivo no es un PDF, PNG o JPG válido.',
+            'pdf.max' => 'El archivo no puede superar los 20 MB.',
         ];
     }
 

@@ -195,7 +195,7 @@ const headerStats = computed(() => [
 
       <DashboardHeader
         :title="plantilla.nombre"
-        :subtitle="`Diseña tu certificado sobre el PDF ${plantilla.nombre_archivo_original}`"
+        :subtitle="`Diseña tu certificado sobre ${plantilla.nombre_archivo_original}`"
         :stats="headerStats"
       >
         <template #actions>
