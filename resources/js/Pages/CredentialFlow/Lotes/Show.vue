@@ -116,6 +116,30 @@ const emitir = async (p) => {
   }
 };
 
+// Participante con historial pero sin emisión vigente (todas revocadas): se usa el mismo endpoint de emitir, que crea la
+// siguiente versión con los datos actuales. La revocada histórica no se toca.
+const volverAEmitir = (p) => {
+  openConfirmationModal({
+    title: "Volver a emitir",
+    icon: "check",
+    confirmText: "Volver a emitir",
+    message:
+      `Se generará una nueva versión de la credencial de ${p.nombre_completo} con los datos actuales del participante, ` +
+      "los datos actuales del lote y el diseño actual de la plantilla. La versión revocada anterior se conserva en el historial sin cambios.",
+    onConfirm: async () => {
+      procesando.value = true;
+      avisoExito.value = null;
+      const r = await ejecutar(`emitir-${p.id}`, route("credential-flow.participantes.emitir", [props.lote.id, p.id]));
+      procesando.value = false;
+      closeConfirmationModal();
+      if (r) {
+        avisoExito.value = `Credencial emitida de nuevo (v${r.emision.version}).`;
+        recargar();
+      }
+    },
+  });
+};
+
 const emitirPendientes = () => {
   const n = resumen.value.a_emitir;
   const resto = resumen.value.pendientes - n;
@@ -309,6 +333,11 @@ const confirmarMotivo = async (motivo) => {
                       <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
                       <BadgeCheck v-else class="w-3.5 h-3.5" />
                       Emitir credencial
+                    </button>
+                    <button v-if="p.estado_emision === 'revocada'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Volver a emitir la credencial de ${p.nombre_completo}`" data-accion="volver-a-emitir" @click="volverAEmitir(p)">
+                      <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
+                      <RefreshCw v-else class="w-3.5 h-3.5" />
+                      Volver a emitir
                     </button>
                     <template v-if="p.estado_emision === 'emitida'">
                       <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-50 text-[12px] font-bold text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50" :disabled="generando !== null" :aria-label="`Descargar credencial de ${p.nombre_completo}`" data-accion="descargar" @click="descargarEmision({ id: p.emision.id, version: p.emision.version })">
