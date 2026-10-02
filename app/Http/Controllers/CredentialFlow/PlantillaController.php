@@ -31,7 +31,14 @@ class PlantillaController extends Controller
                 'created_at' => $p->created_at?->toIso8601String(),
             ]);
 
+        $eliminadas = Plantilla::onlyTrashed()
+            ->latest('deleted_at')
+            ->limit(50)
+            ->get(['id', 'nombre', 'deleted_at'])
+            ->map(fn (Plantilla $p) => ['id' => $p->id, 'nombre' => $p->nombre, 'eliminada_at' => $p->deleted_at?->toIso8601String()]);
+
         return Inertia::render('CredentialFlow/Plantillas', [
+            'eliminadas' => $eliminadas,
             'plantillas' => $plantillas,
             'stats' => ['total' => $plantillas->count()],
         ]);
