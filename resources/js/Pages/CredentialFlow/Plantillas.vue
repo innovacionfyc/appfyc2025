@@ -201,7 +201,7 @@ const eliminar = (plantilla) => {
           <dl class="mt-auto pt-4 border-t border-slate-100 grid gap-2 text-[12px] font-semibold text-slate-500">
             <div class="flex items-center gap-2 min-w-0">
               <FileText class="w-4 h-4 text-slate-400 shrink-0" />
-              <dt class="sr-only">PDF original</dt>
+              <dt class="sr-only">Archivo original</dt>
               <dd class="truncate" :title="p.nombre_archivo_original">{{ p.nombre_archivo_original }}</dd>
             </div>
             <div class="flex items-center gap-2">

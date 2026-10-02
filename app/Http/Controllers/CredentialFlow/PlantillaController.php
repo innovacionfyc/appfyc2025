@@ -7,6 +7,7 @@ use App\Http\Requests\CredentialFlow\StorePlantillaRequest;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Services\CredentialFlow\PlantillaService;
+use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,8 +43,11 @@ class PlantillaController extends Controller
             $plantilla = $this->plantillas->crear(
                 $request->validated('nombre'),
                 $request->validated('descripcion'),
-                $request->file('pdf'),
+                $request->file('pdf'), // PDF, PNG o JPG (el nombre del campo se conserva por compatibilidad)
             );
+        } catch (ImagenInvalidaException $e) {
+            // La imagen no se pudo usar: no se creó nada. El mensaje ya está escrito para el usuario.
+            return back()->withErrors(['pdf' => $e->getMessage()]);
         } catch (Throwable $e) {
             Log::error('Credential Flow: error al crear la plantilla: '.$e->getMessage());
 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from "vue";
-import { FileText, UploadCloud, X } from "lucide-vue-next";
+import { FileText, Image as ImageIcon, UploadCloud, X } from "lucide-vue-next";
 
 const props = defineProps({
   modelValue: { type: [File, null], default: null },
@@ -17,6 +17,13 @@ const errorLocal = ref("");
 
 const mensajeError = computed(() => errorLocal.value || props.error);
 
+// Un PDF o una imagen PNG/JPG. Las imágenes se convierten a PDF en el servidor al crear la plantilla.
+const esImagen = computed(() => !!props.modelValue && !/\.pdf$/i.test(props.modelValue.name));
+const tipoArchivo = computed(() => {
+  const ext = (props.modelValue?.name.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toUpperCase();
+  return ext === "JPEG" ? "JPG" : ext || "Archivo";
+});
+
 const formatearTamano = (bytes) => {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -27,12 +34,12 @@ const aceptar = (archivo) => {
   errorLocal.value = "";
   if (!archivo) return;
 
-  if (!/\.pdf$/i.test(archivo.name)) {
-    errorLocal.value = "Usa un archivo PDF.";
+  if (!/\.(pdf|png|jpe?g)$/i.test(archivo.name)) {
+    errorLocal.value = "Usa un archivo PDF, PNG o JPG.";
     return;
   }
   if (archivo.size > props.maxMb * 1024 * 1024) {
-    errorLocal.value = `El PDF pesa más de ${props.maxMb} MB.`;
+    errorLocal.value = `El archivo pesa más de ${props.maxMb} MB.`;
     return;
   }
 
@@ -65,13 +72,13 @@ const abrirSelector = () => {
 <template>
   <div>
     <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 px-1">
-      Fondo del certificado (PDF) <span class="text-primary-vinotinto">*</span>
+      Diseño del certificado <span class="text-primary-vinotinto">*</span>
     </label>
 
     <input
       ref="inputRef"
       type="file"
-      accept="application/pdf,.pdf"
+      accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
       class="hidden"
       :disabled="disabled"
       @change="alSeleccionar"
@@ -86,11 +93,12 @@ const abrirSelector = () => {
       ]"
     >
       <div class="w-12 h-12 rounded-xl bg-primary-vinotinto/10 text-primary-vinotinto flex items-center justify-center shrink-0">
-        <FileText class="w-6 h-6" />
+        <ImageIcon v-if="esImagen" class="w-6 h-6" />
+        <FileText v-else class="w-6 h-6" />
       </div>
       <div class="min-w-0 flex-1">
         <p class="text-sm font-bold text-slate-900 truncate" :title="modelValue.name">{{ modelValue.name }}</p>
-        <p class="text-[12px] font-semibold text-slate-400">PDF · {{ formatearTamano(modelValue.size) }}</p>
+        <p class="text-[12px] font-semibold text-slate-400">{{ tipoArchivo }} · {{ formatearTamano(modelValue.size) }}</p>
       </div>
       <button
         type="button"
@@ -121,8 +129,8 @@ const abrirSelector = () => {
       <span class="w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-primary-vinotinto">
         <UploadCloud class="w-6 h-6" />
       </span>
-      <span class="text-sm font-bold text-slate-700">Arrastra el PDF aquí o haz clic para elegirlo</span>
-      <span class="text-[12px] font-medium text-slate-400">Solo PDF · máximo {{ maxMb }} MB</span>
+      <span class="text-sm font-bold text-slate-700">Arrastra el archivo aquí o haz clic para elegirlo</span>
+      <span class="text-[12px] font-medium text-slate-400">Sube un PDF, PNG o JPG · máximo {{ maxMb }} MB</span>
     </button>
 
     <p v-if="mensajeError" class="mt-2 px-1 text-[12px] font-semibold text-red-600">{{ mensajeError }}</p>
