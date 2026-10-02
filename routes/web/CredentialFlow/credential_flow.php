@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
+use App\Http\Controllers\CredentialFlow\EliminacionDefinitivaController;
 use App\Http\Controllers\CredentialFlow\EmisionController;
 use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
@@ -53,4 +54,10 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::get('/emisiones/{emision}/descargar', [EmisionController::class, 'descargar'])->middleware('throttle:60,1')->name('emisiones.descargar');
     Route::post('/emisiones/{emision}/revocar', [EmisionController::class, 'revocar'])->middleware('throttle:30,1')->name('emisiones.revocar');
     Route::post('/emisiones/{emision}/reemitir', [EmisionController::class, 'reemitir'])->middleware('throttle:30,1')->name('emisiones.reemitir');
+
+    // Eliminación definitiva (acción aparte del «Eliminar» normal). Incluye registros ya eliminados (soft delete).
+    Route::get('/lotes/{lote}/eliminacion-definitiva', [EliminacionDefinitivaController::class, 'resumenLote'])->withTrashed()->name('lotes.eliminacion.resumen');
+    Route::delete('/lotes/{lote}/definitivamente', [EliminacionDefinitivaController::class, 'lote'])->withTrashed()->middleware('throttle:10,1,cf-eliminacion')->name('lotes.destroy-definitivo');
+    Route::get('/plantillas/{plantilla}/eliminacion-definitiva', [EliminacionDefinitivaController::class, 'resumenPlantilla'])->withTrashed()->name('plantillas.eliminacion.resumen');
+    Route::delete('/plantillas/{plantilla}/definitivamente', [EliminacionDefinitivaController::class, 'plantilla'])->withTrashed()->middleware('throttle:10,1,cf-eliminacion')->name('plantillas.destroy-definitivo');
 });

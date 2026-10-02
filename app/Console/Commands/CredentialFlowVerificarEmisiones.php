@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\CredentialFlow\Emision;
+use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\DisenoSchema;
+use App\Support\CredentialFlow\Eliminacion\RutasSeguras;
 use App\Support\CredentialFlow\Emisiones\AlmacenEmisiones;
 use App\Support\CredentialFlow\Emisiones\CodigoEmision;
 use Illuminate\Console\Command;
@@ -12,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Auditoría de solo lectura de las emisiones de Credential Flow: archivo existente, bytes, SHA-256, snapshot
  * con la forma esperada, coherencia de `participante_vigente`, una sola vigente por participante y PDFs
- * huérfanos (o residuos de staging/temporales) en el almacén. NO borra, NO repara y NO modifica nada.
+ * huérfanos (o residuos de staging/temporales/papelera de eliminación) en el almacén y carpetas de plantilla sin registro.
+ * NO borra, NO repara y NO modifica nada.
  * Sale con código 1 si encuentra cualquier problema. Ejecutarlo tras restaurar un backup.
  */
 class CredentialFlowVerificarEmisiones extends Command
@@ -55,6 +58,9 @@ class CredentialFlowVerificarEmisiones extends Command
             $this->problemas[] = ($residuo ? 'Residuo de escritura/staging' : 'PDF huérfano (sin emisión en la base)').': '.$archivo;
         }
 
+        $this->verificarResiduosDeEliminacion();
+        $this->verificarCarpetasDePlantillas();
+
         $this->line("Emisiones revisadas: {$total}");
         if ($this->problemas === []) {
             $this->info('Todo correcto: archivos, hashes, snapshots y vigencias coinciden.');
@@ -68,6 +74,33 @@ class CredentialFlowVerificarEmisiones extends Command
         $this->error(count($this->problemas).' problema(s) encontrado(s). No se modificó nada.');
 
         return self::FAILURE;
+    }
+
+    /** Una «Eliminar definitivamente» interrumpida deja sus archivos en la papelera: nunca debe haber nada allí. */
+    private function verificarResiduosDeEliminacion(): void
+    {
+        foreach (AlmacenEmisiones::disco()->allFiles(RutasSeguras::PAPELERA) as $archivo) {
+            $this->problemas[] = 'Residuo de una eliminación definitiva sin terminar: '.$archivo;
+        }
+    }
+
+    /** Una carpeta de plantilla CON archivos debe pertenecer a una plantilla que exista (no eliminada). Las vacías no ocupan espacio y se ignoran. Solo lectura. */
+    private function verificarCarpetasDePlantillas(): void
+    {
+        foreach (AlmacenEmisiones::disco()->directories(RutasSeguras::PLANTILLAS) as $carpeta) {
+            if (AlmacenEmisiones::disco()->allFiles($carpeta) === []) {
+                continue;
+            }
+
+            $id = basename($carpeta);
+            $plantilla = ctype_digit($id) ? Plantilla::withTrashed()->find((int) $id) : null;
+
+            if ($plantilla === null) {
+                $this->problemas[] = 'Carpeta de plantilla sin registro en la base: '.$carpeta;
+            } elseif ($plantilla->trashed()) {
+                $this->problemas[] = "Plantilla #{$plantilla->id} eliminada pero su carpeta sigue en el almacén: ".$carpeta;
+            }
+        }
     }
 
     private function verificarArchivo(Emision $e, string $id): void

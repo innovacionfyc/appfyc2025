@@ -49,7 +49,20 @@ class LoteController extends Controller
                 'created_at' => $l->created_at?->toIso8601String(),
             ]);
 
-        return Inertia::render('CredentialFlow/Lotes/Index', ['lotes' => $lotes]);
+        // Bases eliminadas «normalmente» (ocultas): siguen ocupando espacio hasta que se eliminen definitivamente.
+        $eliminadas = Lote::onlyTrashed()
+            ->withCount(['participantes as participantes_count' => fn ($q) => $q->withTrashed()])
+            ->latest('deleted_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (Lote $l) => [
+                'id' => $l->id,
+                'nombre' => $l->nombre,
+                'participantes' => $l->participantes_count,
+                'eliminada_at' => $l->deleted_at?->toIso8601String(),
+            ]);
+
+        return Inertia::render('CredentialFlow/Lotes/Index', ['lotes' => $lotes, 'eliminadas' => $eliminadas]);
     }
 
     public function nuevo(): Response

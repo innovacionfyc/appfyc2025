@@ -9,6 +9,7 @@ import ParticipanteModal from "@/Components/CredentialFlow/Lotes/ParticipanteMod
 import LoteEditModal from "@/Components/CredentialFlow/Lotes/LoteEditModal.vue";
 import MotivoEmisionModal from "@/Components/CredentialFlow/Lotes/MotivoEmisionModal.vue";
 import HistorialEmisiones from "@/Components/CredentialFlow/Lotes/HistorialEmisiones.vue";
+import EliminarDefinitivamenteModal from "@/Components/CredentialFlow/EliminarDefinitivamenteModal.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
 import { useDescargaPdf } from "@/Composables/CredentialFlow/useDescargaPdf";
 import { useEmisiones } from "@/Composables/CredentialFlow/useEmisiones";
@@ -33,6 +34,7 @@ const avisoExito = ref(null);
 const motivoModal = ref({ abierto: false, modo: "revocar", participante: null });
 const modalParticipante = ref({ abierto: false, participante: null });
 const modalLote = ref(false);
+const modalDefinitivo = ref(false);
 
 const headerStats = computed(() => [
   { label: "Participantes", value: props.lote.total, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
@@ -224,7 +226,7 @@ const confirmarMotivo = async (motivo) => {
       <!-- Datos de la base -->
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8" data-datos-lote>
         <div class="flex flex-wrap items-start justify-between gap-4">
-          <dl class="grid gap-x-10 gap-y-3 sm:grid-cols-2 xl:grid-cols-3 text-sm min-w-0 flex-1">
+          <dl class="grid gap-x-10 gap-y-3 sm:grid-cols-2 xl:grid-cols-3 text-sm min-w-[min(100%,18rem)] flex-1">
             <div class="sm:col-span-2 xl:col-span-3">
               <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Evento</dt>
               <dd class="font-extrabold text-slate-900 break-words" data-dato="evento">{{ lote.datos_comunes.evento }}</dd>
@@ -263,6 +265,16 @@ const confirmarMotivo = async (motivo) => {
               <Trash2 class="w-4 h-4" /> Eliminar base
             </button>
           </div>
+        </div>
+
+        <!-- Zona aparte: no es una acción de todos los días -->
+        <div class="mt-6 pt-5 border-t border-dashed border-slate-200 flex flex-wrap items-center justify-between gap-x-6 gap-y-3" data-zona-liberar-espacio>
+          <p class="text-[12px] font-semibold text-slate-500 max-w-2xl min-w-[min(100%,16rem)] flex-1">
+            <span class="font-black text-slate-600">Liberar espacio.</span> Si ya descargaste lo que querías conservar, puedes eliminar esta base con todos sus certificados y archivos. No se puede deshacer.
+          </p>
+          <button type="button" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-[12px] font-bold text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all" data-accion="eliminar-definitivamente" @click="modalDefinitivo = true">
+            <Trash2 class="w-3.5 h-3.5" /> Eliminar definitivamente
+          </button>
         </div>
       </section>
 
@@ -384,6 +396,7 @@ const confirmarMotivo = async (motivo) => {
 
   <ParticipanteModal :show="modalParticipante.abierto" :lote-id="lote.id" :participante="modalParticipante.participante" @close="modalParticipante.abierto = false" />
   <LoteEditModal :show="modalLote" :lote="lote" @close="modalLote = false" />
+  <EliminarDefinitivamenteModal :show="modalDefinitivo" tipo="base" :nombre="lote.nombre" :resumen-url="route('credential-flow.lotes.eliminacion.resumen', lote.id)" :eliminar-url="route('credential-flow.lotes.destroy-definitivo', lote.id)" @close="modalDefinitivo = false" />
   <MotivoEmisionModal :show="motivoModal.abierto" :modo="motivoModal.modo" :participante="motivoModal.participante?.nombre_completo ?? ''" :procesando="enCurso !== null" :error="errorEmision" @close="motivoModal.abierto = false" @confirmar="confirmarMotivo" />
 
   <ConfirmacionesPop

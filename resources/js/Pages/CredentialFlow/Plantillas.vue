@@ -7,11 +7,13 @@ import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import BtnUniversal from "@/Components/BtnUniversal.vue";
 import ConfirmacionesPop from "@/Components/Modales/Confirmaciones/ConfirmacionesPop.vue";
 import PlantillaModal from "@/Components/CredentialFlow/PlantillaModal.vue";
+import EliminarDefinitivamenteModal from "@/Components/CredentialFlow/EliminarDefinitivamenteModal.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
 import { LayoutTemplate, FileText, Trash2, Search, CalendarDays, SquarePen, Type } from "lucide-vue-next";
 
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
+  eliminadas: { type: Array, default: () => [] }, // plantillas eliminadas antes (ocultas)
   stats: { type: Object, default: () => ({}) },
 });
 
@@ -22,6 +24,7 @@ const { confirmationState, openConfirmationModal, closeConfirmationModal, handle
 
 // ── Modal de creación ─────────────────────────────────────────────────────────
 const isModalOpen = ref(false);
+const aLiberar = ref(null); // plantilla para «Eliminar definitivamente»
 
 // ── Búsqueda local ────────────────────────────────────────────────────────────
 const searchQuery = ref("");
@@ -223,10 +226,34 @@ const eliminar = (plantilla) => {
             <SquarePen class="w-4 h-4" />
             Editar diseño
           </Link>
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-3 border-t border-dashed border-slate-200" data-zona-liberar-espacio>
+            <span class="text-[11px] font-semibold text-slate-400">¿Ya no la necesitas? Libera espacio.</span>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-bold text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all" data-accion="eliminar-definitivamente" @click="aLiberar = p">
+              <Trash2 class="w-3.5 h-3.5" /> Eliminar definitivamente
+            </button>
+          </div>
         </article>
       </div>
+
+      <details v-if="eliminadas.length" class="mt-10 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-plantillas-eliminadas>
+        <summary class="cursor-pointer text-sm font-extrabold text-slate-700">Plantillas eliminadas anteriormente ({{ eliminadas.length }})</summary>
+        <p class="mt-2 text-[13px] font-medium text-slate-500">Estas plantillas ya no aparecen en tu lista, pero siguen guardadas en el servidor. Si no tienen bases ni certificados relacionados, puedes eliminarlas definitivamente para liberar espacio.</p>
+        <ul class="mt-4 divide-y divide-slate-100">
+          <li v-for="e in eliminadas" :key="e.id" class="flex flex-wrap items-center justify-between gap-3 py-3" :data-eliminada="e.id">
+            <div class="min-w-0">
+              <p class="font-extrabold text-slate-800 break-words">{{ e.nombre }}</p>
+              <p class="text-[12px] font-semibold text-slate-400">Eliminada el {{ formatFecha(e.eliminada_at) }}</p>
+            </div>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-[12px] font-bold text-rose-600 hover:bg-rose-100 transition-all" data-accion="liberar-espacio" @click="aLiberar = e">
+              <Trash2 class="w-3.5 h-3.5" /> Eliminar definitivamente
+            </button>
+          </li>
+        </ul>
+      </details>
     </Sidebar>
   </AuthenticatedLayout>
+
+  <EliminarDefinitivamenteModal :show="aLiberar !== null" tipo="plantilla" :nombre="aLiberar?.nombre ?? ''" :resumen-url="aLiberar ? route('credential-flow.plantillas.eliminacion.resumen', aLiberar.id) : ''" :eliminar-url="aLiberar ? route('credential-flow.plantillas.destroy-definitivo', aLiberar.id) : ''" @close="aLiberar = null" />
 
   <PlantillaModal :show="isModalOpen" @close="isModalOpen = false" @success="isModalOpen = false" />
 
