@@ -89,7 +89,7 @@ class ParticipantesDatosTest extends TestCase
         $this->assertSame([], $r['errores']);
         $this->assertSame(['evento' => 'CONGRESO DE FINANZAS', 'fecha' => '17, 18 y 19 de septiembre de 2026', 'intensidad_horaria' => '30 horas'], $r['datos']);
 
-        $r = ValidadorDatosComunes::validar(['evento' => str_repeat('A', 201), 'fecha' => "a\x07", 'intensidad_horaria' => 'Ω日']);
+        $r = ValidadorDatosComunes::validar(['evento' => str_repeat('A', 256), 'fecha' => "a\x07", 'intensidad_horaria' => 'Ω日']);
         $this->assertSame(['evento', 'fecha', 'intensidad_horaria'], array_keys($r['errores']));
 
         $r = ValidadorDatosComunes::validar([]);

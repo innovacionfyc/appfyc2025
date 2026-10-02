@@ -693,5 +693,312 @@
     ]
    }
   }
+ ],
+ "multilinea": [
+  {
+   "nombre": "evento largo cabe a su tamaño",
+   "parrafos": [
+    "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+   ],
+   "anchoCaja": 600,
+   "altoCaja": 110,
+   "fontSize": 20,
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     "X CONGRESO NACIONAL DE DIRECCIONAMIENTO",
+     "ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO",
+     "INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+    ]
+   }
+  },
+  {
+   "nombre": "saltos manuales y párrafo largo en caja estrecha",
+   "parrafos": [
+    "LÍNEA UNO",
+    "LÍNEA DOS DE UN PÁRRAFO MÁS LARGO QUE EL ANCHO DE LA CAJA ESTRECHA",
+    "",
+    "FIN"
+   ],
+   "anchoCaja": 200,
+   "altoCaja": 300,
+   "fontSize": 20,
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     "LÍNEA UNO",
+     "LÍNEA DOS DE UN",
+     "PÁRRAFO MÁS",
+     "LARGO QUE EL",
+     "ANCHO DE LA CAJA",
+     "ESTRECHA",
+     "",
+     "FIN"
+    ]
+   }
+  },
+  {
+   "nombre": "se reduce por falta de alto",
+   "parrafos": [
+    "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+   ],
+   "anchoCaja": 600,
+   "altoCaja": 90,
+   "fontSize": 20,
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     "X CONGRESO NACIONAL DE DIRECCIONAMIENTO",
+     "ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO",
+     "INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+    ]
+   }
+  },
+  {
+   "nombre": "no cabe ni al mínimo",
+   "parrafos": [
+    "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+   ],
+   "anchoCaja": 600,
+   "altoCaja": 40,
+   "fontSize": 22,
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "lineas": [
+     "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y",
+     "PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y",
+     "GESTIÓN VERSIÓN 7"
+    ]
+   }
+  },
+  {
+   "nombre": "palabra más ancha que la caja",
+   "parrafos": [
+    "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7"
+   ],
+   "anchoCaja": 60,
+   "altoCaja": 600,
+   "fontSize": 22,
+   "esperado": {
+    "size": 15.5,
+    "reducido": true,
+    "noCabe": true,
+    "lineas": [
+     "X",
+     "CONGRESO",
+     "NACIONAL",
+     "DE",
+     "DIRECCIONAMIENTO",
+     "ESTRATÉGICO",
+     "Y",
+     "PLANEACIÓN",
+     "CON",
+     "ÉNFASIS",
+     "EN",
+     "MODELO",
+     "INTEGRADO",
+     "DE",
+     "PLANEACIÓN",
+     "Y",
+     "GESTIÓN",
+     "VERSIÓN",
+     "7"
+    ]
+   }
+  },
+  {
+   "nombre": "texto corto no salta",
+   "parrafos": [
+    "NOMBRE CORTO"
+   ],
+   "anchoCaja": 600,
+   "altoCaja": 80,
+   "fontSize": 22,
+   "esperado": {
+    "size": 22,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     "NOMBRE CORTO"
+    ]
+   }
+  }
+ ],
+ "planesMultilinea": [
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "evento",
+    "text": "",
+    "x": 96,
+    "y": 250,
+    "width": 600,
+    "height": 110,
+    "fontFamily": "outfit",
+    "fontSize": 20,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "center",
+    "multiline": true
+   },
+   "contenido": "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7",
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "X CONGRESO NACIONAL DE DIRECCIONAMIENTO",
+      "ancho": 480.16,
+      "xInicio": 155.92,
+      "baseline": 288.4
+     },
+     {
+      "texto": "ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO",
+      "ancho": 550.3,
+      "xInicio": 120.85,
+      "baseline": 312.4
+     },
+     {
+      "texto": "INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7",
+      "ancho": 502.38,
+      "xInicio": 144.81,
+      "baseline": 336.4
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "evento",
+    "text": "",
+    "x": 96,
+    "y": 300,
+    "width": 600,
+    "height": 110,
+    "fontFamily": "outfit",
+    "fontSize": 20,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "left",
+    "multiline": true
+   },
+   "contenido": "X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7",
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "X CONGRESO NACIONAL DE DIRECCIONAMIENTO",
+      "ancho": 480.16,
+      "xInicio": 96,
+      "baseline": 338.4
+     },
+     {
+      "texto": "ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO",
+      "ancho": 550.3,
+      "xInicio": 96,
+      "baseline": 362.4
+     },
+     {
+      "texto": "INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7",
+      "ancho": 502.38,
+      "xInicio": 96,
+      "baseline": 386.4
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "evento",
+    "text": "",
+    "x": 96,
+    "y": 250,
+    "width": 600,
+    "height": 110,
+    "fontFamily": "outfit",
+    "fontSize": 20,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "right",
+    "multiline": true,
+    "prefix": "Evento: ",
+    "suffix": " (virtual)"
+   },
+   "contenido": "Evento: X CONGRESO NACIONAL DE DIRECCIONAMIENTO ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7 (virtual)",
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "Evento: X CONGRESO NACIONAL DE DIRECCIONAMIENTO",
+      "ancho": 554.7,
+      "xInicio": 141.3,
+      "baseline": 288.4
+     },
+     {
+      "texto": "ESTRATÉGICO Y PLANEACIÓN CON ÉNFASIS EN MODELO",
+      "ancho": 550.3,
+      "xInicio": 145.7,
+      "baseline": 312.4
+     },
+     {
+      "texto": "INTEGRADO DE PLANEACIÓN Y GESTIÓN VERSIÓN 7 (virtual)",
+      "ancho": 579.3,
+      "xInicio": 116.7,
+      "baseline": 336.4
+     }
+    ]
+   }
+  },
+  {
+   "elemento": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "type": "text",
+    "field": "documento",
+    "text": "",
+    "x": 96,
+    "y": 250,
+    "width": 600,
+    "height": 40,
+    "fontFamily": "outfit",
+    "fontSize": 20,
+    "fontWeight": 700,
+    "color": "#000000",
+    "align": "center",
+    "multiline": false,
+    "prefix": "C.C. "
+   },
+   "contenido": "C.C. 73.156.827",
+   "esperado": {
+    "size": 20,
+    "reducido": false,
+    "noCabe": false,
+    "lineas": [
+     {
+      "texto": "C.C. 73.156.827",
+      "ancho": 140.36,
+      "xInicio": 325.82,
+      "baseline": 277.4
+     }
+    ]
+   }
+  }
  ]
 }

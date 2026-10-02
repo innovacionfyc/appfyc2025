@@ -78,8 +78,8 @@ class QrElementoTest extends EmisionesTestCase
 
         $this->assertSame(1, $sin->schema_version);
         $this->assertSame(2, $con->schema_version);
-        $this->assertSame([1, 2], DisenoSchema::VERSIONES_SOPORTADAS);
-        $this->assertTrue(DisenoSchema::soportada(1) && DisenoSchema::soportada(2) && ! DisenoSchema::soportada(3));
+        $this->assertSame([1, 2, 3], DisenoSchema::VERSIONES_SOPORTADAS);
+        $this->assertTrue(DisenoSchema::soportada(1) && DisenoSchema::soportada(2) && DisenoSchema::soportada(3) && ! DisenoSchema::soportada(4));
         $this->assertSame(1, DisenoSchema::versionPara($sin->diseno));
         $this->assertSame(2, DisenoSchema::versionPara($con->diseno));
     }
@@ -352,7 +352,7 @@ class QrElementoTest extends EmisionesTestCase
 
         $this->assertSame(['https://verificar.ejemplo.test/verificar/'.$e->codigo], $vistas, 'La URL sale del código de ESA emisión');
         $this->assertSame(2, $e->schema_version);
-        $this->assertSame(2, $e->generador_snapshot['generador_version']);
+        $this->assertSame(3, $e->generador_snapshot['generador_version']);
         $this->assertSame(['libreria' => 'tcpdf', 'ecc' => 'M', 'quiet_modulos' => 4, 'url_base' => 'https://verificar.ejemplo.test'], $e->generador_snapshot['qr']);
         $qr = collect($e->diseno_snapshot['elements'])->firstWhere('type', 'qr');
         $this->assertEquals([640.0, 460.0, 96.0, 96.0], [$qr['x'], $qr['y'], $qr['width'], $qr['height']]);
@@ -397,7 +397,7 @@ class QrElementoTest extends EmisionesTestCase
 
         $this->assertFalse($llamado);
         $this->assertSame(1, $e->schema_version);
-        $this->assertSame(2, $e->generador_snapshot['generador_version']);
+        $this->assertSame(3, $e->generador_snapshot['generador_version']);
         $this->assertArrayNotHasKey('qr', $e->generador_snapshot);
         $this->assertNull(collect($e->diseno_snapshot['elements'])->firstWhere('type', 'qr'));
         $this->assertSame([], (new InspectorPdf(\Storage::disk('local')->get($e->pdf_archivo)))->rectangulosRellenos());
@@ -469,7 +469,7 @@ class QrElementoTest extends EmisionesTestCase
 
         $this->assertArrayHasKey('qr', SnapshotCredencial::generador($con->diseno));
         $this->assertArrayNotHasKey('qr', SnapshotCredencial::generador($sin->diseno));
-        $this->assertSame(2, GeneradorCredencialPdf::GENERADOR_VERSION);
+        $this->assertSame(3, GeneradorCredencialPdf::GENERADOR_VERSION);
     }
 
     public function test_pdf_base_de_otro_tamano_con_qr_usa_el_tamano_real_del_pdf(): void

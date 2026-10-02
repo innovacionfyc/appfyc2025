@@ -127,6 +127,25 @@ export function useDisenoEditor(schema) {
     if ("fontWeight" in c) c.fontWeight = Number(c.fontWeight);
     if ("text" in c) c.text = String(c.text).slice(0, schema.textoMax);
 
+    // Prefijo, sufijo y «varias líneas»: solo en campos dinámicos y solo existen cuando tienen valor (así un diseño sin
+    // ellos no cambia y «Cambios sin guardar» no se activa por una cadena vacía). El prefijo/sufijo conservan sus espacios.
+    const dinamico = el.field !== null && el.field !== undefined;
+    for (const k of ["prefix", "suffix"]) {
+      if (!(k in c)) continue;
+      const v = dinamico ? String(c[k] ?? "").replace(/[\u0000-\u001f\u007f]/g, "").slice(0, schema.afijoMax ?? 100) : "";
+      if (v === "") {
+        delete c[k];
+        delete el[k];
+      } else c[k] = v;
+    }
+    if ("multiline" in c) {
+      if (dinamico && c.multiline === true) c.multiline = true;
+      else {
+        delete c.multiline;
+        delete el.multiline;
+      }
+    }
+
     Object.assign(el, limitarElemento({ ...el, ...c }, pagina.value, schema.elementoMin));
   }
 
@@ -152,6 +171,10 @@ export function useDisenoEditor(schema) {
     } else if (nuevo === null) {
       el.field = null;
       el.text = textosFijosRecordados.has(id) ? textosFijosRecordados.get(id) : TEXTO_FIJO_POR_DEFECTO;
+      // Un texto fijo no lleva prefijo, sufijo ni varias líneas.
+      delete el.prefix;
+      delete el.suffix;
+      delete el.multiline;
     } else {
       el.field = nuevo;
     }
@@ -198,6 +221,10 @@ export function useDisenoEditor(schema) {
         fontWeight: e.fontWeight,
         color: e.color,
         align: e.align,
+        // Solo campos dinámicos y solo con valor (mismo criterio que el backend: sin claves vacías).
+        ...(e.field && e.prefix ? { prefix: e.prefix } : {}),
+        ...(e.field && e.suffix ? { suffix: e.suffix } : {}),
+        ...(e.field && e.multiline === true ? { multiline: true } : {}),
       })),
     };
   }

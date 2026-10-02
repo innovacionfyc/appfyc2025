@@ -20,7 +20,7 @@ final readonly class DatosCredencial
     {
         return new self([
             'nombre_completo' => 'JUAN CARLOS PÉREZ GÓMEZ',
-            'documento' => 'C.C. 1.023.456.789',
+            'documento' => '1.023.456.789',
             'evento' => 'GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL',
             'fecha' => '29 DE SEPTIEMBRE DE 2026',
             'intensidad_horaria' => '16 HORAS',

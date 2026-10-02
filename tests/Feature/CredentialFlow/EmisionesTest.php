@@ -199,7 +199,7 @@ class EmisionesTest extends EmisionesTestCase
 
         $g = $s->generador;
         $this->assertSame(GeneradorCredencialPdf::GENERADOR_VERSION, $g['generador_version']);
-        $this->assertSame(2, GeneradorCredencialPdf::GENERADOR_VERSION);
+        $this->assertSame(3, GeneradorCredencialPdf::GENERADOR_VERSION);
         $this->assertArrayNotHasKey('qr', $g, 'Sin QR en el diseño no hay bloque qr');
         $this->assertSame(InstalledVersions::getPrettyVersion('tecnickcom/tcpdf'), $g['tcpdf']);
         $this->assertSame(InstalledVersions::getPrettyVersion('setasign/fpdi'), $g['fpdi']);

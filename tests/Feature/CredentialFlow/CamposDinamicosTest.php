@@ -100,7 +100,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $todos = CamposDinamicos::todos();
 
         $this->assertSame('JUAN CARLOS PÉREZ GÓMEZ', $todos['nombre_completo']['preview']);
-        $this->assertSame('C.C. 1.023.456.789', $todos['documento']['preview']);
+        $this->assertSame('1.023.456.789', $todos['documento']['preview']);
         $this->assertSame('GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL', $todos['evento']['preview']);
         $this->assertSame('29 DE SEPTIEMBRE DE 2026', $todos['fecha']['preview']);
         $this->assertSame('16 HORAS', $todos['intensidad_horaria']['preview']);
@@ -394,7 +394,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
                 ->where('schema.campos.0.key', 'nombre_completo')
                 ->where('schema.campos.0.etiqueta', 'Nombre completo')
                 ->where('schema.campos.0.preview', 'JUAN CARLOS PÉREZ GÓMEZ')
-                ->where('schema.campos.1.preview', 'C.C. 1.023.456.789')
+                ->where('schema.campos.1.preview', '1.023.456.789')
                 ->where('schema.campos.4.key', 'intensidad_horaria')
                 ->where('schema.escalaMinima', 0.7)
                 ->where('schema.pasoAjuste', 0.25)

@@ -27,7 +27,7 @@ final class GeneradorCredencialPdf
      * (matemática, línea base, autoajuste, interpretación del schema, motor PDF…); no depende de commits.
      * Cada emisión la guarda en su snapshot.
      */
-    public const GENERADOR_VERSION = 2; // 2 = añade el elemento `qr` (schema 2); la salida de los diseños sin QR no cambia
+    public const GENERADOR_VERSION = 3; // 3 = prefijo/sufijo y varias líneas en campos dinámicos (schema 3); 2 = elemento `qr`. La salida de los diseños sin esas funciones no cambia
 
     /** Devuelve los bytes del PDF generado con el diseño VIVO de la plantilla. @throws GeneracionCredencialException */
     public static function generar(Plantilla $plantilla, DatosCredencial $datos): string

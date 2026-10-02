@@ -32,10 +32,10 @@ export function useCamposDinamicos(schema) {
   const esDinamico = (el) => el.field !== null && el.field !== undefined;
   const esDesconocido = (el) => esDinamico(el) && !catalogo[el.field];
 
-  // Texto que se dibuja: el fijo, o el preview del catálogo. Nunca se guarda el preview.
+  // Texto que se dibuja: el fijo, o prefijo + preview del catálogo + sufijo (un solo texto). Nunca se guarda el preview.
   const textoVisible = (el) => {
     if (!esDinamico(el)) return el.text;
-    return catalogo[el.field]?.preview ?? "Campo desconocido";
+    return `${el.prefix ?? ""}${catalogo[el.field]?.preview ?? "Campo desconocido"}${el.suffix ?? ""}`;
   };
 
   // Plan de dibujo del elemento (líneas, tamaño efectivo, x y línea base): planTexto.js, el mismo
@@ -43,7 +43,7 @@ export function useCamposDinamicos(schema) {
   const planes = new Map();
   const planDe = (el) => {
     const contenido = textoVisible(el);
-    const clave = [el.fontFamily, el.fontWeight, el.fontSize, el.x, el.y, el.width, el.height, el.align, esDinamico(el), contenido].join("|");
+    const clave = [el.fontFamily, el.fontWeight, el.fontSize, el.x, el.y, el.width, el.height, el.align, esDinamico(el), el.multiline === true, contenido].join("|");
     let plan = planes.get(clave);
     if (!plan) {
       if (planes.size > 500) planes.clear();
