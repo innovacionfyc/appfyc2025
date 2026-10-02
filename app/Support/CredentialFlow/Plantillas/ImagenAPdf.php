@@ -62,7 +62,17 @@ final class ImagenAPdf
         $orientacion = $ancho >= $alto ? 'L' : 'P';
 
         FuentesTcpdf::configurar();
-        $pdf = new TCPDF($orientacion, 'pt', [$ancho, $alto], true, 'UTF-8', false);
+        // TCPDF, al cerrar el documento, escribe en la esquina inferior izquierda un rótulo de 1 pt «Powered by TCPDF» (con
+        // enlace) mientras `tcpdflink` sea true; es una propiedad protegida, así que se apaga desde una subclase (igual
+        // que hace GeneradorCredencialPdf). Así el PDF base queda solo con la imagen.
+        $pdf = new class($orientacion, 'pt', [$ancho, $alto], true, 'UTF-8', false) extends TCPDF
+        {
+            public function __construct(...$args)
+            {
+                parent::__construct(...$args);
+                $this->tcpdflink = false;
+            }
+        };
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
         $pdf->SetMargins(0, 0, 0);

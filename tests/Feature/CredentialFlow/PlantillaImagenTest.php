@@ -3,6 +3,7 @@
 namespace Tests\Feature\CredentialFlow;
 
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Plantillas\ImagenAPdf;
 use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
@@ -177,6 +178,55 @@ class PlantillaImagenTest extends EmisionesTestCase
 
         $this->assertStringContainsString('/DCTDecode', $r['pdf']);
         $this->assertStringContainsString($bytes, $r['pdf'], 'Los bytes del JPEG van tal cual dentro del PDF');
+    }
+
+    /** Todo el contenido legible del PDF: bytes crudos + cada stream FlateDecode descomprimido (el texto de TCPDF va comprimido). */
+    private function contenidoCompleto(string $pdf): string
+    {
+        $todo = $pdf;
+        if (preg_match_all('/stream?
+(.*?)?
+endstream/s', $pdf, $m)) {
+            foreach ($m[1] as $flujo) {
+                $plano = @gzuncompress($flujo);
+                if ($plano !== false) {
+                    $todo .= '
+'.$plano;
+                }
+            }
+        }
+
+        return $todo;
+    }
+
+    public function test_el_pdf_base_creado_desde_imagen_no_lleva_el_rotulo_powered_by_tcpdf(): void
+    {
+        $pdf = ImagenAPdf::convertir($this->png(660, 510))['pdf'];
+        $inspector = new InspectorPdf($pdf);
+
+        // Sigue siendo un PDF válido de 1 página, a la medida de la imagen y con la imagen incrustada.
+        $this->assertTrue($inspector->firmaValida());
+        $this->assertSame(1, $inspector->paginas());
+        $this->assertEqualsWithDelta(792, $inspector->mediaBox()[0], 0.01);
+        $this->assertEqualsWithDelta(612, $inspector->mediaBox()[1], 0.01);
+        $this->assertSame(1, substr_count($pdf, '/Subtype /Image'));
+
+        // Sin el rótulo (ni como texto ni como enlace), mirando también dentro de los streams comprimidos.
+        $this->assertSame([], $inspector->textos(), 'la base solo contiene la imagen, ningún texto');
+        $contenido = $this->contenidoCompleto($pdf);
+        $this->assertStringNotContainsString('Powered by', $contenido);
+        $this->assertStringNotContainsString('TCPDF (www', $contenido);
+        $this->assertStringNotContainsString('/Subtype /Link', $contenido, 'tampoco el enlace del rótulo');
+        $this->assertStringNotContainsString('/URI', $contenido);
+
+        // Un certificado generado sobre este fondo no hereda el rótulo: solo lleva el texto del diseño.
+        $diseno = ['page' => ['width' => 792, 'height' => 612], 'elements' => [[
+            'id' => '00000000-0000-4000-8000-000000000001', 'type' => 'text', 'field' => null, 'text' => 'Hola', 'x' => 96, 'y' => 200, 'width' => 600, 'height' => 40,
+            'fontFamily' => 'outfit', 'fontSize' => 22, 'fontWeight' => 700, 'color' => '#000000', 'align' => 'center',
+        ]]];
+        $certificado = GeneradorCredencialPdf::generarDesde($diseno, $pdf, DatosCredencial::qa(), 1);
+        $this->assertSame(['Hola'], array_column((new InspectorPdf($certificado))->textos(), 'texto'));
+        $this->assertStringNotContainsString('Powered by', $this->contenidoCompleto($certificado));
     }
 
     public function test_la_conversion_no_deja_archivos_temporales(): void
