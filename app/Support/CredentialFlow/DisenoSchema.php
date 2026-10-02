@@ -15,6 +15,10 @@ namespace App\Support\CredentialFlow;
  *  - `field` === null  → texto fijo: `text` contiene el texto.
  *  - `field` !== null  → campo dinámico (clave de CamposDinamicos): `text` NO tiene semántica y
  *    se guarda siempre como ''. El valor de ejemplo del editor no se guarda en el diseño.
+ *  - Solo un campo dinámico puede llevar, de forma OPCIONAL (schema_version 3), `prefix` y `suffix` (texto fijo antes y
+ *    después del valor: prefijo + valor + sufijo se tratan como UN solo texto al medir, centrar y dibujar) y
+ *    `multiline` (true = varias líneas: salto por palabras dentro del ancho de la caja). Las claves solo existen cuando
+ *    tienen valor: un diseño sin ellas es idéntico al de siempre.
  * El catálogo de campos vive en CamposDinamicos; aquí solo están las reglas de estructura y de
  * presentación.
  */
@@ -26,7 +30,13 @@ final class DisenoSchema
     /** Versión que añade el elemento `qr`. Es la MÍNIMA requerida: un diseño de solo texto sigue siendo schema 1. */
     public const VERSION_QR = 2;
 
-    public const VERSIONES_SOPORTADAS = [self::VERSION, self::VERSION_QR];
+    /** Versión que añade `prefix`, `suffix` y `multiline` en los campos dinámicos. Mínima requerida si algún elemento los usa. */
+    public const VERSION_TEXTO_AVANZADO = 3;
+
+    public const VERSIONES_SOPORTADAS = [self::VERSION, self::VERSION_QR, self::VERSION_TEXTO_AVANZADO];
+
+    /** Largo máximo del prefijo y del sufijo de un campo dinámico (caracteres). */
+    public const AFIJO_MAX = 100;
 
     public const TIPO_TEXTO = 'text';
 
@@ -89,10 +99,10 @@ final class DisenoSchema
     public const TOLERANCIA_AJUSTE_PT = 0.01;
 
     /**
-     * Interlineado del texto fijo con saltos manuales: cada línea baja INTERLINEADO × tamaño y el
-     * bloque completo queda centrado verticalmente en la caja. El editor y el generador de PDF
-     * usan este mismo valor. (No hay wrap automático: solo saltos manuales; los campos dinámicos
-     * son siempre una línea.)
+     * Interlineado del texto fijo con saltos manuales y de los campos dinámicos multilínea: cada línea baja
+     * INTERLINEADO × tamaño y el bloque completo queda centrado verticalmente en la caja. El editor y el generador de
+     * PDF usan este mismo valor. (El texto fijo no tiene wrap automático; un campo dinámico es una línea salvo que
+     * tenga `multiline`, y entonces se reparte por palabras dentro del ancho de la caja.)
      */
     public const INTERLINEADO_TEXTO_FIJO = 1.2;
 
@@ -125,9 +135,31 @@ final class DisenoSchema
         return self::contarQr($diseno['elements'] ?? []) > 0;
     }
 
-    /** Versión MÍNIMA que necesita un diseño: 2 si lleva QR, 1 si es solo texto (las plantillas existentes no cambian). */
+    /** ¿Algún campo dinámico usa prefijo, sufijo o varias líneas? */
+    public static function usaTextoAvanzado(array $diseno): bool
+    {
+        foreach ($diseno['elements'] ?? [] as $e) {
+            if (! is_array($e) || ($e['type'] ?? null) !== self::TIPO_TEXTO || ($e['field'] ?? null) === null) {
+                continue;
+            }
+            if ((string) ($e['prefix'] ?? '') !== '' || (string) ($e['suffix'] ?? '') !== '' || ($e['multiline'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Versión MÍNIMA que necesita un diseño: 3 si algún campo usa prefijo/sufijo/varias líneas, 2 si lleva QR, 1 si es
+     * solo texto sencillo (las plantillas existentes no cambian).
+     */
     public static function versionPara(array $diseno): int
     {
+        if (self::usaTextoAvanzado($diseno)) {
+            return self::VERSION_TEXTO_AVANZADO;
+        }
+
         return self::tieneQr($diseno) ? self::VERSION_QR : self::VERSION;
     }
 
@@ -137,6 +169,8 @@ final class DisenoSchema
         return [
             'version' => self::VERSION,
             'versionQr' => self::VERSION_QR,
+            'versionTextoAvanzado' => self::VERSION_TEXTO_AVANZADO,
+            'afijoMax' => self::AFIJO_MAX,
             'qr' => [
                 'max' => self::QR_MAX,
                 'minimo' => self::QR_MIN_PT,

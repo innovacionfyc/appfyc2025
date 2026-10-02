@@ -14,12 +14,13 @@ namespace App\Support\CredentialFlow;
  * Reglas del catálogo:
  *  - Las claves son estables y NO se renombran (hay diseños guardados que las referencian). Solo
  *    se pueden agregar.
- *  - Todos los valores son texto ya listo para imprimir. `documento` incluye el tipo ("C.C. 1.023…")
- *    y `fecha` no es un tipo date: puede ser "29 DE SEPTIEMBRE DE 2026" o
+ *  - Todos los valores son texto ya listo para imprimir. `documento` es el documento tal como se cargó (normalmente solo
+ *    el número, p. ej. "73.156.827"): un «C.C. » delante lo pone el DISEÑO como prefijo del elemento, no el dato.
+ *    `fecha` no es un tipo date: puede ser "29 DE SEPTIEMBRE DE 2026" o
  *    "LOS DÍAS 17, 18 Y 19 DE SEPTIEMBRE DE 2026". La composición de esos textos es de la fase de
  *    participantes, no de esta clase.
- *  - En V1 ningún campo admite varias líneas: se dibujan en una sola línea con autoajuste
- *    (ver DisenoSchema::ESCALA_MINIMA_TEXTO_DINAMICO).
+ *  - Por defecto un campo se dibuja en una sola línea con autoajuste (ver DisenoSchema::ESCALA_MINIMA_TEXTO_DINAMICO);
+ *    cada elemento del diseño puede activar «varias líneas» (`multiline`, ver Generacion/Multilinea) y llevar prefijo/sufijo.
  */
 final class CamposDinamicos
 {
@@ -40,7 +41,7 @@ final class CamposDinamicos
         'documento' => [
             'etiqueta' => 'Documento',
             'tipo' => 'string',
-            'preview' => 'C.C. 1.023.456.789',
+            'preview' => '1.023.456.789',
             'maxLongitud' => 40,
             'multilinea' => false,
             'formato' => self::FORMATO_LITERAL,
@@ -49,7 +50,7 @@ final class CamposDinamicos
             'etiqueta' => 'Evento',
             'tipo' => 'string',
             'preview' => 'GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL',
-            'maxLongitud' => 200,
+            'maxLongitud' => 255,
             'multilinea' => false,
             'formato' => self::FORMATO_MAYUSCULAS,
         ],
@@ -65,7 +66,7 @@ final class CamposDinamicos
             'etiqueta' => 'Intensidad horaria',
             'tipo' => 'string',
             'preview' => '16 HORAS',
-            'maxLongitud' => 30,
+            'maxLongitud' => 255,
             'multilinea' => false,
             'formato' => self::FORMATO_LITERAL,
         ],

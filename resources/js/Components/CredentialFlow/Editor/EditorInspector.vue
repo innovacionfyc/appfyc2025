@@ -188,8 +188,60 @@ const posicion = computed(() => [
         </p>
       </div>
 
+      <!-- Campo dinámico: texto antes / después del valor (un solo texto con el valor) y varias líneas -->
+      <div v-if="esDinamico && !esDesconocido" class="space-y-3" data-opciones-campo>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label :class="etiqueta" for="cf-prefijo">Texto antes</label>
+            <input
+              id="cf-prefijo"
+              type="text"
+              :maxlength="schema.afijoMax"
+              :value="elemento.prefix ?? ''"
+              :class="campo"
+              placeholder="Ej.: C.C. "
+              autocomplete="off"
+              spellcheck="false"
+              data-prefijo
+              @input="cambiar('prefix', $event.target.value)"
+            />
+          </div>
+          <div>
+            <label :class="etiqueta" for="cf-sufijo">Texto después</label>
+            <input
+              id="cf-sufijo"
+              type="text"
+              :maxlength="schema.afijoMax"
+              :value="elemento.suffix ?? ''"
+              :class="campo"
+              placeholder="Ej.:  horas"
+              autocomplete="off"
+              spellcheck="false"
+              data-sufijo
+              @input="cambiar('suffix', $event.target.value)"
+            />
+          </div>
+        </div>
+        <p class="text-[11px] font-medium text-slate-400 leading-snug">
+          Se imprime junto al valor, como un solo texto. Escribe el espacio si lo necesitas (por ejemplo «C.C. »). El dato del participante no cambia.
+        </p>
+        <label class="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            class="mt-0.5 w-4 h-4 rounded border-slate-300 text-primary-vinotinto focus:ring-primary-vinotinto/30"
+            :checked="elemento.multiline === true"
+            data-multilinea
+            @change="cambiar('multiline', $event.target.checked)"
+          />
+          <span class="text-[13px] font-bold text-slate-700 leading-snug">
+            Permitir varias líneas
+            <span class="block text-[11px] font-medium text-slate-400">El texto salta de línea por palabras dentro del ancho de la caja. Usa el alto de la caja.</span>
+          </span>
+        </label>
+      </div>
+
       <div
-        v-else
+        v-else-if="esDesconocido"
         class="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-1.5 text-red-700"
         role="alert"
         data-tarjeta-desconocido
@@ -205,15 +257,20 @@ const posicion = computed(() => [
         role="alert"
         data-estado-ajuste="no-cabe"
       >
-        No cabe: aun reducido al {{ porcentajeMinimo }} % ({{ ajuste.size }} pt) el texto excede el ancho de la caja.
-        Ensancha la caja o baja el tamaño.
+        <template v-if="elemento.multiline">
+          No cabe: ni repartido en varias líneas y reducido al {{ porcentajeMinimo }} % ({{ ajuste.size }} pt). Aumenta el alto o el ancho de la caja, o baja el tamaño.
+        </template>
+        <template v-else>
+          No cabe: aun reducido al {{ porcentajeMinimo }} % ({{ ajuste.size }} pt) el texto excede el ancho de la caja.
+          Ensancha la caja o baja el tamaño.
+        </template>
       </div>
       <div
         v-else-if="ajuste?.reducido"
         class="rounded-2xl border border-sky-200 bg-white p-3 text-[12px] font-semibold text-slate-600 leading-snug"
         data-estado-ajuste="reducido"
       >
-        Se reduce a {{ ajuste.size }} pt (configurado: {{ elemento.fontSize }} pt) para caber en la caja.
+        Se reduce a {{ ajuste.size }} pt (configurado: {{ elemento.fontSize }} pt) para caber en la caja{{ elemento.multiline ? " (en varias líneas)" : "" }}.
       </div>
 
       <div class="grid grid-cols-2 gap-3">

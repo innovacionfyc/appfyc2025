@@ -8,6 +8,7 @@ import { parse, compileScript } from "@vue/compiler-sfc";
 import { medirTexto, lineaBase, faltantesEnLineas } from "../../resources/js/Composables/CredentialFlow/textoMetrico.js";
 import { calcularAjuste } from "../../resources/js/Composables/CredentialFlow/autoajuste.js";
 import { planearTexto } from "../../resources/js/Composables/CredentialFlow/planTexto.js";
+import { resolverMultilinea, envolver } from "../../resources/js/Composables/CredentialFlow/multilinea.js";
 import { matrizQr, ladoQrPermitido, normalizarQr, nuevoQr, aplicarCambiosQr, payloadQr, esQr } from "../../resources/js/Composables/CredentialFlow/qrVerificacion.js";
 
 const leer = (ruta) => JSON.parse(readFileSync(new URL(ruta, import.meta.url), "utf8"));
@@ -147,6 +148,62 @@ prueba("interlineado del texto fijo: 1,2 × tamaño y bloque centrado", () => {
   const p = planearTexto(tabla, cfgPlan, el, "a\nb\nc");
   cerca(p.lineas[1].baseline - p.lineas[0].baseline, 1.2 * 22, "paso");
   cerca((p.lineas[0].baseline + p.lineas[2].baseline) / 2, planearTexto(tabla, cfgPlan, el, "a").lineas[0].baseline, "centro");
+});
+
+// ── Campos dinámicos con varias líneas y prefijo/sufijo (schema 3) ──────────────────────────────────────────────
+// Los vectores salen de la implementación PHP (Generacion/Multilinea.php y PlanificadorTexto): JS debe dar lo MISMO.
+vectores.multilinea.forEach((v) => {
+  prueba(`varias líneas (PHP ↔ JS): ${v.nombre}`, () => {
+    const medir = (t, size) => medirTexto(tabla, "outfit", 700, size, t).ancho;
+    const r = resolverMultilinea({ medir, parrafos: v.parrafos, anchoCaja: v.anchoCaja, altoCaja: v.altoCaja, fontSize: v.fontSize, config: cfgPlan });
+    assert.deepEqual(r.lineas, v.esperado.lineas);
+    assert.equal(r.size, v.esperado.size);
+    assert.equal(r.reducido, v.esperado.reducido);
+    assert.equal(r.noCabe, v.esperado.noCabe);
+  });
+});
+
+vectores.planesMultilinea.forEach((v, i) => {
+  prueba(`plan con prefijo/sufijo/varias líneas (PHP ↔ JS) #${i}: ${v.contenido.slice(0, 30)}`, () => {
+    const p = planearTexto(tabla, cfgPlan, v.elemento, v.contenido);
+    assert.equal(p.size, v.esperado.size);
+    assert.equal(p.reducido, v.esperado.reducido);
+    assert.equal(p.noCabe, v.esperado.noCabe);
+    assert.equal(p.lineas.length, v.esperado.lineas.length);
+    p.lineas.forEach((l, j) => {
+      assert.equal(l.texto, v.esperado.lineas[j].texto);
+      assert.ok(Math.abs(l.ancho - v.esperado.lineas[j].ancho) <= 0.0011, `ancho ${l.ancho}`);
+      assert.ok(Math.abs(l.xInicio - v.esperado.lineas[j].xInicio) <= 0.0011, `xInicio ${l.xInicio}`);
+      assert.ok(Math.abs(l.baseline - v.esperado.lineas[j].baseline) <= 0.0011, `baseline ${l.baseline}`);
+    });
+  });
+});
+
+prueba("varias líneas: salto por palabras, saltos manuales y párrafo vacío", () => {
+  const w = (t) => t.length * 10;
+  assert.deepEqual(envolver(w, ["AAAA BBBB CCCC", "DDDD", "", "E"], 95, 0.01), ["AAAA BBBB", "CCCC", "DDDD", "", "E"]);
+});
+
+prueba("varias líneas: una palabra más ancha que la caja no se parte", () => {
+  const w = (t) => t.length * 10;
+  assert.deepEqual(envolver(w, ["CORTA DIRECCIONAMIENTO"], 50, 0.01), ["CORTA", "DIRECCIONAMIENTO"]);
+});
+
+prueba("varias líneas: un campo sin la opción sigue siendo UNA línea con autoajuste (diseños antiguos idénticos)", () => {
+  const el = { ...vectores.planes[0].elemento, field: "evento" };
+  const viejo = planearTexto(tabla, cfgPlan, el, "UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE");
+  const conFalse = planearTexto(tabla, cfgPlan, { ...el, multiline: false, prefix: "", suffix: "" }, "UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE");
+  assert.equal(viejo.lineas.length, 1);
+  assert.deepEqual(conFalse, viejo);
+});
+
+prueba("campo con prefijo (una línea): el prefijo cuenta en la medición y el texto se centra completo", () => {
+  const el = { ...vectores.planes[0].elemento, field: "documento" };
+  const p = planearTexto(tabla, cfgPlan, el, "C.C. 73.156.827");
+  assert.equal(p.lineas.length, 1);
+  assert.equal(p.lineas[0].texto, "C.C. 73.156.827");
+  const ancho = medirTexto(tabla, el.fontFamily, el.fontWeight, p.size, "C.C. 73.156.827").ancho;
+  assert.ok(Math.abs(p.lineas[0].xInicio - (el.x + (el.width - ancho) / 2)) < 1e-9);
 });
 
 // ── QR de verificación (schema 2, opcional) ─────────────────────────────────────────────────────────────

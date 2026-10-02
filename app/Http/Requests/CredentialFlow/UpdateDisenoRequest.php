@@ -27,6 +27,36 @@ class UpdateDisenoRequest extends FormRequest
         return true;
     }
 
+    /**
+     * El prefijo y el sufijo de un campo dinámico llevan espacios a propósito («C.C. »). El middleware global
+     * TrimStrings ya los recortó cuando llega la petición, y se deja como está para TODA la aplicación. Aquí, y solo en
+     * esta petición de Credential Flow, se recuperan esos dos valores del cuerpo JSON original (que ningún middleware
+     * modifica). Un valor que solo tiene espacios no se conserva: se trata como vacío (sin prefijo).
+     */
+    protected function prepareForValidation(): void
+    {
+        $crudo = json_decode($this->getContent(), true);
+        $originales = is_array($crudo) ? ($crudo['diseno']['elements'] ?? null) : null;
+        $actuales = $this->input('diseno.elements');
+        if (! is_array($originales) || ! is_array($actuales)) {
+            return;
+        }
+
+        foreach ($actuales as $i => $elemento) {
+            if (! is_array($elemento)) {
+                continue;
+            }
+            foreach (['prefix', 'suffix'] as $clave) {
+                $valor = is_array($originales[$i] ?? null) ? ($originales[$i][$clave] ?? null) : null;
+                if (is_string($valor) && trim($valor) !== '') {
+                    $actuales[$i][$clave] = $valor;
+                }
+            }
+        }
+
+        $this->merge(['diseno' => array_replace((array) $this->input('diseno'), ['elements' => $actuales])]);
+    }
+
     public function rules(): array
     {
         return [
@@ -38,7 +68,7 @@ class UpdateDisenoRequest extends FormRequest
 
             // `present` y no `required`: una plantilla sin elementos (array vacío) es válida.
             'diseno.elements' => ['present', 'array', 'max:'.S::MAX_ELEMENTOS],
-            'diseno.elements.*' => ['array:id,type,field,text,x,y,width,height,fontFamily,fontSize,fontWeight,color,align'],
+            'diseno.elements.*' => ['array:id,type,field,text,x,y,width,height,fontFamily,fontSize,fontWeight,color,align,prefix,suffix,multiline'],
             'diseno.elements.*.id' => ['required', 'uuid', 'distinct:strict'],
             'diseno.elements.*.type' => ['required', Rule::in(S::TIPOS)],
             // null = texto fijo; si no, una clave EXACTA del catálogo (mayúsculas u otras variantes → 422).
@@ -55,6 +85,10 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*.fontWeight' => ['required_if:diseno.elements.*.type,text', 'nullable', 'integer', Rule::in(S::PESOS)],
             'diseno.elements.*.color' => ['required_if:diseno.elements.*.type,text', 'nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'diseno.elements.*.align' => ['required_if:diseno.elements.*.type,text', 'nullable', Rule::in(S::ALINEACIONES)],
+            // Solo campos dinámicos (se comprueba en after()): texto antes/después del valor y «varias líneas».
+            'diseno.elements.*.prefix' => ['nullable', 'string', 'max:'.S::AFIJO_MAX, 'regex:/^[^\p{Cc}]*\z/u'],
+            'diseno.elements.*.suffix' => ['nullable', 'string', 'max:'.S::AFIJO_MAX, 'regex:/^[^\p{Cc}]*\z/u'],
+            'diseno.elements.*.multiline' => ['nullable', 'boolean'],
         ];
     }
 
@@ -75,6 +109,11 @@ class UpdateDisenoRequest extends FormRequest
             'diseno.elements.*.fontWeight.in' => 'Un elemento usa un grosor de fuente no permitido.',
             'diseno.elements.*.color.regex' => 'Un color no es válido (usa el formato #RRGGBB).',
             'diseno.elements.*.align.in' => 'Un elemento tiene una alineación no permitida.',
+            'diseno.elements.*.prefix.max' => 'El texto antes del valor no puede superar los '.S::AFIJO_MAX.' caracteres.',
+            'diseno.elements.*.suffix.max' => 'El texto después del valor no puede superar los '.S::AFIJO_MAX.' caracteres.',
+            'diseno.elements.*.prefix.regex' => 'El texto antes del valor no puede tener saltos de línea ni caracteres de control.',
+            'diseno.elements.*.suffix.regex' => 'El texto después del valor no puede tener saltos de línea ni caracteres de control.',
+            'diseno.elements.*.multiline.boolean' => 'La opción de varias líneas no es válida.',
             'diseno.elements.*' => 'Un elemento tiene campos que no forman parte del diseño.',
             'diseno.elements.*.*' => 'Un elemento tiene valores fuera de los límites permitidos.',
         ];
@@ -108,6 +147,10 @@ class UpdateDisenoRequest extends FormRequest
                     $validator->errors()->add("diseno.elements.$i.fontWeight", 'La fuente elegida no está disponible en ese grosor.');
                 }
 
+                if (($e['type'] ?? null) === S::TIPO_TEXTO && ($e['field'] ?? null) === null && $this->usaAfijosOMultilinea($e)) {
+                    $validator->errors()->add("diseno.elements.$i", 'Solo un campo dinámico admite texto antes o después del valor y varias líneas.');
+                }
+
                 if ((float) $e['x'] + (float) $e['width'] > $ancho || (float) $e['y'] + (float) $e['height'] > $alto) {
                     $validator->errors()->add("diseno.elements.$i", 'Un elemento queda fuera de los límites de la página.');
                 }
@@ -123,7 +166,7 @@ class UpdateDisenoRequest extends FormRequest
     private function validarQr(Validator $validator, int $i, array $e): void
     {
         $textoPresente = ($e['field'] ?? null) !== null || ($e['text'] ?? null) !== null;
-        foreach (['fontFamily', 'fontSize', 'fontWeight', 'color', 'align'] as $clave) {
+        foreach (['fontFamily', 'fontSize', 'fontWeight', 'color', 'align', 'prefix', 'suffix', 'multiline'] as $clave) {
             $textoPresente = $textoPresente || ($e[$clave] ?? null) !== null;
         }
         if ($textoPresente) {
@@ -138,6 +181,12 @@ class UpdateDisenoRequest extends FormRequest
         if ($ancho < S::QR_MIN_PT - S::QR_TOLERANCIA_CUADRADO_PT || $ancho > S::QR_MAX_PT + S::QR_TOLERANCIA_CUADRADO_PT) {
             $validator->errors()->add("diseno.elements.$i.width", 'El QR debe medir entre '.S::QR_MIN_PT.' y '.S::QR_MAX_PT.' pt.');
         }
+    }
+
+    /** @param  array<string,mixed>  $e */
+    private function usaAfijosOMultilinea(array $e): bool
+    {
+        return (string) ($e['prefix'] ?? '') !== '' || (string) ($e['suffix'] ?? '') !== '' || filter_var($e['multiline'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
@@ -161,21 +210,48 @@ class UpdateDisenoRequest extends FormRequest
                 'y' => round((float) $e['y'], 2),
                 'width' => round((float) $e['width'], 2),
                 'height' => round((float) $e['height'], 2),
-            ] : [
-                'id' => strtolower($e['id']),
-                'type' => $e['type'],
-                'field' => $e['field'] ?? null,
-                'text' => ($e['field'] ?? null) === null ? ($e['text'] ?? '') : '',
-                'x' => round((float) $e['x'], 2),
-                'y' => round((float) $e['y'], 2),
-                'width' => round((float) $e['width'], 2),
-                'height' => round((float) $e['height'], 2),
-                'fontFamily' => $e['fontFamily'],
-                'fontSize' => round((float) $e['fontSize'], 2),
-                'fontWeight' => (int) $e['fontWeight'],
-                'color' => strtolower($e['color']),
-                'align' => $e['align'],
-            ], $diseno['elements'])),
+            ] : $this->elementoTexto($e), $diseno['elements'])),
         ];
+    }
+
+    /**
+     * Elemento de texto listo para guardar. `prefix`, `suffix` y `multiline` SOLO se guardan en un campo dinámico y
+     * solo cuando tienen valor (un diseño sin ellos queda idéntico al de siempre). Los espacios del prefijo/sufijo se
+     * conservan tal cual.
+     *
+     * @param  array<string,mixed>  $e
+     * @return array<string,mixed>
+     */
+    private function elementoTexto(array $e): array
+    {
+        $dinamico = ($e['field'] ?? null) !== null;
+        $elemento = [
+            'id' => strtolower($e['id']),
+            'type' => $e['type'],
+            'field' => $e['field'] ?? null,
+            'text' => $dinamico ? '' : ($e['text'] ?? ''),
+            'x' => round((float) $e['x'], 2),
+            'y' => round((float) $e['y'], 2),
+            'width' => round((float) $e['width'], 2),
+            'height' => round((float) $e['height'], 2),
+            'fontFamily' => $e['fontFamily'],
+            'fontSize' => round((float) $e['fontSize'], 2),
+            'fontWeight' => (int) $e['fontWeight'],
+            'color' => strtolower($e['color']),
+            'align' => $e['align'],
+        ];
+
+        if ($dinamico) {
+            foreach (['prefix', 'suffix'] as $clave) {
+                if ((string) ($e[$clave] ?? '') !== '') {
+                    $elemento[$clave] = (string) $e[$clave];
+                }
+            }
+            if (filter_var($e['multiline'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                $elemento['multiline'] = true;
+            }
+        }
+
+        return $elemento;
     }
 }

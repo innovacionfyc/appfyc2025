@@ -73,8 +73,16 @@ final class PlanificadorTexto
             throw GeneracionCredencialException::con(GeneracionCredencialException::FUERA_DE_PAGINA, 'Un elemento queda fuera de los límites de la página.', $id);
         }
 
-        $contenido = $dinamico ? $datos->valor((string) $campo) : (string) ($el['text'] ?? '');
-        $textos = $dinamico
+        // Campo dinámico: prefijo + valor + sufijo son UN solo texto (se mide, se centra y se dibuja junto).
+        $multilinea = $dinamico && ($el['multiline'] ?? false) === true;
+        $contenido = $dinamico
+            ? (string) ($el['prefix'] ?? '').$datos->valor((string) $campo).(string) ($el['suffix'] ?? '')
+            : (string) ($el['text'] ?? '');
+        if ($multilinea) {
+            $nfc = \Normalizer::normalize($contenido, \Normalizer::FORM_C);
+            $contenido = $nfc === false ? $contenido : $nfc;
+        }
+        $textos = $dinamico && ! $multilinea
             ? [preg_replace('/\r?\n/', ' ', $contenido)]
             : preg_split('/\r?\n/', $contenido);
 
@@ -96,7 +104,26 @@ final class PlanificadorTexto
 
         $size = $sizeConfigurado;
         $reducido = false;
-        if ($dinamico) {
+        if ($multilinea) {
+            // Primero se envuelve por palabras dentro del ancho; solo si el bloque no cabe en el alto se reduce (hasta el 70 %).
+            $reparto = Multilinea::resolver(
+                fn (string $t, float $s) => FuentesCredential::medirTexto($t, $familia, $peso, $s)['ancho'],
+                $textos,
+                $w,
+                $h,
+                $sizeConfigurado
+            );
+            if ($reparto['noCabe']) {
+                throw GeneracionCredencialException::con(
+                    GeneracionCredencialException::NO_CABE,
+                    'El valor del campo no cabe en su caja ni repartido en varias líneas y reducido al '.round(DisenoSchema::ESCALA_MINIMA_TEXTO_DINAMICO * 100).' %. Aumenta el alto o el ancho de la caja, o baja el tamaño.',
+                    $id
+                );
+            }
+            $size = $reparto['size'];
+            $reducido = $reparto['reducido'];
+            $textos = $reparto['lineas'];
+        } elseif ($dinamico) {
             $ajuste = Autoajuste::resolver($medidas[0]['ancho'], $w, $sizeConfigurado);
             if ($ajuste['noCabe']) {
                 throw GeneracionCredencialException::con(
