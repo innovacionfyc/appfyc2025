@@ -9,3 +9,6 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# FPDF 1.81 exacto del sistema viejo (renderer legado): se conserva byte a byte; su SHA-256 se verifica al cargarlo.
+/resources/legado/fpdf-1.81/** -text

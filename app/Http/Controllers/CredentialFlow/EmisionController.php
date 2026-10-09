@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Emisiones\EmisorCredencial;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\GeneradorZip;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
+use App\Support\CredentialFlow\LogSeguro;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -134,7 +135,7 @@ class EmisionController extends Controller
 
             return response()->json(['error' => ['code' => $e->codigo, 'message' => $e->getMessage()]], 422);
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error inesperado en una emisión', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error inesperado en una emisión', ['error' => LogSeguro::resumen($e)]);
 
             return response()->json(['error' => [
                 'code' => 'ERROR_INESPERADO',

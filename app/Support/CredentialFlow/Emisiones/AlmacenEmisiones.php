@@ -4,6 +4,7 @@ namespace App\Support\CredentialFlow\Emisiones;
 
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\LogSeguro;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -69,7 +70,7 @@ final class AlmacenEmisiones
         } catch (Throwable $e) {
             self::borrar($tmp);
             self::borrar($rutaFinal);
-            Log::error('Credential Flow: error al escribir el PDF de una emisión', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error al escribir el PDF de una emisión', ['error' => LogSeguro::resumen($e)]);
 
             throw new EmisionException(EmisionException::ERROR_ESCRITURA, 'No se pudo guardar el PDF de la emisión.', 500);
         }
@@ -88,7 +89,7 @@ final class AlmacenEmisiones
         } catch (EmisionException $e) {
             throw $e;
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error al escribir en staging', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error al escribir en staging', ['error' => LogSeguro::resumen($e)]);
 
             throw new EmisionException(EmisionException::ERROR_ESCRITURA, 'No se pudo guardar un PDF de la emisión masiva.', 500);
         }
@@ -100,7 +101,7 @@ final class AlmacenEmisiones
         try {
             self::disco()->move($desde, $hasta);
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error al mover el PDF de una emisión', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error al mover el PDF de una emisión', ['error' => LogSeguro::resumen($e)]);
 
             throw new EmisionException(EmisionException::ERROR_ESCRITURA, 'No se pudo guardar el PDF de la emisión.', 500);
         }

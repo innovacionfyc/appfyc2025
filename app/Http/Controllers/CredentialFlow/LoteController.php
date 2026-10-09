@@ -11,6 +11,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
+use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Participantes\ImportacionInvalidaException;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\LectorArchivo;
@@ -96,7 +97,7 @@ class LoteController extends Controller
         try {
             $resultado = $this->importador->validar($request->file('archivo'), $request->plantilla(), $request->datosComunes());
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error inesperado al validar el archivo de participantes', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error inesperado al validar el archivo de participantes', ['error' => LogSeguro::resumen($e)]);
 
             return $this->errorInesperado();
         }
@@ -121,7 +122,7 @@ class LoteController extends Controller
                 'resultado' => $e->resultado->toArray(),
             ], 422);
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error inesperado al importar participantes', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: error inesperado al importar participantes', ['error' => LogSeguro::resumen($e)]);
 
             return $this->errorInesperado();
         }

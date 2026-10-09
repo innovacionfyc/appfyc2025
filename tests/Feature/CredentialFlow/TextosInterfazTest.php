@@ -32,7 +32,7 @@ class TextosInterfazTest extends CredentialFlowTestCase
     {
         preg_match_all('/ruta: "([a-z.\-]+)"/', $this->fuente('Pages/CredentialFlow/Inicio.vue'), $m);
 
-        $this->assertCount(4, $m[1], 'Plantillas, Bases, Generación e Historial');
+        $this->assertCount(6, $m[1], 'Plantillas, Bases, Generación, Historial, Histórico y Envíos (solo lectura)');
         foreach ($m[1] as $nombre) {
             $this->assertTrue(Route::has($nombre), "La ruta $nombre no existe");
         }

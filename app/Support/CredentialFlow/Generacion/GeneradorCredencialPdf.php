@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Generacion;
 use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
+use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -117,7 +118,7 @@ final class GeneradorCredencialPdf
 
             return [$plantillaPdf, $pdf->getTemplateSize($plantillaPdf)];
         } catch (Throwable $e) {
-            Log::warning('Credential Flow: no se pudo importar el PDF base', $contexto + ['error' => $e::class.': '.$e->getMessage()]);
+            Log::warning('Credential Flow: no se pudo importar el PDF base', $contexto + ['error' => LogSeguro::resumen($e)]);
 
             throw GeneracionCredencialException::con(
                 GeneracionCredencialException::PDF_ILEGIBLE,

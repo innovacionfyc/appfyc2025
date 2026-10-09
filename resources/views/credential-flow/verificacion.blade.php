@@ -46,8 +46,8 @@
             <dl>
                 <div><dt>Nombre</dt><dd class="nombre" data-dato="nombre">{{ $nombre }}</dd></div>
                 <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
-                <div><dt>Fecha del evento</dt><dd data-dato="fecha-evento">{{ $fecha_evento }}</dd></div>
-                <div><dt>Intensidad horaria</dt><dd data-dato="intensidad">{{ $intensidad }}</dd></div>
+                @if (($fecha_evento ?? '') !== '')<div><dt>Fecha del evento</dt><dd data-dato="fecha-evento">{{ $fecha_evento }}</dd></div>@endif
+                @if (($intensidad ?? '') !== '')<div><dt>Intensidad horaria</dt><dd data-dato="intensidad">{{ $intensidad }}</dd></div>@endif
                 <div><dt>Fecha de emisión</dt><dd data-dato="emitida">{{ $emitida }}</dd></div>
                 <div><dt>Emitida por</dt><dd>{{ $entidad }}</dd></div>
                 <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
@@ -59,11 +59,51 @@
             </div>
             <dl>
                 <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
-                <div><dt>Fecha del evento</dt><dd data-dato="fecha-evento">{{ $fecha_evento }}</dd></div>
+                @if (($fecha_evento ?? '') !== '')<div><dt>Fecha del evento</dt><dd data-dato="fecha-evento">{{ $fecha_evento }}</dd></div>@endif
                 <div><dt>Fecha de emisión</dt><dd data-dato="emitida">{{ $emitida }}</dd></div>
                 <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
             </dl>
             <p class="nota">Esta credencial ya no es válida. Si recibió una versión más reciente, verifique esa.</p>
+        @elseif ($estado === 'legado_valido')
+            <div class="estado valida" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M14 25l7 7 13-15" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div><h1>Certificado histórico válido</h1><p>Certificado emitido por {{ $entidad }}</p></div>
+            </div>
+            <dl>
+                <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
+                @if ($anio !== null)<div><dt>Año</dt><dd data-dato="anio">{{ $anio }}</dd></div>@endif
+                <div><dt>Estado</dt><dd data-dato="estado">Válido</dd></div>
+                <div><dt>Origen</dt><dd data-dato="origen">Certificado histórico (sistema anterior)</dd></div>
+                <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
+            </dl>
+        @elseif ($estado === 'legado_revision')
+            <div class="estado aviso" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 12v14M24 32v4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+                <div><h1>Certificado histórico en revisión</h1><p>Este certificado histórico se encuentra en revisión.</p></div>
+            </div>
+            <p class="nota arriba">Existe un registro histórico con ese código. Si necesita más información, comuníquese con la entidad emisora ({{ $entidad }}).</p>
+        @elseif ($estado === 'legado_revocado')
+            <div class="estado revocada" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M16 16l16 16M32 16L16 32" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+                <div><h1>Certificado revocado</h1><p>Este certificado ya no es válido.</p></div>
+            </div>
+            <dl>
+                <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
+                @if ($anio !== null)<div><dt>Año</dt><dd data-dato="anio">{{ $anio }}</dd></div>@endif
+                <div><dt>Origen</dt><dd data-dato="origen">Certificado histórico (sistema anterior)</dd></div>
+                <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
+            </dl>
+        @elseif ($estado === 'legado_reemplazado')
+            <div class="estado neutra" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M14 24h20M27 17l7 7-7 7" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div><h1>Certificado histórico reemplazado</h1><p>Este certificado histórico fue reemplazado por una versión posterior.</p></div>
+            </div>
+            <dl>
+                <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
+                @if ($anio !== null)<div><dt>Año</dt><dd data-dato="anio">{{ $anio }}</dd></div>@endif
+                <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
+            </dl>
+            @if (! empty($enlace_moderno))<p class="nota"><a href="{{ $enlace_moderno }}" data-enlace="version-posterior">Verificar la versión posterior</a></p>@endif
         @elseif ($estado === 'limitada')
             <div class="estado aviso" role="status">
                 <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 12v14M24 32v4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>

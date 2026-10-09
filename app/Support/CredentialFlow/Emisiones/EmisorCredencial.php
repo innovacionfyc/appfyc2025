@@ -41,6 +41,21 @@ final class EmisorCredencial
         return $this->crear($participante, $lote, null, null, $usuarioId);
     }
 
+    /**
+     * Primera emisión de un participante creado para reemplazar un certificado histórico (Fase 10B-2B-2A). Es EXACTAMENTE la misma maquinaria
+     * que `emitir` (snapshot, render, código, archivo, Movimiento), con dos añadidos: la `operacion` determinista (idempotencia) y un gancho que
+     * se ejecuta DENTRO de la transacción de la emisión, con la fila ya creada, para enlazar el histórico y cerrar el caso de forma atómica. Si
+     * el gancho lanza, se revierte todo y se borra el archivo.
+     *
+     * @param  \Closure(Emision):void  $alCrear
+     */
+    public function emitirParaReemplazo(Participante $participante, Lote $lote, ?int $usuarioId, string $operacion, \Closure $alCrear): Emision
+    {
+        $this->comprobarPertenencia($participante, $lote);
+
+        return $this->crear($participante, $lote, null, null, $usuarioId, $operacion, $alCrear);
+    }
+
     /** Sustituye la emisión vigente por una nueva versión con los datos ACTUALES. */
     public function reemitir(Emision $vigente, string $motivo, ?int $usuarioId): Emision
     {
@@ -86,7 +101,7 @@ final class EmisorCredencial
 
     // ── Internos ──────────────────────────────────────────────────────────────
 
-    private function crear(Participante $participante, Lote $lote, ?Emision $reemplaza, ?string $motivo, ?int $usuarioId): Emision
+    private function crear(Participante $participante, Lote $lote, ?Emision $reemplaza, ?string $motivo, ?int $usuarioId, ?string $operacion = null, ?\Closure $alCrear = null): Emision
     {
         $plantilla = $lote->plantilla;
         if (! $plantilla) {
@@ -106,7 +121,7 @@ final class EmisorCredencial
         $escrito = false;
 
         try {
-            return DB::transaction(function () use ($participante, $lote, $plantilla, $reemplaza, $motivo, $usuarioId, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
+            return DB::transaction(function () use ($participante, $lote, $plantilla, $reemplaza, $motivo, $usuarioId, $operacion, $alCrear, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
                 // 3: bloqueo y comprobaciones con la base ya bloqueada.
                 $bloqueado = Participante::lockForUpdate()->find($participante->id);
                 $loteActual = Lote::find($lote->id);
@@ -158,6 +173,7 @@ final class EmisorCredencial
                     'pdf_bytes' => $tamano,
                     'emitido_at' => now(),
                     'emitido_por' => $usuarioId,
+                    'operacion' => $operacion,
                 ]);
 
                 if ($anterior) {
@@ -174,6 +190,10 @@ final class EmisorCredencial
                         descripcion: 'Se emitió una credencial de Credential Flow',
                         extra: ['emision_id' => $emision->id, 'lote_id' => $loteActual->id, 'participante_id' => $bloqueado->id, 'version' => $version],
                     );
+                }
+
+                if ($alCrear !== null) {
+                    $alCrear($emision);
                 }
 
                 return $emision;

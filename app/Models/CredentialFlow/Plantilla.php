@@ -24,12 +24,15 @@ class Plantilla extends Model
         'archivo_pdf',
         'nombre_archivo_original',
         'hash_sha256',
+        'origen_legado_sha256',
+        'origen_legado_meta',
         'diseno',
         'schema_version',
     ];
 
     protected $casts = [
         'diseno' => 'array',
+        'origen_legado_meta' => 'array',
         'schema_version' => 'integer',
     ];
 

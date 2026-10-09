@@ -10,6 +10,7 @@ use App\Models\Movimiento;
 use App\Support\CredentialFlow\Eliminacion\EliminacionException;
 use App\Support\CredentialFlow\Eliminacion\Papelera;
 use App\Support\CredentialFlow\Eliminacion\RutasSeguras;
+use App\Support\CredentialFlow\LogSeguro;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,20 +19,27 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Eliminación DEFINITIVA (sin vuelta atrás) de una base de participantes o de una plantilla sin relaciones.
+ * Eliminación DEFINITIVA (sin vuelta atrás) de una base de participantes SIN historial o de una plantilla sin relaciones.
+ *
+ * Una base NO se elimina si tiene historial: cualquier emisión (vigente, revocada o versión), descargas, certificados
+ * históricos de su evento o certificados que reemplazan a uno histórico. Se detecta ANTES de borrar nada y se explica al
+ * usuario con un mensaje humano (nunca se depende de un error de clave foránea). Para retirar certificados se revocan.
+ * Los certificados históricos (cf_certificados_legado) no tienen ningún camino de eliminación administrativa.
  *
  * Estrategia (la base de datos puede revertirse, el disco no):
  *   1. Dentro de una transacción se bloquean las filas (base y participantes / plantilla) y se inspecciona todo lo
- *      que se va a borrar con la base ya bloqueada: ninguna emisión nueva puede aparecer a mitad de camino.
+ *      que se va a borrar con la base ya bloqueada: ninguna emisión ni correo nuevo puede aparecer a mitad de camino.
  *   2. Se valida CADA ruta (forma exacta, dentro de credential-flow, sin enlaces simbólicos, sin `..`) y que ningún
  *      archivo pertenezca a otra base. Si algo no cuadra no se mueve ni se borra nada.
  *   3. Los archivos se MUEVEN a una papelera privada (renombrado atómico en el mismo disco). Si falla un
  *      movimiento, se devuelven los ya movidos y la base de datos no se toca.
- *   4. Se borran los registros y se anota la auditoría en la MISMA transacción (si la auditoría falla, todo se revierte).
+ *   4. Se borran los registros EN ESTE ORDEN: correos de los participantes (cf_correos, explícito: la FK es RESTRICT y no
+ *      hay CASCADE silencioso) → participantes → base, y se anota la auditoría en la MISMA transacción (si algo falla,
+ *      todo se revierte, correos incluidos).
  *   5. Con el commit hecho se vacía la papelera. Si la transacción falla, los archivos vuelven a su sitio.
  *
- * Los registros se borran con consultas directas a propósito: `Emision` es inmutable e indeleble por modelo (y sigue
- * siéndolo para cualquier otro código); esta es la única vía autorizada y está limitada a esta clase.
+ * Los registros se borran con consultas directas a propósito. `Emision` es inmutable e indeleble por modelo y esta clase
+ * ya NO borra emisiones: una base con emisiones queda bloqueada.
  * NUNCA toca backups, builds, otros módulos ni temporales que no sean inequívocamente de la base.
  */
 class EliminacionDefinitivaService
@@ -41,6 +49,9 @@ class EliminacionDefinitivaService
 
     /** Solo para tests: se ejecuta dentro de la transacción tras borrar los registros y antes del commit. */
     public static ?Closure $antesDeConfirmar = null;
+
+    /** Solo para tests: se ejecuta dentro de la transacción tras borrar los correos y antes de borrar los participantes. */
+    public static ?Closure $despuesDeBorrarCorreos = null;
 
     /** Solo para tests: se ejecuta con la carpeta de la plantilla justo antes de su limpieza FINAL (ya con el commit hecho). Puede lanzar. */
     public static ?Closure $antesDeLimpiarCarpeta = null;
@@ -68,6 +79,7 @@ class EliminacionDefinitivaService
             'participantes' => $inspeccion['participantes'],
             'vigentes' => $inspeccion['vigentes'],
             'historicos' => $inspeccion['historicos'],
+            'correos' => $inspeccion['correos'],
             'archivos' => $inspeccion['archivos'],
             'bytes' => $inspeccion['bytes'],
             'bloqueada' => $bloqueada,
@@ -75,7 +87,7 @@ class EliminacionDefinitivaService
     }
 
     /**
-     * @return array{nombre:string,participantes:int,emisiones:int,archivos:int,bytes:int,residuos:bool}
+     * @return array{nombre:string,participantes:int,emisiones:int,correos:int,archivos:int,bytes:int,residuos:bool}
      *
      * @throws EliminacionException
      */
@@ -121,13 +133,23 @@ class EliminacionDefinitivaService
                     throw EliminacionException::cambioConcurrente();
                 }
 
-                // El único vínculo entre emisiones de la misma base (reemplaza_id) se corta antes de borrarlas.
-                DB::table('cf_emisiones')->where('lote_id', $lote->id)->update(['reemplaza_id' => null]);
-                $borradasEmisiones = DB::table('cf_emisiones')->where('lote_id', $lote->id)->delete();
+                // Orden: correos → participantes → base. Los correos se borran de forma explícita (la FK es RESTRICT, no
+                // CASCADE) y solo los de los participantes de ESTA base; los de certificados históricos nunca se tocan.
+                $borradosCorreos = DB::table('cf_correos')
+                    ->whereIn('participante_id', fn ($s) => $s->select('id')->from('cf_participantes')->where('lote_id', $lote->id))
+                    ->delete();
+                if ($borradosCorreos !== $i['correos']) {
+                    throw EliminacionException::cambioConcurrente();
+                }
+
+                if (self::$despuesDeBorrarCorreos !== null) {
+                    (self::$despuesDeBorrarCorreos)($lote);
+                }
+
                 $borradosParticipantes = DB::table('cf_participantes')->where('lote_id', $lote->id)->delete();
                 $borradoLote = DB::table('cf_lotes')->where('id', $lote->id)->delete();
 
-                if ($borradasEmisiones !== $i['emisiones'] || $borradosParticipantes !== $i['participantes'] || $borradoLote !== 1) {
+                if ($borradosParticipantes !== $i['participantes'] || $borradoLote !== 1) {
                     throw EliminacionException::cambioConcurrente();
                 }
 
@@ -140,6 +162,7 @@ class EliminacionDefinitivaService
                         'lote_id' => $lote->id,
                         'participantes' => $i['participantes'],
                         'emisiones' => $i['emisiones'],
+                        'correos' => $borradosCorreos,
                         'archivos' => $papelera->cantidad(),
                         'bytes_liberados' => $i['bytes'],
                     ],
@@ -152,6 +175,7 @@ class EliminacionDefinitivaService
                 return [
                     'participantes' => $i['participantes'],
                     'emisiones' => $i['emisiones'],
+                    'correos' => $borradosCorreos,
                     'archivos' => $papelera->cantidad(),
                     'bytes' => $i['bytes'],
                 ];
@@ -160,7 +184,7 @@ class EliminacionDefinitivaService
             $this->devolverArchivos($papelera);
 
             if (! $e instanceof EliminacionException) {
-                Log::error('Credential Flow: falló la eliminación definitiva de una base', ['lote' => $loteId, 'error' => $e::class.': '.$e->getMessage()]);
+                Log::error('Credential Flow: falló la eliminación definitiva de una base', ['lote' => $loteId, 'error' => LogSeguro::resumen($e)]);
 
                 throw EliminacionException::errorGeneral();
             }
@@ -251,7 +275,7 @@ class EliminacionDefinitivaService
             $this->devolverArchivos($papelera);
 
             if (! $e instanceof EliminacionException) {
-                Log::error('Credential Flow: falló la eliminación definitiva de una plantilla', ['plantilla' => $plantillaId, 'error' => $e::class.': '.$e->getMessage()]);
+                Log::error('Credential Flow: falló la eliminación definitiva de una plantilla', ['plantilla' => $plantillaId, 'error' => LogSeguro::resumen($e)]);
 
                 throw EliminacionException::errorGeneral();
             }
@@ -286,7 +310,7 @@ class EliminacionDefinitivaService
             }
         } catch (Throwable $e) {
             $completa = false;
-            $this->registrarLimpiezaPendiente($plantillaId, $papelera, $carpeta, $e::class.': '.$e->getMessage());
+            $this->registrarLimpiezaPendiente($plantillaId, $papelera, $carpeta, LogSeguro::resumen($e));
         }
 
         if (! $papelera->vaciar()) {
@@ -314,12 +338,17 @@ class EliminacionDefinitivaService
      * staging de SUS emisiones masivas (identificadas por el UUID de operación que aparece en sus emisiones).
      * Con `$estricto` cualquier ruta dudosa o archivo de otra base lanza; sin él, se omite (solo para el resumen).
      *
-     * @return array{participantes:int,vigentes:int,historicos:int,emisiones:int,ultima_emision:int,archivos:int,bytes:int,rutas:array<string,int|null>,temporales:list<string>}
+     * También exige (solo en modo estricto) que la base NO tenga historial: ver exigirSinHistorial().
+     *
+     * @return array{participantes:int,vigentes:int,historicos:int,emisiones:int,ultima_emision:int,correos:int,archivos:int,bytes:int,rutas:array<string,int|null>,temporales:list<string>}
      *
      * @throws EliminacionException
      */
     private function inspeccionarLote(int $loteId, bool $estricto): array
     {
+        if ($estricto) {
+            $this->exigirSinHistorial($loteId);
+        }
         $disco = Storage::disk(Plantilla::DISCO);
         $emisiones = DB::table('cf_emisiones')->where('lote_id', $loteId)->orderBy('id')->get(['id', 'estado', 'pdf_archivo', 'operacion']);
 
@@ -386,11 +415,49 @@ class EliminacionDefinitivaService
             'historicos' => $emisiones->count() - $vigentes,
             'emisiones' => $emisiones->count(),
             'ultima_emision' => (int) $emisiones->max('id'),
+            'correos' => DB::table('cf_correos')->whereIn('participante_id', fn ($s) => $s->select('id')->from('cf_participantes')->where('lote_id', $loteId))->count(),
             'archivos' => count($existentes) + count($temporales),
             'bytes' => (int) array_sum($existentes) + $bytesTemporales,
             'rutas' => $rutas,
             'temporales' => $temporales,
         ];
+    }
+
+    /**
+     * Una base con historial NO se elimina. Se comprueba ANTES de mover o borrar nada y con mensajes pensados para el
+     * usuario (sin tablas, claves ni errores técnicos). Los correos (cf_correos) por sí solos NO bloquean: se borran con
+     * los participantes cuando la base no tiene historial.
+     *
+     * Bloquean, por este orden de explicación: certificados históricos del evento de la base; emisiones de la base que
+     * reemplazan a un certificado histórico; descargas (de sus emisiones o de sus participantes); cualquier emisión
+     * (vigente, revocada o versión).
+     *
+     * @throws EliminacionException
+     */
+    private function exigirSinHistorial(int $loteId): void
+    {
+        $eventoId = DB::table('cf_lotes')->where('id', $loteId)->value('evento_id');
+        if ($eventoId !== null && DB::table('cf_certificados_legado')->where('evento_id', $eventoId)->exists()) {
+            throw EliminacionException::certificadosHistoricos();
+        }
+
+        $emisiones = fn () => DB::table('cf_emisiones')->where('lote_id', $loteId);
+
+        if (DB::table('cf_certificados_legado')->whereIn('reemplazado_por_emision_id', $emisiones()->select('id'))->exists()) {
+            throw EliminacionException::reemplazaHistoricos();
+        }
+
+        $descargas = DB::table('cf_descargas')->where(function ($q) use ($loteId, $emisiones) {
+            $q->whereIn('emision_id', $emisiones()->select('id'))
+                ->orWhereIn('participante_id', fn ($s) => $s->select('id')->from('cf_participantes')->where('lote_id', $loteId));
+        });
+        if ($descargas->exists()) {
+            throw EliminacionException::conDescargas();
+        }
+
+        if ($emisiones()->exists()) {
+            throw EliminacionException::conHistorial();
+        }
     }
 
     /**

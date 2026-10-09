@@ -3,6 +3,7 @@
 namespace App\Support\CredentialFlow\Eliminacion;
 
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\LogSeguro;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -51,7 +52,7 @@ final class Papelera
                 throw new RuntimeException('move devolvió false');
             }
         } catch (Throwable $e) {
-            Log::error('Credential Flow: no se pudo mover un archivo a la papelera', ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: no se pudo mover un archivo a la papelera', ['error' => LogSeguro::resumen($e)]);
 
             throw EliminacionException::errorArchivos();
         }
@@ -83,7 +84,7 @@ final class Papelera
                 $completo = false;
                 Log::critical('Credential Flow: no se pudo restaurar un archivo desde la papelera; se conserva allí', [
                     'papelera' => $this->raiz,
-                    'error' => $e::class.': '.$e->getMessage(),
+                    'error' => LogSeguro::resumen($e),
                 ]);
             }
         }
@@ -107,7 +108,7 @@ final class Papelera
 
             return ! Storage::disk(Plantilla::DISCO)->exists($this->raiz);
         } catch (Throwable $e) {
-            Log::error('Credential Flow: no se pudo vaciar la papelera', ['papelera' => $this->raiz, 'error' => $e::class.': '.$e->getMessage()]);
+            Log::error('Credential Flow: no se pudo vaciar la papelera', ['papelera' => $this->raiz, 'error' => LogSeguro::resumen($e)]);
 
             return false;
         }
