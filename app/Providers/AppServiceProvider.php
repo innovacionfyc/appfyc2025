@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Http\Controllers\CredentialFlow\VerificacionPublicaController;
+use App\Support\CredentialFlow\Legado\CongeladorCertificadoLegado;
+use App\Support\CredentialFlow\Legado\CongeladorLegado;
+use App\Support\CredentialFlow\Legado\ResolutorPlantillaLegado;
+use App\Support\CredentialFlow\Legado\ResolutorPlantillaStorage;
 use App\Support\PodcastVisitante;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -17,7 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Credential Flow histórico: el congelado perezoso de PDF y de dónde sale la imagen de fondo (storage privado definitivo).
+        $this->app->bind(ResolutorPlantillaLegado::class, ResolutorPlantillaStorage::class);
+        $this->app->bind(CongeladorCertificadoLegado::class, CongeladorLegado::class);
     }
 
     /**

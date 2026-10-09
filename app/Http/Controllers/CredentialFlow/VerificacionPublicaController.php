@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\CabecerasVerificacionPublica;
 use App\Models\CredentialFlow\Emision;
 use App\Support\CredentialFlow\Emisiones\CodigoEmision;
+use App\Support\CredentialFlow\Legado\ResultadoVerificacionLegado;
+use App\Support\CredentialFlow\Legado\VerificacionLegado;
+use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -30,6 +33,12 @@ class VerificacionPublicaController extends Controller
         }
 
         $codigo = strtoupper(trim($codigo));
+
+        // Código LEGADO (numérico corto): camino SEPARADO del moderno, con su propio límite (son cortos y enumerables).
+        if (! CodigoEmision::valido($codigo) && VerificacionLegado::esFormatoLegado($codigo)) {
+            return $this->mostrarLegado($request, $codigo, $claveFallos, $maxFallos);
+        }
+
         $emision = CodigoEmision::valido($codigo)
             ? Emision::query()->select(['id', 'codigo', 'estado', 'datos_snapshot', 'emitido_at'])->where('codigo', $codigo)->first()
             : null;
@@ -58,6 +67,45 @@ class VerificacionPublicaController extends Controller
 
         // Revocada: sin nombre, sin documento, sin motivo, sin usuario ni versión.
         return $this->vista($request, $comunes + ['estado' => 'revocada']);
+    }
+
+    /**
+     * Verificación de un código LEGADO. Los códigos son cortos y enumerables, así que además del límite general y del de fallos hay
+     * un límite ESPECÍFICO por IP (por minuto y por hora) que cuenta TODA consulta de código legado. Respuestas uniformes: un código
+     * inexistente y una anomalía de colisión entre pares distintos son idénticos (404, sin eco). Sin PDF y sin datos personales.
+     */
+    private function mostrarLegado(Request $request, string $codigo, string $claveFallos, int $maxFallos): Response
+    {
+        $min = 'cf-verificacion-legado:min:'.$request->ip();
+        $hora = 'cf-verificacion-legado:hora:'.$request->ip();
+        foreach ([[$min, (int) config('credential_flow.verificacion.limite_legado_por_minuto')], [$hora, (int) config('credential_flow.verificacion.limite_legado_por_hora')]] as [$clave, $max]) {
+            if (RateLimiter::tooManyAttempts($clave, $max)) {
+                return self::limitada($request, RateLimiter::availableIn($clave));
+            }
+        }
+        RateLimiter::hit($min, 60);
+        RateLimiter::hit($hora, 3600);
+
+        $r = app(VerificacionLegado::class)->resolver($codigo);
+
+        if ($r->estado === ResultadoVerificacionLegado::COLISION) {
+            // Error técnico SIN datos personales: huella corta del código y de la IP (nunca el código ni la IP en claro).
+            Log::error('Credential Flow: código legado compartido por pares distintos', ['pares' => $r->pares, 'codigo_sha' => substr(hash('sha256', $codigo), 0, 12), 'ip_sha' => substr(hash('sha256', (string) $request->ip()), 0, 12)]);
+        }
+        if ($r->esInexistente()) {
+            RateLimiter::hit($claveFallos, 60);
+
+            return $this->vista($request, ['estado' => 'no_encontrada'], 404);
+        }
+
+        $comunes = ['codigo' => $codigo, 'evento' => (string) $r->evento, 'anio' => $r->anio];
+
+        return match ($r->estado) {
+            ResultadoVerificacionLegado::VALIDO => $this->vista($request, $comunes + ['estado' => 'legado_valido']),
+            ResultadoVerificacionLegado::REVOCADO => $this->vista($request, $comunes + ['estado' => 'legado_revocado']),
+            ResultadoVerificacionLegado::REEMPLAZADO => $this->vista($request, $comunes + ['estado' => 'legado_reemplazado', 'enlace_moderno' => $r->codigoModerno === null ? null : UrlVerificacion::para($r->codigoModerno)]),
+            default => $this->vista($request, ['estado' => 'legado_revision', 'codigo' => $codigo]),
+        };
     }
 
     /** Respuesta 429 amable con Retry-After. Se usa también desde el limitador general. */
