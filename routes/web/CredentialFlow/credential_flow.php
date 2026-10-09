@@ -3,6 +3,7 @@
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
 use App\Http\Controllers\CredentialFlow\EliminacionDefinitivaController;
 use App\Http\Controllers\CredentialFlow\EmisionController;
+use App\Http\Controllers\CredentialFlow\EnvioController;
 use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
 use App\Http\Controllers\CredentialFlow\PlantillaController;
@@ -54,6 +55,9 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::get('/emisiones/{emision}/descargar', [EmisionController::class, 'descargar'])->middleware('throttle:60,1')->name('emisiones.descargar');
     Route::post('/emisiones/{emision}/revocar', [EmisionController::class, 'revocar'])->middleware('throttle:30,1')->name('emisiones.revocar');
     Route::post('/emisiones/{emision}/reemitir', [EmisionController::class, 'reemitir'])->middleware('throttle:30,1')->name('emisiones.reemitir');
+
+    // Fase 9: envíos de correo (códigos de acceso al portal). SOLO LECTURA: una única ruta GET, sin reenvíos ni acciones masivas.
+    Route::get('/envios', [EnvioController::class, 'index'])->name('envios.index');
 
     // Eliminación definitiva (acción aparte del «Eliminar» normal). Incluye registros ya eliminados (soft delete).
     Route::get('/lotes/{lote}/eliminacion-definitiva', [EliminacionDefinitivaController::class, 'resumenLote'])->withTrashed()->name('lotes.eliminacion.resumen');
