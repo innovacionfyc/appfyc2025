@@ -42,6 +42,14 @@ final class ImagenAPdf
     /** Peso máximo del PDF base generado desde una imagen (cada certificado emitido lo incluye). */
     public const MAX_BYTES_PDF = 3 * 1024 * 1024;
 
+    /** Imagen HISTÓRICA incrustada tal cual (Fase 10B-2B-2A.1): la memoria depende del archivo, no de los píxeles; el tope solo acota el tiempo de validación. */
+    public const MAX_PIXELES_INCRUSTADO = 150_000_000;
+
+    public const MAX_LADO_INCRUSTADO = 20000;
+
+    /** Por encima de este tamaño se advierte al administrador (los visores de PDF necesitan mucha memoria para dibujar la imagen). */
+    public const UMBRAL_IMAGEN_MUY_GRANDE = 40_000_000;
+
     /** Calidad al recomprimir un JPEG que hubo que girar o reducir. */
     private const CALIDAD_JPEG = 95;
 
@@ -52,13 +60,33 @@ final class ImagenAPdf
      *
      * @throws ImagenInvalidaException
      */
-    public static function convertir(string $bytes): array
+    public static function convertir(string $bytes, int $maxPixeles = self::MAX_PIXELES): array
     {
-        $info = self::analizar($bytes);
+        $info = self::analizar($bytes, $maxPixeles);
         [$datos, $formato, $anchoFinal, $altoFinal] = self::normalizar($bytes, $info);
 
         // La página sale de los píxeles FINALES: tras girar por EXIF o reducir, la proporción es la que se ve.
         [$ancho, $alto] = self::tamanoPagina($anchoFinal, $altoFinal);
+        $pdfBytes = self::construirPdf($datos, $formato, $ancho, $alto);
+
+        return [
+            'pdf' => $pdfBytes,
+            'ancho_pt' => $ancho,
+            'alto_pt' => $alto,
+            'ancho_px' => $anchoFinal,
+            'alto_px' => $altoFinal,
+            'ppp' => (int) round(max($anchoFinal, $altoFinal) / (self::LADO_LARGO_PT / 72)),
+            'formato' => $formato,
+        ];
+    }
+
+    /**
+     * PDF base de UNA página con la imagen a página completa y sin remuestreo. Compartido por `convertir` y `convertirHistorica`.
+     *
+     * @throws ImagenInvalidaException
+     */
+    private static function construirPdf(string $datos, string $formato, float $ancho, float $alto): string
+    {
         $orientacion = $ancho >= $alto ? 'L' : 'P';
 
         FuentesTcpdf::configurar();
@@ -103,26 +131,157 @@ final class ImagenAPdf
             throw new ImagenInvalidaException('La imagen pesa demasiado una vez preparada. Usa una más liviana (por ejemplo, un JPG).');
         }
 
+        return $pdfBytes;
+    }
+
+    /**
+     * Fondo de plantilla desde una imagen HISTÓRICA (contenido controlado, verificado por SHA-256), Fase 10B-2B-2A.1. Conserva la resolución original:
+     *
+     *  · PNG de 8 bits gris/RGB sin entrelazado ni transparencia, y JPEG sin giro EXIF ni CMYK → se valida SIN decodificar (ValidadorPng / estructura
+     *    JPEG) y se incrusta el archivo ORIGINAL tal cual (TCPDF copia el flujo comprimido; no hay bitmap ni reducción). La memoria depende del tamaño del
+     *    archivo (~1 MB), no de los píxeles: una imagen de 134 MP cabe en un PHP de 128 MB. Sin pérdida de calidad.
+     *  · Cualquier otra → decodificación como siempre, pero SOLO si la estimación previa dice que cabe; si no, `ImagenExcedeCapacidadException`.
+     *
+     * @return array{pdf:string, ancho_pt:float, alto_pt:float, ancho_px:int, alto_px:int, ppp:int, formato:string, modo:string, advertencias:list<string>}
+     *
+     * @throws ImagenInvalidaException|ImagenExcedeCapacidadException
+     */
+    public static function convertirHistorica(string $bytes): array
+    {
+        if (! extension_loaded('gd')) {
+            throw new ImagenInvalidaException('El servidor no puede procesar imágenes en este momento. Sube un PDF o avisa al equipo técnico.');
+        }
+        $info = @getimagesizefromstring($bytes);
+        if ($info === false || ! in_array($info[2] ?? null, [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) {
+            throw new ImagenInvalidaException('Este archivo no es un PNG o JPG válido.');
+        }
+        [$ancho, $alto] = [(int) $info[0], (int) $info[1]];
+        if ($ancho < 1 || $alto < 1 || $ancho > self::MAX_LADO_INCRUSTADO || $alto > self::MAX_LADO_INCRUSTADO || $ancho * $alto > self::MAX_PIXELES_INCRUSTADO) {
+            throw new ImagenInvalidaException('La imagen histórica supera el tamaño máximo admitido ('.(self::MAX_PIXELES_INCRUSTADO / 1_000_000).' megapíxeles).');
+        }
+        if ($info[2] === IMAGETYPE_JPEG && (int) ($info['channels'] ?? 3) === 4) {
+            throw new ImagenInvalidaException('La imagen está en formato CMYK. Guárdala en RGB y vuelve a subirla.');
+        }
+        [, $corto] = self::tamanoPagina($ancho, $alto, true);
+        if ($corto < DisenoSchema::PAGINA_MIN) {
+            throw new ImagenInvalidaException('La imagen es demasiado alargada para un certificado.');
+        }
+
+        $esPng = $info[2] === IMAGETYPE_PNG;
+        $incrustable = $esPng ? self::pngIncrustable($bytes) : self::orientacionExif($bytes) === 1;
+
+        if ($incrustable) {
+            $esPng ? ValidadorPng::validar($bytes) : self::validarEstructuraJpeg($bytes, $ancho, $alto);
+            [$anchoPt, $altoPt] = self::tamanoPagina($ancho, $alto);
+            $formato = $esPng ? 'PNG' : 'JPEG';
+            $pdf = self::construirPdf($bytes, $formato, $anchoPt, $altoPt);
+            [$anchoFinal, $altoFinal] = [$ancho, $alto];
+            $modo = 'incrustacion_directa';
+        } else {
+            self::exigirCapacidadParaRasterizar($ancho, $alto);
+            [$datos, $formato, $anchoFinal, $altoFinal] = self::normalizar($bytes, ['tipo' => (int) $info[2], 'ancho' => $ancho, 'alto' => $alto]);
+            [$anchoPt, $altoPt] = self::tamanoPagina($anchoFinal, $altoFinal);
+            $pdf = self::construirPdf($datos, $formato, $anchoPt, $altoPt);
+            $modo = 'rasterizacion';
+        }
+
         return [
-            'pdf' => $pdfBytes,
-            'ancho_pt' => $ancho,
-            'alto_pt' => $alto,
-            'ancho_px' => $anchoFinal,
-            'alto_px' => $altoFinal,
-            'ppp' => (int) round(max($anchoFinal, $altoFinal) / (self::LADO_LARGO_PT / 72)),
-            'formato' => $formato,
+            'pdf' => $pdf, 'ancho_pt' => $anchoPt, 'alto_pt' => $altoPt, 'ancho_px' => $anchoFinal, 'alto_px' => $altoFinal,
+            'ppp' => (int) round(max($anchoFinal, $altoFinal) / (self::LADO_LARGO_PT / 72)), 'formato' => $formato, 'modo' => $modo,
+            'advertencias' => $ancho * $alto > self::UMBRAL_IMAGEN_MUY_GRANDE ? ['IMAGEN_MUY_GRANDE'] : [],
         ];
+    }
+
+    /**
+     * Estimación PREVIA de la memoria que necesita decodificar y reducir una imagen (el bitmap de GD ocupa 4 bytes por píxel, y `sobreFondoBlanco` hace
+     * una segunda copia completa) frente a la disponible. Se rechaza ANTES de empezar: nunca un «Allowed memory size exhausted».
+     *
+     * @throws ImagenExcedeCapacidadException
+     */
+    public static function exigirCapacidadParaRasterizar(int $ancho, int $alto): void
+    {
+        $necesaria = self::estimarMemoriaRasterizacion($ancho, $alto);
+        $limite = self::limiteMemoria();
+        if ($limite === null) {
+            return;
+        }
+        $disponible = $limite - memory_get_usage(true);
+        if ($necesaria > $disponible) {
+            throw new ImagenExcedeCapacidadException(
+                'La imagen histórica es demasiado grande para procesarla en este servidor ('.round($necesaria / 1048576).' MB necesarios, '.max(0, (int) round($disponible / 1048576)).' MB disponibles) y no puede incrustarse sin decodificar. Debe procesarse en un entorno con más memoria.',
+                $necesaria,
+                max(0, $disponible),
+            );
+        }
+    }
+
+    /**
+     * Bytes de memoria PHP por píxel que consume decodificar + copiar + reducir con GD, MEDIDOS (Fase 10B-2B-2A.1): un PNG RGB de 6600×5100 (33,7 MP)
+     * llegó a 430 MB de pico (≈12,8 B/px: GD guarda 4 B/px por bitmap, libpng usa un búfer de filas y `sobreFondoBlanco` hace una copia completa);
+     * uno de 3300×2550, ~134 MB. La estimación anterior (9 B/px) se quedaba corta: con memory_limit=384M pasaba la comprobación y terminaba en Fatal.
+     */
+    public const BYTES_POR_PIXEL_RASTERIZACION = 14;
+
+    /** Memoria estimada (bytes) para rasterizar una imagen: píxeles × 14 B (con margen sobre lo medido) + 24 MB de base. */
+    public static function estimarMemoriaRasterizacion(int $ancho, int $alto): int
+    {
+        return $ancho * $alto * self::BYTES_POR_PIXEL_RASTERIZACION + 24 * 1048576;
+    }
+
+    /**
+     * Estructura de un JPEG sin decodificarlo: SOI, un marcador SOF con las dimensiones esperadas antes del primer SOS y el EOI final.
+     *
+     * @throws ImagenInvalidaException
+     */
+    private static function validarEstructuraJpeg(string $b, int $ancho, int $alto): void
+    {
+        $n = strlen($b);
+        $danada = new ImagenInvalidaException('No se pudo leer la imagen: parece dañada. Prueba con otro archivo PNG o JPG.');
+        if ($n < 4 || ! str_starts_with($b, "\xFF\xD8") || ! str_ends_with(rtrim($b, "\0\r\n "), "\xFF\xD9")) {
+            throw $danada;
+        }
+        $pos = 2;
+        $sof = false;
+        while ($pos + 4 <= $n) {
+            if ($b[$pos] !== "\xFF") {
+                throw $danada;
+            }
+            $marcador = ord($b[$pos + 1]);
+            if ($marcador === 0xFF) { // relleno
+                $pos++;
+
+                continue;
+            }
+            if ($marcador === 0xDA) { // SOS: empiezan los datos entropy-coded
+                break;
+            }
+            $largo = (int) unpack('n', substr($b, $pos + 2, 2))[1];
+            if ($largo < 2 || $pos + 2 + $largo > $n) {
+                throw $danada;
+            }
+            if (in_array($marcador, [0xC0, 0xC1, 0xC2], true)) {
+                $d = unpack('nalto/nancho', substr($b, $pos + 5, 4));
+                $sof = $d['alto'] === $alto && $d['ancho'] === $ancho;
+            }
+            $pos += 2 + $largo;
+        }
+        if (! $sof) {
+            throw $danada;
+        }
     }
 
     /**
      * Comprueba lo que se puede saber sin decodificar: tipo REAL por contenido (no por extensión ni MIME del navegador),
      * dimensiones, límites y que no sea CMYK.
      *
+     * `$maxPixeles` solo lo eleva un llamador de CONFIANZA con contenido controlado y verificado por SHA-256 (el clon de una plantilla histórica,
+     * Fase 10B-2B-2A); las subidas de usuarios usan siempre el tope por defecto. La comprobación de memoria sigue aplicando.
+     *
      * @return array{tipo:int, ancho:int, alto:int}
      *
      * @throws ImagenInvalidaException
      */
-    public static function analizar(string $bytes): array
+    public static function analizar(string $bytes, int $maxPixeles = self::MAX_PIXELES): array
     {
         if (! extension_loaded('gd')) {
             throw new ImagenInvalidaException('El servidor no puede procesar imágenes en este momento. Sube un PDF o avisa al equipo técnico.');
@@ -137,7 +296,7 @@ final class ImagenAPdf
         if ($ancho < 1 || $alto < 1) {
             throw new ImagenInvalidaException('Este archivo no es un PDF, PNG o JPG válido.');
         }
-        if ($ancho > self::MAX_LADO_PX || $alto > self::MAX_LADO_PX || $ancho * $alto > self::MAX_PIXELES) {
+        if ($ancho > self::MAX_LADO_PX || $alto > self::MAX_LADO_PX || $ancho * $alto > $maxPixeles) {
             throw new ImagenInvalidaException('La imagen es demasiado grande. Usa una de hasta 4800 × 3300 píxeles (unos 16 megapíxeles).');
         }
         if ($info[2] === IMAGETYPE_JPEG && (int) ($info['channels'] ?? 3) === 4) {
@@ -239,8 +398,8 @@ final class ImagenAPdf
             return;
         }
 
-        // GD usa ~4 bytes por píxel y se necesita una copia al normalizar.
-        $necesaria = $ancho * $alto * 9;
+        // Estimación calibrada con mediciones reales (antes: 9 B/px, insuficiente).
+        $necesaria = self::estimarMemoriaRasterizacion($ancho, $alto);
         if ($necesaria > $limite - memory_get_usage(true)) {
             throw new ImagenInvalidaException('La imagen es demasiado grande para procesarla. Usa una de menor resolución.');
         }

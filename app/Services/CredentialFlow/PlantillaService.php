@@ -52,16 +52,31 @@ class PlantillaService
     }
 
     /**
+     * Crea una plantilla a partir de un PDF base YA generado (p. ej. el clon moderno de una imagen histórica, Fase 10B-2B-2A), con atributos
+     * adicionales (diseño inicial, SHA del contenido de origen). Misma garantía de siempre: sin registro no hay archivo, y viceversa.
+     *
+     * @param  array<string,mixed>  $atributos
+     */
+    public function crearDesdePdf(string $nombre, ?string $descripcion, string $nombreOriginal, string $pdf, array $atributos = []): Plantilla
+    {
+        return $this->guardar($nombre, $descripcion, $this->nombreOriginalSeguro($nombreOriginal), hash('sha256', $pdf), function (string $carpeta) use ($pdf) {
+            $destino = $carpeta.'/'.Plantilla::NOMBRE_PDF;
+
+            return Storage::disk(Plantilla::DISCO)->put($destino, $pdf) ? $destino : false;
+        }, $atributos);
+    }
+
+    /**
      * Crea el registro y escribe el PDF base dentro de una transacción. Si algo falla no queda ni registro ni carpeta.
      *
      * @param  callable(string):(string|false)  $escribir  recibe la carpeta de la plantilla y devuelve la ruta escrita
      */
-    private function guardar(string $nombre, ?string $descripcion, string $nombreOriginal, string $hash, callable $escribir): Plantilla
+    private function guardar(string $nombre, ?string $descripcion, string $nombreOriginal, string $hash, callable $escribir, array $atributos = []): Plantilla
     {
         $plantilla = null;
 
         try {
-            return DB::transaction(function () use ($nombre, $descripcion, $nombreOriginal, $hash, $escribir, &$plantilla) {
+            return DB::transaction(function () use ($nombre, $descripcion, $nombreOriginal, $hash, $escribir, $atributos, &$plantilla) {
                 // La ruta depende del id, así que el registro se crea primero dentro de la transacción.
                 $plantilla = Plantilla::create([
                     'nombre' => $nombre,
@@ -69,7 +84,7 @@ class PlantillaService
                     'archivo_pdf' => '',
                     'nombre_archivo_original' => $nombreOriginal,
                     'hash_sha256' => $hash,
-                ]);
+                ] + $atributos);
 
                 $guardado = $escribir($plantilla->carpeta());
 

@@ -3,9 +3,9 @@ import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
-import { LayoutTemplate, Users, Sparkles, History, ArrowRight } from "lucide-vue-next";
+import { LayoutTemplate, Users, Sparkles, History, Archive, Mail, ArrowRight } from "lucide-vue-next";
 
-// Los cuatro pasos del módulo. Plantillas y Bases de participantes tienen su propia pantalla; Generación e Historial no:
+// Los pasos del módulo. Plantillas y Bases de participantes tienen su propia pantalla; Generación e Historial no:
 // se hacen dentro de cada base, así que esas tarjetas llevan a la lista de bases y lo dicen.
 const pasos = [
   {
@@ -40,6 +40,22 @@ const pasos = [
     icono: History,
     acento: "text-primary-gris bg-primary-gris/10",
   },
+  {
+    titulo: "Histórico",
+    descripcion: "Consulta los certificados de las evaluaciones anteriores: eventos, personas, plantillas y descargas. Solo lectura.",
+    ruta: "credential-flow.historico.index",
+    accion: "Abrir histórico",
+    icono: Archive,
+    acento: "text-slate-600 bg-slate-100",
+  },
+  {
+    titulo: "Envíos",
+    descripcion: "Revisa los códigos de acceso enviados por correo y si el servidor de correo los aceptó. Solo lectura.",
+    ruta: "credential-flow.envios.index",
+    accion: "Abrir envíos",
+    icono: Mail,
+    acento: "text-sky-700 bg-sky-50",
+  },
 ];
 </script>
 
@@ -53,7 +69,7 @@ const pasos = [
         subtitle="Diseña, genera y consulta los certificados de tus eventos"
       />
 
-      <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
         <Link
           v-for="(paso, i) in pasos"
           :key="paso.titulo"

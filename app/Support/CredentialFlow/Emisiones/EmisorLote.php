@@ -11,6 +11,7 @@ use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
+use App\Support\CredentialFlow\LogSeguro;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -186,7 +187,7 @@ final class EmisorLote
         } catch (Throwable $e) {
             $this->limpiar($movidos);
             if (! $e instanceof EmisionException && ! $e instanceof GeneracionCredencialException) {
-                Log::error('Credential Flow: error en la emisión masiva', ['lote' => $lote->id, 'error' => $e::class.': '.$e->getMessage()]);
+                Log::error('Credential Flow: error en la emisión masiva', ['lote' => $lote->id, 'error' => LogSeguro::resumen($e)]);
             }
 
             throw $e;

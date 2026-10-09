@@ -417,7 +417,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $delModulo = $rutas->filter(fn ($u) => str_contains($u, 'credential-flow'));
 
         // Las 7 de las fases 1 y 2, el PDF de prueba de la fase 5 y las 12 de lotes/participantes de la fase 6 y las 8 de emisiones de la fase 7 y las 4 de eliminación definitiva (resumen y borrado de base y de plantilla) y las 5 del histórico (solo GET: eventos, evento, certificado, plantillas y búsqueda) la 1 de prueba administrativa del PDF histórico congelado y la 1 de las encuestas históricas (solo lectura) y la 1 de envíos de correo (solo lectura) y las 2 de casos de conciliación (bandeja y detalle, solo lectura) y las 4 acciones de resolución de casos (3 de plantillas y la consolidación de código, POST), todas administrativas. Más las 5 del asistente de reemplazo de la Fase 10B-2B-2B (1 GET y 4 POST: clon, diseño, vista previa y emisión). Más las 2 de decisiones de identidad de la Fase 10B-3A (POST: crear y revocar; registran, no autorizan).
-        $this->assertCount(33, $delModulo);
+        $this->assertCount(62, $delModulo);
         $this->assertCount(0, $delModulo->reject(fn ($u) => str_starts_with($u, 'admin/credential-flow')));
     }
 }

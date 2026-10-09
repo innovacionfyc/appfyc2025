@@ -7,6 +7,7 @@ use App\Http\Requests\CredentialFlow\StorePlantillaRequest;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Services\CredentialFlow\PlantillaService;
+use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -56,7 +57,7 @@ class PlantillaController extends Controller
             // La imagen no se pudo usar: no se creó nada. El mensaje ya está escrito para el usuario.
             return back()->withErrors(['pdf' => $e->getMessage()]);
         } catch (Throwable $e) {
-            Log::error('Credential Flow: error al crear la plantilla: '.$e->getMessage());
+            Log::error('Credential Flow: error al crear la plantilla: '.LogSeguro::resumen($e));
 
             return back()->withErrors(['general' => 'Ocurrió un error inesperado al crear la plantilla. Inténtalo de nuevo.']);
         }
