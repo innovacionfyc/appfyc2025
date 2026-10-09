@@ -1,0 +1,11 @@
+{
+    "preset": "laravel",
+    "exclude": [
+        "resources/legado/fpdf-1.81",
+        "resources/fonts/credential-flow/tcpdf"
+    ],
+    "notPath": [
+        "resources/legado/fpdf-1.81",
+        "resources/fonts/credential-flow/tcpdf"
+    ]
+}

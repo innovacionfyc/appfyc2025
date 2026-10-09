@@ -32,7 +32,8 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app/private'),
+            // FILESYSTEM_LOCAL_ROOT permite un storage dedicado (p. ej. el de un rehearsal) sin tocar el privado de la aplicación.
+            'root' => env('FILESYSTEM_LOCAL_ROOT') ?: storage_path('app/private'),
             'serve' => true,
             'throw' => false,
             'report' => false,
