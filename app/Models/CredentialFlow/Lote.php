@@ -20,6 +20,7 @@ class Lote extends Model
 
     protected $fillable = [
         'plantilla_id',
+        'evento_id',
         'nombre',
         'descripcion',
         'datos_comunes',
@@ -34,6 +35,12 @@ class Lote extends Model
     public function plantilla(): BelongsTo
     {
         return $this->belongsTo(Plantilla::class);
+    }
+
+    /** Evento de certificación al que pertenece la base (null en las bases anteriores a los eventos). */
+    public function evento(): BelongsTo
+    {
+        return $this->belongsTo(EventoCertificacion::class, 'evento_id')->withTrashed();
     }
 
     public function emisiones(): HasMany
