@@ -25,8 +25,8 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
 
     // Fase 1: plantillas
     Route::get('/plantillas', [PlantillaController::class, 'index'])->name('plantillas.index');
-    Route::post('/plantillas', [PlantillaController::class, 'store'])->name('plantillas.store');
-    Route::delete('/plantillas/{plantilla}', [PlantillaController::class, 'destroy'])->name('plantillas.destroy');
+    Route::post('/plantillas', [PlantillaController::class, 'store'])->middleware('throttle:10,1,cf-plantilla-crear')->name('plantillas.store');
+    Route::delete('/plantillas/{plantilla}', [PlantillaController::class, 'destroy'])->middleware('throttle:20,1,cf-plantilla-borrar')->name('plantillas.destroy');
 
     // Fase 2: editor visual (el PDF base es privado y solo se sirve por esta ruta autenticada)
     Route::get('/plantillas/{plantilla}/editor', [PlantillaEditorController::class, 'show'])->name('plantillas.editor');
@@ -35,7 +35,7 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::get('/plantillas/{plantilla}/pdf-prueba', [PlantillaEditorController::class, 'pdfPrueba'])
         ->middleware('throttle:6,1')
         ->name('plantillas.pdf-prueba');
-    Route::put('/plantillas/{plantilla}/diseno', [PlantillaEditorController::class, 'update'])->name('plantillas.diseno.update');
+    Route::put('/plantillas/{plantilla}/diseno', [PlantillaEditorController::class, 'update'])->middleware('throttle:60,1,cf-plantilla-diseno')->name('plantillas.diseno.update');
 
     // Fase 6: lotes y participantes (importación XLSX/CSV validada en el backend, PDF individual)
     Route::get('/lotes', [LoteController::class, 'index'])->name('lotes.index');
@@ -44,12 +44,12 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/lotes/validar', [LoteController::class, 'validar'])->middleware('throttle:30,1')->name('lotes.validar');
     Route::post('/lotes', [LoteController::class, 'store'])->middleware('throttle:30,1')->name('lotes.store');
     Route::get('/lotes/{lote}', [LoteController::class, 'show'])->name('lotes.show');
-    Route::put('/lotes/{lote}', [LoteController::class, 'update'])->name('lotes.update');
-    Route::delete('/lotes/{lote}', [LoteController::class, 'destroy'])->name('lotes.destroy');
+    Route::put('/lotes/{lote}', [LoteController::class, 'update'])->middleware('throttle:30,1,cf-lote-editar')->name('lotes.update');
+    Route::delete('/lotes/{lote}', [LoteController::class, 'destroy'])->middleware('throttle:20,1,cf-lote-borrar')->name('lotes.destroy');
 
-    Route::post('/lotes/{lote}/participantes', [ParticipanteController::class, 'store'])->name('participantes.store');
-    Route::put('/lotes/{lote}/participantes/{participante}', [ParticipanteController::class, 'update'])->name('participantes.update');
-    Route::delete('/lotes/{lote}/participantes/{participante}', [ParticipanteController::class, 'destroy'])->name('participantes.destroy');
+    Route::post('/lotes/{lote}/participantes', [ParticipanteController::class, 'store'])->middleware('throttle:60,1,cf-participante-crear')->name('participantes.store');
+    Route::put('/lotes/{lote}/participantes/{participante}', [ParticipanteController::class, 'update'])->middleware('throttle:60,1,cf-participante-editar')->name('participantes.update');
+    Route::delete('/lotes/{lote}/participantes/{participante}', [ParticipanteController::class, 'destroy'])->middleware('throttle:60,1,cf-participante-borrar')->name('participantes.destroy');
     Route::get('/lotes/{lote}/participantes/{participante}/pdf', [ParticipanteController::class, 'pdf'])
         ->middleware('throttle:20,1')
         ->name('participantes.pdf');

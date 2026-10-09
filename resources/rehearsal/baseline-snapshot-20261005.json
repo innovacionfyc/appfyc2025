@@ -1,0 +1,64 @@
+{
+    "descripcion": "BASELINE CERTIFICADO DE DESARROLLO / REHEARSAL (Fase 11A). No es la fuente final del cutover. Sin datos personales.",
+    "snapshot": "snapshot-20261005-134802",
+    "snapshot_sha256": "e2b50fbcc4ef9c0b6374e62b664615b8e03718a9749292af0ff7fbdb343abd76",
+    "huella_global": "a8f9dc2ab951a6b2c059cd0a32985f876727b4c5c140ff573acefc5f3d36f061",
+    "huella_derivada": "662d38e55a0325c38894ab5b9ffbf96ceb389a69997e896fb850a144aff8aeb9",
+    "conteos": {
+        "cf_eventos": 623,
+        "cf_plantillas_legado": 638,
+        "cf_plantillas_legado_contenidos": 624,
+        "cf_certificados_legado": 25829,
+        "cf_correos": 25656,
+        "cf_descargas": 10927,
+        "cf_encuestas": 1,
+        "cf_encuestas_versiones": 3,
+        "cf_encuestas_preguntas": 22,
+        "cf_encuestas_opciones": 41,
+        "cf_encuestas_respuestas": 3079,
+        "cf_encuestas_respuestas_detalle": 19642,
+        "cf_codigos_historicos": 0,
+        "cf_decisiones_identidad": 0,
+        "cf_decisiones_identidad_aprobaciones": 0,
+        "cf_accesos_otp": 0,
+        "cf_envios": 0,
+        "cf_emisiones": 0
+    },
+    "certificados_por_estado": {
+        "ok": 24512,
+        "duplicado_consolidado": 828,
+        "pendiente_plantilla": 336,
+        "pendiente_conciliacion": 110,
+        "revision_documento": 43
+    },
+    "plantillas_por_estado": {
+        "ok": 616,
+        "candidata_revision": 5,
+        "extension_invalida": 1,
+        "faltante": 6,
+        "huerfana": 10
+    },
+    "casos_base": 181,
+    "casos_por_tipo_motivo": {
+        "conflicto_variantes/DIF_CORREO": 10,
+        "conflicto_variantes/DIF_NOMBRE": 3,
+        "conflicto_variantes/DIF_VERIF": 40,
+        "identidad_ambigua/CORREO_CRUZA_GRUPOS": 77,
+        "identidad_ambigua/DOCUMENTO_INVALIDO": 1,
+        "plantilla_candidata/ARCHIVO_FALTANTE_CON_CANDIDATA": 5,
+        "plantilla_faltante/ARCHIVO_FALTANTE": 1,
+        "plantilla_tipo_invalido/TIPO_NO_SOPORTADO": 1,
+        "revision_documento/DOC_LETRAS": 17,
+        "revision_documento/DOC_OTRO": 2,
+        "revision_documento/DOC_SEPARADORES": 2,
+        "revision_documento/DOC_VACIO": 14,
+        "revision_documento/DOC_WHITESPACE_CAMBIA_IMPRESION": 8
+    },
+    "dif_verif": {"casos": 40, "certificados": 80},
+    "sin_via": {
+        "GRUPO_SIN_VIA_CORREO_COMPARTIDO": 26,
+        "GRUPO_SIN_VIA_EVIDENCIA_EXTERNA": 2,
+        "GRUPO_SIN_VIA_SIN_CORREO": 6
+    },
+    "imagenes": {"contenidos": 624, "ruta_no_nula": 624}
+}
