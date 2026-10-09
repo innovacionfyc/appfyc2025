@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CredentialFlow\Concerns;
 
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
+use App\Support\CredentialFlow\LogSeguro;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +29,7 @@ trait RespondePdfDeCredencial
 
             return response()->json(['error' => ['code' => $e->codigo, 'message' => $e->getMessage()]], 422);
         } catch (Throwable $e) {
-            Log::error("Credential Flow: error inesperado al generar {$etiqueta}", $contexto + ['error' => $e::class.': '.$e->getMessage()]);
+            Log::error("Credential Flow: error inesperado al generar {$etiqueta}", $contexto + ['error' => LogSeguro::resumen($e)]);
 
             return response()->json(['error' => [
                 'code' => 'ERROR_INESPERADO',

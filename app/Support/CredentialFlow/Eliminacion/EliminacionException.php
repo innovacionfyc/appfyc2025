@@ -23,6 +23,15 @@ final class EliminacionException extends RuntimeException
 
     public const ERROR_GENERAL = 'ERROR_GENERAL';
 
+    /** Bloqueos por historial: una base con certificados emitidos, descargas o certificados históricos no se elimina. */
+    public const CON_HISTORIAL = 'CON_HISTORIAL';
+
+    public const CON_DESCARGAS = 'CON_DESCARGAS';
+
+    public const REEMPLAZA_HISTORICOS = 'REEMPLAZA_HISTORICOS';
+
+    public const CERTIFICADOS_HISTORICOS = 'CERTIFICADOS_HISTORICOS';
+
     public function __construct(public readonly string $codigo, string $mensaje)
     {
         parent::__construct($mensaje);
@@ -61,6 +70,28 @@ final class EliminacionException extends RuntimeException
     public static function datosRelacionados(): self
     {
         return new self(self::RELACIONES_AJENAS, 'No se eliminó nada: esta base tiene datos enlazados con otra base. Avisa al equipo técnico.');
+    }
+
+    private const REVOCAR = ' Puedes revocar los certificados si necesitas retirarlos.';
+
+    public static function conHistorial(): self
+    {
+        return new self(self::CON_HISTORIAL, 'Esta base tiene certificados o historial asociado y no se puede eliminar definitivamente.'.self::REVOCAR);
+    }
+
+    public static function conDescargas(): self
+    {
+        return new self(self::CON_DESCARGAS, 'Esta base tiene certificados que ya se descargaron y su historial debe conservarse, por lo que no se puede eliminar definitivamente.'.self::REVOCAR);
+    }
+
+    public static function reemplazaHistoricos(): self
+    {
+        return new self(self::REEMPLAZA_HISTORICOS, 'Esta base tiene certificados que reemplazan a certificados históricos, que deben conservarse, por lo que no se puede eliminar definitivamente.'.self::REVOCAR);
+    }
+
+    public static function certificadosHistoricos(): self
+    {
+        return new self(self::CERTIFICADOS_HISTORICOS, 'Esta base está relacionada con certificados históricos que deben conservarse, por lo que no se puede eliminar definitivamente.');
     }
 
     public static function errorGeneral(): self
