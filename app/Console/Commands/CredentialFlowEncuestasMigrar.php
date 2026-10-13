@@ -12,6 +12,7 @@ class CredentialFlowEncuestasMigrar extends Command
 {
     protected $signature = 'credential-flow:encuestas:migrar
         {--staging-bd= : Base LOCAL de staging de la que se lee (p. ej. appfyc2025_staging_ev); si se omite, la misma conexión}
+        {--confirmo-produccion= : Excepción PRODUCTIVA (exige además la variable de proceso CREDENTIAL_FLOW_ALLOW_PRODUCTION_MIGRATION con el mismo valor exacto: «appfyc»)}
         {--json : Salida en JSON}';
 
     protected $description = 'Migra las encuestas históricas del staging al modelo configurable (corrida atómica e idempotente, solo base local de pruebas). No toca el staging.';
@@ -27,7 +28,7 @@ class CredentialFlowEncuestasMigrar extends Command
         }
 
         try {
-            $r = (new MigradorEncuestas($conexion))->ejecutar();
+            $r = (new MigradorEncuestas($conexion, $this->option('confirmo-produccion') ? (string) $this->option('confirmo-produccion') : null, 'credential-flow:encuestas:migrar'))->ejecutar();
         } catch (QueryException $e) {
             // Sin valores: el mensaje de SQL puede incluir datos. Solo el código SQLSTATE.
             $this->error('Error de base de datos (SQLSTATE '.($e->errorInfo[0] ?? '?').'). Se revirtió toda la corrida.');

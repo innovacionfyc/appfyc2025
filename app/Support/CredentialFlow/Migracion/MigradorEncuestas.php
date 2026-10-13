@@ -60,7 +60,11 @@ final class MigradorEncuestas
     /** @var array<int,array<string,mixed>> */
     private array $validaciones = [];
 
-    public function __construct(private readonly ?string $conexionStaging = null) {}
+    public function __construct(
+        private readonly ?string $conexionStaging = null,
+        private readonly ?string $confirmoProduccion = null,
+        private readonly string $comando = '',
+    ) {}
 
     private function stg(): ConnectionInterface
     {
@@ -69,8 +73,8 @@ final class MigradorEncuestas
 
     public function ejecutar(): ResultadoMigracion
     {
-        GuardiaMigracion::exigirDestinoSeguro();
-        GuardiaMigracion::exigirOrigenStaging($this->conexionStaging);
+        GuardiaMigracion::exigirDestinoSeguro(null, $this->confirmoProduccion, $this->comando);
+        GuardiaMigracion::exigirOrigenStaging($this->conexionStaging, $this->confirmoProduccion, $this->comando);
 
         $inicio = microtime(true);
         [$snapshotSha, $huellaGlobal, $huellaDerivada] = $this->leerHuellas();

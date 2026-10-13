@@ -50,7 +50,11 @@ final class MigradorHistorico
     /** @var array<int,array<string,mixed>> */
     private array $validaciones = [];
 
-    public function __construct(private readonly ?string $conexionStaging = null) {}
+    public function __construct(
+        private readonly ?string $conexionStaging = null,
+        private readonly ?string $confirmoProduccion = null,
+        private readonly string $comando = '',
+    ) {}
 
     private function stg(): ConnectionInterface
     {
@@ -60,8 +64,8 @@ final class MigradorHistorico
     /** Ejecuta la migración (o NO-OP si esas huellas ya están migradas). */
     public function ejecutar(): ResultadoMigracion
     {
-        GuardiaMigracion::exigirDestinoSeguro();
-        GuardiaMigracion::exigirOrigenStaging($this->conexionStaging);
+        GuardiaMigracion::exigirDestinoSeguro(null, $this->confirmoProduccion, $this->comando);
+        GuardiaMigracion::exigirOrigenStaging($this->conexionStaging, $this->confirmoProduccion, $this->comando);
 
         $inicio = microtime(true);
         [$snapshotSha, $huellaGlobal, $huellaDerivada, $tomadoAt] = $this->leerHuellas();
