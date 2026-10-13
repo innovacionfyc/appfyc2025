@@ -12,6 +12,7 @@ class CredentialFlowLegadoMigrar extends Command
 {
     protected $signature = 'credential-flow:legado:migrar
         {--staging-bd= : Base LOCAL de staging de la que se lee (p. ej. appfyc2025_staging_ev); si se omite, la misma conexión}
+        {--confirmo-produccion= : Excepción PRODUCTIVA (exige además la variable de proceso CREDENTIAL_FLOW_ALLOW_PRODUCTION_MIGRATION con el mismo valor exacto: «appfyc»)}
         {--json : Salida en JSON}';
 
     protected $description = 'Migra el histórico del staging a las tablas finales de Credential Flow (corrida atómica e idempotente, solo base local de pruebas).';
@@ -28,7 +29,7 @@ class CredentialFlowLegadoMigrar extends Command
         }
 
         try {
-            $r = (new MigradorHistorico($conexion))->ejecutar();
+            $r = (new MigradorHistorico($conexion, $this->option('confirmo-produccion') ? (string) $this->option('confirmo-produccion') : null, 'credential-flow:legado:migrar'))->ejecutar();
         } catch (QueryException $e) {
             // Sin valores: el mensaje de SQL puede incluir datos. Solo el código SQLSTATE.
             $this->error('Error de base de datos (SQLSTATE '.($e->errorInfo[0] ?? '?').'). Se revirtió toda la corrida; revisa corrida fallida en cf_migraciones_corridas.');
