@@ -241,7 +241,10 @@ class GuardiaMigracionProduccionTest extends TestCase
     /** @return array<string,array{0:string}> */
     public static function comandos(): array
     {
-        return ['legado:migrar' => ['credential-flow:legado:migrar'], 'encuestas:migrar' => ['credential-flow:encuestas:migrar']];
+        return [
+            'legado:migrar' => ['credential-flow:legado:migrar'], 'encuestas:migrar' => ['credential-flow:encuestas:migrar'],
+            'legado:delta' => ['credential-flow:legado:delta'], 'encuestas:delta' => ['credential-flow:encuestas:delta'],
+        ];
     }
 
     public function test_la_excepcion_no_alcanza_a_otros_comandos_de_credential_flow(): void
@@ -252,9 +255,9 @@ class GuardiaMigracionProduccionTest extends TestCase
             }
             $tiene = Artisan::all()[$nombre]->getDefinition()->hasOption(GuardiaMigracion::OPCION_PRODUCCION);
             $this->assertSame(
-                in_array($nombre, ['credential-flow:legado:migrar', 'credential-flow:encuestas:migrar'], true),
+                in_array($nombre, GuardiaMigracion::COMANDOS_PRODUCCION, true),
                 $tiene,
-                "El comando {$nombre} no debe declarar --".GuardiaMigracion::OPCION_PRODUCCION.' salvo legado:migrar y encuestas:migrar'
+                "El comando {$nombre} no debe declarar --".GuardiaMigracion::OPCION_PRODUCCION.' salvo los de la lista cerrada (migrar y delta)'
             );
         }
     }
