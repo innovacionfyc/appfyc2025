@@ -32,6 +32,8 @@ final class RollbackDelta
 
             $mia = fn (string $tabla): Builder => DB::table($tabla)->where('corrida_id', $corridaId);
             $borrado = [];
+            // Primero, los códigos que el delta puso en certificados BASE (vuelven exactamente a NULL); después, lo que el delta creó.
+            $borrado['codigos'] = $this->revertirCodigos($corridaId);
             $borrado['descargas'] = $mia('cf_descargas')->delete();
             $borrado['correos'] = $mia('cf_correos')->delete();
             $borrado['certificados'] = $mia('cf_certificados_legado')->delete();
@@ -51,6 +53,7 @@ final class RollbackDelta
             $esperado = [
                 'descargas' => $t['descargas']['migradas'] ?? null, 'correos' => $t['correos']['total'] ?? null,
                 'certificados' => $t['certificados'] ?? null, 'eventos' => $t['eventos'] ?? null,
+                'codigos' => $t['codigos_actualizados']['certificados'] ?? null,
             ];
             foreach ($esperado as $clave => $n) {
                 if ($n !== null && (int) $n !== $borrado[$clave]) {
@@ -60,6 +63,53 @@ final class RollbackDelta
 
             return $this->cerrar($corrida, $borrado + ['contenidos_conservados' => $conservados], 'Rollback técnico de un delta de certificados históricos');
         });
+    }
+
+    /**
+     * Revierte, UNA A UNA y acotado por id + valor + updated_at, los `codigo_legado` que ESTE delta actualizó en certificados base.
+     * Se niega (sin tocar nada: la transacción lo deshace) si después de la corrida el certificado o su código cambió, hay PDF,
+     * visibilidad, emisión o código moderno, o sus casos de conciliación ya no son exactamente los del momento de la actualización.
+     */
+    private function revertirCodigos(int $corridaId): int
+    {
+        $mapas = DB::table('cf_migraciones_map')->where('corrida_id', $corridaId)->where('origen_tabla', MigradorDelta::MAPA_CODIGO)
+            ->where('destino_tabla', 'cf_certificados_legado')->orderBy('id')->get();
+        $no = fn (string $codigo, string $mensaje) => throw new RollbackNoPermitido($codigo, $mensaje);
+        $n = 0;
+
+        foreach ($mapas as $m) {
+            $d = json_decode((string) $m->detalle, true) ?: [];
+            $cert = DB::table('cf_certificados_legado')->where('id', $m->destino_id)->first();
+            if ($cert === null || (string) $cert->codigo_legado !== (string) ($d['codigo_nuevo'] ?? '') || (string) $cert->updated_at !== (string) ($d['updated_at_nuevo'] ?? '')) {
+                $no(RollbackNoPermitido::CODIGO_ACTUALIZADO_MODIFICADO, 'Un código legado actualizado por este delta fue modificado después (o el certificado cambió): no se revierte.');
+            }
+            if ($cert->pdf_archivo !== null || $cert->pdf_hash !== null || $cert->materializado_at !== null) {
+                $no(RollbackNoPermitido::PDF_CONGELADO, 'Un certificado con código actualizado por este delta tiene PDF congelado: no se revierte.');
+            }
+            if ((bool) $cert->visible_portal || $cert->estado !== 'vigente' || $cert->revocado_at !== null || $cert->reemplazado_por_emision_id !== null
+                || (int) $cert->intentos_generacion > 0 || $cert->update_by !== null
+                || DB::table('cf_descargas')->where('certificado_legado_id', $cert->id)->whereNotNull('emision_id')->exists()) {
+                $no(RollbackNoPermitido::CERTIFICADOS_MODIFICADOS, 'Un certificado con código actualizado por este delta fue modificado, emitido o publicado: no se revierte.');
+            }
+            if (Schema::hasTable('cf_codigos_historicos') && DB::table('cf_codigos_historicos')->where('certificado_canonico_id', $cert->id)->exists()) {
+                $no(RollbackNoPermitido::CODIGOS_ASIGNADOS, 'Hay un código moderno asignado sobre un certificado con código actualizado por este delta: no se revierte.');
+            }
+            $casos = DB::table('cf_conciliaciones_certificados as cc')->join('cf_conciliaciones as c', 'c.id', '=', 'cc.conciliacion_id')
+                ->where('cc.certificado_legado_id', $cert->id)->orderBy('c.id')->get(['c.id', 'c.estado', 'c.updated_at'])
+                ->map(fn ($c) => ['id' => (int) $c->id, 'estado' => $c->estado, 'updated_at' => (string) $c->updated_at])->all();
+            if ($casos !== ($d['casos_vinculados'] ?? [])) {
+                $no(RollbackNoPermitido::CASOS_POSTERIORES, 'Los casos de conciliación de un certificado con código actualizado por este delta cambiaron: se revierten primero esos casos.');
+            }
+
+            $filas = DB::table('cf_certificados_legado')->where('id', $cert->id)->where('codigo_legado', $d['codigo_nuevo'])->where('updated_at', $d['updated_at_nuevo'])
+                ->update(['codigo_legado' => null, 'updated_at' => $d['updated_at_anterior']]);
+            if ($filas !== 1) {
+                $no(RollbackNoPermitido::CAMBIO_CONCURRENTE, 'El código legado de un certificado cambió durante el rollback. Se revierte el rollback.');
+            }
+            $n++;
+        }
+
+        return $n;
     }
 
     /** @return array<string,int> */

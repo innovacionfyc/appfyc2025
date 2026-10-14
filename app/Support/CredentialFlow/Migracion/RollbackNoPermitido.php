@@ -48,6 +48,9 @@ final class RollbackNoPermitido extends RuntimeException
 
     public const TIPO_NO_ES_DELTA = 'TIPO_NO_ES_DELTA';
 
+    /** Delta (Fase 11F-C2): un código legado que el delta puso en un certificado base fue tocado después (o el certificado cambió). */
+    public const CODIGO_ACTUALIZADO_MODIFICADO = 'CODIGO_ACTUALIZADO_MODIFICADO';
+
     public function __construct(public readonly string $codigo, string $mensaje)
     {
         parent::__construct($codigo.': '.$mensaje);
