@@ -282,6 +282,52 @@ class MigracionDeltaMysqlTest extends TestCase
         $this->assertSame(1, DB::table('cf_migraciones_map')->where('corrida_id', $r->corridaId)->where('origen_tabla', 'descarga')->where('origen_id', '6')->count());
     }
 
+    public function test_actualizacion_de_codigo_scoped_idempotente_y_reversible_en_el_motor_real(): void
+    {
+        $this->baseMigrada();
+        $cert = fn (int $old) => (int) DB::table('cf_migraciones_map')->where('origen_tabla', 'participante')->where('origen_id', (string) $old)->value('destino_id');
+        $antes = (array) DB::table('cf_certificados_legado')->where('id', $cert(3))->first();
+        $otros = (array) DB::table('cf_certificados_legado')->where('id', $cert(6))->first();
+        $conteos = $this->conteos();
+        $datos = $this->conCambio($this->datosDelta(), 'participante', 3, ['num_verificacion' => 31003]);
+        $this->cargar('s2', $datos, $this->imagenes(['ETA 2026.png' => $this->nuevaImagen()]));
+
+        $r = (new MigradorDelta)->ejecutar();
+
+        $this->assertSame('31003', (string) DB::table('cf_certificados_legado')->where('id', $cert(3))->value('codigo_legado'));
+        $this->assertSame($otros, (array) DB::table('cf_certificados_legado')->where('id', $cert(6))->first(), 'solo cambia el certificado indicado');
+        $this->assertSame(1, DB::table('cf_migraciones_map')->where('corrida_id', $r->corridaId)->where('origen_tabla', MigradorDelta::MAPA_CODIGO)->count());
+        // Idempotencia: el mismo snapshot no vuelve a escribir.
+        $otra = (new MigradorDelta)->ejecutar();
+        $this->assertTrue($otra->noOp);
+
+        // Rollback: el código vuelve exactamente a NULL (y el resto a lo anterior).
+        $out = (new RollbackDelta)->revertirLegado($r->corridaId);
+        $this->assertSame(1, $out['codigos']);
+        $this->assertSame($antes, (array) DB::table('cf_certificados_legado')->where('id', $cert(3))->first());
+        $esperado = $conteos;
+        $esperado['cf_migraciones_corridas'] += 1;
+        $this->assertSame($esperado, $this->conteos());
+    }
+
+    public function test_cambio_de_codigo_con_actividad_posterior_bloquea_el_rollback_en_el_motor_real(): void
+    {
+        $this->baseMigrada();
+        $cert = (int) DB::table('cf_migraciones_map')->where('origen_tabla', 'participante')->where('origen_id', '3')->value('destino_id');
+        $datos = $this->conCambio($this->datosDelta(), 'participante', 3, ['num_verificacion' => 31003]);
+        $this->cargar('s2', $datos, $this->imagenes(['ETA 2026.png' => $this->nuevaImagen()]));
+        $r = (new MigradorDelta)->ejecutar();
+        DB::table('cf_certificados_legado')->where('id', $cert)->update(['visible_portal' => true]);
+
+        try {
+            (new RollbackDelta)->revertirLegado($r->corridaId);
+            $this->fail('Debía bloquear');
+        } catch (RollbackNoPermitido $e) {
+            $this->assertSame(RollbackNoPermitido::CERTIFICADOS_MODIFICADOS, $e->codigo);
+        }
+        $this->assertSame('31003', (string) DB::table('cf_certificados_legado')->where('id', $cert)->value('codigo_legado'));
+    }
+
     public function test_fila_ausente_rechaza_todo_sin_escribir_en_el_motor_real(): void
     {
         $this->baseMigrada();

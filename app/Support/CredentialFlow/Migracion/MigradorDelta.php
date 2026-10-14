@@ -28,6 +28,11 @@ use Throwable;
  *  - Aditivo: eventos, plantillas/contenidos (reutiliza por SHA-256), certificados, correos y descargas. Una descarga nueva sobre
  *    un certificado ya migrado resuelve su destino por `cf_migraciones_map` y solo inserta la descarga.
  *  - No migra tokens, no asigna códigos modernos (preserva el código legado) y no resuelve casos.
+ *  - ÚNICA excepción a «base inmutable» (Fase 11F-C2): un participante ya migrado cuyo ÚNICO cambio es `num_verificacion` NULL/vacío →
+ *    código (el sistema viejo lo asigna en la primera descarga). Solo si TODAS las invariantes de `evaluarCambioDeCodigo` se cumplen;
+ *    actualiza únicamente `codigo_legado` del certificado (acotado por id y por `codigo_legado IS NULL`), deja huella en
+ *    `cf_migraciones_map` (origen `participante_codigo`) y es reversible con el rollback del delta. Cualquier otra diferencia sigue
+ *    siendo FILAS_CAMBIADAS.
  *  - Atómica (una transacción) y validada contra el subconjunto delta del staging; si algo no cuadra, no queda nada.
  *
  * Reglas de negocio idénticas a MigradorHistorico (conciliación, correos, plantilla usable); la paridad se prueba en
@@ -36,6 +41,15 @@ use Throwable;
 final class MigradorDelta
 {
     private const AUSENTE = 'ausente_en_origen';
+
+    /** Origen del mapa para la actualización de código de un certificado base (nunca se confunde con `participante`). */
+    public const MAPA_CODIGO = 'participante_codigo';
+
+    /** Columna del staging → clave del origen: TODO lo que el staging guarda del participante salvo `num_verificacion`. */
+    private const ORIGINALES_SIN_CODIGO = [
+        'old_evento_id' => 'id_evento', 'tipo_documento_original' => 'tipo_documento', 'documento_original' => 'documento',
+        'nombre_original' => 'nombre', 'correo_original' => 'correo',
+    ];
 
     /** Entidad del historial del staging → (tabla, columna clave) de las tablas que el delta migra y por tanto vigila. */
     private const VIGILADAS = [
@@ -60,6 +74,12 @@ final class MigradorDelta
 
     /** @var array<int,array<string,mixed>> */
     private array $validaciones = [];
+
+    /** @var array<int,array{cert_id:int,codigo:string,evento_id:int}> old_id del participante → actualización de código aceptada */
+    private array $codigosActualizar = [];
+
+    /** @var array<string,int> motivo → cantidad de cambios de `num_verificacion` rechazados */
+    private array $codigosRechazados = [];
 
     public function __construct(
         private readonly ?string $conexionStaging = null,
@@ -98,6 +118,8 @@ final class MigradorDelta
             throw new RuntimeException('Hay otro delta de este snapshot en estado «ejecutando». No se inicia otro.');
         }
 
+        $this->codigosActualizar = [];
+        $this->codigosRechazados = [];
         $corte = $this->snapshotDeCorte();
         $plan = $this->planear($corte);
         $this->rechazarDiferencias($corte);
@@ -111,8 +133,9 @@ final class MigradorDelta
             'descargas_nuevas' => count($plan['descargas']),
             'imagenes_nuevas' => count($plan['imagenes']),
             'tokens_nuevos_no_migrados' => $this->stg()->table('stg_ev_token')->where('primera_snapshot_id', '>', $corte)->where('estado_fila', '!=', self::AUSENTE)->count(),
+            'codigos_legado_actualizados' => count($this->codigosActualizar),
         ];
-        if ($plan['eventos'] === [] && $plan['participantes'] === [] && $plan['descargas'] === [] && $plan['imagenes'] === []) {
+        if ($plan['eventos'] === [] && $plan['participantes'] === [] && $plan['descargas'] === [] && $plan['imagenes'] === [] && $this->codigosActualizar === []) {
             return new ResultadoMigracion(true, 0, $resumen, 'No hay filas nuevas posteriores al último snapshot migrado. No se hizo ningún cambio.');
         }
         if ($simular) {
@@ -220,6 +243,10 @@ final class MigradorDelta
             $enHistorial = $s->table('stg_ev_historial')->where('entidad', $entidad)->where('snapshot_id', '>', $corte)
                 ->get(['old_id', 'clave'])->map(fn ($h) => (string) ($h->old_id ?? $h->clave))->all();
             $todas = array_values(array_unique([...$claves, ...$enHistorial]));
+            if ($entidad === 'participante' && $todas !== []) {
+                // Única transición base aceptada: `num_verificacion` NULL/vacío → código (con TODAS sus invariantes).
+                $todas = $this->evaluarCambiosDeCodigo($todas, $corte);
+            }
             if ($todas !== []) {
                 $cambiadas[$entidad] = count($todas);
             }
@@ -229,7 +256,7 @@ final class MigradorDelta
             }
         }
         if ($cambiadas !== []) {
-            throw new DeltaRechazado(DeltaRechazado::FILAS_CAMBIADAS, 'Hay filas ya migradas que cambiaron en el origen ('.json_encode($cambiadas).'). El delta no actualiza ni reconcilia: se detiene.', ['cambiadas' => $cambiadas, 'ausentes' => $ausentes]);
+            throw new DeltaRechazado(DeltaRechazado::FILAS_CAMBIADAS, 'Hay filas ya migradas que cambiaron en el origen ('.json_encode($cambiadas).'). El delta no actualiza ni reconcilia: se detiene.', ['cambiadas' => $cambiadas, 'ausentes' => $ausentes, 'cambios_de_codigo_rechazados' => $this->codigosRechazados]);
         }
         if ($ausentes !== []) {
             throw new DeltaRechazado(DeltaRechazado::FILAS_AUSENTES, 'Hay filas ya migradas que ya no existen en el origen ('.json_encode($ausentes).'). El delta no borra ni reconcilia: se detiene.', ['ausentes' => $ausentes, 'cambiadas' => $cambiadas]);
@@ -281,6 +308,173 @@ final class MigradorDelta
         }
     }
 
+    // ── Cambio de `num_verificacion` NULL → código sobre un certificado base ───────────────────────────────
+
+    /**
+     * Evalúa los participantes ya migrados que cambiaron en el origen. Acepta (y guarda en `$codigosActualizar`) SOLO los que cumplen
+     * TODAS las invariantes; devuelve los old_id que NO se aceptan (siguen siendo FILAS_CAMBIADAS). Solo lectura: no escribe nada.
+     *
+     * @param  array<int,string>  $oldIds
+     * @return array<int,string> old_id rechazados
+     */
+    private function evaluarCambiosDeCodigo(array $oldIds, int $corte): array
+    {
+        $rechazados = [];
+        foreach ($oldIds as $old) {
+            $motivo = $this->evaluarCambioDeCodigo((int) $old, $corte);
+            if ($motivo !== null) {
+                $rechazados[] = (string) $old;
+                $this->codigosRechazados[$motivo] = ($this->codigosRechazados[$motivo] ?? 0) + 1;
+            }
+        }
+
+        return $rechazados;
+    }
+
+    /** @return string|null motivo técnico del rechazo (sin datos personales), o null si la transición es aceptable */
+    private function evaluarCambioDeCodigo(int $old, int $corte): ?string
+    {
+        $s = $this->stg();
+        $fila = $s->table('stg_ev_participante')->where('old_id', $old)->first();
+        if ($fila === null || $fila->estado_fila === self::AUSENTE) {
+            return 'SIN_FILA_ACTUAL';
+        }
+        $hist = $s->table('stg_ev_historial')->where('entidad', 'participante')->where('old_id', $old)->where('snapshot_id', '>', $corte)->orderBy('id')->first();
+        if ($hist === null) {
+            return 'SIN_HISTORIAL';
+        }
+        $previo = json_decode((string) $hist->datos_anteriores, true);
+        if (! is_array($previo) || ! array_key_exists('num_verificacion', $previo)) {
+            return 'SIN_HISTORIAL';
+        }
+
+        // 1. El único campo cambiado es num_verificacion (todo lo demás que guarda el staging es idéntico).
+        foreach (self::ORIGINALES_SIN_CODIGO as $colStaging => $colOrigen) {
+            $a = $previo[$colOrigen] ?? null;
+            $b = $fila->{$colStaging};
+            if (($a === null ? null : (string) $a) !== ($b === null ? null : (string) $b)) {
+                return 'CAMPOS_ADICIONALES';
+            }
+        }
+        // 2-3. Valor anterior vacío; valor final no vacío.
+        $vacio = fn ($v) => $v === null || trim((string) $v) === '';
+        if (! $vacio($previo['num_verificacion'])) {
+            return 'CODIGO_PREVIO_NO_VACIO';
+        }
+        if ($vacio($fila->num_verificacion)) {
+            return 'CODIGO_FINAL_VACIO';
+        }
+        $codigo = trim((string) $fila->num_verificacion);
+        if (preg_match('/^\d{1,5}$/', $codigo) !== 1) {
+            return 'CODIGO_FORMATO';
+        }
+
+        // 6. Fuera del rango reservado de Credential Flow.
+        [$inicio, $fin] = $this->rangoReservado();
+        if ((int) $codigo >= $inicio && (int) $codigo <= $fin) {
+            return 'RANGO_RESERVADO';
+        }
+
+        // 4-5. Único: ningún otro participante del sistema viejo, ningún certificado migrado y ningún código moderno lo usa.
+        if ($s->table('stg_ev_participante')->where('num_verificacion', (int) $codigo)->where('old_id', '!=', $old)->where('estado_fila', '!=', self::AUSENTE)->exists()) {
+            return 'CODIGO_DUPLICADO_LEGACY';
+        }
+        if (DB::table('cf_certificados_legado')->where('codigo_legado', $codigo)->exists()) {
+            return 'CODIGO_COLISIONA_CERTIFICADO';
+        }
+        if (DB::table('cf_codigos_historicos')->whereIn('codigo', array_values(array_unique([$codigo, str_pad($codigo, 5, '0', STR_PAD_LEFT)])))->exists()) {
+            return 'CODIGO_COLISIONA_MODERNO';
+        }
+
+        // 7. El certificado base: existe, es el esperado y está «limpio».
+        $certId = $this->mapeados('participante')[(string) $old] ?? null;
+        $cert = $certId === null ? null : DB::table('cf_certificados_legado')->where('id', $certId)->first();
+        if ($cert === null) {
+            return 'SIN_CERTIFICADO';
+        }
+        $snap = json_decode((string) $cert->snapshot_legado, true) ?: [];
+        if ((int) ($snap['migracion']['old_id'] ?? 0) !== $old) {
+            return 'MAPEO_INCORRECTO';
+        }
+        $eventoDestino = $this->mapeados('evento')[(string) $fila->old_evento_id] ?? null;
+        if ($eventoDestino === null || (int) $eventoDestino !== (int) $cert->evento_id) {
+            return 'EVENTO_DISTINTO';
+        }
+        if ($cert->codigo_legado !== null && trim((string) $cert->codigo_legado) !== '') {
+            return 'CERTIFICADO_YA_TIENE_CODIGO';
+        }
+        if ($cert->estado !== CertificadoLegado::ESTADO_VIGENTE || $cert->revocado_at !== null) {
+            return 'CERTIFICADO_NO_VIGENTE';
+        }
+        if ($cert->pdf_archivo !== null || $cert->pdf_hash !== null || $cert->materializado_at !== null) {
+            return 'PDF_CONGELADO';
+        }
+        if ((bool) $cert->visible_portal) {
+            return 'VISIBLE_EN_PORTAL';
+        }
+        if ($cert->reemplazado_por_emision_id !== null || (int) $cert->intentos_generacion > 0
+            || DB::table('cf_descargas')->where('certificado_legado_id', $cert->id)->whereNotNull('emision_id')->exists()) {
+            return 'EMISION_MODERNA';
+        }
+        if (DB::table('cf_codigos_historicos')->where('certificado_canonico_id', $cert->id)->exists()) {
+            return 'CODIGO_MODERNO_ASIGNADO';
+        }
+        $corridaCert = $cert->corrida_id === null ? null : MigracionCorrida::find($cert->corrida_id);
+        if ($cert->update_by !== null || $corridaCert === null || $corridaCert->finalizado_at === null
+            || (string) $cert->updated_at > $corridaCert->finalizado_at->format('Y-m-d H:i:s')) {
+            return 'MODIFICADO_POSTERIORMENTE';
+        }
+
+        // 8. Grupo (duplicados) sin cambios: ni el certificado ni el staging pertenecen a un grupo de duplicados.
+        if ($cert->grupo_duplicado !== null || $fila->grupo_duplicado_id !== null) {
+            return 'EN_GRUPO_DUPLICADO';
+        }
+        // Un par (evento, documento) no puede quedar con dos códigos distintos.
+        if ($cert->documento_clave !== null && DB::table('cf_certificados_legado')->where('evento_id', $cert->evento_id)->where('documento_clave', $cert->documento_clave)
+            ->where('id', '!=', $cert->id)->whereNotNull('codigo_legado')->where('codigo_legado', '!=', $codigo)->exists()) {
+            return 'PAR_CON_VARIOS_CODIGOS';
+        }
+
+        $this->codigosActualizar[$old] = ['cert_id' => (int) $cert->id, 'codigo' => $codigo, 'evento_id' => (int) $cert->evento_id];
+
+        return null;
+    }
+
+    /** @return array{0:int,1:int} */
+    private function rangoReservado(): array
+    {
+        $fila = DB::table('cf_codigo_historico_contador')->where('id', 1)->first();
+        if ($fila !== null) {
+            return [(int) $fila->inicio, (int) $fila->fin];
+        }
+
+        return [(int) config('credential_flow.codigos_historicos.inicio', 50000), (int) config('credential_flow.codigos_historicos.fin', 99999)];
+    }
+
+    /** Aplica las actualizaciones aceptadas: UNA fila por certificado, acotada por id y por `codigo_legado IS NULL`. */
+    private function actualizarCodigos(): void
+    {
+        $n = 0;
+        foreach ($this->codigosActualizar as $old => $a) {
+            $antes = DB::table('cf_certificados_legado')->where('id', $a['cert_id'])->first(['updated_at', 'codigo_legado']);
+            $casos = DB::table('cf_conciliaciones_certificados as cc')->join('cf_conciliaciones as c', 'c.id', '=', 'cc.conciliacion_id')
+                ->where('cc.certificado_legado_id', $a['cert_id'])->orderBy('c.id')->get(['c.id', 'c.estado', 'c.updated_at'])
+                ->map(fn ($c) => ['id' => (int) $c->id, 'estado' => $c->estado, 'updated_at' => (string) $c->updated_at])->all();
+
+            $filas = DB::table('cf_certificados_legado')->where('id', $a['cert_id'])->whereNull('codigo_legado')
+                ->update(['codigo_legado' => $a['codigo'], 'updated_at' => $this->ahora]);
+            if ($filas !== 1) {
+                throw new RuntimeException('La actualización de código legado afectó '.$filas.' filas (se esperaba 1). Se revierte toda la corrida.');
+            }
+            $this->mapa(self::MAPA_CODIGO, (string) $old, 'cf_certificados_legado', $a['cert_id'], 'codigo_actualizado', [
+                'codigo_anterior' => null, 'codigo_nuevo' => $a['codigo'], 'updated_at_anterior' => (string) $antes->updated_at, 'updated_at_nuevo' => $this->ahora,
+                'casos_vinculados' => $casos,
+            ]);
+            $n++;
+        }
+        $this->totales['codigos_actualizados'] = ['certificados' => $n, 'cambios_rechazados' => $this->codigosRechazados];
+    }
+
     // ── Migración (dentro de la transacción) ──────────────────────────────────────────────────────────────
 
     /** @param array<string,mixed> $plan */
@@ -312,6 +506,9 @@ final class MigradorDelta
         });
         $etapa('descargas', function () use ($plan, $certificados) {
             $this->descargas($plan, $certificados);
+        });
+        $etapa('codigos', function () {
+            $this->actualizarCodigos();
         });
         $this->vaciarMapa();
 
@@ -700,6 +897,7 @@ final class MigradorDelta
             'mapa_participantes' => [count($plan['participantes']), DB::table('cf_migraciones_map')->where('corrida_id', $this->corridaId)->where('origen_tabla', 'participante')->count()],
             'mapa_eventos' => [count($plan['eventos']), DB::table('cf_migraciones_map')->where('corrida_id', $this->corridaId)->where('origen_tabla', 'evento')->count()],
             'mapa_descargas' => [$descargasConParticipante, DB::table('cf_migraciones_map')->where('corrida_id', $this->corridaId)->where('origen_tabla', 'descarga')->count()],
+            'codigos_actualizados' => [count($this->codigosActualizar), DB::table('cf_migraciones_map')->where('corrida_id', $this->corridaId)->where('origen_tabla', self::MAPA_CODIGO)->count()],
             // Un código legado de este delta no puede coincidir con el de otro par (evento, documento) ya migrado ni con otro del delta.
             'codigos_compartidos_entre_pares_distintos' => [0, $this->codigosCompartidos()],
         ];
