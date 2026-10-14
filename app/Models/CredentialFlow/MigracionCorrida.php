@@ -18,6 +18,14 @@ class MigracionCorrida extends Model
     /** Corrida de las encuestas históricas (Fase 8): independiente de la de certificados, con su propio rollback. */
     public const TIPO_ENCUESTAS = 'legado_encuestas';
 
+    /**
+     * Fase 11F-B: DELTA posterior al snapshot base (solo filas nuevas del staging actualizado). Son tipos propios: la guardia de clave
+     * y los rollbacks de la base solo ven `legado_evaluaciones` y `legado_encuestas`.
+     */
+    public const TIPO_LEGADO_DELTA = 'legado_delta';
+
+    public const TIPO_ENCUESTAS_DELTA = 'encuestas_delta';
+
     public const ESTADO_PENDIENTE = 'pendiente';
 
     public const ESTADO_EJECUTANDO = 'ejecutando';

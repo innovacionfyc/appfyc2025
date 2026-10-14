@@ -43,6 +43,11 @@ final class RollbackNoPermitido extends RuntimeException
 
     public const CASOS_CON_DECISIONES = 'CASOS_CON_DECISIONES';
 
+    /** Delta (Fase 11F-B): hay casos de conciliación sobre certificados o eventos de la corrida delta (se revierten primero). */
+    public const CASOS_POSTERIORES = 'CASOS_POSTERIORES';
+
+    public const TIPO_NO_ES_DELTA = 'TIPO_NO_ES_DELTA';
+
     public function __construct(public readonly string $codigo, string $mensaje)
     {
         parent::__construct($codigo.': '.$mensaje);

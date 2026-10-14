@@ -37,6 +37,19 @@ final class GuardiaMigracion
     /** Variable de PROCESO (valor exacto: el nombre de la base). Jamás en .env ni en la configuración del servidor. */
     public const VARIABLE_PRODUCCION = 'CREDENTIAL_FLOW_ALLOW_PRODUCTION_MIGRATION';
 
+    /**
+     * Lista CERRADA de comandos que pueden obtener la excepción de producción: la migración base y la migración DELTA (Fase 11F-B)
+     * con sus rollbacks técnicos. Cualquier otro nombre (incluido vacío) queda bloqueado aunque la doble confirmación sea correcta.
+     */
+    public const COMANDOS_PRODUCCION = [
+        'credential-flow:legado:migrar',
+        'credential-flow:encuestas:migrar',
+        'credential-flow:legado:delta',
+        'credential-flow:encuestas:delta',
+        'credential-flow:legado:delta-rollback',
+        'credential-flow:encuestas:delta-rollback',
+    ];
+
     public static function exigirDestinoSeguro(?string $conexion = null, ?string $confirmoProduccion = null, string $comando = ''): void
     {
         self::exigir($conexion, self::DESTINO, 'destino', 'una base local de pruebas de migración (p. ej. appfyc2025_migracion_legado_test)', $confirmoProduccion, $comando);
@@ -79,7 +92,7 @@ final class GuardiaMigracion
         }
 
         // Excepción de producción: solo para el DESTINO, con la doble confirmación exacta (ver la clase).
-        if ($rol === 'destino' && self::produccionAutorizada($base, $confirmoProduccion)) {
+        if ($rol === 'destino' && self::produccionAutorizada($base, $confirmoProduccion, $comando)) {
             // Una sola entrada por proceso y comando (la guardia puede evaluarse dos veces: destino y origen en la misma base).
             $clave = $base.'|'.$comando;
             if (! isset(self::$registradas[$clave])) {
@@ -105,9 +118,9 @@ final class GuardiaMigracion
     }
 
     /** Todas las condiciones deben cumplirse a la vez; cualquier otra combinación mantiene el bloqueo. */
-    private static function produccionAutorizada(string $base, ?string $confirmoProduccion): bool
+    private static function produccionAutorizada(string $base, ?string $confirmoProduccion, string $comando = ''): bool
     {
-        if ($base !== self::BASE_PRODUCCION || $confirmoProduccion !== self::BASE_PRODUCCION) {
+        if ($base !== self::BASE_PRODUCCION || $confirmoProduccion !== self::BASE_PRODUCCION || ! in_array($comando, self::COMANDOS_PRODUCCION, true)) {
             return false;
         }
         // Variable de PROCESO leída directamente (no config()/env(): con config:cache no se releerían).
