@@ -6,6 +6,7 @@ use App\Support\CredentialFlow\StagingEv\EscanerImagenes;
 use App\Support\CredentialFlow\StagingEv\FuenteConexion;
 use App\Support\CredentialFlow\StagingEv\GuardiaStaging;
 use App\Support\CredentialFlow\StagingEv\ImportadorSnapshot;
+use App\Support\CredentialFlow\StagingEv\OrigenConexion;
 use App\Support\CredentialFlow\StagingEv\SnapshotInfo;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -18,6 +19,7 @@ class CredentialFlowStagingEvCargar extends Command
     protected $signature = 'credential-flow:staging-ev:cargar
         {--dump= : Dump del sistema viejo (.sql o .sql.gz): solo se lee para registrar su SHA-256 y su cabecera}
         {--origen-bd= : Base LOCAL donde ya está restaurado ese dump (su nombre debe contener «snapshot» u «origen»)}
+        {--origen-usuario= : Usuario SOLO de la conexión de origen (la contraseña se toma de la variable de entorno STAGING_EV_ORIGEN_PASSWORD; nunca por argumento)}
         {--etiqueta= : Etiqueta única del snapshot (por defecto, el nombre del dump)}
         {--imagenes= : Carpeta con las imágenes del sistema viejo (certImages): se inventarían, o con --manifest solo se comprueban}
         {--manifest= : Manifiesto JSON de las imágenes (fuente de verdad del nombre original, SHA-256, tamaño, MIME y dimensiones)}
@@ -39,6 +41,7 @@ class CredentialFlowStagingEvCargar extends Command
                 return self::FAILURE;
             }
             GuardiaStaging::exigirOrigenLocal($origenBd);
+            $origenConfig = OrigenConexion::configurar($origenBd, (string) $this->option('origen-usuario'));
             if (! Schema::hasTable('stg_ev_snapshots')) {
                 $this->error('Faltan las tablas de staging. Instálalas con: php artisan migrate --path=database/staging/ev --force');
 
@@ -71,7 +74,7 @@ class CredentialFlowStagingEvCargar extends Command
                 }
             }
 
-            config(['database.connections.staging_ev_origen' => [...config('database.connections.'.config('database.default')), 'database' => $origenBd]]);
+            config(['database.connections.staging_ev_origen' => $origenConfig]);
             DB::purge('staging_ev_origen');
 
             $resultado = (new ImportadorSnapshot)->cargar($info, new FuenteConexion(DB::connection('staging_ev_origen')), $imagenes, (bool) $this->option('forzar'));
