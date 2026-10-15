@@ -35,6 +35,7 @@
         .insignia.mal { background: #fee2e2; color: #7f1d1d; }
         .fila { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
         form.en-linea { display: inline; }
+        .soporte { margin: 1rem .25rem 0; font-size: .9rem; text-align: center; color: var(--suave); }
         .pie { margin: 1rem .25rem 0; font-size: .78rem; color: var(--suave); text-align: center; }
         a { color: var(--vino); }
     </style>
@@ -47,6 +48,10 @@
     @if (session('error'))<div class="error" role="alert" data-mensaje="error">{{ session('error') }}</div>@endif
 
     @yield('contenido')
+
+    @if (! empty($contacto))
+        <p class="soporte" data-soporte="whatsapp">¿Tienes problemas para acceder o descargar tu certificado? <a href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Escríbenos por WhatsApp.</a></p>
+    @endif
 
     <p class="pie">Consulta de certificados de {{ $entidad }}</p>
 </main>

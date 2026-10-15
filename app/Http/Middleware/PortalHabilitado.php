@@ -28,6 +28,6 @@ class PortalHabilitado
         // Este middleware corre antes que CabecerasPortal (lista de prioridad): las cabeceras seguras se aplican aquí para que la respuesta no dependa del orden.
         $nonce = CabecerasVerificacionPublica::nonce($request);
 
-        return CabecerasPortal::aplicar(response()->view('credential-flow.portal.no-disponible', ['nonce' => $nonce], 503)->header('Retry-After', '3600'), $nonce);
+        return CabecerasPortal::aplicar(response()->view('credential-flow.portal.no-disponible', ['nonce' => $nonce, 'contacto' => config('credential_flow.portal.contacto_url')], 503)->header('Retry-After', '3600'), $nonce);
     }
 }
