@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\CredentialFlow\Migracion\ConexionStaging;
 use App\Support\CredentialFlow\Migracion\DeltaRechazado;
 use App\Support\CredentialFlow\Migracion\MigradorDeltaEncuestas;
 use Illuminate\Console\Command;
@@ -13,6 +14,7 @@ class CredentialFlowEncuestasDelta extends Command
 {
     protected $signature = 'credential-flow:encuestas:delta
         {--staging-bd= : Base LOCAL de staging (ya actualizada con el snapshot final) de la que se lee; si se omite, la misma conexión}
+        {--staging-usuario= : Usuario SOLO de la conexión de staging (la contraseña se toma de la variable de entorno STAGING_EV_STAGING_PASSWORD; nunca por argumento)}
         {--simular : Calcula y valida el delta sin escribir nada}
         {--confirmo-produccion= : Excepción PRODUCTIVA (exige además la variable de proceso CREDENTIAL_FLOW_ALLOW_PRODUCTION_MIGRATION con el mismo valor exacto: «appfyc»)}
         {--json : Salida en JSON}';
@@ -23,10 +25,19 @@ class CredentialFlowEncuestasDelta extends Command
     {
         $conexion = null;
         if ($this->option('staging-bd')) {
-            $base = config('database.connections.'.config('database.default'));
-            config(['database.connections.staging_ev' => array_merge($base, ['database' => (string) $this->option('staging-bd')])]);
+            try {
+                config(['database.connections.staging_ev' => ConexionStaging::configurar((string) $this->option('staging-bd'), (string) $this->option('staging-usuario'))]);
+            } catch (Throwable $e) {
+                $this->error($e->getMessage());
+
+                return self::FAILURE;
+            }
             DB::purge('staging_ev');
             $conexion = 'staging_ev';
+        } elseif ($this->option('staging-usuario')) {
+            $this->error('--staging-usuario solo tiene sentido junto con --staging-bd.');
+
+            return self::FAILURE;
         }
 
         try {
