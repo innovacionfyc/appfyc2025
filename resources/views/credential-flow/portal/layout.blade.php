@@ -12,7 +12,7 @@
     <meta name="referrer" content="no-referrer">
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#942934">
-    <title>@yield('titulo', 'Tus certificados') · F&amp;C Consultores</title>
+    <title>@yield('titulo', 'Certificados') · F&amp;C Consultores</title>
     <link rel="icon" href="/images/logo-fyc-web.png" type="image/png">
     <style nonce="{{ $nonce }}">
         /* Lenguaje visual de appfyc: Figtree, vinotinto/naranja de marca, slate, bordes redondeados, transiciones de 300 ms y encabezado de vidrio. */
@@ -96,9 +96,10 @@
         .enlace { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--vino); text-decoration: none; cursor: pointer; transition: color .3s; }
         .enlace:hover { color: var(--rosa); text-decoration: underline; }
 
-        .aviso, .error { display: flex; gap: .6rem; padding: .8rem 1rem; margin: 0 0 1rem; border-radius: .9rem; font-size: .9rem; font-weight: 600; }
+        .aviso, .error, .exito { display: flex; gap: .6rem; padding: .8rem 1rem; margin: 0 0 1rem; border-radius: .9rem; font-size: .9rem; font-weight: 600; }
         .aviso { background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; }
         .error { background: #fef2f2; border: 1px solid #fecaca; color: var(--mal-texto); }
+        .exito { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--ok-texto); }
 
         .fila { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
         form.en-linea { display: inline; }
@@ -141,6 +142,7 @@
 <main>
     <div class="@yield('ancho')">
         @if (! $sinSesion && session('aviso'))<div class="aviso" role="status" data-mensaje="aviso">{{ session('aviso') }}</div>@endif
+        @if (! $sinSesion && session('exito'))<div class="exito" role="status" data-mensaje="exito">{{ session('exito') }}</div>@endif
         @if (! $sinSesion && session('error'))<div class="error" role="alert" data-mensaje="error">{{ session('error') }}</div>@endif
     </div>
 
@@ -149,7 +151,7 @@
     @if (! empty($contacto))
         <p class="soporte" data-soporte="whatsapp">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.9 9.9 0 0 0-8.5 14.9L2 22l5.25-1.5A9.9 9.9 0 1 0 12.04 2Zm0 18.1a8.2 8.2 0 0 1-4.2-1.15l-.3-.18-3.1.9.93-3.02-.2-.31a8.2 8.2 0 1 1 6.87 3.76Zm4.5-6.15c-.25-.12-1.46-.72-1.69-.8-.23-.09-.39-.12-.56.12-.16.25-.64.8-.78.96-.15.17-.29.19-.54.06a6.7 6.7 0 0 1-3.3-2.88c-.25-.43.25-.4.72-1.33.08-.16.04-.3-.02-.42-.06-.12-.56-1.35-.77-1.85-.2-.48-.4-.42-.56-.43h-.47c-.16 0-.43.06-.65.3-.23.25-.86.85-.86 2.07s.88 2.4 1 2.57c.12.16 1.74 2.65 4.2 3.72 1.56.67 2.17.73 2.95.62.48-.07 1.46-.6 1.67-1.18.2-.58.2-1.07.15-1.18-.07-.1-.23-.16-.48-.28Z"/></svg>
-            <span>¿Tienes problemas para acceder o descargar tu certificado? <a href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Escríbenos por WhatsApp.</a></span>
+            <span>¿Inconvenientes para acceder o descargar el certificado? <a href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Contactar por WhatsApp.</a></span>
         </p>
     @endif
 </main>
@@ -167,5 +169,6 @@
         document.querySelectorAll('button.cargando').forEach(function (b) { b.classList.remove('cargando'); b.disabled = false; b.removeAttribute('aria-busy'); });
     });
 </script>
+@stack('scripts')
 </body>
 </html>

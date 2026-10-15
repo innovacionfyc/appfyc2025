@@ -10,6 +10,7 @@ use App\Models\CredentialFlow\Descarga;
 use App\Models\CredentialFlow\Emision;
 use App\Support\CredentialFlow\Emisiones\AlmacenEmisiones;
 use App\Support\CredentialFlow\Emisiones\EmisionException;
+use App\Support\CredentialFlow\Encuestas\EncuestaPortal;
 use App\Support\CredentialFlow\Legado\CodigoHistoricoException;
 use App\Support\CredentialFlow\Legado\CongeladoNoPermitido;
 use App\Support\CredentialFlow\Legado\CongeladorLegado;
@@ -35,13 +36,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PortalPublicoController extends Controller
 {
-    public const MENSAJE_UNIFORME = 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.';
+    public const MENSAJE_UNIFORME = 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.';
 
     public const MENSAJE_CODIGO = 'El código no es válido o ya expiró.';
 
     private const MAX_FALLOS_SESION = 10;
 
-    public function __construct(private readonly ServicioOtp $otp, private readonly AccesoPortal $acceso) {}
+    public function __construct(private readonly ServicioOtp $otp, private readonly AccesoPortal $acceso, private readonly EncuestaPortal $encuesta) {}
 
     public function inicio(Request $request): Response
     {
@@ -55,7 +56,7 @@ class PortalPublicoController extends Controller
     public function solicitar(Request $request): RedirectResponse
     {
         $d = $request->validate(['documento' => ['required', 'string', 'max:60'], 'correo' => ['required', 'string', 'max:254']], [
-            'documento.required' => 'Escribe tu número de documento.', 'correo.required' => 'Escribe tu correo electrónico.', '*.max' => 'El dato es demasiado largo.',
+            'documento.required' => 'El número de documento es obligatorio.', 'correo.required' => 'El correo electrónico es obligatorio.', '*.max' => 'El dato es demasiado largo.',
         ]);
 
         $this->otp->solicitar($d['documento'], $d['correo'], $request->ip(), $request->userAgent());
@@ -135,7 +136,8 @@ class PortalPublicoController extends Controller
             ]
         );
 
-        return $this->vista($request, 'panel', ['tarjetas' => $listado['items'], 'listado' => $listado]);
+        // Estado de la encuesta opcional por certificado de la página (solo lectura; no condiciona ninguna descarga).
+        return $this->vista($request, 'panel', ['tarjetas' => $listado['items'], 'listado' => $listado, 'encuestas' => $this->encuesta->estados($listado['items'], $request->session())]);
     }
 
     public function descargar(Request $request, int $certificado, CongeladorLegado $congelador): Response
@@ -150,7 +152,7 @@ class PortalPublicoController extends Controller
         $canonico = ElegibilidadLegado::canonico($c);
         // Si resolver al canónico sacara del alcance, no se hace en silencio: se trata como no disponible.
         if (! AccesoPortal::enAlcance($canonico, $clave, $grupo)) {
-            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Escríbenos y te ayudamos.');
+            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
         }
         // Certificado lógico (10B-2B-2C.1): si OTRA fila de su grupo de duplicados lleva el reemplazo, ese es el certificado que se entrega (una sola emisión
         // vigente por certificado lógico, sea cual sea el id histórico autorizado con el que se llegue). Debe estar dentro del alcance.
@@ -159,7 +161,7 @@ class PortalPublicoController extends Controller
             if ($logica !== null) {
                 $canonico = CertificadoLegado::query()->find($logica->id);
                 if (! AccesoPortal::enAlcance($canonico, $clave, $grupo)) {
-                    return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Escríbenos y te ayudamos.');
+                    return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
                 }
             }
         }
@@ -169,15 +171,15 @@ class PortalPublicoController extends Controller
             return $this->descargarReemplazo($request, $canonico);
         }
         if (ElegibilidadLegado::motivo($canonico) !== null) {
-            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Escríbenos y te ayudamos.');
+            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
         }
 
         try {
             $archivo = $congelador->servir($canonico);
         } catch (CongeladoNoPermitido) {
-            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Escríbenos y te ayudamos.');
+            return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
         } catch (PdfHistoricoInconsistente|RenderNoPermitido|CodigoHistoricoException) {
-            return redirect()->route('portal.panel')->with('error', 'No pudimos entregar este certificado en este momento. Escríbenos y te ayudamos.');
+            return redirect()->route('portal.panel')->with('error', 'No fue posible entregar el certificado en este momento. Contactar a soporte para recibir ayuda.');
         }
 
         // Una descarga NUEVA (origen credential_flow): no se confunde con las importadas del sistema viejo.
@@ -237,7 +239,7 @@ class PortalPublicoController extends Controller
     {
         SesionPortal::cerrar($request->session());
 
-        return redirect()->route('portal.inicio')->with('aviso', 'Cerraste tu sesión.');
+        return redirect()->route('portal.inicio')->with('aviso', 'Sesión cerrada.');
     }
 
     /** 429 amable (límites por IP). Misma estructura que el resto del portal; no revela nada sobre los datos. */

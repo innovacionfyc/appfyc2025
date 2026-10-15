@@ -108,15 +108,15 @@ final class ServicioEncuestas
         switch ($p->tipo) {
             case EncuestaPregunta::OPCION_UNICA:
                 if (! is_string($valor) && ! is_int($valor)) {
-                    $falla('Elige una sola opción.');
+                    $falla('Seleccionar una sola opción.');
                 }
                 $o = $p->opciones->first(fn ($x) => $x->activa && (string) $x->valor === (string) $valor);
 
-                return $o === null ? $falla('Elige una de las opciones disponibles.') : [['pregunta' => $p, 'valor_texto' => $o->valor, 'valor_numero' => null, 'opcion' => $o]];
+                return $o === null ? $falla('Seleccionar una de las opciones disponibles.') : [['pregunta' => $p, 'valor_texto' => $o->valor, 'valor_numero' => null, 'opcion' => $o]];
 
             case EncuestaPregunta::OPCION_MULTIPLE:
                 if (! is_array($valor) || ! array_is_list($valor)) {
-                    $falla('Elige una o varias opciones.');
+                    $falla('Seleccionar una o varias opciones.');
                 }
                 $textos = array_map(fn ($x) => is_scalar($x) ? (string) $x : null, $valor);
                 if (in_array(null, $textos, true) || count($textos) !== count(array_unique($textos))) {
@@ -125,14 +125,14 @@ final class ServicioEncuestas
                 $filas = [];
                 foreach ($textos as $t) {
                     $o = $p->opciones->first(fn ($x) => $x->activa && (string) $x->valor === $t);
-                    $o === null ? $falla('Elige solo opciones disponibles.') : $filas[] = ['pregunta' => $p, 'valor_texto' => $o->valor, 'valor_numero' => null, 'opcion' => $o];
+                    $o === null ? $falla('Seleccionar solo opciones disponibles.') : $filas[] = ['pregunta' => $p, 'valor_texto' => $o->valor, 'valor_numero' => null, 'opcion' => $o];
                 }
 
                 return $filas;
 
             case EncuestaPregunta::TEXTO:
                 if (! is_string($valor)) {
-                    $falla('Escribe un texto.');
+                    $falla('El texto de la respuesta no es válido.');
                 }
                 $max = min(self::MAX_TEXTO, (int) ($p->configuracion['max_caracteres'] ?? self::MAX_TEXTO));
                 if (mb_strlen($valor) > $max) {
@@ -145,7 +145,7 @@ final class ServicioEncuestas
                 $cfg = $p->configuracion ?? [];
                 [$min, $max] = [(int) ($cfg['min'] ?? 1), (int) ($cfg['max'] ?? 5)];
                 if (! (is_int($valor) || (is_string($valor) && preg_match('/^-?\d+$/', $valor) === 1))) {
-                    $falla('Elige un valor de la escala.');
+                    $falla('Seleccionar un valor de la escala.');
                 }
                 if ((int) $valor < $min || (int) $valor > $max) {
                     $falla("El valor debe estar entre {$min} y {$max}.");
@@ -184,7 +184,7 @@ final class ServicioEncuestas
             // Una persona (certificado) responde una vez cada versión: se comprueba junto con la inserción.
             foreach (['certificado_legado_id' => $legado, 'emision_id' => $emision] as $col => $id) {
                 if ($id !== null && EncuestaRespuesta::query()->where('version_id', $v->id)->where($col, $id)->lockForUpdate()->exists()) {
-                    throw new RespuestaInvalida(RespuestaInvalida::DUPLICADA, ['_' => 'Ya respondiste esta encuesta.']);
+                    throw new RespuestaInvalida(RespuestaInvalida::DUPLICADA, ['_' => 'La encuesta ya fue respondida.']);
                 }
             }
             $r = EncuestaRespuesta::create([

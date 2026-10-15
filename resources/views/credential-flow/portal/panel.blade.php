@@ -1,5 +1,5 @@
 @extends('credential-flow.portal.layout')
-@section('titulo', 'Tus certificados')
+@section('titulo', 'Certificados disponibles')
 @section('acciones')
     <form class="en-linea" method="POST" action="{{ route('portal.salir') }}" data-cargando>@csrf<button class="boton sec chico" type="submit">Cerrar sesión</button></form>
 @endsection
@@ -48,6 +48,12 @@
         .cert-acciones { display: flex; align-items: center; gap: .9rem; }
         .cert-acciones .boton { flex: 1; }
         .cert-acciones .enlace { font-size: .85rem; white-space: nowrap; }
+        .invita { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; padding: .75rem 1rem; border: 1px solid #fed7aa; border-radius: .9rem; background: #fff7ed; animation: aparece .4s cubic-bezier(.4, 0, .2, 1) both; }
+        .invita[hidden] { display: none; }
+        .invita strong { font-size: .9rem; }
+        .invita p { margin: .1rem 0 0; font-size: .82rem; }
+        .invita-acciones { display: flex; align-items: center; gap: 1rem; }
+        .invita .enlace { font-size: .86rem; }
         .vacio { margin: 0; border: 0; box-shadow: none; padding: 2.25rem 1.25rem; }
 
         .paginador { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .25rem; margin: 1.4rem 0 .25rem; }
@@ -73,7 +79,7 @@
         <div class="encabezado">
             <div>
                 <p class="paso">Paso 3 de 3</p>
-                <h1>Tus certificados</h1>
+                <h1>Certificados disponibles</h1>
             </div>
             @if ($l !== null && $l['total_sin_filtros'] > 0)
                 <ul class="resumen" data-resumen>
@@ -130,6 +136,7 @@
                         <div class="cert-meta">
                             @if ($t['anio'] !== null)<span class="suave">Año {{ $t['anio'] }}</span>@endif
                             <span class="insignia {{ $clase($t['tipo']) }}">{{ $etiqueta($t['tipo']) }}</span>
+                            @if (($encuestas[$t['id']] ?? null) === 'respondida')<span class="insignia neutra" data-encuesta="respondida">Encuesta respondida</span>@endif
                             @if ($t['codigo'] !== null)<span class="suave">Código del certificado: {{ $t['codigo'] }}</span>@endif
                             @if (! empty($t['estado_emision']))<span class="suave">Estado: {{ $t['estado_emision'] }}</span>@endif
                         </div>
@@ -137,25 +144,40 @@
                     </div>
                     <div class="cert-acciones">
                         @if ($t['descargable'])
-                            <a class="boton chico" href="{{ route('portal.descargar', $t['id']) }}">{{ $t['tipo'] === 'actualizado' ? 'Descargar certificado' : 'Descargar PDF' }}</a>
+                            <a class="boton chico" data-descarga href="{{ route('portal.descargar', $t['id']) }}">{{ $t['tipo'] === 'actualizado' ? 'Descargar certificado' : 'Descargar PDF' }}</a>
                             @if ($t['codigo'] !== null)
                                 <a class="enlace" href="{{ route('verificacion.publica', $t['codigo']) }}" target="_blank" rel="noopener noreferrer">Verificar</a>
+                            @endif
+                            @if (($encuestas[$t['id']] ?? null) === 'pendiente')
+                                <a class="enlace" data-encuesta="evaluar" href="{{ route('portal.encuesta', $t['id']) }}">Evaluar evento</a>
                             @endif
                         @elseif ($t['enlace_moderno'])
                             <a class="boton sec chico" href="{{ $t['enlace_moderno'] }}" rel="noopener">Ver la versión más reciente</a>
                         @elseif ($contacto && ! in_array($t['tipo'], ['revocado', 'reemplazado'], true))
-                            <a class="boton sec chico" href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Escríbenos</a>
+                            <a class="boton sec chico" href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Contactar soporte</a>
                         @endif
                     </div>
+                    @if (($encuestas[$t['id']] ?? null) === 'pendiente')
+                        <aside class="invita" data-invitacion hidden>
+                            <div class="invita-texto">
+                                <strong>Evaluación del evento</strong>
+                                <p class="suave">La opinión recibida contribuye a mejorar continuamente nuestros eventos y servicios.</p>
+                            </div>
+                            <div class="invita-acciones">
+                                <a class="boton chico" href="{{ route('portal.encuesta', $t['id']) }}">Responder encuesta</a>
+                                <form class="en-linea" method="POST" action="{{ route('portal.encuesta.despues', $t['id']) }}">@csrf<button class="enlace" type="submit">Más tarde</button></form>
+                            </div>
+                        </aside>
+                    @endif
                 </article>
             @empty
                 <div class="tarjeta centrado vacio">
                     @if ($l !== null && $l['total_sin_filtros'] > 0)
-                        <h2>No hay resultados para tu búsqueda</h2>
-                        <p class="suave">Prueba con otras palabras o quita los filtros.</p>
+                        <h2>No se encontraron resultados para la búsqueda</h2>
+                        <p class="suave">Probar con otras palabras o quitar los filtros.</p>
                         <a class="boton sec" href="{{ route('portal.panel') }}">Limpiar filtros</a>
                     @else
-                        <p>No encontramos certificados para mostrar. Escríbenos y te ayudamos.</p>
+                        <p>No se encontraron certificados disponibles.</p>
                     @endif
                 </div>
             @endforelse
@@ -178,7 +200,17 @@
             </nav>
         @endif
 
-        {{-- Espacio reservado para una tarjeta opcional futura («¿Nos ayudas a mejorar?»). No se muestra nada hasta que exista esa función. --}}
-        @stack('encuesta')
     </section>
 @endsection
+@push('scripts')
+    <script nonce="{{ $nonce }}">
+        // Tras iniciar una descarga se muestra, sin bloquear nada, la invitación opcional del certificado (si existe).
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest ? e.target.closest('a[data-descarga]') : null;
+            if (!a) { return; }
+            var fila = a.closest('.cert');
+            var invita = fila ? fila.querySelector('[data-invitacion]') : null;
+            if (invita) { setTimeout(function () { invita.hidden = false; }, 900); }
+        });
+    </script>
+@endpush

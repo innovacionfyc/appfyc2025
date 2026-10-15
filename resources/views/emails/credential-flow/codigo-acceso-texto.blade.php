@@ -1,11 +1,11 @@
 {!! $entidad !!}
 
-Ingresa este código para consultar y descargar tus certificados:
+Código para consultar y descargar certificados:
 
 {{ $codigo }}
 
-El código vence en {{ $vigencia }} minutos y solo sirve una vez.
+Vigencia de {{ $vigencia }} minutos. El código es de un solo uso.
 
-Si no ves este correo en tu bandeja de entrada, revisa también Spam o Correo no deseado.
+Si el mensaje no aparece en la bandeja de entrada, revisar también Spam o Correo no deseado.
 
-Si no lo solicitaste, ignora este mensaje. Nadie podrá ver tus certificados sin este código.
+Si el código no fue solicitado, este mensaje puede ignorarse. Sin este código no es posible consultar los certificados.

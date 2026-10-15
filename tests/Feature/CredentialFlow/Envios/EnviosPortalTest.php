@@ -84,7 +84,7 @@ class EnviosPortalTest extends EnviosTestCase
 
         $r = $this->solicitar('1000001', self::CORREO);
 
-        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
+        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.');
         $e = Envio::firstOrFail();
         $this->assertSame([Envio::FALLIDO_PERMANENTE, 'SMTP_550'], [$e->estado, $e->error_codigo]);
         $this->assertNull(DB::table('cf_accesos_otp')->value('enviado_at'));

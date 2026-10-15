@@ -30,7 +30,7 @@ final class SesionPortal
     /** La sesión puede guardar un scope de varios grupos (10B-3B-2). Solo se USA si además los dos interruptores de configuración están encendidos. */
     public const SOPORTA_MULTI_GRUPO = true;
 
-    public const MENSAJE_EXPIRADO = 'Tu acceso ha expirado. Solicita un nuevo código.';
+    public const MENSAJE_EXPIRADO = 'El acceso expiró. Solicitar un nuevo código.';
 
     public static function iniciar(Session $s, string $clave, ?string $grupo = null): void
     {

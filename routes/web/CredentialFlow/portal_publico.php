@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\CredentialFlow\PortalEncuestaController;
 use App\Http\Controllers\CredentialFlow\PortalPublicoController;
 use App\Http\Middleware\CabecerasPortal;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IniciarSesionPortal;
+use App\Http\Middleware\LimitarEncuestaPortal;
 use App\Http\Middleware\PortalAutenticado;
 use App\Http\Middleware\PortalHabilitado;
 use Illuminate\Session\Middleware\StartSession;
@@ -27,6 +29,13 @@ Route::prefix('certificados')->name('portal.')
             Route::middleware(PortalAutenticado::class)->group(function () {
                 Route::get('/mis-certificados', [PortalPublicoController::class, 'panel'])->name('panel');
                 Route::get('/{certificado}/descargar', [PortalPublicoController::class, 'descargar'])->whereNumber('certificado')->middleware('throttle:cf-portal-descarga')->name('descargar');
+
+                // Encuesta OPCIONAL (Fase 13A): nunca bloquea la descarga; mismo alcance de sesión que el panel y límite propio.
+                Route::middleware(LimitarEncuestaPortal::class)->prefix('encuesta')->group(function () {
+                    Route::get('/{certificado}', [PortalEncuestaController::class, 'mostrar'])->whereNumber('certificado')->name('encuesta');
+                    Route::post('/{certificado}', [PortalEncuestaController::class, 'guardar'])->whereNumber('certificado')->name('encuesta.guardar');
+                    Route::post('/{certificado}/mas-tarde', [PortalEncuestaController::class, 'masTarde'])->whereNumber('certificado')->name('encuesta.despues');
+                });
             });
         });
     });

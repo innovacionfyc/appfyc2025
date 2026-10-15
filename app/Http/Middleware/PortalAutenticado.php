@@ -17,7 +17,7 @@ class PortalAutenticado
             // Si la sesión se invalidó por un cambio de identidad, `SesionPortal` ya dejó su mensaje genérico: no se pisa.
             $r = redirect()->route('portal.inicio');
 
-            return $request->session()->has('aviso') ? $r : $r->with('aviso', 'Tu sesión terminó. Vuelve a ingresar para consultar tus certificados.');
+            return $request->session()->has('aviso') ? $r : $r->with('aviso', 'La sesión finalizó. Ingresar nuevamente para consultar los certificados.');
         }
         // Un solo punto de autorización: los controladores usan SOLO estos atributos (nada llega del cliente). `grupos`: null = documento completo
         // (flujo histórico); lista = scope (un grupo histórico es la lista de uno). Una lista vacía nunca existe: `perteneceA` la deniega de todos modos.

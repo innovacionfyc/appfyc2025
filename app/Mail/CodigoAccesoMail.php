@@ -21,7 +21,7 @@ class CodigoAccesoMail extends Mailable
         $desde = ($cfg['remitente']['direccion'] ?? null) ? new Address($cfg['remitente']['direccion'], (string) $cfg['remitente']['nombre']) : null;
         $respuesta = ($cfg['reply_to']['direccion'] ?? null) ? [new Address($cfg['reply_to']['direccion'], (string) $cfg['reply_to']['nombre'])] : [];
 
-        return new Envelope(from: $desde, replyTo: $respuesta, subject: 'Código para consultar tus certificados');
+        return new Envelope(from: $desde, replyTo: $respuesta, subject: 'Código de acceso para consultar certificados');
     }
 
     public function content(): Content
