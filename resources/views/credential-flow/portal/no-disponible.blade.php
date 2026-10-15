@@ -16,6 +16,9 @@
 <main data-pantalla="portal-no-disponible">
     <h1>El portal de certificados aún no está disponible</h1>
     <p>Vuelve a intentarlo más adelante.</p>
+    @if (! empty($contacto))
+        <p>¿Tienes problemas para acceder o descargar tu certificado? <a href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Escríbenos por WhatsApp.</a></p>
+    @endif
 </main>
 </body>
 </html>

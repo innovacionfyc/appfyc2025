@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PortalPublicoController extends Controller
 {
-    public const MENSAJE_UNIFORME = 'Si los datos coinciden con nuestros registros, te enviaremos un código al correo indicado.';
+    public const MENSAJE_UNIFORME = 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.';
 
     public const MENSAJE_CODIGO = 'El código no es válido o ya expiró.';
 
@@ -233,7 +233,7 @@ class PortalPublicoController extends Controller
     {
         $nonce = CabecerasVerificacionPublica::nonce($request);
 
-        return CabecerasPortal::aplicar(response()->view('credential-flow.portal.limitada', ['nonce' => $nonce, 'entidad' => config('credential_flow.verificacion.entidad')], 429, ['Retry-After' => (string) max(1, $segundos)] + $cabeceras), $nonce);
+        return CabecerasPortal::aplicar(response()->view('credential-flow.portal.limitada', ['nonce' => $nonce, 'entidad' => config('credential_flow.verificacion.entidad'), 'contacto' => config('credential_flow.portal.contacto_url')], 429, ['Retry-After' => (string) max(1, $segundos)] + $cabeceras), $nonce);
     }
 
     private function vista(Request $request, string $nombre, array $datos = []): Response

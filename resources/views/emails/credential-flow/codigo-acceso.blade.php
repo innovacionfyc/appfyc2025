@@ -7,9 +7,10 @@
         <tr><td>
             <p style="margin:0 0 8px;font-weight:bold;color:#942934;">{{ $entidad }}</p>
             <h1 style="margin:0 0 16px;font-size:20px;">Tu código para consultar tus certificados</h1>
-            <p style="margin:0 0 12px;">Usa este código para continuar:</p>
+            <p style="margin:0 0 12px;">Ingresa este código para consultar y descargar tus certificados:</p>
             <p style="margin:0 0 16px;font-size:32px;letter-spacing:8px;font-weight:bold;">{{ $codigo }}</p>
             <p style="margin:0 0 12px;">El código vence en {{ $vigencia }} minutos y solo sirve una vez.</p>
+            <p style="margin:0 0 12px;color:#64748b;font-size:14px;">Si no ves este correo en tu bandeja de entrada, revisa también Spam o Correo no deseado.</p>
             <p style="margin:0;color:#64748b;font-size:14px;">Si no lo solicitaste, ignora este mensaje. Nadie podrá ver tus certificados sin este código.</p>
         </td></tr>
     </table>

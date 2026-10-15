@@ -160,7 +160,7 @@ class PortalAlcanceTest extends PortalTestCase
     {
         $r = $this->solicitar('3000002', 'x@example.test');
 
-        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, te enviaremos un código al correo indicado.');
+        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
         Mail::assertNothingSent();
         $this->assertSame(0, DB::table('cf_accesos_otp')->count());
     }
