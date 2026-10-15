@@ -222,9 +222,9 @@ final class AccesoPortal
         }
 
         return match ($f->conciliacion_estado) {
-            CertificadoLegado::CONCILIACION_REVISION_DOCUMENTO => $base + ['tipo' => 'revision', 'mensaje' => 'Este certificado necesita revisión. Escríbenos y te ayudamos.'],
-            CertificadoLegado::CONCILIACION_PENDIENTE => $base + ['tipo' => 'revision_conciliacion', 'mensaje' => 'Estamos revisando este certificado. Escríbenos y te ayudamos.'],
-            CertificadoLegado::CONCILIACION_PENDIENTE_PLANTILLA => $base + ['tipo' => 'plantilla', 'mensaje' => 'Estamos recuperando este certificado. Escríbenos y te ayudamos.'],
+            CertificadoLegado::CONCILIACION_REVISION_DOCUMENTO => $base + ['tipo' => 'revision', 'mensaje' => 'Este certificado necesita revisión. Contactar a soporte para recibir ayuda.'],
+            CertificadoLegado::CONCILIACION_PENDIENTE => $base + ['tipo' => 'revision_conciliacion', 'mensaje' => 'Certificado en revisión. Contactar a soporte para recibir ayuda.'],
+            CertificadoLegado::CONCILIACION_PENDIENTE_PLANTILLA => $base + ['tipo' => 'plantilla', 'mensaje' => 'Certificado en proceso de recuperación. Contactar a soporte para recibir ayuda.'],
             default => $this->conPdf($base, $f, $todas, $enAlcance, $canonicos, $cadenas),
         };
     }
@@ -267,7 +267,7 @@ final class AccesoPortal
             return array_merge($base, ['tipo' => 'disponible', 'mensaje' => 'Disponible para descargar.', 'descargable' => true]);
         }
 
-        return $base + ['tipo' => 'revision', 'mensaje' => 'Este certificado necesita revisión. Escríbenos y te ayudamos.'];
+        return $base + ['tipo' => 'revision', 'mensaje' => 'Este certificado necesita revisión. Contactar a soporte para recibir ayuda.'];
     }
 
     /**

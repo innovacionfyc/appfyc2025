@@ -13,7 +13,7 @@ class PortalSoporteUxTest extends PortalTestCase
 {
     private const CONTACTO = 'https://api.whatsapp.com/send?phone=570000000000&text=Indique%20cual%20es%20el%20error%20que%20presenta';
 
-    private const TEXTO_SOPORTE = '¿Tienes problemas para acceder o descargar tu certificado?';
+    private const TEXTO_SOPORTE = '¿Inconvenientes para acceder o descargar el certificado?';
 
     public function test_el_soporte_aparece_en_inicio_codigo_y_panel_cuando_hay_contacto_configurado(): void
     {
@@ -22,7 +22,7 @@ class PortalSoporteUxTest extends PortalTestCase
         $this->get(route('portal.inicio'))->assertOk()->assertSee(self::TEXTO_SOPORTE, false)->assertSee('data-soporte="whatsapp"', false)->assertSee('api.whatsapp.com/send?phone=570000000000', false);
 
         $this->solicitar('9999999', 'nadie@example.test');
-        $this->get(route('portal.codigo'))->assertOk()->assertSee(self::TEXTO_SOPORTE, false)->assertSee('Escríbenos por WhatsApp.', false);
+        $this->get(route('portal.codigo'))->assertOk()->assertSee(self::TEXTO_SOPORTE, false)->assertSee('Contactar por WhatsApp.', false);
 
         $this->post(route('portal.salir'));
         $this->entrar()->assertRedirect(route('portal.panel'));
@@ -54,7 +54,7 @@ class PortalSoporteUxTest extends PortalTestCase
         foreach ([['1.000.001', 'ana.uno@example.test'], ['9999999', 'nadie@example.test']] as [$doc, $correo]) {
             $this->post(route('portal.salir'));
             $r = $this->solicitar($doc, $correo);
-            $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
+            $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.');
             $paginas[] = $this->get(route('portal.codigo'))->getContent();
         }
 
@@ -77,12 +77,12 @@ class PortalSoporteUxTest extends PortalTestCase
 
         foreach ([$html, $texto] as $cuerpo) {
             $this->assertStringContainsString('123456', $cuerpo);
-            $this->assertStringContainsString('consultar y descargar tus certificados', $cuerpo);
+            $this->assertStringContainsString('consultar y descargar certificados', $cuerpo);
             $this->assertStringContainsString('Spam o Correo no deseado', $cuerpo);
             $this->assertStringNotContainsString('1000001', $cuerpo);
         }
         $this->assertStringNotContainsString('&amp;', $texto, 'El texto plano no debe llevar entidades HTML');
-        $this->assertSame('Código para consultar tus certificados', $mail->envelope()->subject);
+        $this->assertSame('Código de acceso para consultar certificados', $mail->envelope()->subject);
         Mail::assertNothingSent();
     }
 

@@ -85,7 +85,7 @@ class PortalKillSwitchTest extends PortalTestCase
     {
         $this->assertTrue(PortalFlag::habilitado());
 
-        $this->get(route('portal.inicio'))->assertOk()->assertSee('Consulta tus certificados');
+        $this->get(route('portal.inicio'))->assertOk()->assertSee('Consulta de certificados');
         $this->entrar()->assertRedirect(route('portal.panel'));
         $this->get(route('portal.panel'))->assertOk();
         $this->post(route('portal.salir'))->assertRedirect();

@@ -1,18 +1,18 @@
 @extends('credential-flow.portal.layout')
-@section('titulo', 'Escribe tu código')
+@section('titulo', 'Código de acceso')
 @section('ancho', 'estrecho')
 @section('contenido')
     <section class="estrecho aparece" data-pantalla="codigo">
         <div class="tarjeta">
             @include('credential-flow.portal.partials.pasos', ['paso' => 2])
             <p class="paso">Paso 2 de 3</p>
-            <h1>Verifica tu correo</h1>
-            <p class="suave">Revisa tu correo e ingresa el código de 6 dígitos. Vence en {{ (int) config('credential_flow.portal.otp_vigencia_minutos') }} minutos.</p>
+            <h1>Código de acceso</h1>
+            <p class="suave">Código de 6 dígitos enviado al correo electrónico. Vigencia de {{ (int) config('credential_flow.portal.otp_vigencia_minutos') }} minutos.</p>
 
             <form method="POST" action="{{ route('portal.validar') }}" novalidate data-cargando>
                 @csrf
                 <div class="campo">
-                    <label for="codigo">Código</label>
+                    <label for="codigo">Código de acceso</label>
                     <div class="caja codigo">
                         <input id="codigo" name="codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="······" required>
                     </div>

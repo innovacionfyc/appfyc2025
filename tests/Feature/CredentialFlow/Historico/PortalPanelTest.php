@@ -42,8 +42,8 @@ class PortalPanelTest extends PortalTestCase
         $tipos = $this->tarjetas($r);
         sort($tipos);
         $this->assertSame(['disponible', 'plantilla', 'revision', 'revision', 'revocado'], $tipos);   // el «reemplazado» sin emisión asociada cae en revisión (10B-2B-2C)
-        foreach (['Disponible para descargar.', 'Descargar PDF', 'Código del certificado: 5237', 'Estamos recuperando este certificado. Escríbenos y te ayudamos.',
-            'Este certificado necesita revisión. Escríbenos y te ayudamos.', 'Certificado revocado.', 'Curso Alfa 2024', 'Curso Beta 2025'] as $texto) {
+        foreach (['Disponible para descargar.', 'Descargar PDF', 'Código del certificado: 5237', 'Certificado en proceso de recuperación. Contactar a soporte para recibir ayuda.',
+            'Este certificado necesita revisión. Contactar a soporte para recibir ayuda.', 'Certificado revocado.', 'Curso Alfa 2024', 'Curso Beta 2025'] as $texto) {
             $r->assertSee($texto);
         }
         $this->assertCount(5, $this->tarjetas($r), 'Un certificado por evento');
@@ -74,7 +74,7 @@ class PortalPanelTest extends PortalTestCase
         $tipos = $this->tarjetas($r);
         sort($tipos);
         $this->assertSame(['revision', 'revision_conciliacion'], $tipos);
-        $this->assertSame(1, substr_count($r->getContent(), 'Estamos revisando este certificado. Escríbenos y te ayudamos.'));
+        $this->assertSame(1, substr_count($r->getContent(), 'Certificado en revisión. Contactar a soporte para recibir ayuda.'));
         $this->assertStringNotContainsString('HUGO NUEVE X', $r->getContent());
     }
 
@@ -82,7 +82,7 @@ class PortalPanelTest extends PortalTestCase
     {
         $r = $this->panelDe('1000001', self::CORREO);
 
-        $r->assertSee('Este certificado necesita revisión. Escríbenos y te ayudamos.');
+        $r->assertSee('Este certificado necesita revisión. Contactar a soporte para recibir ayuda.');
         // El mismo documento solo con la fila en revisión no concede OTP (verificado también en PortalOtpTest).
         $this->post(route('portal.salir'));
         DB::table('cf_certificados_legado')->where('documento_clave', '1000001')->update(['conciliacion_estado' => 'revision_documento']);
@@ -206,7 +206,7 @@ class PortalPanelTest extends PortalTestCase
 
         $r = $this->get(route('portal.descargar', $this->idCert(1)));
 
-        $r->assertRedirect(route('portal.panel'))->assertSessionHas('error', 'No pudimos entregar este certificado en este momento. Escríbenos y te ayudamos.');
+        $r->assertRedirect(route('portal.panel'))->assertSessionHas('error', 'No fue posible entregar el certificado en este momento. Contactar a soporte para recibir ayuda.');
         $this->assertSame('alterado', Storage::disk('local')->get(RutasLegado::certificado($this->idCert(1))));
         $this->assertSame(1, DB::table('cf_descargas')->where('origen', 'credential_flow')->count(), 'Solo la descarga anterior');
     }

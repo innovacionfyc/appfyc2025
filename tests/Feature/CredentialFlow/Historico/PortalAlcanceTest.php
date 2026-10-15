@@ -160,7 +160,7 @@ class PortalAlcanceTest extends PortalTestCase
     {
         $r = $this->solicitar('3000002', 'x@example.test');
 
-        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
+        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.');
         Mail::assertNothingSent();
         $this->assertSame(0, DB::table('cf_accesos_otp')->count());
     }
@@ -209,7 +209,7 @@ class PortalAlcanceTest extends PortalTestCase
 
         // Alcance «luz diaz»: la variante conflictiva (Alfa) + Beta. La variante «luz diaz x» no existe en el panel.
         $this->assertSame(['Curso Alfa 2024', 'Curso Beta 2025'], $this->eventos($html));
-        $this->assertSame(1, substr_count($html, 'Estamos revisando este certificado'));
+        $this->assertSame(1, substr_count($html, 'Certificado en revisión'));
         $this->get(route('portal.descargar', $this->idCert(61)))->assertNotFound();
     }
 

@@ -65,7 +65,7 @@ class EnviosServicioTest extends EnviosTestCase
         /** @var Email $m */
         $m = $t->enviados[0];
         $this->assertSame(self::CORREO, $m->getTo()[0]->getAddress());
-        $this->assertSame('Código para consultar tus certificados', $m->getSubject());
+        $this->assertSame('Código de acceso para consultar certificados', $m->getSubject());
         $this->assertStringContainsString(self::CODIGO, $m->getHtmlBody());
         $this->assertStringContainsString(self::CODIGO, $m->getTextBody());
         $this->assertStringContainsString('10 minutos', $m->getTextBody());

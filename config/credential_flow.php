@@ -108,6 +108,11 @@ return [
         'limite_solicitud_por_hora' => 30,
         'limite_validacion_por_minuto' => 10,
         'limite_descarga_por_minuto' => 20,
+        // Encuesta opcional: límites PROPIOS (no reutilizan los del OTP). Por sesión del portal y por identidad (HMAC del documento autorizado); la IP es solo
+        // una defensa adicional holgada para que una red compartida no bloquee a otras personas.
+        'limite_encuesta_por_sesion_por_minuto' => 12,
+        'limite_encuesta_por_identidad_por_minuto' => 24,
+        'limite_encuesta_por_ip_por_minuto' => 120,
         // Enlace de soporte (WhatsApp/contacto) si existe; si es null solo se muestra el texto.
         'contacto_url' => env('CREDENTIAL_FLOW_PORTAL_CONTACTO_URL'),
     ],

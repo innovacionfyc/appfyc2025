@@ -6,7 +6,7 @@
         <div class="tarjeta centrado">
             <p class="paso">Un momento</p>
             <h1>Demasiados intentos</h1>
-            <p class="suave">Espera unos minutos e inténtalo de nuevo.</p>
+            <p class="suave">Intentar nuevamente en unos minutos.</p>
             <a class="boton sec" href="{{ route('portal.inicio') }}">Volver al inicio</a>
         </div>
     </section>

@@ -40,7 +40,7 @@ class PortalOtpTest extends PortalTestCase
     {
         $r = $this->solicitar($doc, $correo);
 
-        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
+        $r->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.');
         $envia ? Mail::assertSent(CodigoAccesoMail::class, 1) : Mail::assertNothingSent();
     }
 
@@ -134,8 +134,8 @@ class PortalOtpTest extends PortalTestCase
         Mail::assertSent(CodigoAccesoMail::class, function (CodigoAccesoMail $m) {
             $html = $m->render();
 
-            return $m->hasTo(self::CORREO2) && $m->envelope()->subject === 'Código para consultar tus certificados'
-                && preg_match('/^\d{6}$/', $m->codigo) === 1 && str_contains($html, $m->codigo) && str_contains($html, '10 minutos') && str_contains($html, 'ignora este mensaje')
+            return $m->hasTo(self::CORREO2) && $m->envelope()->subject === 'Código de acceso para consultar certificados'
+                && preg_match('/^\d{6}$/', $m->codigo) === 1 && str_contains($html, $m->codigo) && str_contains($html, '10 minutos') && str_contains($html, 'puede ignorarse')
                 && ! str_contains($html, self::NOMBRE) && ! str_contains($html, '1000001') && ! str_contains($html, 'Curso') && $m->attachments === [];
         });
     }
@@ -263,7 +263,7 @@ class PortalOtpTest extends PortalTestCase
     {
         $this->solicitar('1000001', self::CORREO);
         $this->travel(30)->seconds();
-        $this->post(route('portal.reenviar'))->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con nuestros registros, hemos enviado un código al correo asociado. Revisa tu bandeja de entrada y, si no lo encuentras, verifica también Spam o Correo no deseado.');
+        $this->post(route('portal.reenviar'))->assertRedirect(route('portal.codigo'))->assertSessionHas('aviso', 'Si los datos coinciden con los registros, se envió un código de acceso al correo asociado. Revisar la bandeja de entrada y, si no aparece, verificar también Spam o Correo no deseado.');
         Mail::assertSent(CodigoAccesoMail::class, 1);
 
         $this->travel(31)->seconds();
