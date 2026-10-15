@@ -10,6 +10,7 @@ use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Reemplazo\EmisionVigente;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Reglas de acceso al portal y alcance de la sesión. Solo lee; nunca escribe en el histórico.
@@ -139,6 +140,76 @@ final class AccesoPortal
         usort($tarjetas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
 
         return $tarjetas;
+    }
+
+    /** Tarjetas por página del panel y umbral a partir del cual aparecen buscador, filtros y paginador. */
+    public const POR_PAGINA = 20;
+
+    public const UMBRAL_CONTROLES = 12;
+
+    public const ORDENES = ['recientes', 'antiguos'];
+
+    /**
+     * Listado del panel con búsqueda, filtro por año, orden y paginación en el servidor. Usa EXACTAMENTE las mismas tarjetas que `tarjetas()` (mismas reglas de
+     * alcance, duplicados, canónicos y reemplazos): solo filtra, ordena y corta DESPUÉS, de modo que nada de la autorización cambia y el HTML solo lleva una página.
+     *
+     * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null}  $filtros
+     * @return array{items:list<array<string,mixed>>,total:int,total_sin_filtros:int,descargables:int,anios:list<int>,hay_sin_anio:bool,q:string,anio:?string,orden:string,pagina:int,paginas:int,por_pagina:int,desde:int,hasta:int,con_controles:bool,filtrado:bool}
+     */
+    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = []): array
+    {
+        $todas = $this->tarjetas($clave, $grupo);
+        $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
+        $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';
+        $anios = array_values(array_unique(array_map('intval', array_filter(array_column($todas, 'anio'), fn ($a) => $a !== null))));
+        rsort($anios);
+        $haySinAnio = count(array_filter($todas, fn ($t) => $t['anio'] === null)) > 0;
+
+        $anioRaw = $filtros['anio'] ?? null;
+        $anio = null;   // null = todos · 'sin' = sin año · 'AAAA'
+        if ($anioRaw === 'sin' && $haySinAnio) {
+            $anio = 'sin';
+        } elseif (is_numeric($anioRaw) && in_array((int) $anioRaw, $anios, true)) {
+            $anio = (string) (int) $anioRaw;
+        }
+
+        $totalSin = count($todas);
+        $conControles = $totalSin > self::UMBRAL_CONTROLES;
+        if (! $conControles) {
+            // Con pocos certificados no hay controles: se ignora cualquier filtro y se muestra el listado simple completo.
+            $q = '';
+            $anio = null;
+            $orden = 'recientes';
+        }
+
+        $norm = fn (string $s) => mb_strtolower(Str::ascii($s));
+        $buscar = $norm($q);
+        $lista = array_values(array_filter($todas, function ($t) use ($buscar, $anio, $norm) {
+            if ($anio === 'sin' && $t['anio'] !== null) {
+                return false;
+            }
+            if ($anio !== null && $anio !== 'sin' && (string) $t['anio'] !== $anio) {
+                return false;
+            }
+
+            return $buscar === '' || str_contains($norm((string) $t['evento']), $buscar);
+        }));
+        if ($orden === 'antiguos') {
+            usort($lista, fn ($a, $b) => [$a['anio'] === null ? 1 : 0, $a['anio'] ?? 0, $a['evento']] <=> [$b['anio'] === null ? 1 : 0, $b['anio'] ?? 0, $b['evento']]);
+        }
+
+        $total = count($lista);
+        $porPagina = $conControles ? self::POR_PAGINA : max(1, $totalSin);
+        $paginas = max(1, (int) ceil($total / $porPagina));
+        $pagina = max(1, min($paginas, (int) ($filtros['page'] ?? 1)));
+        $items = array_slice($lista, ($pagina - 1) * $porPagina, $porPagina);
+
+        return [
+            'items' => $items, 'total' => $total, 'total_sin_filtros' => $totalSin, 'descargables' => count(array_filter($todas, fn ($t) => $t['descargable'])),
+            'anios' => $anios, 'hay_sin_anio' => $haySinAnio, 'q' => $q, 'anio' => $anio, 'orden' => $orden, 'pagina' => $pagina, 'paginas' => $paginas,
+            'por_pagina' => $porPagina, 'desde' => $total === 0 ? 0 : ($pagina - 1) * $porPagina + 1, 'hasta' => ($pagina - 1) * $porPagina + count($items),
+            'con_controles' => $conControles, 'filtrado' => $buscar !== '' || $anio !== null || $orden !== 'recientes',
+        ];
     }
 
     private function tarjeta(CertificadoLegado $f, array $base, Collection $todas, Collection $enAlcance, Collection $canonicos, Collection $cadenas): array

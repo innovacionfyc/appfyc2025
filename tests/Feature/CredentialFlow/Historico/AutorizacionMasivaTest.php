@@ -391,7 +391,13 @@ class AutorizacionMasivaTest extends PortalTestCase
         $this->assertSame([$this->g('MARIA GOMEZ')], $ctx['grupos']);
         $this->assertCount(1, $ctx['aprobaciones']);
 
-        $tipos = $this->tipos($this->get(route('portal.panel'))->assertOk());
+        // El panel pagina de 20 en 20: se recorren todas las páginas y el conjunto completo sigue siendo el mismo.
+        $primera = $this->get(route('portal.panel'))->assertOk();
+        $this->assertCount(20, $this->tipos($primera));
+        $tipos = [];
+        foreach ([1, 2, 3, 4, 5, 6] as $pagina) {
+            $tipos = array_merge($tipos, $this->tipos($this->get(route('portal.panel', ['page' => $pagina]))->assertOk()));
+        }
         $this->assertCount(101, $tipos, 'el grupo grande completo (100 copias + el original)');
         $this->assertSame(93, count(array_filter($tipos, fn ($t) => $t === 'disponible')), 'los 93 descargables');
         $this->assertSame(8, count(array_filter($tipos, fn ($t) => $t !== 'disponible')), 'los 8 pendientes de plantilla aparecen como revisión, sin PDF inventado');
