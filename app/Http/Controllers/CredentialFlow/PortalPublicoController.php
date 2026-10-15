@@ -123,7 +123,19 @@ class PortalPublicoController extends Controller
 
     public function panel(Request $request): Response
     {
-        return $this->vista($request, 'panel', ['tarjetas' => $this->acceso->tarjetas($request->attributes->get('cf_portal_documento'), $request->attributes->get('cf_portal_grupos'))]);
+        // Los parámetros de listado (q, anio, orden, page) solo filtran dentro del alcance ya autorizado; cualquier valor raro se ignora sin error.
+        $listado = $this->acceso->tarjetasPaginadas(
+            (string) $request->attributes->get('cf_portal_documento'),
+            $request->attributes->get('cf_portal_grupos'),
+            [
+                'q' => is_string($request->query('q')) ? $request->query('q') : '',
+                'anio' => is_scalar($request->query('anio')) ? (string) $request->query('anio') : null,
+                'orden' => is_string($request->query('orden')) ? $request->query('orden') : null,
+                'page' => is_scalar($request->query('page')) ? (int) $request->query('page') : 1,
+            ]
+        );
+
+        return $this->vista($request, 'panel', ['tarjetas' => $listado['items'], 'listado' => $listado]);
     }
 
     public function descargar(Request $request, int $certificado, CongeladorLegado $congelador): Response

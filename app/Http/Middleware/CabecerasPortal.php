@@ -19,7 +19,7 @@ class CabecerasPortal
     public static function aplicar(Response $response, string $nonce): Response
     {
         CabecerasVerificacionPublica::aplicar($response, $nonce);
-        $response->headers->set('Content-Security-Policy', "default-src 'none'; style-src 'self' 'nonce-{$nonce}'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+        $response->headers->set('Content-Security-Policy', "default-src 'none'; script-src 'nonce-{$nonce}'; style-src 'self' 'nonce-{$nonce}'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 
         return $response;
     }

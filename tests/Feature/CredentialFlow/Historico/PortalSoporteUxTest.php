@@ -59,7 +59,14 @@ class PortalSoporteUxTest extends PortalTestCase
         }
 
         $this->assertSame($this->sinToken($paginas[0]), $this->sinToken($paginas[1]));
-        $this->assertStringNotContainsString('@', strip_tags(preg_replace('/<a[^>]*>.*?<\/a>/s', '', $paginas[0])));
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8">'.$paginas[0]);
+        foreach (['style', 'script', 'a'] as $etiqueta) {
+            while (($nodo = $dom->getElementsByTagName($etiqueta)->item(0)) !== null) {
+                $nodo->parentNode->removeChild($nodo);
+            }
+        }
+        $this->assertStringNotContainsString('@', $dom->textContent, 'La pantalla no debe mostrar ningún correo');
     }
 
     public function test_el_correo_otp_incluye_la_instruccion_y_el_aviso_de_spam_sin_datos_personales(): void
