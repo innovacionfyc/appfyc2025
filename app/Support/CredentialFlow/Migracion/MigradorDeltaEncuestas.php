@@ -42,6 +42,9 @@ final class MigradorDeltaEncuestas
     /** @var array<int,array<string,mixed>> */
     private array $validaciones = [];
 
+    /** Motivo por el que el plan de `legado:delta` no sirve para resolver eventos (solo simulación). */
+    private ?string $planBloqueado = null;
+
     public function __construct(
         private readonly ?string $conexionStaging = null,
         private readonly ?string $confirmoProduccion = null,
@@ -89,6 +92,9 @@ final class MigradorDeltaEncuestas
 
         $estructura = $this->estructuraBase($baseEnc->id);
         $enlaces = $this->enlaces();
+        if ($simular) {
+            $enlaces['planificados'] = $this->eventosPlanificadosPorLegado($nuevas, $enlaces);
+        }
         $this->rechazarEstructuraYEventos($nuevas, $estructura, $enlaces);
         if ($simular) {
             return new ResultadoMigracion(true, 0, $resumen + ['simulacion' => true], 'Simulación: el delta de encuestas se puede aplicar tal como está. No se escribió nada.');
@@ -217,6 +223,39 @@ final class MigradorDeltaEncuestas
         return ['eventos' => $eventos, 'certificados' => []];
     }
 
+    /**
+     * Solo en simulación. Eventos del origen que todavía no están mapeados pero que el plan VÁLIDO de `legado:delta` crearía: referencia
+     * lógica (old_id), nunca persistida ni con destino inventado. Se calcula con la lógica real del delta de certificados y solo si hace
+     * falta; si ese plan está bloqueado, los eventos no se consideran resolubles y se informa la causa.
+     *
+     * @param  array<int,object>  $nuevas
+     * @param  array<string,mixed>  $enlaces
+     * @return array<string,true>
+     */
+    private function eventosPlanificadosPorLegado(array $nuevas, array $enlaces): array
+    {
+        $faltan = false;
+        foreach ($nuevas as $f) {
+            if ($f->evento_existe && ! isset($enlaces['eventos'][(string) $f->old_evento_id])) {
+                $faltan = true;
+
+                break;
+            }
+        }
+        if (! $faltan) {
+            return [];
+        }
+        try {
+            $ids = (new MigradorDelta($this->conexionStaging, $this->confirmoProduccion, $this->comando))->eventosPlanificados();
+        } catch (DeltaRechazado $e) {
+            $this->planBloqueado = $e->getMessage();
+
+            return [];
+        }
+
+        return array_fill_keys($ids, true);
+    }
+
     /** @return array<int,object> candidatos del evento destino con ese documento (cualquier corrida) */
     private function candidatos(int $eventoId, string $clave): array
     {
@@ -239,7 +278,7 @@ final class MigradorDeltaEncuestas
         $versionAusente = [];
         $opcionNueva = 0;
         foreach ($nuevas as $f) {
-            if ($f->evento_existe && ! isset($enlaces['eventos'][(string) $f->old_evento_id])) {
+            if ($f->evento_existe && ! isset($enlaces['eventos'][(string) $f->old_evento_id]) && ! isset(($enlaces['planificados'] ?? [])[(string) $f->old_evento_id])) {
                 $sinEvento++;
 
                 continue;
@@ -258,7 +297,7 @@ final class MigradorDeltaEncuestas
             }
         }
         if ($sinEvento > 0) {
-            throw new DeltaRechazado(DeltaRechazado::EVENTO_NO_MIGRADO, "Hay {$sinEvento} encuesta(s) nueva(s) de un evento que existe en el origen pero aún no está migrado: aplica primero el delta de certificados.", ['encuestas' => $sinEvento]);
+            throw new DeltaRechazado(DeltaRechazado::EVENTO_NO_MIGRADO, "Hay {$sinEvento} encuesta(s) nueva(s) de un evento que existe en el origen pero aún no está migrado: aplica primero el delta de certificados.".($this->planBloqueado !== null ? " El plan de certificados está bloqueado: {$this->planBloqueado}" : ''), ['encuestas' => $sinEvento]);
         }
         if ($versionAusente !== [] || $opcionNueva > 0) {
             throw new DeltaRechazado(

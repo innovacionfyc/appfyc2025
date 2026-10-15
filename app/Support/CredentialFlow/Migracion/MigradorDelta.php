@@ -173,6 +173,30 @@ final class MigradorDelta
         return new ResultadoMigracion(false, $this->corridaId, $this->totales, "Delta completado (corrida #{$this->corridaId}).");
     }
 
+    /**
+     * SOLO LECTURA (la usa la simulación de `encuestas:delta`): old_id de los eventos que este delta crearía, tras pasar las MISMAS
+     * negaciones que `ejecutar()` antes de escribir. No escribe nada ni asigna ningún destino. Lanza DeltaRechazado si el plan está bloqueado.
+     *
+     * @return array<int,string>
+     */
+    public function eventosPlanificados(): array
+    {
+        $this->codigosActualizar = [];
+        $this->codigosRechazados = [];
+        $corte = $this->snapshotDeCorte();
+        $plan = $this->planear($corte);
+        $this->rechazarDiferencias($corte);
+        $this->rechazarGruposExistentes($plan);
+        $this->rechazarParticipantesSinEvento($plan);
+
+        $ids = array_map(fn ($e) => (string) $e->old_id, $plan['eventos']);
+        if (count($ids) !== count(array_unique($ids))) {
+            throw new DeltaRechazado(DeltaRechazado::EVENTO_NO_MIGRADO, 'El plan de certificados tiene un evento repetido: el mapeo futuro es ambiguo.');
+        }
+
+        return $ids;
+    }
+
     // ── Huellas, corte y plan ─────────────────────────────────────────────────────────────────────────────
 
     /** @return array{0:string,1:string,2:string,3:?string} */
