@@ -132,7 +132,7 @@ onUnmounted(() => {
       </nav>
 
       <div class="hidden md:flex items-center justify-end gap-6 z-20">
-        <a href="https://evaluaciones.fycconsultores.com/" target="_blank">
+        <a href="https://fycconsultores.com/certificados" target="_blank">
           <BtnUniversal
             label="Certificados"
             
