@@ -3,6 +3,7 @@
 namespace App\Support\CredentialFlow\Encuestas;
 
 use App\Models\CredentialFlow\EncuestaVersion;
+use App\Support\CredentialFlow\Portal\Hmac;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +54,7 @@ final class EncuestaPortal
             return [];
         }
 
-        $filas = DB::table('cf_certificados_legado')->whereIn('id', $ids)->whereNotNull('evento_id')->get(['id', 'documento_clave', 'grupo_duplicado']);
+        $filas = DB::table('cf_certificados_legado')->whereIn('id', $ids)->whereNotNull('evento_id')->get(['id', 'evento_id', 'documento_clave', 'grupo_duplicado']);
         if ($filas->isEmpty()) {
             return [];
         }
@@ -92,18 +93,23 @@ final class EncuestaPortal
         return null;
     }
 
-    /** ¿El certificado ya tiene una respuesta vinculada (histórica o moderna, de cualquier versión)? */
+    /** ¿La persona ya respondió el evento de este certificado (respuesta vinculada, histórica o moderna, de cualquier versión)? */
     public function respondida(int $certificado): bool
     {
-        $filas = DB::table('cf_certificados_legado')->where('id', $certificado)->get(['id', 'documento_clave', 'grupo_duplicado']);
+        $filas = DB::table('cf_certificados_legado')->where('id', $certificado)->get(['id', 'evento_id', 'documento_clave', 'grupo_duplicado']);
 
         return $this->respondidos($filas) !== [];
     }
 
     /**
-     * Ids (de las filas dadas) con una respuesta comprobadamente vinculada: a la propia fila o a otra fila del MISMO grupo de duplicados y documento.
+     * Ids (de las filas dadas) cuyo EVENTO ya fue respondido por la misma persona. Regla: UNA respuesta por persona y evento, sin importar cuántos
+     * certificados tenga ni la versión de la encuesta. Se considera respondido cuando existe una respuesta:
+     *   1. ligada al propio certificado o a otra fila de su MISMO grupo de duplicados y documento (vínculo comprobado), o
+     *   2. del MISMO evento y la MISMA identidad (HMAC del documento), siempre que sea moderna o histórica `vinculada`.
+     * Las respuestas históricas ambiguas, sin participante o de evento eliminado NO cuentan: nunca se infiere identidad desde ellas. Otro evento
+     * de la misma persona no se ve afectado.
      *
-     * @param  Collection<int,object>  $filas  id, documento_clave, grupo_duplicado
+     * @param  Collection<int,object>  $filas  id, evento_id, documento_clave, grupo_duplicado
      * @return list<int>
      */
     private function respondidos($filas): array
@@ -121,8 +127,28 @@ final class EncuestaPortal
         $todos = array_values(array_unique(array_merge($ids, ...array_values($miembros) ?: [[]])));
         $con = array_flip(DB::table('cf_encuestas_respuestas')->whereIn('certificado_legado_id', $todos)->distinct()->pluck('certificado_legado_id')->map(fn ($i) => (int) $i)->all());
 
+        // Misma persona + mismo evento (HMAC del documento): solo respuestas modernas o históricas vinculadas.
+        $hash = [];
+        foreach ($filas->pluck('documento_clave')->unique() as $doc) {
+            $hash[$doc] = Hmac::de('documento', (string) $doc);
+        }
+        $eventos = $filas->pluck('evento_id')->filter()->unique()->values()->all();
+        $porEvento = [];
+        if ($eventos !== [] && $hash !== []) {
+            $rs = DB::table('cf_encuestas_respuestas')->whereIn('evento_id', $eventos)->whereIn('documento_hash', array_values($hash))
+                ->where(fn ($q) => $q->whereNull('clasificacion')->orWhere('clasificacion', 'vinculada'))->get(['evento_id', 'documento_hash']);
+            foreach ($rs as $r) {
+                $porEvento[$r->evento_id.'|'.$r->documento_hash] = true;
+            }
+        }
+
         $resultado = [];
         foreach ($filas as $f) {
+            if ($f->evento_id !== null && isset($porEvento[$f->evento_id.'|'.$hash[$f->documento_clave]])) {
+                $resultado[] = (int) $f->id;
+
+                continue;
+            }
             $grupo = $f->grupo_duplicado === null ? [(int) $f->id] : array_merge([(int) $f->id], $miembros[$f->documento_clave.'|'.$f->grupo_duplicado] ?? []);
             foreach ($grupo as $id) {
                 if (isset($con[$id])) {
@@ -136,17 +162,17 @@ final class EncuestaPortal
     }
 
     /**
-     * Clave de exclusión del CERTIFICADO LÓGICO: dos filas del mismo grupo consolidado (y mismo documento) comparten clave, de modo que dos solicitudes
-     * simultáneas por cualquiera de ellas se serializan y la segunda ve la respuesta de la primera.
+     * Clave de exclusión de la PERSONA EN UN EVENTO (evento + HMAC del documento): dos certificados distintos del mismo evento y la misma persona
+     * comparten clave, así que dos solicitudes simultáneas se serializan y la segunda ve la respuesta de la primera. Sin evento, cae al certificado.
      */
-    public function claveLogica(int $certificado): string
+    public function claveEvento(int $certificado): string
     {
-        $f = DB::table('cf_certificados_legado')->where('id', $certificado)->first(['documento_clave', 'grupo_duplicado']);
-        if ($f === null || $f->grupo_duplicado === null) {
+        $f = DB::table('cf_certificados_legado')->where('id', $certificado)->first(['documento_clave', 'evento_id']);
+        if ($f === null || $f->evento_id === null) {
             return 'c:'.$certificado;
         }
 
-        return 'g:'.hash('sha256', $f->documento_clave.'|'.$f->grupo_duplicado);
+        return 'e:'.$f->evento_id.':'.Hmac::de('documento', (string) $f->documento_clave);
     }
 
     public function posponer(Session $sesion, int $certificado): void

@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Portal\AccesoPortal;
 use App\Support\CredentialFlow\Portal\Hmac;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Fase 13A: encuesta OPCIONAL del portal. Una respuesta por certificado + versión, «Más tarde» solo en sesión, pertenencia por la sesión, 404 genérico
@@ -501,11 +502,11 @@ class PortalEncuestaTest extends PortalTestCase
         [$tarjeta, $otra] = $this->tarjetaYCopiaDeGina();
         $portal = app(EncuestaPortal::class);
         // Ambas filas comparten la misma clave de exclusión (grupo + documento); un certificado sin grupo usa la suya.
-        $this->assertSame($portal->claveLogica($tarjeta), $portal->claveLogica($otra));
-        $this->assertNotSame($portal->claveLogica($tarjeta), $portal->claveLogica($this->idCert(1)));
+        $this->assertSame($portal->claveEvento($tarjeta), $portal->claveEvento($otra));
+        $this->assertNotSame($portal->claveEvento($tarjeta), $portal->claveEvento($this->idCert(1)));
 
         // Otra solicitud (otro proceso) conserva el candado: esta no guarda nada y no se corrompe nada.
-        $candado = Cache::lock('cf-portal-encuesta:'.$portal->claveLogica($tarjeta), 30);
+        $candado = Cache::lock('cf-portal-encuesta:'.$portal->claveEvento($tarjeta), 30);
         $this->assertTrue($candado->get());
         $this->post(route('portal.encuesta.guardar', $tarjeta), $this->valido())->assertRedirect(route('portal.encuesta', $tarjeta))->assertSessionHas('errores_encuesta');
         $this->assertSame(0, DB::table('cf_encuestas_respuestas')->where('version_id', $v4->id)->count());
@@ -577,6 +578,191 @@ class PortalEncuestaTest extends PortalTestCase
         $this->assertSame(array_slice($antes, 0, 4), [Encuesta::count(), EncuestaVersion::count(), EncuestaPregunta::count(), DB::table('cf_encuestas_respuestas')->count()]);
         $this->assertFalse((bool) $e->fresh()->activa);
         $this->assertSame('archivada', $e->fresh()->estado);
+    }
+
+    // ── Fase 14B: una respuesta por persona y evento; formulario vacío ──────────────────────────
+
+    /** Clona el certificado descargable de la persona de prueba: del MISMO evento (otro certificado sin consolidar) o de un evento nuevo. */
+    private function clonar(bool $mismoEvento, string $nombreEvento = 'Evento Sintético'): int
+    {
+        $base = DB::table('cf_certificados_legado')->where('id', $this->idCert(1))->first();
+        $c = (array) $base;
+        unset($c['id']);
+        if (! $mismoEvento) {
+            $e = (array) DB::table('cf_eventos')->where('id', $base->evento_id)->first();
+            unset($e['id']);
+            $e['nombre'] = $nombreEvento;
+            $e['nombre_normalizado'] = mb_strtolower(Str::ascii($nombreEvento));
+            $e['anio'] = 2026;
+            $c['evento_id'] = DB::table('cf_eventos')->insertGetId($e);
+        }
+        $c['codigo_legado'] = null;
+        $c['grupo_duplicado'] = null;
+        if (array_key_exists('old_id', $c)) {
+            $c['old_id'] = 900000 + random_int(1, 99999);
+        }
+
+        return (int) DB::table('cf_certificados_legado')->insertGetId($c);
+    }
+
+    private function hashPersona(): string
+    {
+        return Hmac::de('documento', AccesoPortal::claveDocumento(self::DOCUMENTO));
+    }
+
+    private function contar(string $texto, string $html): int
+    {
+        return substr_count($html, $texto);
+    }
+
+    public function test_dos_certificados_del_mismo_evento_sin_consolidar_comparten_una_sola_respuesta(): void
+    {
+        $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $b = $this->clonar(true);
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(2, $this->contar('data-encuesta="evaluar"', $html));   // dos tarjetas del mismo evento, ambas pendientes
+
+        $this->post(route('portal.encuesta.guardar', $a), $this->valido())->assertRedirect(route('portal.panel'))->assertSessionHas('exito');
+
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(0, $this->contar('data-encuesta="evaluar"', $html));
+        $this->assertSame(2, $this->contar('data-encuesta="respondida"', $html));   // el evento quedó respondido en ambas tarjetas
+        $this->get(route('portal.encuesta', $b))->assertRedirect(route('portal.panel'))->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertRedirect(route('portal.panel'))->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+        $this->assertSame(1, DB::table('cf_encuestas_respuestas')->where('origen', 'credential_flow')->count());
+    }
+
+    public function test_la_misma_persona_responde_eventos_distintos_de_forma_independiente(): void
+    {
+        $v4 = $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $b = $this->clonar(false, 'Evento B');
+        $c = $this->clonar(false, 'Evento C');
+
+        $this->post(route('portal.encuesta.guardar', $a), $this->valido())->assertSessionHas('exito');
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(1, $this->contar('data-encuesta="respondida"', $html));
+        $this->assertSame(2, $this->contar('data-encuesta="evaluar"', $html));   // B y C siguen disponibles
+
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertSessionHas('exito');
+        $this->post(route('portal.encuesta.guardar', $c), $this->valido())->assertSessionHas('exito');
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+
+        $filas = DB::table('cf_encuestas_respuestas')->where('version_id', $v4->id)->get();
+        $this->assertCount(3, $filas);
+        $this->assertCount(3, $filas->pluck('evento_id')->unique());
+        $this->assertSame([$this->hashPersona()], $filas->pluck('documento_hash')->unique()->values()->all());
+    }
+
+    public function test_una_respuesta_moderna_de_otra_version_impide_responder_el_mismo_evento(): void
+    {
+        $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $b = $this->clonar(true);
+        $otraVersion = EncuestaVersion::create(['encuesta_id' => Encuesta::first()->id, 'numero' => 5, 'titulo' => 'Otra', 'publicada_at' => now()->subDay(), 'activa_desde' => now()->subDay(), 'activa_hasta' => now()->subHour()]);
+        $evento = (int) DB::table('cf_certificados_legado')->where('id', $a)->value('evento_id');
+        // Respuesta moderna de OTRA versión, de la misma persona y del mismo evento, sin vínculo con ninguno de los dos certificados.
+        $this->respuesta($otraVersion->id, null, 'credential_flow', null, $evento, $this->hashPersona());
+
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(2, $this->contar('data-encuesta="respondida"', $html));
+        $this->assertSame(0, $this->contar('data-encuesta="evaluar"', $html));
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+        $this->assertSame(1, DB::table('cf_encuestas_respuestas')->count());
+    }
+
+    public function test_una_respuesta_historica_vinculada_a_otro_certificado_del_mismo_evento_bloquea_ambos(): void
+    {
+        $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $b = $this->clonar(true);
+        $v3 = EncuestaVersion::where('numero', 3)->first();
+        $evento = (int) DB::table('cf_certificados_legado')->where('id', $a)->value('evento_id');
+        $this->respuesta($v3->id, $b, 'legado', 'vinculada', $evento, $this->hashPersona());
+
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(2, $this->contar('data-encuesta="respondida"', $html));
+        $this->post(route('portal.encuesta.guardar', $a), $this->valido())->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+        $this->assertSame(0, DB::table('cf_encuestas_respuestas')->where('origen', 'credential_flow')->count());
+    }
+
+    public function test_una_respuesta_de_otro_evento_o_de_otra_persona_no_bloquea(): void
+    {
+        $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $v3 = EncuestaVersion::where('numero', 3)->first();
+        $evento = (int) DB::table('cf_certificados_legado')->where('id', $a)->value('evento_id');
+        $e = (array) DB::table('cf_eventos')->where('id', $evento)->first();
+        unset($e['id']);
+        $e['nombre'] = 'Evento sin certificado de esta persona';
+        $e['nombre_normalizado'] = 'evento sin certificado de esta persona';
+        $otroEvento = DB::table('cf_eventos')->insertGetId($e);
+        $this->respuesta($v3->id, null, 'legado', 'vinculada', $otroEvento, $this->hashPersona());                      // misma persona, otro evento
+        $this->respuesta($v3->id, null, 'credential_flow', null, $evento, Hmac::de('documento', 'OTRA-PERSONA-9999'));         // mismo evento, otra persona
+
+        $this->get(route('portal.panel'))->assertOk()->assertSee('Evaluar evento')->assertDontSee('Encuesta respondida');
+        $this->post(route('portal.encuesta.guardar', $a), $this->valido())->assertSessionHas('exito');
+    }
+
+    public function test_solicitudes_simultaneas_por_certificados_distintos_del_mismo_evento_no_guardan_dos_respuestas(): void
+    {
+        $v4 = $this->encuestaDelPortal();
+        $a = $this->conSesion();
+        $b = $this->clonar(true);
+        $otroEvento = $this->clonar(false, 'Evento Otro');
+        $portal = app(EncuestaPortal::class);
+        $this->assertSame($portal->claveEvento($a), $portal->claveEvento($b));            // mismo evento + misma identidad ⇒ mismo candado
+        $this->assertNotSame($portal->claveEvento($a), $portal->claveEvento($otroEvento));  // otro evento ⇒ otro candado
+
+        // Otra solicitud conserva el candado de ESTA persona en ESTE evento: la solicitud por el otro certificado no guarda nada.
+        $candado = Cache::lock('cf-portal-encuesta:'.$portal->claveEvento($a), 30);
+        $this->assertTrue($candado->get());
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertRedirect(route('portal.encuesta', $b))->assertSessionHas('errores_encuesta');
+        $this->assertSame(0, DB::table('cf_encuestas_respuestas')->where('version_id', $v4->id)->count());
+        $candado->release();
+
+        // La primera termina; la segunda ve la respuesta DENTRO de su sección protegida y no guarda otra.
+        $this->post(route('portal.encuesta.guardar', $a), $this->valido())->assertSessionHas('exito');
+        $this->post(route('portal.encuesta.guardar', $b), $this->valido())->assertSessionHas('aviso', 'La encuesta de este evento ya fue respondida.');
+        $this->assertSame(1, DB::table('cf_encuestas_respuestas')->where('version_id', $v4->id)->count());
+        // Y el otro evento sigue disponible.
+        $this->post(route('portal.encuesta.guardar', $otroEvento), $this->valido())->assertSessionHas('exito');
+    }
+
+    public function test_un_formulario_sin_ninguna_respuesta_se_rechaza_y_no_crea_nada(): void
+    {
+        $this->encuestaDelPortal();
+        $id = $this->conSesion();
+        $vacios = [
+            'sin campos' => [],
+            'arreglo vacío' => ['r' => []],
+            'todo vacío' => ['r' => ['pregunta1' => '', 'pregunta4' => '', 'pregunta7' => '']],
+            'solo espacios' => ['r' => ['pregunta1' => '', 'pregunta7' => "   \n\t  "]],
+        ];
+        foreach ($vacios as $caso => $datos) {
+            $this->post(route('portal.encuesta.guardar', $id), $datos)->assertRedirect(route('portal.encuesta', $id))
+                ->assertSessionHas('errores_encuesta', ['_' => 'Responder al menos una pregunta para enviar la encuesta.']);
+            $this->assertSame(0, DB::table('cf_encuestas_respuestas')->count(), $caso);
+            $this->assertSame(0, DB::table('cf_encuestas_respuestas_detalle')->count(), $caso);
+        }
+        // No quedó marcada como respondida: sigue pudiéndose responder.
+        $html = $this->get(route('portal.panel'))->assertOk()->getContent();
+        $this->assertSame(1, $this->contar('data-encuesta="evaluar"', $html));
+        $this->assertSame(0, $this->contar('data-encuesta="respondida"', $html));
+        $this->get(route('portal.encuesta', $id))->assertOk();
+    }
+
+    public function test_una_sola_respuesta_con_contenido_es_suficiente(): void
+    {
+        $v4 = $this->encuestaDelPortal();
+        $id = $this->conSesion();
+
+        $this->post(route('portal.encuesta.guardar', $id), ['r' => ['pregunta1' => '', 'pregunta4' => 'No', 'pregunta7' => '']])->assertSessionHas('exito');
+
+        $r = DB::table('cf_encuestas_respuestas')->where('version_id', $v4->id)->first();
+        $this->assertSame(1, DB::table('cf_encuestas_respuestas_detalle')->where('respuesta_id', $r->id)->count());
+        $this->assertSame('No', DB::table('cf_encuestas_respuestas_detalle')->where('respuesta_id', $r->id)->value('valor_texto'));
     }
 
     /** Texto visible: sin estilos, scripts ni etiquetas. */
