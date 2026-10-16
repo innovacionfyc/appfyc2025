@@ -2,7 +2,9 @@
 
 namespace App\Support\CredentialFlow\Participantes;
 
+use App\Models\CredentialFlow\Correo;
 use App\Models\CredentialFlow\Lote;
+use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
@@ -28,6 +30,11 @@ final class ImportadorParticipantes
     private const ALIAS = [
         'nombre_completo' => ['nombrecompleto', 'nombre', 'nombres', 'nombresyapellidos', 'participante', 'asistente'],
         'documento' => ['documento', 'cedula', 'cc', 'identificacion', 'numerodedocumento', 'numerodocumento', 'doc'],
+    ];
+
+    /** Columnas OPCIONALES: si el archivo no las trae, la importación sigue como antes (bases antiguas sin correo). */
+    private const ALIAS_OPCIONAL = [
+        'correo' => ['correo', 'correoelectronico', 'correoelectronicoinstitucional', 'email', 'mail', 'emailaddress', 'direccioncorreo'],
     ];
 
     /** Datos que se definen una sola vez en el formulario del lote; no pueden venir por fila. */
@@ -83,6 +90,16 @@ final class ImportadorParticipantes
 
                 continue;
             }
+            $opcional = $this->buscar(self::ALIAS_OPCIONAL, $norm);
+            if ($opcional !== null) {
+                if (isset($columnas[$opcional])) {
+                    $errores[] = ErrorFila::error(ErrorFila::COLUMNA_DUPLICADA, "La columna «{$opcional}» aparece más de una vez en el encabezado.", $encabezado['fila'], $original);
+                } else {
+                    $columnas[$opcional] = $i;
+                }
+
+                continue;
+            }
             if ($this->buscar(self::NIVEL_LOTE, $norm) !== null) {
                 $errores[] = ErrorFila::error(ErrorFila::COLUMNA_NIVEL_LOTE, "La columna «{$original}» no va en el archivo: el evento, la fecha y la intensidad horaria se escriben una sola vez en el formulario de la base.", $encabezado['fila'], $original);
 
@@ -121,6 +138,9 @@ final class ImportadorParticipantes
             );
             $errFila = $r->errores;
             $avisos = [...$avisos, ...$r->avisos];
+            $correo = isset($columnas['correo']) ? ValidadorCorreo::validar($fila['celdas'][$columnas['correo']] ?? new CeldaCruda, $fila['fila']) : ['correos' => [], 'errores' => [], 'avisos' => [], 'vista' => ''];
+            $errFila = [...$errFila, ...$correo['errores']];
+            $avisos = [...$avisos, ...$correo['avisos']];
 
             if ($r->clave !== null) {
                 if (isset($vistas[$r->clave])) {
@@ -134,14 +154,14 @@ final class ImportadorParticipantes
                 $conError++;
                 $errores = [...$errores, ...$errFila];
             } else {
-                $participantes[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombre, 'documento' => $r->documento, 'documento_clave' => $r->clave];
+                $participantes[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombre, 'documento' => $r->documento, 'documento_clave' => $r->clave, 'correos' => $correo['correos'], 'correo_columna' => isset($columnas['correo'])];
                 if ($sinCaja !== []) {
                     $avisos = [...$avisos, ...$this->avisosDeCaja($sinCaja, $plantilla, $r, $fila['fila'])];
                 }
             }
 
             if (count($preview) < ResultadoImportacion::PREVIEW_FILAS) {
-                $preview[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombreVista, 'documento' => $r->documentoVista, 'valida' => $errFila === []];
+                $preview[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombreVista, 'documento' => $r->documentoVista, 'correo' => $correo['vista'], 'valida' => $errFila === []];
             }
         }
 
@@ -177,19 +197,42 @@ final class ImportadorParticipantes
             ]);
 
             $ahora = now();
+            $conCorreo = 0;
+            $conColumnaCorreo = ($resultado->participantes[0]['correo_columna'] ?? false) === true;   // igual para todo el archivo
             foreach (array_chunk($resultado->participantes, self::CHUNK) as $bloque) {
                 // insert() no dispara HasAuditFields: created_by/update_by se rellenan a mano.
-                DB::table('cf_participantes')->insert(array_map(fn (array $p) => [
-                    'lote_id' => $lote->id,
-                    'nombre_completo' => $p['nombre_completo'],
-                    'documento' => $p['documento'],
-                    'documento_clave' => $p['documento_clave'],
-                    'fila_origen' => $p['fila'],
-                    'created_by' => $usuario,
-                    'update_by' => $usuario,
-                    'created_at' => $ahora,
-                    'updated_at' => $ahora,
-                ], $bloque));
+                DB::table('cf_participantes')->insert(array_map(function (array $p) use ($lote, $usuario, $ahora, $conColumnaCorreo) {
+                    // Mismo convenio que `Participante::CORREO_*`: un correo válido → se guarda en la fila; varios → `multiple` y la fuente son las filas de
+                    // cf_correos; ninguno → `sin_correo` solo si el archivo traía la columna (las bases antiguas conservan NULL).
+                    $validos = $p['correos'] ?? [];
+                    $unico = count($validos) === 1 ? $validos[0] : null;
+
+                    // Un archivo sin columna de correo (bases antiguas) se inserta exactamente como antes: ni siquiera toca las columnas de correo.
+                    $columnasCorreo = ! $conColumnaCorreo ? [] : [
+                        'correo' => $unico,
+                        'correo_normalizado' => $unico === null ? null : Correo::normalizar($unico),
+                        'correo_estado' => match (true) {
+                            $unico !== null => Participante::CORREO_VALIDO,
+                            count($validos) > 1 => Participante::CORREO_MULTIPLE,
+                            default => Participante::CORREO_SIN_CORREO,
+                        },
+                    ];
+
+                    return [
+                        'lote_id' => $lote->id,
+                        'nombre_completo' => $p['nombre_completo'],
+                        'documento' => $p['documento'],
+                        'documento_clave' => $p['documento_clave'],
+                        ...$columnasCorreo,
+                        'fila_origen' => $p['fila'],
+                        'created_by' => $usuario,
+                        'update_by' => $usuario,
+                        'created_at' => $ahora,
+                        'updated_at' => $ahora,
+                    ];
+                }, $bloque));
+
+                $conCorreo += $this->guardarCorreos($lote, $bloque, $usuario, $ahora);
             }
 
             // Un solo Movimiento por importación, sin nombres, documentos ni contenido del archivo.
@@ -201,11 +244,44 @@ final class ImportadorParticipantes
                     'lote_id' => $lote->id,
                     'plantilla_id' => $plantilla->id,
                     'participantes_total' => count($resultado->participantes),
+                    'participantes_con_correo' => $conCorreo,
                 ],
             );
 
             return $lote;
         });
+    }
+
+    /**
+     * Escribe en cf_correos los correos válidos de un bloque ya insertado (origen `credential_flow`, el primero como principal). Las columnas derivadas
+     * (normalizado, estado) se calculan con las mismas funciones del modelo `Correo`, porque el insert masivo no dispara sus validaciones.
+     *
+     * @param  array<int,array<string,mixed>>  $bloque
+     * @return int participantes del bloque con al menos un correo
+     */
+    private function guardarCorreos(Lote $lote, array $bloque, ?int $usuario, $ahora): int
+    {
+        $conCorreo = array_filter($bloque, fn (array $p) => ($p['correos'] ?? []) !== []);
+        if ($conCorreo === []) {
+            return 0;
+        }
+        $ids = DB::table('cf_participantes')->where('lote_id', $lote->id)->whereIn('fila_origen', array_column($conCorreo, 'fila'))->pluck('id', 'fila_origen');
+        $filas = [];
+        foreach ($conCorreo as $p) {
+            foreach (array_values($p['correos']) as $i => $correo) {
+                $normalizado = Correo::normalizar($correo);
+                $filas[] = [
+                    'participante_id' => $ids[$p['fila']], 'certificado_legado_id' => null, 'corrida_id' => null, 'correo' => $correo, 'correo_normalizado' => $normalizado,
+                    'estado' => Correo::estadoDe($normalizado), 'orden' => $i + 1, 'es_principal' => $i === 0, 'origen' => Correo::ORIGEN_CREDENTIAL_FLOW,
+                    'created_by' => $usuario, 'update_by' => $usuario, 'created_at' => $ahora, 'updated_at' => $ahora,
+                ];
+            }
+        }
+        foreach (array_chunk($filas, self::CHUNK) as $parte) {
+            DB::table('cf_correos')->insert($parte);
+        }
+
+        return count($conCorreo);
     }
 
     /** Nombre del archivo apto para mostrar: sin ruta, sin controles, con caracteres seguros y ≤ 150. */

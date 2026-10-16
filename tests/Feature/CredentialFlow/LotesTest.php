@@ -466,7 +466,7 @@ class LotesTest extends CredentialFlowTestCase
         $lector->close();
 
         $this->assertSame(['Participantes', 'Instrucciones'], array_keys($hojas));
-        $this->assertSame([['nombre_completo', 'documento']], $hojas['Participantes']); // solo encabezado, sin filas de ejemplo
+        $this->assertSame([['nombre_completo', 'documento', 'correo']], $hojas['Participantes']); // solo encabezado, sin filas de ejemplo
         $this->assertGreaterThan(5, count($hojas['Instrucciones']));
     }
 
