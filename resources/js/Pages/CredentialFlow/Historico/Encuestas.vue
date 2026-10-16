@@ -47,6 +47,11 @@ const CAJA = "bg-white rounded-[2rem] border border-slate-100 shadow-sm";
 
       <DashboardHeader title="Encuestas históricas" subtitle="Lo que respondieron las personas en el sistema anterior. Solo lectura: aquí se ven conteos, nunca los textos escritos." />
 
+      <p class="mt-4 text-[13px] font-semibold text-slate-500" data-aviso-informes>
+        Esta vista es el detalle técnico de la migración de las respuestas del sistema anterior. Para los resultados por evento, los informes y las exportaciones de todas las encuestas (históricas y modernas) usar
+        <Link :href="route('credential-flow.encuestas.resumen')" class="font-black text-primary-vinotinto hover:underline">Encuestas → Resultados</Link>.
+      </p>
+
       <div v-if="!resumen.hay" class="mt-6 text-center py-16 space-y-3 bg-white rounded-[2rem] border border-dashed border-slate-200" data-sin-encuestas>
         <div class="w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto"><ClipboardList class="w-8 h-8 text-slate-400" /></div>
         <p class="text-slate-600 font-bold text-lg">Todavía no se han migrado encuestas históricas</p>

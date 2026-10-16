@@ -6,6 +6,9 @@ use App\Http\Controllers\CredentialFlow\ConciliacionController;
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
 use App\Http\Controllers\CredentialFlow\EliminacionDefinitivaController;
 use App\Http\Controllers\CredentialFlow\EmisionController;
+use App\Http\Controllers\CredentialFlow\EncuestaComentariosController;
+use App\Http\Controllers\CredentialFlow\EncuestaExportController;
+use App\Http\Controllers\CredentialFlow\EncuestaInformeController;
 use App\Http\Controllers\CredentialFlow\EnvioController;
 use App\Http\Controllers\CredentialFlow\HistoricoController;
 use App\Http\Controllers\CredentialFlow\HistoricoPdfController;
@@ -113,6 +116,18 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
 
     // Fase 9: envíos de correo (códigos de acceso al portal). SOLO LECTURA: una única ruta GET, sin reenvíos ni acciones masivas.
     Route::get('/envios', [EnvioController::class, 'index'])->name('envios.index');
+
+    // Fase 15A: resultados, informes y exportaciones de encuestas (históricas y modernas). SOLO LECTURA (únicamente GET). Los comentarios completos (texto
+    // libre) viven en una ruta aparte reservada al super-admin y dejan registro de acceso sin el contenido.
+    Route::prefix('encuestas')->name('encuestas.')->middleware(CabecerasAdminSensible::class)->group(function () {
+        Route::get('/', [EncuestaInformeController::class, 'resumen'])->name('resumen');
+        Route::get('/eventos', [EncuestaInformeController::class, 'eventos'])->name('eventos');
+        Route::get('/eventos/{evento}', [EncuestaInformeController::class, 'evento'])->where('evento', '[0-9]+|sin-evento')->name('eventos.show');
+        Route::get('/informes', [EncuestaInformeController::class, 'informes'])->name('informes');
+        Route::get('/exportar/xlsx', [EncuestaExportController::class, 'xlsx'])->middleware('throttle:10,1,cf-encuestas-exportar')->name('exportar.xlsx');
+        Route::get('/exportar/csv/{conjunto?}', [EncuestaExportController::class, 'csv'])->where('conjunto', 'resumen|preguntas|distribucion')->middleware('throttle:10,1,cf-encuestas-exportar')->name('exportar.csv');
+        Route::get('/comentarios', [EncuestaComentariosController::class, 'index'])->middleware(['rol:super-admin', 'throttle:30,1,cf-encuestas-comentarios'])->name('comentarios');
+    });
 
     // Eliminación definitiva (acción aparte del «Eliminar» normal). Incluye registros ya eliminados (soft delete).
     Route::get('/lotes/{lote}/eliminacion-definitiva', [EliminacionDefinitivaController::class, 'resumenLote'])->withTrashed()->name('lotes.eliminacion.resumen');
