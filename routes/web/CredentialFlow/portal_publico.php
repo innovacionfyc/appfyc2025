@@ -29,6 +29,8 @@ Route::prefix('certificados')->name('portal.')
             Route::middleware(PortalAutenticado::class)->group(function () {
                 Route::get('/mis-certificados', [PortalPublicoController::class, 'panel'])->name('panel');
                 Route::get('/{certificado}/descargar', [PortalPublicoController::class, 'descargar'])->whereNumber('certificado')->middleware('throttle:cf-portal-descarga')->name('descargar');
+                // Certificados MODERNOS (emisiones oficiales): id de EMISIÓN, en un espacio de rutas propio; jamás se confunde con el id de un histórico.
+                Route::get('/emision/{emision}/descargar', [PortalPublicoController::class, 'descargarModerno'])->whereNumber('emision')->middleware('throttle:cf-portal-descarga')->name('descargar-moderno');
 
                 // Encuesta OPCIONAL (Fase 13A): nunca bloquea la descarga; mismo alcance de sesión que el panel y límite propio.
                 Route::middleware(LimitarEncuestaPortal::class)->prefix('encuesta')->group(function () {

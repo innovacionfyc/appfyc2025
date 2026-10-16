@@ -24,12 +24,13 @@ final class PlantillaExcelParticipantes
         $opciones = new Options;
         $opciones->setColumnWidth(34, 1);
         $opciones->setColumnWidth(30, 2);
+        $opciones->setColumnWidth(36, 3);
         $writer = new Writer($opciones);
         $writer->openToFile($ruta);
 
         $writer->getCurrentSheet()->setName('Participantes');
         $texto = (new Style)->withFontBold(true)->withFormat('@');
-        $writer->addRow(Row::fromValuesWithStyles(['nombre_completo', 'documento'], [0 => $texto, 1 => $texto]));
+        $writer->addRow(Row::fromValuesWithStyles(['nombre_completo', 'documento', 'correo'], [0 => $texto, 1 => $texto, 2 => $texto]));
 
         $writer->addNewSheetAndMakeItCurrent()->setName('Instrucciones');
         $negrita = (new Style)->withFontBold(true);
@@ -53,7 +54,8 @@ final class PlantillaExcelParticipantes
             ['Cómo llenar el archivo de participantes', true],
             ['', false],
             ['1. Escribe los participantes en la hoja «Participantes», una persona por fila, debajo del encabezado.', false],
-            ['2. Solo hay dos columnas: nombre_completo y documento. El orden no importa.', false],
+            ['2. Columnas: nombre_completo y documento (obligatorias) y correo (recomendada). El orden no importa.', false],
+            ['   El correo es el que la persona usará para entrar a fycconsultores.com/certificados (documento + correo + código). Sin correo no podrá entrar. Si una persona tiene dos correos, sepáralos con «;».', false],
             ['3. El evento, la fecha y la intensidad horaria NO van en el archivo: se escriben una sola vez al crear la base.', false],
             ['4. El documento se escribe tal como debe imprimirse. Ejemplos: C.C. 1.023.456.789 · PASAPORTE AB1234567 · NIT 900.123.456-7', false],
             ['5. Antes de pegar los documentos, formatea la columna «documento» como Texto (clic derecho > Formato de celdas > Texto).', false],

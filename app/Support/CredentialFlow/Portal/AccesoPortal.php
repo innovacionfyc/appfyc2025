@@ -54,27 +54,33 @@ final class AccesoPortal
     public function alcance(string $clave, string $correoNormalizado): ?array
     {
         $d = $this->cargar($clave);
-        if ($d['filas']->isEmpty()) {
+        $m = EmisionesModernas::filas($clave);
+        if ($d['filas']->isEmpty() && $m->isEmpty()) {
             return null;
         }
-        $conCorreo = $d['filas']->filter(fn ($f) => isset($d['correos'][$f->id][$correoNormalizado]));
+        // Filas del documento, históricas y modernas, con la MISMA forma: grupo de nombre conservador, correos válidos y si habilitan el acceso.
+        // Sin filas modernas el resultado es idéntico al de siempre; con ellas, las mismas reglas (un solo grupo → documento completo; varios → el
+        // correo debe identificar EXACTAMENTE uno) valen para ambos tipos y un correo nunca amplía el alcance a un grupo que no lo tiene.
+        $filas = $d['filas']->map(fn ($f) => ['grupo' => $d['grupos'][$f->id], 'correo' => isset($d['correos'][$f->id][$correoNormalizado]), 'habilita' => self::habilitaAcceso($f)])
+            ->concat($m->map(fn ($f) => ['grupo' => $f->grupo, 'correo' => isset($f->correos[$correoNormalizado]), 'habilita' => EmisionesModernas::habilita($f)]));
+        $conCorreo = $filas->filter(fn ($f) => $f['correo']);
         if ($conCorreo->isEmpty()) {
             return null;
         }
 
-        if ($d['filas']->map(fn ($f) => $d['grupos'][$f->id])->unique()->count() <= 1) {
+        if ($filas->pluck('grupo')->unique()->count() <= 1) {
             $grupo = null;
-            $alcance = $d['filas'];
+            $alcance = $filas;
         } else {
-            $grupos = $conCorreo->map(fn ($f) => $d['grupos'][$f->id])->unique()->values();
+            $grupos = $conCorreo->pluck('grupo')->unique()->values();
             if ($grupos->count() !== 1) {
                 return null;
             }
             $grupo = $grupos->first();
-            $alcance = $d['filas']->filter(fn ($f) => $d['grupos'][$f->id] === $grupo);
+            $alcance = $filas->filter(fn ($f) => $f['grupo'] === $grupo);
         }
 
-        return $alcance->contains(fn ($f) => self::habilitaAcceso($f)) ? ['grupo' => $grupo] : null;
+        return $alcance->contains(fn ($f) => $f['habilita']) ? ['grupo' => $grupo] : null;
     }
 
     /**
@@ -142,6 +148,82 @@ final class AccesoPortal
         return $tarjetas;
     }
 
+    /**
+     * Tarjetas de los certificados MODERNOS dentro del alcance autorizado (mismo documento y mismos grupos de nombre que la sesión). `moderno = true`:
+     * su `id` es el de la EMISIÓN y NUNCA es intercambiable con el de un certificado histórico (la descarga usa una ruta propia).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function tarjetasModernas(string $clave, string|array|null $grupo = null, ?int $desde = null): array
+    {
+        if (self::lista($grupo) === []) {
+            return [];   // un scope vacío NUNCA es «documento completo»
+        }
+        $tarjetas = [];
+        $filas = EmisionesModernas::filas($clave, $desde);
+        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
+            return [];
+        }
+        foreach ($filas as $f) {
+            if (! EmisionesModernas::pertenece($f, $grupo)) {
+                continue;
+            }
+            $vigente = EmisionesModernas::habilita($f);
+            $anio = self::anioDe($f->datos['fecha'] ?? null, $f->emitido_at);
+            $tarjetas[] = [
+                'id' => $f->emision_id, 'moderno' => true, 'evento' => (string) ($f->datos['evento'] ?? ''), 'anio' => $anio, 'codigo' => $f->codigo, 'descargable' => $vigente, 'enlace_moderno' => null,
+                'tipo' => $vigente ? 'disponible' : 'revocado', 'mensaje' => $vigente ? 'Disponible para descargar.' : 'Certificado revocado.',
+            ];
+        }
+
+        return $tarjetas;
+    }
+
+    /** Fila moderna de una emisión SOLO si pertenece al documento y al alcance de la sesión (la descarga nunca se autoriza por id solo). */
+    public function emisionModerna(string $clave, string|array|null $grupo, int $emisionId, ?int $desde = null): ?object
+    {
+        if (self::lista($grupo) === []) {
+            return null;
+        }
+        $filas = EmisionesModernas::filas($clave, $desde);
+        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
+            return null;
+        }
+        foreach ($filas as $f) {
+            if ($f->emision_id === $emisionId && EmisionesModernas::pertenece($f, $grupo)) {
+                return $f;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Una sesión de «documento completo» (`grupo = null`) nació cuando el documento tenía UN solo grupo de nombre. Si después aparece otro grupo (p. ej. una
+     * emisión nueva a nombre de otra persona con el mismo documento), la sesión NO lo hereda: falla cerrado y no muestra ni entrega certificados modernos hasta
+     * que la persona vuelva a identificarse con su correo (que entonces sí identifica su grupo).
+     *
+     * @param  Collection<int,object>  $modernas
+     */
+    private function documentoCompletoSeguro(string $clave, string|array|null $grupo, Collection $modernas): bool
+    {
+        if ($grupo !== null) {
+            return true;
+        }
+        $historicos = $this->cargar($clave)['grupos'];
+
+        return collect($historicos)->concat($modernas->pluck('grupo'))->unique()->count() <= 1;
+    }
+
+    private static function anioDe(mixed $fecha, mixed $emitidoAt): ?int
+    {
+        if (is_string($fecha) && preg_match('/(20\d{2}|19\d{2})/', $fecha, $m) === 1) {
+            return (int) $m[1];
+        }
+
+        return $emitidoAt === null ? null : (int) substr((string) $emitidoAt, 0, 4);
+    }
+
     /** Tarjetas por página del panel y umbral a partir del cual aparecen buscador, filtros y paginador. */
     public const POR_PAGINA = 20;
 
@@ -156,9 +238,10 @@ final class AccesoPortal
      * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null}  $filtros
      * @return array{items:list<array<string,mixed>>,total:int,total_sin_filtros:int,descargables:int,anios:list<int>,hay_sin_anio:bool,q:string,anio:?string,orden:string,pagina:int,paginas:int,por_pagina:int,desde:int,hasta:int,con_controles:bool,filtrado:bool}
      */
-    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = []): array
+    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
-        $todas = $this->tarjetas($clave, $grupo);
+        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
+        usort($todas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
         $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
         $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';
         $anios = array_values(array_unique(array_map('intval', array_filter(array_column($todas, 'anio'), fn ($a) => $a !== null))));
