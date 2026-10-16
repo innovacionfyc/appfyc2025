@@ -23,6 +23,8 @@ class PortalAutenticado
         // (flujo histórico); lista = scope (un grupo histórico es la lista de uno). Una lista vacía nunca existe: `perteneceA` la deniega de todos modos.
         $request->attributes->set('cf_portal_documento', $contexto['documento']);
         $request->attributes->set('cf_portal_grupos', $contexto['grupos']);
+        // Instante en que se autenticó la sesión: un vínculo de identidad creado DESPUÉS no se hereda en esta sesión.
+        $request->attributes->set('cf_portal_desde', (int) ($request->session()->get(SesionPortal::CLAVE)['authenticated_at'] ?? time()));
 
         return $next($request);
     }

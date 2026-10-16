@@ -154,13 +154,13 @@ final class AccesoPortal
      *
      * @return list<array<string,mixed>>
      */
-    public function tarjetasModernas(string $clave, string|array|null $grupo = null): array
+    public function tarjetasModernas(string $clave, string|array|null $grupo = null, ?int $desde = null): array
     {
         if (self::lista($grupo) === []) {
             return [];   // un scope vacío NUNCA es «documento completo»
         }
         $tarjetas = [];
-        $filas = EmisionesModernas::filas($clave);
+        $filas = EmisionesModernas::filas($clave, $desde);
         if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
             return [];
         }
@@ -180,12 +180,12 @@ final class AccesoPortal
     }
 
     /** Fila moderna de una emisión SOLO si pertenece al documento y al alcance de la sesión (la descarga nunca se autoriza por id solo). */
-    public function emisionModerna(string $clave, string|array|null $grupo, int $emisionId): ?object
+    public function emisionModerna(string $clave, string|array|null $grupo, int $emisionId, ?int $desde = null): ?object
     {
         if (self::lista($grupo) === []) {
             return null;
         }
-        $filas = EmisionesModernas::filas($clave);
+        $filas = EmisionesModernas::filas($clave, $desde);
         if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
             return null;
         }
@@ -238,9 +238,9 @@ final class AccesoPortal
      * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null}  $filtros
      * @return array{items:list<array<string,mixed>>,total:int,total_sin_filtros:int,descargables:int,anios:list<int>,hay_sin_anio:bool,q:string,anio:?string,orden:string,pagina:int,paginas:int,por_pagina:int,desde:int,hasta:int,con_controles:bool,filtrado:bool}
      */
-    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = []): array
+    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
-        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo)];
+        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
         usort($todas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
         $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
         $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';

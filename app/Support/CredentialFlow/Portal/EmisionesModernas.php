@@ -27,7 +27,7 @@ final class EmisionesModernas
     /**
      * @return Collection<int,object{participante_id:int,emision_id:int,codigo:string,estado:string,nombre:string,grupo:string,correos:array<string,bool>,datos:array<string,mixed>,emitido_at:?string}>
      */
-    public static function filas(string $clave): Collection
+    public static function filas(string $clave, ?int $desde = null): Collection
     {
         $participantes = DB::table('cf_participantes as p')
             ->where('p.documento_clave', $clave)
@@ -54,7 +54,10 @@ final class EmisionesModernas
             $correos[$c->participante_id][$c->correo_normalizado] = true;
         }
 
-        return $participantes->map(function ($p) use ($emisiones, $correos) {
+        // Vínculos explícitos de identidad (misma persona, grafía distinta): solo cambian el GRUPO con el que se lee la fila moderna; nunca las históricas.
+        $vinculos = VinculosIdentidadModerna::mapa($clave, $desde);
+
+        return $participantes->map(function ($p) use ($emisiones, $correos, $vinculos) {
             $e = $emisiones[$p->id];
             $propios = $correos[$p->id] ?? [];
             if ($p->correo_estado === Participante::CORREO_VALIDO && $p->correo_normalizado !== null) {
@@ -67,7 +70,7 @@ final class EmisionesModernas
                 'codigo' => (string) $e->codigo,
                 'estado' => (string) $e->estado,
                 'nombre' => (string) $p->nombre_completo,
-                'grupo' => NombreConservador::grupoId((string) $p->nombre_completo),
+                'grupo' => $vinculos[NombreConservador::grupoId((string) $p->nombre_completo)] ?? NombreConservador::grupoId((string) $p->nombre_completo),
                 'correos' => $propios,
                 'datos' => is_array($e->datos_snapshot) ? $e->datos_snapshot : (json_decode((string) $e->datos_snapshot, true) ?: []),
                 'emitido_at' => $e->emitido_at,
