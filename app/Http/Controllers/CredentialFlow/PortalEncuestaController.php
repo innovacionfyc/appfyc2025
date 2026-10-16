@@ -63,11 +63,11 @@ class PortalEncuestaController extends Controller
         }
         $respuestas = (array) ($enviados['r'] ?? []);
 
-        $bloqueo = Cache::lock('cf-portal-encuesta:'.$this->encuesta->claveLogica($certificado), 10);
+        $bloqueo = Cache::lock('cf-portal-encuesta:'.$this->encuesta->claveEvento($certificado), 10);
         try {
             $bloqueo->block(3);
             try {
-                // Continuidad de la encuesta histórica: cualquier respuesta ya vinculada al certificado (de cualquier versión) lo da por respondido.
+                // Una respuesta por persona y evento: se repite DENTRO del candado (por evento + identidad), de modo que dos solicitudes simultáneas no guardan dos veces.
                 if ($this->encuesta->respondida($certificado)) {
                     return redirect()->route('portal.panel')->with('aviso', self::MENSAJE_RESPONDIDA);
                 }

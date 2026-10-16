@@ -79,7 +79,7 @@ final class ServicioEncuestas
             }
         }
         foreach ($preguntas as $clave => $p) {
-            $vacia = ! array_key_exists($clave, $respuestas) || $respuestas[$clave] === null || $respuestas[$clave] === '' || $respuestas[$clave] === [];
+            $vacia = ! array_key_exists($clave, $respuestas) || $respuestas[$clave] === null || $respuestas[$clave] === [] || (is_string($respuestas[$clave]) && trim($respuestas[$clave]) === '');
             if ($vacia) {
                 if ($p->obligatoria) {
                     $errores[$clave] = 'Esta pregunta es obligatoria.';
@@ -134,6 +134,8 @@ final class ServicioEncuestas
                 if (! is_string($valor)) {
                     $falla('El texto de la respuesta no es válido.');
                 }
+                // Espacios sobrantes fuera: se guarda el texto recortado y con saltos de línea unificados (las respuestas históricas no pasan por aquí).
+                $valor = trim(preg_replace('/\r\n?/', "\n", $valor));
                 $max = min(self::MAX_TEXTO, (int) ($p->configuracion['max_caracteres'] ?? self::MAX_TEXTO));
                 if (mb_strlen($valor) > $max) {
                     $falla("El texto es demasiado largo (máximo {$max} caracteres).");
@@ -179,6 +181,10 @@ final class ServicioEncuestas
         }
 
         $detalle = $this->validar($v, $respuestas);
+        // Todas las preguntas pueden ser opcionales, pero una encuesta sin ninguna respuesta con contenido no es una opinión: no se crea nada.
+        if ($detalle === []) {
+            throw new RespuestaInvalida(RespuestaInvalida::CAMPOS, ['_' => 'Responder al menos una pregunta para enviar la encuesta.']);
+        }
 
         return DB::transaction(function () use ($v, $detalle, $contexto, $legado, $emision, $en) {
             // Una persona (certificado) responde una vez cada versión: se comprueba junto con la inserción.

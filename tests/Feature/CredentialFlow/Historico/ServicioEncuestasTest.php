@@ -274,4 +274,42 @@ class ServicioEncuestasTest extends HistoricoTestCase
     {
         $this->assertSame(['opcion_unica', 'opcion_multiple', 'texto', 'escala'], EncuestaPregunta::TIPOS);
     }
+
+    // ── Fase 14B: formulario vacío y normalización de texto ─────────────────────
+
+    public function test_una_encuesta_sin_ninguna_respuesta_con_contenido_se_rechaza_sin_crear_nada(): void
+    {
+        $v = $this->encuesta();
+        foreach ([[], ['calidad' => ''], ['comentario' => "   \n\t "], ['calidad' => '', 'temas' => [], 'comentario' => '  ', 'nps' => null]] as $caso => $respuestas) {
+            try {
+                $this->motor->guardar($v, $respuestas, ['documento' => '1234567']);
+                $this->fail("Debió rechazar el caso {$caso}");
+            } catch (RespuestaInvalida $e) {
+                $this->assertSame(RespuestaInvalida::CAMPOS, $e->codigo);
+                $this->assertSame(['_' => 'Responder al menos una pregunta para enviar la encuesta.'], $e->errores);
+            }
+        }
+        $this->assertSame(0, EncuestaRespuesta::count());
+        $this->assertSame(0, DB::table('cf_encuestas_respuestas_detalle')->count());
+    }
+
+    public function test_una_sola_pregunta_con_contenido_basta_y_el_texto_se_guarda_recortado(): void
+    {
+        $v = $this->encuesta();
+
+        $r = $this->motor->guardar($v, ['calidad' => '', 'comentario' => "  hola\r\nmundo  "], ['documento' => '1234567']);
+
+        $detalle = DB::table('cf_encuestas_respuestas_detalle')->where('respuesta_id', $r->id)->get();
+        $this->assertCount(1, $detalle);
+        $this->assertSame("hola\nmundo", $detalle->first()->valor_texto);
+    }
+
+    public function test_un_texto_de_solo_espacios_no_cuenta_como_respuesta_aunque_haya_otra_pregunta_vacia(): void
+    {
+        $v = $this->encuesta();
+
+        $r = $this->motor->guardar($v, ['comentario' => '    ', 'nps' => '7'], ['documento' => '1234567']);
+
+        $this->assertSame(1, DB::table('cf_encuestas_respuestas_detalle')->where('respuesta_id', $r->id)->count());
+    }
 }
