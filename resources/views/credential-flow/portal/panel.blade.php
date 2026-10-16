@@ -130,13 +130,14 @@
 
         <div class="lista" data-lista>
             @forelse ($tarjetas as $t)
-                <article class="cert" data-certificado="{{ $t['tipo'] }}">
+                @php $enc = empty($t['moderno']) ? ($encuestas[$t['id']] ?? null) : null; @endphp
+                <article class="cert" data-certificado="{{ $t['tipo'] }}"@if (! empty($t['moderno'])) data-moderno @endif>
                     <div class="cert-info">
                         <h2>{{ $t['evento'] }}</h2>
                         <div class="cert-meta">
                             @if ($t['anio'] !== null)<span class="suave">Año {{ $t['anio'] }}</span>@endif
                             <span class="insignia {{ $clase($t['tipo']) }}">{{ $etiqueta($t['tipo']) }}</span>
-                            @if (($encuestas[$t['id']] ?? null) === 'respondida')<span class="insignia neutra" data-encuesta="respondida">Encuesta respondida</span>@endif
+                            @if ($enc === 'respondida')<span class="insignia neutra" data-encuesta="respondida">Encuesta respondida</span>@endif
                             @if ($t['codigo'] !== null)<span class="suave">Código del certificado: {{ $t['codigo'] }}</span>@endif
                             @if (! empty($t['estado_emision']))<span class="suave">Estado: {{ $t['estado_emision'] }}</span>@endif
                         </div>
@@ -144,11 +145,11 @@
                     </div>
                     <div class="cert-acciones">
                         @if ($t['descargable'])
-                            <a class="boton chico" data-descarga href="{{ route('portal.descargar', $t['id']) }}">{{ $t['tipo'] === 'actualizado' ? 'Descargar certificado' : 'Descargar PDF' }}</a>
+                            <a class="boton chico" data-descarga href="{{ ! empty($t['moderno']) ? route('portal.descargar-moderno', $t['id']) : route('portal.descargar', $t['id']) }}">{{ $t['tipo'] === 'actualizado' ? 'Descargar certificado' : 'Descargar PDF' }}</a>
                             @if ($t['codigo'] !== null)
                                 <a class="enlace" href="{{ route('verificacion.publica', $t['codigo']) }}" target="_blank" rel="noopener noreferrer">Verificar</a>
                             @endif
-                            @if (($encuestas[$t['id']] ?? null) === 'pendiente')
+                            @if ($enc === 'pendiente')
                                 <a class="enlace" data-encuesta="evaluar" href="{{ route('portal.encuesta', $t['id']) }}">Evaluar evento</a>
                             @endif
                         @elseif ($t['enlace_moderno'])
@@ -157,7 +158,7 @@
                             <a class="boton sec chico" href="{{ $contacto }}" target="_blank" rel="noopener noreferrer">Contactar soporte</a>
                         @endif
                     </div>
-                    @if (($encuestas[$t['id']] ?? null) === 'pendiente')
+                    @if ($enc === 'pendiente')
                         <aside class="invita" data-invitacion hidden>
                             <div class="invita-texto">
                                 <strong>Evaluación del evento</strong>

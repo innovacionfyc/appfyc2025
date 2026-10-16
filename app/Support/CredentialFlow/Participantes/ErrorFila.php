@@ -71,10 +71,14 @@ final readonly class ErrorFila
 
     public const DOCUMENTO_DUPLICADO = 'DOCUMENTO_DUPLICADO';
 
+    public const CORREO_INVALIDO = 'CORREO_INVALIDO';
+
     // Avisos
     public const DOCUMENTO_NUMERICO_EXCEL = 'DOCUMENTO_NUMERICO_EXCEL';
 
     public const NO_CABE_PROBABLE = 'NO_CABE_PROBABLE';
+
+    public const CORREO_VACIO = 'CORREO_VACIO';
 
     public function __construct(
         public string $codigo,
