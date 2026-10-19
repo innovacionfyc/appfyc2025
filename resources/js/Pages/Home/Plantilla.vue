@@ -304,6 +304,8 @@ const layoutConfig = computed(() => {
 const preciosVisibles = computed(() => {
   const mapaPrecios = [
     { label: "Jornada Completa", value: parseFloat(evento?.precio_jornada) || 0 },
+    { label: "Jornada Presencial", value: parseFloat(evento?.precio_jornada_presencial) || 0 },
+    { label: "Jornada Virtual", value: parseFloat(evento?.precio_jornada_virtual) || 0 },
     { label: "Seminario", value: parseFloat(evento?.precio_seminario) || 0 },
     { label: "Seminario Presencial", value: parseFloat(evento?.precio_seminario_presencial) || 0 },
     { label: "Seminario Streaming", value: parseFloat(evento?.precio_seminario_streaming) || 0 },

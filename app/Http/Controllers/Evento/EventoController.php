@@ -32,48 +32,76 @@ class EventoController extends Controller
         'url_formulario_inscripcion.max' => 'La URL del formulario de inscripción no puede superar 255 caracteres.',
     ];
 
-    private function esSeminarioDupla(Request $request): bool
+    /**
+     * Tipos con asistencia presencial y otra remota: modalidad Híbrido, sede presencial y dos
+     * tarifas obligatorias. Cada precio indica cómo se nombra en los mensajes de validación.
+     */
+    private const DUPLAS_HIBRIDAS = [
+        'SEM_DUPLA' => [
+            'modalidad' => 'El seminario dupla (presencial y streaming) debe tener modalidad Híbrido.',
+            'precios' => [
+                'precio_seminario_presencial' => 'del seminario (presencial)',
+                'precio_seminario_streaming' => 'del seminario (streaming)',
+            ],
+        ],
+        'JOR_DUPLA' => [
+            'modalidad' => 'La jornada dupla (presencial y virtual) debe tener modalidad Híbrido.',
+            'precios' => [
+                'precio_jornada_presencial' => 'de la jornada (presencial)',
+                'precio_jornada_virtual' => 'de la jornada (virtual)',
+            ],
+        ],
+    ];
+
+    private function duplaHibrida(Request $request): ?array
     {
-        return $request->input('tipo_evento') === 'SEM_DUPLA';
+        return self::DUPLAS_HIBRIDAS[$request->input('tipo_evento')] ?? null;
     }
 
     /**
-     * Reglas del tipo SEM_DUPLA (asistencia presencial y por streaming): modalidad Híbrido,
-     * sede presencial y sus dos tarifas obligatorias.
-     * Para los demás tipos, los precios del seminario dupla son opcionales como el resto.
+     * Reglas de las duplas híbridas. Para los demás tipos, sus precios son opcionales como el resto.
      */
-    private function reglasSeminarioDupla(Request $request): array
+    private function reglasDuplasHibridas(Request $request): array
     {
-        if (! $this->esSeminarioDupla($request)) {
-            return [
-                'precio_seminario_presencial' => 'nullable|numeric|min:0',
-                'precio_seminario_streaming' => 'nullable|numeric|min:0',
-            ];
+        $reglas = [];
+        foreach (self::DUPLAS_HIBRIDAS as $dupla) {
+            foreach (array_keys($dupla['precios']) as $campo) {
+                $reglas[$campo] = 'nullable|numeric|min:0';
+            }
         }
 
-        return [
-            'modalidad' => 'required|string|in:Híbrido',
-            'ubicacion' => 'required|string|max:255',
-            'precio_seminario_presencial' => 'required|numeric|gt:0',
-            'precio_seminario_streaming' => 'required|numeric|gt:0',
-        ];
+        $dupla = $this->duplaHibrida($request);
+        if ($dupla === null) {
+            return $reglas;
+        }
+
+        $reglas['modalidad'] = 'required|string|in:Híbrido';
+        $reglas['ubicacion'] = 'required|string|max:255';
+        foreach (array_keys($dupla['precios']) as $campo) {
+            $reglas[$campo] = 'required|numeric|gt:0';
+        }
+
+        return $reglas;
     }
 
-    private function mensajesSeminarioDupla(Request $request): array
+    private function mensajesDuplasHibridas(Request $request): array
     {
-        if (! $this->esSeminarioDupla($request)) {
+        $dupla = $this->duplaHibrida($request);
+        if ($dupla === null) {
             return [];
         }
 
-        return [
-            'modalidad.in' => 'El seminario dupla (presencial y streaming) debe tener modalidad Híbrido.',
+        $mensajes = [
+            'modalidad.in' => $dupla['modalidad'],
             'ubicacion.required' => 'Ingresa la sede de la asistencia presencial.',
             'ubicacion.max' => 'La sede no puede superar 255 caracteres.',
-            'precio_seminario_presencial.required' => 'Ingresa el precio del seminario (presencial).',
-            'precio_seminario_presencial.gt' => 'El precio del seminario (presencial) debe ser mayor que 0.',
-            'precio_seminario_streaming.required' => 'Ingresa el precio del seminario (streaming).',
-            'precio_seminario_streaming.gt' => 'El precio del seminario (streaming) debe ser mayor que 0.',
         ];
+        foreach ($dupla['precios'] as $campo => $nombre) {
+            $mensajes["{$campo}.required"] = "Ingresa el precio {$nombre}.";
+            $mensajes["{$campo}.gt"] = "El precio {$nombre} debe ser mayor que 0.";
+        }
+
+        return $mensajes;
     }
 
     public function show(): Response
@@ -225,7 +253,7 @@ class EventoController extends Controller
                 'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
-                ...$this->reglasSeminarioDupla($request),
+                ...$this->reglasDuplasHibridas($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -243,7 +271,7 @@ class EventoController extends Controller
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesSeminarioDupla($request)]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request)]);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';
@@ -361,7 +389,7 @@ class EventoController extends Controller
                 'precio_curso_intensivo_virtual' => 'nullable|numeric|min:0',
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
-                ...$this->reglasSeminarioDupla($request),
+                ...$this->reglasDuplasHibridas($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -380,7 +408,7 @@ class EventoController extends Controller
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesSeminarioDupla($request)]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request)]);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';
@@ -489,6 +517,8 @@ class EventoController extends Controller
                     'precio_diplomado_virtual' => $validated['precio_diplomado_virtual'] ?? 0,
                     'precio_seminario_presencial' => $validated['precio_seminario_presencial'] ?? 0,
                     'precio_seminario_streaming' => $validated['precio_seminario_streaming'] ?? 0,
+                    'precio_jornada_presencial' => $validated['precio_jornada_presencial'] ?? 0,
+                    'precio_jornada_virtual' => $validated['precio_jornada_virtual'] ?? 0,
 
                     'tiene_oferta_valor' => $validated['tiene_oferta_valor'],
                     'oferta_valor' => $validated['tiene_oferta_valor'] ? $validated['oferta_valor'] : null,

@@ -32,6 +32,8 @@ class Evento extends Model
         'fecha_hora_fin',
 
         'precio_jornada',
+        'precio_jornada_presencial',
+        'precio_jornada_virtual',
         'precio_seminario',
         'precio_seminario_presencial',
         'precio_seminario_streaming',
