@@ -37,6 +37,12 @@ final class EmisionException extends RuntimeException
 
     public const ERROR_ESCRITURA = 'ERROR_ESCRITURA';
 
+    public const NO_ELEGIBLE = 'NO_ELEGIBLE';
+
+    public const TIPO_DOCUMENTO_PENDIENTE = 'TIPO_DOCUMENTO_PENDIENTE';
+
+    public const VISTA_PREVIA_PENDIENTE = 'VISTA_PREVIA_PENDIENTE';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

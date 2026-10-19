@@ -28,12 +28,15 @@ class Plantilla extends Model
         'origen_legado_meta',
         'diseno',
         'schema_version',
+        'es_plantilla_qa',
+        'variante_qa_id',
     ];
 
     protected $casts = [
         'diseno' => 'array',
         'origen_legado_meta' => 'array',
         'schema_version' => 'integer',
+        'es_plantilla_qa' => 'boolean',
     ];
 
     /** Lotes de participantes que usan esta plantilla (los eliminados no cuentan). */

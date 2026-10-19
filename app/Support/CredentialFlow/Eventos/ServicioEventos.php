@@ -40,11 +40,20 @@ final class ServicioEventos
      */
     public function evaluar(Lote $lote): array
     {
-        $nombre = trim((string) ($lote->datos_comunes['evento'] ?? ''));
+        return $this->evaluarDatos((string) ($lote->datos_comunes['evento'] ?? ''), (string) ($lote->datos_comunes['fecha'] ?? ''));
+    }
+
+    /**
+     * Igual que `evaluar`, pero a partir del nombre y la fecha escritos (para crear un evento ANTES de importar sus participantes).
+     *
+     * @return array{accion:string,evento:?EventoCertificacion,candidatos:Collection<int,EventoCertificacion>,motivos:list<string>}
+     */
+    public function evaluarDatos(string $nombre, string $fecha): array
+    {
+        $nombre = trim($nombre);
         if ($nombre === '') {
-            throw new InvalidArgumentException('La base no tiene nombre de evento.');
+            throw new InvalidArgumentException('El evento no tiene nombre.');
         }
-        $fecha = (string) ($lote->datos_comunes['fecha'] ?? '');
         $norm = NombreConservador::normalizar($nombre);
         $anio = self::anioDe($fecha);
         $motivos = [];
@@ -103,6 +112,45 @@ final class ServicioEventos
 
             return $evento;
         });
+    }
+
+    /**
+     * Crea el evento ANTES de importar sus participantes (o devuelve el que ya existe con el mismo nombre y año: nunca duplica por modalidad ni por volver a importar).
+     * Ante cualquier duda (sin año, varios candidatos, meses distintos u homónimo histórico) exige elegir o confirmar `$confirmarNuevo`, igual que al asociar una base.
+     *
+     * @return array{evento:EventoCertificacion,creado:bool}
+     *
+     * @throws AsociacionAmbiguaException
+     */
+    public function crearEvento(string $nombre, string $fecha, bool $confirmarNuevo = false): array
+    {
+        return DB::transaction(function () use ($nombre, $fecha, $confirmarNuevo) {
+            $e = $this->evaluarDatos($nombre, $fecha);
+            if ($e['accion'] === self::UNIR) {
+                return ['evento' => $e['evento'], 'creado' => false];
+            }
+            if ($e['accion'] === self::AMBIGUA && ! $confirmarNuevo) {
+                throw new AsociacionAmbiguaException($e['motivos'], $e['candidatos']);
+            }
+            $nombre = trim($nombre);
+            $evento = EventoCertificacion::create([
+                'nombre' => mb_substr($nombre, 0, 255),
+                'nombre_normalizado' => NombreConservador::normalizar($nombre),
+                'anio' => self::anioDe($fecha),
+                'fecha_texto' => $fecha !== '' ? mb_substr($fecha, 0, 120) : null,
+                'estado' => EventoCertificacion::ESTADO_ACTIVO,
+                'origen' => EventoCertificacion::ORIGEN_CREDENTIAL_FLOW,
+            ]);
+            Movimiento::registrar(tipo: 'registro', modulo: 'credential-flow', descripcion: 'Se creó un evento de certificación', extra: ['evento_id' => $evento->id]);
+
+            return ['evento' => $evento, 'creado' => true];
+        });
+    }
+
+    /** ¿Ya hay una base de ESTE evento creada con exactamente el mismo archivo? (volver a importar el mismo Excel duplicaría a todos los participantes). */
+    public function archivoRepetido(int $eventoId, string $archivoHash): bool
+    {
+        return Lote::query()->where('evento_id', $eventoId)->where('archivo_hash', $archivoHash)->exists();
     }
 
     private function crearDesdeBase(Lote $lote): EventoCertificacion
