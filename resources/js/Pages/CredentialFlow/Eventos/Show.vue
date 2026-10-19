@@ -52,6 +52,9 @@ const quitar = (b) => router.put(route("credential-flow.lotes.evento", b.id), { 
       <DashboardHeader :title="evento.nombre" :subtitle="evento.fecha_texto ?? String(evento.anio ?? '')" :stats="headerStats">
         <template #actions>
           <div class="flex flex-wrap items-center gap-3">
+            <Link :href="route('credential-flow.lotes.nuevo', { evento: evento.id })" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all" data-accion="importar-participantes">
+              Importar participantes
+            </Link>
             <label class="inline-flex items-center gap-2 text-[12px] font-bold text-slate-500">
               <input v-model="incluirQa" type="checkbox" class="rounded border-slate-300" data-opcion="incluir-qa" />
               Incluir participantes de control (QA)
@@ -63,6 +66,12 @@ const quitar = (b) => router.put(route("credential-flow.lotes.evento", b.id), { 
           </div>
         </template>
       </DashboardHeader>
+
+      <p class="mt-6 rounded-2xl bg-primary-vinotinto/5 border border-primary-vinotinto/10 px-4 py-3 text-[13px] font-bold text-primary-vinotinto" data-siguiente-paso-evento>
+        Siguiente paso:
+        <template v-if="bases.length === 0">importa los participantes de este evento («Importar participantes», arriba).</template>
+        <template v-else>abre una base para revisar a los participantes, confirmar la plantilla y la vista previa, y emitir. Para otra modalidad, importa otra base en este mismo evento.</template>
+      </p>
 
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-bases-evento>
         <h2 class="text-sm font-extrabold text-slate-700">Bases del evento</h2>

@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Emisiones;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
+use App\Models\CredentialFlow\Participante;
 use App\Support\CredentialFlow\Eventos\DescargaHistorica;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Legado\CongeladorLegado;
@@ -32,7 +33,10 @@ final class GeneradorZip
     /** @throws EmisionException */
     public function paraLote(Lote $lote): BinaryFileResponse
     {
-        $emisiones = Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->orderBy('id')->get();
+        // El ZIP de una base reúne los certificados de los participantes REALES: las pruebas internas (QA) no van en él.
+        $emisiones = Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)
+            ->whereNotIn('participante_id', Participante::query()->where('lote_id', $lote->id)->where('es_control_qa', true)->select('id'))
+            ->orderBy('id')->get();
 
         return $this->armar(self::entradasDe($emisiones), 'credenciales-lote-'.$lote->id.'.zip', 'Esta base no tiene certificados vigentes que descargar.');
     }

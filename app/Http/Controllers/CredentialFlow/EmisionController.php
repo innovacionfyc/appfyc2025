@@ -74,6 +74,12 @@ class EmisionController extends Controller
         return $this->ejecutar(fn () => response()->json(['resultado' => $this->emisorLote->emitirPendientes($lote, Auth::id())], 201));
     }
 
+    /** Emite SOLO los contactos de control (QA) pendientes de la base, con la plantilla de pruebas internas. Nunca emite certificados académicos a un QA. */
+    public function emitirQa(Lote $lote): JsonResponse|HttpResponse
+    {
+        return $this->ejecutar(fn () => response()->json(['resultado' => $this->emisorLote->emitirPendientes($lote, Auth::id(), true)], 201));
+    }
+
     public function zip(Lote $lote): JsonResponse|HttpResponse
     {
         return $this->ejecutar(fn () => $this->zip->paraLote($lote));

@@ -51,6 +51,19 @@ class EventoCertificacionController extends Controller
         ]);
     }
 
+    /** Crea un evento nuevo ANTES de importar sus participantes (sin duplicar el que ya existe) y lleva a su pantalla. */
+    public function store(Request $request): RedirectResponse
+    {
+        $datos = $request->validate(['nombre' => ['required', 'string', 'max:255'], 'fecha' => ['required', 'string', 'max:120'], 'crear_nuevo' => ['nullable', 'boolean']]);
+        try {
+            $r = $this->servicio->crearEvento($datos['nombre'], $datos['fecha'], (bool) ($datos['crear_nuevo'] ?? false));
+        } catch (AsociacionAmbiguaException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return to_route('credential-flow.eventos.show', $r['evento'])->with('success', $r['creado'] ? 'El evento se creó. Ahora importa sus participantes.' : 'Ese evento ya existía; se abrió el que tienes (no se duplicó).');
+    }
+
     public function show(Request $request, EventoCertificacion $evento): Response
     {
         abort_unless($evento->origen === EventoCertificacion::ORIGEN_CREDENTIAL_FLOW, 404);

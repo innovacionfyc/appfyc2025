@@ -87,6 +87,21 @@ return [
         'mass_scope_enabled' => (bool) env('CREDENTIAL_FLOW_IDENTIDAD_MASS_SCOPE', false),
     ],
 
+    // Contactos de control (QA): se incorporan solos, marcados `es_control_qa`, a cada base nueva (ver Qa\ServicioQa). Encendido por defecto; sin la tabla
+    // `cf_contactos_qa` (o sin contactos cargados) no hace nada.
+    // Emisión oficial: exige plantilla válida y la vista previa de la base revisada y confirmada (las bases que ya tienen emisiones quedan exentas).
+    'emision' => [
+        'exige_vista_previa' => (bool) env('CREDENTIAL_FLOW_EXIGE_VISTA_PREVIA', true),
+    ],
+
+    'qa' => [
+        'automatico' => (bool) env('CREDENTIAL_FLOW_QA_AUTOMATICO', true),
+        // Cuántos contactos oficiales debe tener el catálogo al inicializarlo desde las bases QA (se comprueba antes de cargar nada).
+        // Con la incorporación automática encendida, crear una base exige que el catálogo tenga EXACTAMENTE los contactos oficiales activos y verificados; si no, la creación se detiene con una advertencia.
+        'exigir_catalogo' => (bool) env('CREDENTIAL_FLOW_QA_EXIGIR_CATALOGO', true),
+        'contactos_esperados' => (int) env('CREDENTIAL_FLOW_QA_CONTACTOS_ESPERADOS', 8),
+    ],
+
     // INTERRUPTOR MAESTRO del portal público /certificados (solicitud y validación de OTP, sesión, panel, descarga y el correo del portal). Desplegar el código NO
     // activa el portal: apagado por defecto y si la variable no existe. Se cambia a mano, solo en una fase autorizada, tras `credential-flow:portal:preflight`.
     // Es independiente de los tres interruptores de identidad y NO afecta a la verificación pública `/verificar/{codigo}`.

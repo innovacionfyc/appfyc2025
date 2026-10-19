@@ -42,6 +42,8 @@ abstract class CredentialFlowTestCase extends TestCase
         'database/migrations/2026_09_30_100000_cf_lotes_table.php',
         'database/migrations/2026_09_30_100100_cf_participantes_table.php',
         'database/migrations/2026_09_30_200000_cf_emisiones_table.php',
+        'database/migrations/2026_10_20_100000_add_es_control_qa_to_cf_participantes_table.php',
+        'database/migrations/2026_10_22_100000_elegibilidad_intensidad_y_estado_de_bases.php',
     ];
 
     protected function setUp(): void
@@ -53,6 +55,9 @@ abstract class CredentialFlowTestCase extends TestCase
         $this->assertSame(':memory:', DB::connection()->getDatabaseName());
 
         $this->registrarRutasSiFaltan();
+
+        // Las pruebas generales no dependen de un catálogo QA completo ni de la vista previa confirmada; las que verifican esos controles los encienden.
+        config(['credential_flow.qa.exigir_catalogo' => false, 'credential_flow.emision.exige_vista_previa' => false]);
 
         $this->withoutVite();
         Storage::fake('local');

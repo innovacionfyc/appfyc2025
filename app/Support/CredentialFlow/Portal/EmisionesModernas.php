@@ -5,8 +5,10 @@ namespace App\Support\CredentialFlow\Portal;
 use App\Models\CredentialFlow\Correo;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Participante;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Certificados MODERNOS (participantes nativos con una emisión oficial) vistos desde el portal público. Solo lee.
@@ -32,6 +34,8 @@ final class EmisionesModernas
         $participantes = DB::table('cf_participantes as p')
             ->where('p.documento_clave', $clave)
             ->whereNull('p.deleted_at')
+            // Corrección de correo: una sesión abierta antes del cambio (`$desde`) no hereda el certificado de ese participante; debe entrar de nuevo con el correo vigente.
+            ->when($desde !== null && Schema::hasColumn('cf_participantes', 'correo_actualizado_at'), fn ($q) => $q->where(fn ($w) => $w->whereNull('p.correo_actualizado_at')->orWhere('p.correo_actualizado_at', '<=', Carbon::createFromTimestamp($desde, config('app.timezone'))->toDateTimeString())))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('cf_emisiones as e')->whereColumn('e.participante_id', 'p.id'))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('cf_emisiones as e2')->join('cf_certificados_legado as c', 'c.reemplazado_por_emision_id', '=', 'e2.id')->whereColumn('e2.participante_id', 'p.id'))
             ->get(['p.id', 'p.nombre_completo', 'p.correo_normalizado', 'p.correo_estado']);

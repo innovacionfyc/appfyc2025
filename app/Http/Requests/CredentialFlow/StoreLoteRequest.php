@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\CredentialFlow;
 
+use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Contracts\Validation\Validator;
@@ -15,6 +17,8 @@ use Illuminate\Foundation\Http\FormRequest;
 class StoreLoteRequest extends FormRequest
 {
     private ?Plantilla $plantillaResuelta = null;
+
+    private ?EventoCertificacion $eventoResuelto = null;
 
     /** @var array<string,string> */
     private array $comunes = [];
@@ -34,6 +38,8 @@ class StoreLoteRequest extends FormRequest
             'fecha' => ['required', 'string'],
             'intensidad_horaria' => ['required', 'string'],
             'archivo' => ['required', 'file'],
+            // Evento elegido (o creado) ANTES de importar: la base queda asociada sola.
+            'evento_id' => ['nullable', 'integer'],
         ];
     }
 
@@ -68,6 +74,20 @@ class StoreLoteRequest extends FormRequest
                 $this->plantillaResuelta = $plantilla;
             }
 
+            if ($this->filled('evento_id')) {
+                $evento = EventoCertificacion::query()->where('origen', EventoCertificacion::ORIGEN_CREDENTIAL_FLOW)->find($this->integer('evento_id'));
+                if (! $evento) {
+                    $validator->errors()->add('evento_id', 'El evento elegido no existe o no se puede usar (solo eventos creados en Credential Flow).');
+                } else {
+                    $this->eventoResuelto = $evento;
+                    $this->merge(['evento' => $evento->nombre]); // el nombre del evento es el del evento elegido: nunca divergen
+                    $hash = $this->file('archivo')?->getRealPath() ? hash_file('sha256', $this->file('archivo')->getRealPath()) : null;
+                    if ($hash && app(ServicioEventos::class)->archivoRepetido($evento->id, $hash)) {
+                        $validator->errors()->add('archivo', 'Este mismo archivo ya se importó en una base de este evento. Si es otra modalidad, carga su propio archivo; si es una corrección, edita al participante en la base.');
+                    }
+                }
+            }
+
             if (Texto::limpiar((string) $this->input('nombre')) === '') {
                 $validator->errors()->add('nombre', 'El nombre de la base es obligatorio.');
             }
@@ -78,6 +98,11 @@ class StoreLoteRequest extends FormRequest
             }
             $this->comunes = $comunes['datos'];
         }];
+    }
+
+    public function eventoElegido(): ?EventoCertificacion
+    {
+        return $this->eventoResuelto;
     }
 
     public function plantilla(): Plantilla

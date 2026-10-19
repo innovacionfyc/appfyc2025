@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 use function Illuminate\Support\defer;
 
@@ -114,6 +115,21 @@ class ServicioOtp
         defer(fn () => $this->envios->enviarOtp((int) $otpId, $normalizado, $codigo));
 
         return true;
+    }
+
+    /**
+     * Invalida los códigos AÚN vigentes emitidos para documento + correo (p. ej. cuando el correo de un participante se corrige: el código ya enviado a la
+     * dirección equivocada no debe poder usarse). No toca los códigos usados, bloqueados o ya invalidados. @return int códigos invalidados
+     */
+    public static function invalidarPendientes(string $clave, string $correoNormalizado): int
+    {
+        if (! Schema::hasTable('cf_accesos_otp')) {
+            return 0;   // sin tablas del portal no hay códigos que invalidar
+        }
+        $ahora = Carbon::now();
+
+        return DB::table('cf_accesos_otp')->where('documento_hash', self::hashDocumento($clave))->where('correo_hash', self::hashCorreo($correoNormalizado))
+            ->whereNull('usado_at')->whereNull('invalidado_at')->whereNull('bloqueado_at')->update(['invalidado_at' => $ahora, 'updated_at' => $ahora]);
     }
 
     private function puedeEmitir(string $doc, string $cor): bool

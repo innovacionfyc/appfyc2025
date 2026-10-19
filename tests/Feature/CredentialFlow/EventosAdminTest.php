@@ -7,6 +7,7 @@ use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
+use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class EventosAdminTest extends EmisionesTestCase
             'database/migrations/2026_10_06_100400_cf_certificados_legado_table.php',
             'database/migrations/2026_10_06_100500_cf_descargas_table.php',
             'database/migrations/2026_10_06_100600_cf_correos_table.php',
-            'database/migrations/2026_10_20_100000_add_es_control_qa_to_cf_participantes_table.php',
+            'database/migrations/2026_10_21_100000_cf_contactos_qa_y_plantilla_qa.php',
         ], '--force' => true])->assertExitCode(0);
     }
 
@@ -49,6 +50,18 @@ class EventosAdminTest extends EmisionesTestCase
     {
         $ids = $lote->participantes()->orderBy('id')->when($primeros !== null, fn ($q) => $q->limit($primeros))->pluck('id');
         (new ServicioEventos)->marcarParticipantesQa($lote, $ids, true);
+    }
+
+    /** Plantilla de pruebas internas: con la marca visible en el nombre y designada para QA. */
+    private function plantillaQa(): Plantilla
+    {
+        $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
+        $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), $campos, array_keys($campos));
+        $els[] = $this->elemento(['type' => 'text', 'text' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'y' => 380, 'fontSize' => 18]);
+        $p = $this->plantillaLista($els);
+        $p->update(['nombre' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'es_plantilla_qa' => true]);
+
+        return $p->fresh();
     }
 
     private function desdeBase(Lote $lote, array $datos = [])
@@ -254,8 +267,9 @@ class EventosAdminTest extends EmisionesTestCase
         $this->assertEquals(['vigentes' => 3, 'revocadas' => 0, 'pendientes' => 0, 'participantes' => 3], $r['reales'], 'Los QA sin emitir no son pendientes reales');
         $this->assertEquals(['participantes' => 2, 'vigentes' => 0, 'revocadas' => 0], $r['qa']);
 
-        // Se emite ahora a los QA: pasan a la columna QA, nunca a la de reales.
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $mixta))->assertCreated();
+        // Se emite ahora a los QA (solo con la plantilla de pruebas internas): pasan a la columna QA, nunca a la de reales.
+        $this->plantillaQa();
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $mixta))->assertCreated();
         $r = (new ServicioEventos)->resumen($evento);
         $this->assertSame(3, $r['reales']['vigentes']);
         $this->assertSame(2, $r['qa']['vigentes']);

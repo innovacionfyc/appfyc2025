@@ -907,7 +907,8 @@ class EmisionesTest extends EmisionesTestCase
             ->where('lote.emision.vigentes', 1)
             ->where('lote.emision.revocados', 1)
             ->where('lote.emision.limite', 200));
-        $this->assertLessThan(30, $consultas, 'Sin N+1: las emisiones se cargan en bloque');
+        // Presupuesto fijo (no crece con los participantes): incluye las consultas constantes del recorrido «siguiente paso» de la base.
+        $this->assertLessThan(40, $consultas, 'Sin N+1: las emisiones se cargan en bloque');
     }
 
     public function test_historial_del_lote(): void

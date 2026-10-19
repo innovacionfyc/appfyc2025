@@ -11,6 +11,7 @@ use App\Http\Controllers\CredentialFlow\EncuestaExportController;
 use App\Http\Controllers\CredentialFlow\EncuestaInformeController;
 use App\Http\Controllers\CredentialFlow\EnvioController;
 use App\Http\Controllers\CredentialFlow\EventoCertificacionController;
+use App\Http\Controllers\CredentialFlow\FlujoLoteController;
 use App\Http\Controllers\CredentialFlow\HistoricoController;
 use App\Http\Controllers\CredentialFlow\HistoricoPdfController;
 use App\Http\Controllers\CredentialFlow\IdentidadDecisionController;
@@ -18,6 +19,8 @@ use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
 use App\Http\Controllers\CredentialFlow\PlantillaController;
 use App\Http\Controllers\CredentialFlow\PlantillaEditorController;
+use App\Http\Controllers\CredentialFlow\QaContactosController;
+use App\Http\Controllers\CredentialFlow\QaController;
 use App\Http\Controllers\CredentialFlow\ReemplazoController;
 use App\Http\Middleware\CabecerasAdminSensible;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +52,9 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/lotes', [LoteController::class, 'store'])->middleware('throttle:30,1')->name('lotes.store');
     Route::get('/lotes/{lote}', [LoteController::class, 'show'])->name('lotes.show');
     Route::put('/lotes/{lote}', [LoteController::class, 'update'])->middleware('throttle:30,1,cf-lote-editar')->name('lotes.update');
+    Route::put('/lotes/{lote}/plantilla', [FlujoLoteController::class, 'plantilla'])->middleware('throttle:30,1,cf-lote-plantilla')->name('lotes.plantilla');
+    Route::post('/lotes/{lote}/vista-previa/confirmar', [FlujoLoteController::class, 'confirmarVistaPrevia'])->middleware('throttle:30,1,cf-lote-vista-previa')->name('lotes.vista-previa.confirmar');
+    Route::put('/lotes/{lote}/estado', [LoteController::class, 'estado'])->middleware('throttle:30,1,cf-lote-estado')->name('lotes.estado');
     Route::delete('/lotes/{lote}', [LoteController::class, 'destroy'])->middleware('throttle:20,1,cf-lote-borrar')->name('lotes.destroy');
 
     Route::post('/lotes/{lote}/participantes', [ParticipanteController::class, 'store'])->middleware('throttle:60,1,cf-participante-crear')->name('participantes.store');
@@ -62,6 +68,15 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/lotes/{lote}/participantes/{participante}/emitir', [EmisionController::class, 'emitir'])->middleware('throttle:30,1')->name('participantes.emitir');
     Route::get('/lotes/{lote}/emision/resumen', [EmisionController::class, 'resumen'])->name('lotes.emision.resumen');
     Route::post('/lotes/{lote}/emitir', [EmisionController::class, 'emitirLote'])->middleware('throttle:6,1')->name('lotes.emitir');
+    Route::post('/lotes/{lote}/qa/incorporar', [QaController::class, 'incorporar'])->middleware('throttle:20,1')->name('lotes.qa.incorporar');
+    Route::put('/plantillas/{plantilla}/qa', [QaController::class, 'plantilla'])->middleware('throttle:20,1')->name('plantillas.qa');
+    Route::put('/plantillas/{plantilla}/variante-qa', [QaController::class, 'variante'])->middleware('throttle:20,1')->name('plantillas.variante-qa');
+    Route::post('/lotes/{lote}/emitir-qa', [EmisionController::class, 'emitirQa'])->middleware('throttle:6,1')->name('lotes.emitir-qa');
+    // Pantalla «Contactos QA»: verificar, corregir (con motivo y confirmación), activar/desactivar e inicializar el catálogo desde las bases oficiales
+    Route::get('/qa/contactos', [QaContactosController::class, 'index'])->name('qa.contactos');
+    Route::put('/qa/contactos/{contacto}', [QaContactosController::class, 'update'])->middleware('throttle:20,1')->name('qa.contactos.update');
+    Route::put('/qa/contactos/{contacto}/activo', [QaContactosController::class, 'activo'])->middleware('throttle:20,1')->name('qa.contactos.activo');
+    Route::post('/qa/contactos/inicializar', [QaContactosController::class, 'inicializar'])->middleware('throttle:6,1')->name('qa.contactos.inicializar');
     Route::get('/lotes/{lote}/zip', [EmisionController::class, 'zip'])->middleware('throttle:10,1')->name('lotes.zip');
     Route::get('/lotes/{lote}/emisiones', [EmisionController::class, 'historial'])->name('lotes.emisiones');
     Route::get('/emisiones/{emision}/descargar', [EmisionController::class, 'descargar'])->middleware('throttle:60,1')->name('emisiones.descargar');
@@ -70,6 +85,7 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
 
     // Eventos de certificación: asociar bases (presencial/virtual…) a un evento, separar las de control (QA) y descargar los certificados vigentes del evento
     Route::get('/eventos', [EventoCertificacionController::class, 'index'])->name('eventos.index');
+    Route::post('/eventos', [EventoCertificacionController::class, 'store'])->middleware('throttle:30,1')->name('eventos.store');
     Route::get('/eventos/{evento}', [EventoCertificacionController::class, 'show'])->name('eventos.show');
     Route::get('/eventos/{evento}/zip', [EventoCertificacionController::class, 'zip'])->middleware('throttle:10,1')->name('eventos.zip');
     Route::post('/lotes/{lote}/evento/desde-base', [EventoCertificacionController::class, 'desdeBase'])->middleware('throttle:30,1')->name('lotes.evento.desde-base');

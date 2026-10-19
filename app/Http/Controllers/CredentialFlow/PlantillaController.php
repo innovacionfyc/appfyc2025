@@ -9,7 +9,9 @@ use App\Models\Movimiento;
 use App\Services\CredentialFlow\PlantillaService;
 use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
+use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -22,10 +24,14 @@ class PlantillaController extends Controller
     {
         $plantillas = Plantilla::query()
             ->latest()
-            ->get(['id', 'nombre', 'descripcion', 'nombre_archivo_original', 'diseno', 'created_at'])
+            ->get(['id', 'nombre', 'descripcion', 'nombre_archivo_original', 'diseno', 'created_at', ...(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa') ? ['es_plantilla_qa', 'variante_qa_id'] : [])])
             ->map(fn (Plantilla $p) => [
                 'id' => $p->id,
                 'nombre' => $p->nombre,
+                // Plantilla de pruebas internas (QA): designación EXPLÍCITA; solo se puede designar si su diseño lleva, como texto visible, la advertencia.
+                'es_plantilla_qa' => (bool) ($p->es_plantilla_qa ?? false),
+                'apta_qa' => ServicioQa::tieneAdvertenciaVisible($p),
+                'variante_qa_id' => $p->variante_qa_id ?? null,
                 'descripcion' => $p->descripcion,
                 'nombre_archivo_original' => $p->nombre_archivo_original,
                 'elementos' => count($p->diseno['elements'] ?? []),

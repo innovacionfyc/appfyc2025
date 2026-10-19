@@ -22,7 +22,8 @@ final class DatosDeParticipante
             'documento' => $participante->documento,
             'evento' => $comunes['evento'] ?? '',
             'fecha' => $comunes['fecha'] ?? '',
-            'intensidad_horaria' => $comunes['intensidad_horaria'] ?? '',
+            // La del evento/base es la predeterminada; una excepción aprobada por participante la reemplaza. Nunca se inventan horas.
+            'intensidad_horaria' => ($participante->intensidad_horaria ?? '') !== '' ? (string) $participante->intensidad_horaria : ($comunes['intensidad_horaria'] ?? ''),
         ]);
     }
 }

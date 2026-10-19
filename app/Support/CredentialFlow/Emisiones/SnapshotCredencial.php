@@ -108,7 +108,8 @@ final readonly class SnapshotCredencial
     public static function huella(Participante $participante, Lote $lote, Plantilla $plantilla): string
     {
         return self::hashCanonico([
-            'participante' => ['id' => $participante->id, 'lote_id' => $participante->lote_id, 'nombre_completo' => $participante->nombre_completo, 'documento' => $participante->documento],
+            'participante' => ['id' => $participante->id, 'lote_id' => $participante->lote_id, 'nombre_completo' => $participante->nombre_completo, 'documento' => $participante->documento,
+                'intensidad_horaria' => $participante->intensidad_horaria ?? null, 'elegibilidad' => $participante->elegibilidad ?? Participante::ELEGIBLE],
             'lote' => ['id' => $lote->id, 'plantilla_id' => $lote->plantilla_id, 'nombre' => $lote->nombre, 'datos_comunes' => $lote->datos_comunes],
             'plantilla' => ['id' => $plantilla->id, 'nombre' => $plantilla->nombre, 'diseno' => $plantilla->diseno, 'schema_version' => (int) $plantilla->schema_version, 'hash' => $plantilla->hash_sha256],
         ]);

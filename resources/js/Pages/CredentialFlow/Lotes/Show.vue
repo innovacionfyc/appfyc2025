@@ -14,7 +14,7 @@ import { useConfirmationModal } from "@/Composables/useConfirmationModal";
 import { useDescargaPdf } from "@/Composables/CredentialFlow/useDescargaPdf";
 import { useEmisiones } from "@/Composables/CredentialFlow/useEmisiones";
 import {
-  ArrowLeft, Search, UserPlus, SquarePen, Trash2, FileDown, Loader2, CircleAlert, ChevronLeft, ChevronRight, LayoutTemplate, FileSpreadsheet, CalendarDays, BadgeCheck, RefreshCw, Ban, Archive, CircleCheck,
+  ArrowLeft, Search, UserPlus, SquarePen, Trash2, FileDown, Loader2, CircleAlert, ChevronLeft, ChevronRight, LayoutTemplate, FileSpreadsheet, CalendarDays, BadgeCheck, RefreshCw, Ban, Archive, CircleCheck, FlaskConical, Mail,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -36,8 +36,12 @@ const modalParticipante = ref({ abierto: false, participante: null });
 const modalLote = ref(false);
 const modalDefinitivo = ref(false);
 
+// «Participantes» = los reales; los contactos de control (QA) van aparte y no cuentan como asistentes ni como pendientes.
 const headerStats = computed(() => [
-  { label: "Participantes", value: props.lote.total, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
+  { label: "Participantes", value: props.lote.emision.participantes, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
+  ...(props.lote.emision.en_validacion ? [{ label: "Por validar", value: props.lote.emision.en_validacion, icon: "pending", color: "text-amber-600", bg: "bg-amber-50" }] : []),
+  ...(props.lote.emision.no_elegibles ? [{ label: "No elegibles", value: props.lote.emision.no_elegibles, icon: "block", color: "text-slate-500", bg: "bg-slate-100" }] : []),
+  ...(props.lote.emision.qa ? [{ label: "Control (QA)", value: props.lote.emision.qa.participantes, icon: "science", color: "text-violet-600", bg: "bg-violet-50" }] : []),
 ]);
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios);
@@ -101,6 +105,10 @@ const generarPdf = (p) =>
 
 // ── Emisiones oficiales ───────────────────────────────────────────────────────
 const resumen = computed(() => props.lote.emision);
+const flujo = computed(() => props.lote.flujo);
+// Emitir exige la vista previa confirmada (salvo bases que ya tienen emisiones); el servidor lo vuelve a comprobar.
+const vistaLista = computed(() => !flujo.value.vista_previa.exigida || flujo.value.vista_previa.confirmada || flujo.value.vista_previa.exenta_por_emisiones);
+const plantillaElegida = ref("");
 const recargar = () => {
   versionHistorial.value++;
   router.reload({ only: ["lote", "participantes"], preserveScroll: true });
@@ -171,8 +179,65 @@ const emitirPendientes = () => {
   });
 };
 
+const emitirPruebasQa = () => {
+  const n = resumen.value.qa.a_emitir;
+  openConfirmationModal({
+    title: "Emitir pruebas internas (QA)",
+    icon: "check",
+    confirmText: `Emitir ${n}`,
+    message: `Se emitirán ${n} ${n === 1 ? "certificado" : "certificados"} de PRUEBA INTERNA, sin validez académica, solo para los contactos de control. Los participantes reales no se tocan.`,
+    onConfirm: async () => {
+      procesando.value = true;
+      avisoExito.value = null;
+      const r = await ejecutar("emitir-qa", route("credential-flow.lotes.emitir-qa", props.lote.id));
+      procesando.value = false;
+      closeConfirmationModal();
+      if (r) {
+        avisoExito.value = r.resultado.total === 1 ? "Se emitió 1 certificado de prueba interna." : `Se emitieron ${r.resultado.total} certificados de prueba interna.`;
+        recargar();
+      }
+    },
+  });
+};
+
+const agregarContactosQa = () => router.post(route("credential-flow.lotes.qa.incorporar", props.lote.id), {}, { preserveScroll: true, onSuccess: recargar });
+
 const descargarEmision = (emision) =>
   descargar(`e${emision.id}`, route("credential-flow.emisiones.descargar", emision.id), `credencial-${emision.id}-v${emision.version}.pdf`);
+
+// ── Recorrido: Evento → Importar → Revisar → Plantilla → Vista previa → Emitir → Descargar ──
+const primeroParaVistaPrevia = () => props.participantes.data.find((p) => !p.es_control_qa && p.elegibilidad === "elegible") ?? props.participantes.data.find((p) => !p.es_control_qa) ?? null;
+const abrirVistaPrevia = async () => {
+  const p = primeroParaVistaPrevia();
+  if (!p) return;
+  await generarPdf(p);
+  recargar();
+};
+const confirmarVistaPrevia = () => router.post(route("credential-flow.lotes.vista-previa.confirmar", props.lote.id), {}, { preserveScroll: true, onSuccess: recargar });
+const usarPlantilla = () => plantillaElegida.value && router.put(route("credential-flow.lotes.plantilla", props.lote.id), { plantilla_id: plantillaElegida.value }, { preserveScroll: true, onSuccess: recargar });
+const irARevisar = () => document.querySelector("[data-tabla-participantes]")?.scrollIntoView({ behavior: "smooth" });
+const ejecutarSiguiente = () => {
+  switch (flujo.value.siguiente.accion.tipo) {
+    case "agregar":
+      return (modalParticipante.value = { abierto: true, participante: null });
+    case "abrir_vista_previa":
+      return abrirVistaPrevia();
+    case "confirmar_vista_previa":
+      return confirmarVistaPrevia();
+    case "emitir":
+      return emitirPendientes();
+    case "descargar":
+      return descargarZip();
+    case "revisar":
+      return irARevisar();
+  }
+};
+const ESTADO_PASO = {
+  hecho: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  actual: "bg-primary-vinotinto text-white border-primary-vinotinto",
+  atencion: "bg-amber-50 text-amber-700 border-amber-100",
+  pendiente: "bg-white text-slate-400 border-slate-200",
+};
 
 const descargarZip = () => descargar("zip", route("credential-flow.lotes.zip", props.lote.id), `credenciales-lote-${props.lote.id}.zip`);
 
@@ -206,7 +271,7 @@ const confirmarMotivo = async (motivo) => {
 
       <DashboardHeader :title="lote.nombre" :subtitle="lote.descripcion || 'Base de participantes'" :stats="headerStats">
         <template #actions>
-          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.pendientes === 0" data-accion="emitir-pendientes" @click="emitirPendientes">
+          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.pendientes === 0 || !vistaLista" :title="vistaLista ? '' : 'Antes de emitir, revisa la vista previa y confirma la plantilla'" data-accion="emitir-pendientes" @click="emitirPendientes">
             <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
             <BadgeCheck v-else class="w-4 h-4" />
             Emitir pendientes<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span>
@@ -222,6 +287,48 @@ const confirmarMotivo = async (motivo) => {
           </Link>
         </template>
       </DashboardHeader>
+
+      <!-- Recorrido de la base: siguiente paso y lo que falta -->
+      <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4" data-siguiente-paso :data-paso="flujo.siguiente.clave">
+        <ol class="flex flex-wrap items-center gap-2" aria-label="Pasos para certificar esta base">
+          <li v-for="(paso, i) in flujo.pasos" :key="paso.clave" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[12px] font-bold" :class="ESTADO_PASO[paso.estado]" :data-paso-estado="paso.estado" :data-paso-clave="paso.clave">
+            <span class="opacity-70">{{ i + 1 }}</span> {{ paso.rotulo }}
+          </li>
+        </ol>
+
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="min-w-[min(100%,18rem)] flex-1">
+            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Siguiente paso</p>
+            <p class="text-lg font-extrabold text-slate-900" data-siguiente-titulo>{{ flujo.siguiente.titulo }}</p>
+            <p class="text-[13px] font-medium text-slate-500">{{ flujo.siguiente.detalle }}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <Link v-if="flujo.siguiente.accion.tipo === 'enlace'" :href="route(flujo.siguiente.accion.ruta)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all" data-accion="siguiente-paso">{{ flujo.siguiente.titulo }}</Link>
+            <template v-else-if="flujo.siguiente.accion.tipo === 'plantilla'">
+              <select v-model="plantillaElegida" class="rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 px-3 py-2" data-campo="plantilla-base">
+                <option value="">Elegir plantilla…</option>
+                <option v-for="p in flujo.plantillas_disponibles" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+              </select>
+              <button type="button" :disabled="!plantillaElegida" class="px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold disabled:opacity-40" data-accion="siguiente-paso" @click="usarPlantilla">Usar esta plantilla</button>
+            </template>
+            <button v-else type="button" :disabled="enCurso !== null || generando !== null" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" data-accion="siguiente-paso" @click="ejecutarSiguiente">{{ flujo.siguiente.titulo }}</button>
+          </div>
+        </div>
+
+        <ul v-if="flujo.faltan.length" class="rounded-2xl bg-amber-50/70 border border-amber-100 px-4 py-3 space-y-1" data-faltan>
+          <li class="text-[11px] font-black uppercase tracking-widest text-amber-700">Para completar el recorrido falta</li>
+          <li v-for="f in flujo.faltan" :key="f" class="text-[12px] font-semibold text-amber-800">• {{ f }}</li>
+        </ul>
+
+        <div v-if="flujo.plantilla.puede_cambiar && flujo.siguiente.accion.tipo !== 'plantilla' && flujo.plantillas_disponibles.length > 1" class="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-slate-500" data-cambiar-plantilla>
+          Plantilla actual: <span class="font-extrabold text-slate-700">{{ flujo.plantilla.nombre }}</span>. Puedes cambiarla mientras la base no tenga certificados emitidos:
+          <select v-model="plantillaElegida" class="rounded-xl border border-slate-200 bg-white text-[12px] font-semibold text-slate-700 px-2 py-1">
+            <option value="">Elegir otra…</option>
+            <option v-for="p in flujo.plantillas_disponibles.filter((x) => x.id !== lote.plantilla?.id)" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+          </select>
+          <button type="button" :disabled="!plantillaElegida" class="px-3 py-1 rounded-full bg-white border border-slate-200 text-[12px] font-bold text-slate-700 disabled:opacity-40" @click="usarPlantilla">Cambiar</button>
+        </div>
+      </section>
 
       <!-- Datos de la base -->
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8" data-datos-lote>
@@ -306,6 +413,30 @@ const confirmarMotivo = async (motivo) => {
         <button type="button" class="text-[12px] underline" @click="avisoExito = null">Cerrar</button>
       </div>
 
+      <!-- Contactos de control (QA): aparte de los participantes reales -->
+      <section class="mt-4 rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3 flex flex-wrap items-center justify-between gap-3" data-seccion-qa>
+        <p class="text-[12px] font-semibold text-violet-800 flex-1 min-w-[min(100%,16rem)]">
+          <FlaskConical class="inline w-3.5 h-3.5 mr-1" />
+          <template v-if="resumen.qa">
+            <span class="font-black">Contactos de control (QA): {{ resumen.qa.participantes }}.</span> No cuentan como participantes reales. Sus certificados son de prueba interna, sin validez académica
+            ({{ resumen.qa.vigentes }} {{ plural(resumen.qa.vigentes, "emitido", "emitidos") }}, {{ resumen.qa.pendientes }} sin emitir).
+            <span v-if="!resumen.qa.plantilla_lista" class="text-amber-700">Falta designar la plantilla de pruebas internas en Plantillas.</span>
+          </template>
+          <template v-else>Esta base aún no tiene los contactos de control (QA) del equipo.</template>
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <Link :href="route('credential-flow.qa.contactos')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-violet-200 text-[12px] font-bold text-violet-700 hover:bg-violet-100 transition-all" data-accion="ver-contactos-qa">Contactos QA</Link>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-violet-200 text-[12px] font-bold text-violet-700 hover:bg-violet-100 transition-all" data-accion="agregar-qa" @click="agregarContactosQa">
+            <UserPlus class="w-3.5 h-3.5" /> Agregar contactos QA
+          </button>
+          <button v-if="resumen.qa" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-600 text-[12px] font-bold text-white hover:bg-violet-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.qa.pendientes === 0 || !resumen.qa.plantilla_lista" data-accion="emitir-qa" @click="emitirPruebasQa">
+            <Loader2 v-if="enCurso === 'emitir-qa'" class="w-3.5 h-3.5 animate-spin" />
+            <BadgeCheck v-else class="w-3.5 h-3.5" />
+            Emitir pruebas internas<span v-if="resumen.qa.pendientes > 0"> · {{ resumen.qa.pendientes }}</span>
+          </button>
+        </div>
+      </section>
+
       <p class="mt-4 px-1 text-[12px] font-semibold text-slate-500" data-resumen-emision>
         {{ resumen.vigentes }} {{ plural(resumen.vigentes, "vigente", "vigentes") }} · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} {{ plural(resumen.revocados, "revocado", "revocados") }}. Los certificados ya emitidos no cambian si luego editas al participante, la base o la plantilla. Para actualizar uno, usa «Reemitir».
       </p>
@@ -323,6 +454,7 @@ const confirmarMotivo = async (motivo) => {
               <tr>
                 <th class="text-left font-black px-6 py-4">Nombre completo</th>
                 <th class="text-left font-black px-4 py-4">Documento</th>
+                <th class="text-left font-black px-4 py-4">Correo</th>
                 <th class="text-left font-black px-4 py-4">Certificado</th>
                 <th class="text-left font-black px-4 py-4 w-28">Fila del archivo</th>
                 <th class="px-6 py-4 text-right">Acciones</th>
@@ -330,8 +462,19 @@ const confirmarMotivo = async (motivo) => {
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="p in participantes.data" :key="p.id" class="hover:bg-slate-50/60 transition-colors" :data-participante="p.id">
-                <td class="px-6 py-3 font-extrabold text-slate-900 break-words">{{ p.nombre_completo }}</td>
+                <td class="px-6 py-3 font-extrabold text-slate-900 break-words">
+                  {{ p.nombre_completo }}
+                  <span v-if="p.es_control_qa" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black align-middle" data-qa>QA</span>
+                  <span v-if="p.elegibilidad === 'pendiente'" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black align-middle" :title="p.elegibilidad_motivo ?? ''" data-elegibilidad="pendiente">Pendiente de validación</span>
+                  <span v-else-if="p.elegibilidad === 'no_elegible'" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black align-middle" :title="p.elegibilidad_motivo ?? ''" data-elegibilidad="no_elegible">No elegible</span>
+                  <span v-if="p.tipo_documento_confirmado === false" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black align-middle" title="El tipo de documento no está confirmado: no se emite hasta confirmarlo" data-tipo-documento="pendiente">Tipo de documento por confirmar</span>
+                  <span v-if="p.intensidad_horaria" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 text-[10px] font-black align-middle" title="Intensidad horaria propia (excepción aprobada)" data-intensidad>{{ p.intensidad_horaria }}</span>
+                </td>
                 <td class="px-4 py-3 font-semibold text-slate-600 break-words">{{ p.documento }}</td>
+                <td class="px-4 py-3 text-[12px] font-semibold break-all max-w-[14rem]" data-correo>
+                  <span v-if="p.correo" class="text-slate-600"><Mail class="inline w-3 h-3 mr-1 text-slate-400" />{{ p.correo }}</span>
+                  <span v-else class="text-amber-600">Sin correo</span>
+                </td>
                 <td class="px-4 py-3" data-estado-emision :data-estado="p.estado_emision">
                   <span v-if="p.estado_emision === 'emitida'" class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black">Emitida v{{ p.emision.version }}</span>
                   <span v-else-if="p.estado_emision === 'revocada'" class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 text-[11px] font-black">Revocada</span>
@@ -345,10 +488,10 @@ const confirmarMotivo = async (motivo) => {
                       <FileDown v-else class="w-3.5 h-3.5" />
                       {{ generando === p.id ? "Generando…" : "Vista previa" }}
                     </button>
-                    <button v-if="p.estado_emision === 'sin_emitir'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Emitir certificado de ${p.nombre_completo}`" data-accion="emitir" @click="emitir(p)">
+                    <button v-if="p.estado_emision === 'sin_emitir'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || !vistaLista || p.tipo_documento_confirmado === false || (p.elegibilidad && p.elegibilidad !== 'elegible')" :title="p.tipo_documento_confirmado === false ? 'Confirma primero el tipo de documento' : p.elegibilidad && p.elegibilidad !== 'elegible' ? 'No se emite hasta que la persona sea elegible' : !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" :aria-label="`Emitir certificado de ${p.nombre_completo}`" data-accion="emitir" @click="emitir(p)">
                       <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
                       <BadgeCheck v-else class="w-3.5 h-3.5" />
-                      Emitir certificado
+                      {{ p.es_control_qa ? "Emitir prueba (QA)" : "Emitir certificado" }}
                     </button>
                     <button v-if="p.estado_emision === 'revocada'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Volver a emitir el certificado de ${p.nombre_completo}`" data-accion="volver-a-emitir" @click="volverAEmitir(p)">
                       <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
