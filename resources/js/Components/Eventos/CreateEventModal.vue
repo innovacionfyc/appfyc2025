@@ -87,6 +87,8 @@ const form = useForm({
   precio_jornada: 0,
   precio_seminario: 0,
   precio_seminario_presencial: 0,
+  precio_jornada_presencial: 0,
+  precio_jornada_virtual: 0,
   precio_seminario_streaming: 0,
   precio_modulo: 0,
   precio_modulo_virtual: 0,
@@ -135,17 +137,21 @@ const camposPrecioActivos = computed(() => {
     'CUR_DUPLA': ['precio_curso_intensivo_hibrido', 'precio_curso_intensivo_virtual'],
     'CNG_DUPLA': ['precio_cng', 'precio_cng_virtual'],
     'MOD_DUPLA': ['precio_modulo', 'precio_modulo_virtual'],
-    'SEM_DUPLA': ['precio_seminario_presencial', 'precio_seminario_streaming']
+    'SEM_DUPLA': ['precio_seminario_presencial', 'precio_seminario_streaming'],
+    'JOR_DUPLA': ['precio_jornada_presencial', 'precio_jornada_virtual']
   };
 
   return mapa[form.tipo_evento] || [];
 });
 
-// El seminario dupla combina asistencia presencial y por streaming: modalidad Híbrido.
+// Duplas con asistencia presencial y otra remota (streaming o virtual): modalidad Híbrido y sede presencial.
+const DUPLAS_HIBRIDAS = ['SEM_DUPLA', 'JOR_DUPLA'];
+const esDuplaHibrida = computed(() => DUPLAS_HIBRIDAS.includes(form.tipo_evento));
+
 watch(
   () => form.tipo_evento,
   (tipo) => {
-    if (tipo === 'SEM_DUPLA') form.modalidad = 'Híbrido';
+    if (DUPLAS_HIBRIDAS.includes(tipo)) form.modalidad = 'Híbrido';
   }
 );
 const selectedArea = computed(
@@ -247,6 +253,8 @@ const clearForm = () => {
   form.precio_jornada = 0;
   form.precio_seminario = 0;
   form.precio_seminario_presencial = 0;
+  form.precio_jornada_presencial = 0;
+  form.precio_jornada_virtual = 0;
   form.precio_seminario_streaming = 0;
   form.precio_modulo = 0;
   form.precio_modulo_virtual = 0;
@@ -307,6 +315,8 @@ watch(
         form.precio_jornada = evento.precio_jornada || 0;
         form.precio_seminario = evento.precio_seminario || 0;
         form.precio_seminario_presencial = evento.precio_seminario_presencial || 0;
+        form.precio_jornada_presencial = evento.precio_jornada_presencial || 0;
+        form.precio_jornada_virtual = evento.precio_jornada_virtual || 0;
         form.precio_seminario_streaming = evento.precio_seminario_streaming || 0;
         form.precio_modulo = evento.precio_modulo || 0;
         form.precio_modulo_virtual = evento.precio_modulo_virtual || 0;
@@ -382,6 +392,8 @@ const submit = () => {
         "precio_jornada",
         "precio_seminario",
         "precio_seminario_presencial",
+        "precio_jornada_presencial",
+        "precio_jornada_virtual",
         "precio_seminario_streaming",
         "precio_modulo",
         "precio_modulo_virtual",
@@ -549,14 +561,14 @@ const toggleSubtemas = (modulo) => {
                   type="select"
                   v-model="form.modalidad"
                   :error="form.errors.modalidad"
-                  :options="form.tipo_evento === 'SEM_DUPLA' ? ['Híbrido'] : ['Presencial', 'Virtual', 'Híbrida', 'Híbrido']"
+                  :options="esDuplaHibrida ? ['Híbrido'] : ['Presencial', 'Virtual', 'Híbrida', 'Híbrido']"
                   :activeColor="selectedArea.color_hex_principal"
                   icon="sensors"
                   required
                 />
                 <FormInput
-                  v-if="form.modalidad === 'Presencial' || form.tipo_evento === 'SEM_DUPLA'"
-                  :label="form.tipo_evento === 'SEM_DUPLA' ? 'Sede presencial' : 'Ubicación / Link'"
+                  v-if="form.modalidad === 'Presencial' || esDuplaHibrida"
+                  :label="esDuplaHibrida ? 'Sede presencial' : 'Ubicación / Link'"
                   v-model="form.ubicacion"
                   :error="form.errors.ubicacion"
                   icon="map"
@@ -575,7 +587,8 @@ const toggleSubtemas = (modulo) => {
       'SEMINARIO', 'JORNADA', 'MODULO', 'MODULO_VIRTUAL', 'CNG', 'CNG_VIRTUAL',
       'CURSO_INTENSIVO_VIRTUAL', 'CURSO_INTENSIVO_HIBRIDO', 'DIPLOMADO_VIRTUAL',
       'DIPLOMADO_HIBRIDO', 'CI_CNG', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA', 'CUR_DUPLA',
-      'CNG_DUPLA', 'MOD_DUPLA', 'SEM_DUPLA'
+      'CNG_DUPLA', 'MOD_DUPLA', 'SEM_DUPLA',
+      { value: 'JOR_DUPLA', label: 'JOR_DUPLA · Jornada presencial y virtual' }
     ]"
     icon="category"
     :activeColor="selectedArea?.color_hex_principal"
@@ -598,6 +611,18 @@ const toggleSubtemas = (modulo) => {
         v-if="camposPrecioActivos.includes('precio_jornada')"
         label="Precio Jornada" type="number" v-model="form.precio_jornada"
         icon="payments" :error="form.errors.precio_jornada" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_jornada_presencial')"
+        label="Precio jornada (presencial)" type="number" v-model="form.precio_jornada_presencial"
+        icon="payments" :error="form.errors.precio_jornada_presencial" required
+      />
+
+      <FormInput
+        v-if="camposPrecioActivos.includes('precio_jornada_virtual')"
+        label="Precio jornada (virtual)" type="number" v-model="form.precio_jornada_virtual"
+        icon="payments" :error="form.errors.precio_jornada_virtual" required
       />
 
       <FormInput

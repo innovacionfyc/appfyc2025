@@ -279,9 +279,14 @@ const obtenerPrecioPrincipal = (evento) => {
   if (evento.precio_seminario > 0) return { etiqueta: "Seminario", valor: evento.precio_seminario };
   if (evento.precio_seminario_presencial > 0)
     return { etiqueta: "Seminario presencial", valor: evento.precio_seminario_presencial };
+  if (evento.precio_jornada_presencial > 0)
+    return { etiqueta: "Jornada presencial", valor: evento.precio_jornada_presencial };
 
   return { etiqueta: "Inversión", valor: 0 };
 };
+
+// Duplas con sede presencial y asistencia remota: en la tarjeta se muestra la sede y la otra modalidad.
+const modalidadRemotaDupla = { SEM_DUPLA: "Streaming", JOR_DUPLA: "Virtual" };
 </script>
 
 <template>
@@ -455,13 +460,13 @@ const obtenerPrecioPrincipal = (evento) => {
 
               <div class="flex items-center gap-1.5 mb-5">
                 <MapPin
-                  v-if="evento.modalidad === 'Presencial' || evento.tipo_evento === 'SEM_DUPLA'"
+                  v-if="evento.modalidad === 'Presencial' || modalidadRemotaDupla[evento.tipo_evento]"
                   class="w-5 h-5 opacity-40"
                 />
                 <Monitor v-else class="w-3 h-3 opacity-40" />
                 <span class="text-[16px] font-bold">
-                  <template v-if="evento.tipo_evento === 'SEM_DUPLA'">
-                    {{ evento.ubicacion || "Presencial" }} · Streaming
+                  <template v-if="modalidadRemotaDupla[evento.tipo_evento]">
+                    {{ evento.ubicacion || "Presencial" }} · {{ modalidadRemotaDupla[evento.tipo_evento] }}
                   </template>
                   <template v-else>
                     {{ evento.modalidad === "Presencial" ? evento.ubicacion : "Virtual" }}

@@ -222,6 +222,11 @@ class SemDuplaMysqlTest extends TestCase
                 'precio_seminario_presencial' => 350000, 'precio_seminario_streaming' => 250000,
                 'modalidad' => 'Híbrido', 'ubicacion' => 'Sede de prueba',
             ]],
+            'JOR_MOD' => ['JOR_MOD', ['precio_jornada' => 400000, 'precio_modulo' => 450000, 'modalidad' => 'Híbrido']],
+            'JOR_DUPLA' => ['JOR_DUPLA', [
+                'precio_jornada_presencial' => 310000, 'precio_jornada_virtual' => 210000,
+                'modalidad' => 'Híbrido', 'ubicacion' => 'Sede de prueba',
+            ]],
         ];
     }
 
@@ -357,7 +362,149 @@ class SemDuplaMysqlTest extends TestCase
         $this->assertFalse(Schema::hasColumn($tabla, 'precio_seminario_presencial'));
     }
 
+    // ── JOR_DUPLA: jornada presencial y virtual ──────────────────────
+
+    public function test_jor_dupla_guarda_modalidad_hibrida_sede_y_ambas_tarifas_sin_tocar_otros_precios(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $evento = $this->crearEventoPorHttp('JOR_DUPLA', [
+            'precio_jornada_presencial' => 755000, 'precio_jornada_virtual' => 638000,
+            'modalidad' => 'Híbrido', 'ubicacion' => 'Bogotá, sede de prueba',
+        ]);
+
+        $this->assertSame('JOR_DUPLA', $evento->tipo_evento);
+        $this->assertSame('Híbrido', $evento->modalidad);
+        $this->assertSame('Bogotá, sede de prueba', $evento->ubicacion);
+        $this->assertSame('755000.00', (string) $evento->precio_jornada_presencial);
+        $this->assertSame('638000.00', (string) $evento->precio_jornada_virtual);
+        $this->assertSame('0.00', (string) $evento->precio_jornada, 'precio_jornada (jornada completa) no se usa');
+        $this->assertSame('0.00', (string) $evento->precio_modulo, 'precio_modulo no se usa');
+
+        $this->editarPorHttp($evento, 'JOR_DUPLA', [
+            'precio_jornada_presencial' => 760000, 'precio_jornada_virtual' => 640000,
+            'modalidad' => 'Híbrido', 'ubicacion' => 'Bogotá, sede editada',
+        ])->assertSessionHasNoErrors();
+
+        $evento->refresh();
+        $this->assertSame('760000.00', (string) $evento->precio_jornada_presencial);
+        $this->assertSame('640000.00', (string) $evento->precio_jornada_virtual);
+        $this->assertSame('Bogotá, sede editada', $evento->ubicacion);
+    }
+
+    public static function jorDuplaInvalidos(): array
+    {
+        $modalidad = 'La jornada dupla (presencial y virtual) debe tener modalidad Híbrido.';
+
+        return [
+            'modalidad Virtual' => [['modalidad' => 'Virtual'], 'modalidad', $modalidad],
+            'modalidad Presencial' => [['modalidad' => 'Presencial'], 'modalidad', $modalidad],
+            'sin sede' => [['ubicacion' => ''], 'ubicacion', 'Ingresa la sede de la asistencia presencial.'],
+            'sin tarifa presencial' => [['precio_jornada_presencial' => ''], 'precio_jornada_presencial', 'Ingresa el precio de la jornada (presencial).'],
+            'tarifa presencial en 0' => [['precio_jornada_presencial' => 0], 'precio_jornada_presencial', 'El precio de la jornada (presencial) debe ser mayor que 0.'],
+            'tarifa virtual negativa' => [['precio_jornada_virtual' => -1], 'precio_jornada_virtual', 'El precio de la jornada (virtual) debe ser mayor que 0.'],
+            'tarifa virtual no numérica' => [['precio_jornada_virtual' => 'abc'], 'precio_jornada_virtual', null],
+        ];
+    }
+
+    #[DataProvider('jorDuplaInvalidos')]
+    public function test_jor_dupla_rechaza_datos_invalidos(array $cambios, string $campo, ?string $mensaje): void
+    {
+        $this->iniciarTransaccionHttp();
+        $antes = Evento::withTrashed()->count();
+
+        $validos = [
+            'precio_jornada_presencial' => 755000, 'precio_jornada_virtual' => 638000,
+            'modalidad' => 'Híbrido', 'ubicacion' => 'Sede de prueba',
+        ];
+        $datos = $this->datosEvento('JOR_DUPLA', [...$validos, ...$cambios]);
+        $datos['url_folleto'] = UploadedFile::fake()->create('folleto.pdf', 10, 'application/pdf');
+
+        $respuesta = $this->from('/admin/eventos/data')->post(route('eventos.store'), $datos);
+        $mensaje === null
+            ? $respuesta->assertSessionHasErrors($campo)
+            : $respuesta->assertSessionHasErrors([$campo => $mensaje]);
+
+        $this->assertSame($antes, Evento::withTrashed()->count());
+    }
+
+    public function test_jornada_y_jor_mod_no_exigen_sede_ni_tarifas_de_jornada_dupla(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $jornada = $this->crearEventoPorHttp('JORNADA', ['precio_jornada' => 200000, 'modalidad' => 'Virtual']);
+        $this->assertSame('200000.00', (string) $jornada->precio_jornada);
+        $this->assertSame('0.00', (string) $jornada->precio_jornada_presencial);
+
+        $jorMod = $this->crearEventoPorHttp('JOR_MOD', ['precio_jornada' => 638000, 'precio_modulo' => 755000, 'modalidad' => 'Híbrido']);
+        $this->assertNull($jorMod->ubicacion);
+        $this->assertSame('638000.00', (string) $jorMod->precio_jornada);
+        $this->assertSame('755000.00', (string) $jorMod->precio_modulo);
+        $this->assertSame('0.00', (string) $jorMod->precio_jornada_virtual);
+    }
+
+    // ── Migración: JOR_DUPLA ─────────────────────────────────────────
+
+    public function test_migracion_jor_dupla_amplia_el_enum_conservando_la_definicion_y_los_datos(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('JORNADA','JOR_MOD','SEM_DUPLA') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'JORNADA' COMMENT 'tipo'");
+        DB::statement("ALTER TABLE `{$tabla}` ADD `precio_jornada` decimal(10,2) NULL AFTER `precio_seminario`, ADD `precio_modulo` decimal(10,2) NULL");
+        DB::table($tabla)->insert([
+            ['tipo_evento' => 'JOR_MOD', 'precio_jornada' => 638000, 'precio_modulo' => 755000],
+            ['tipo_evento' => 'JORNADA', 'precio_jornada' => 200000, 'precio_modulo' => null],
+        ]);
+        $antes = $this->atributos($tabla);
+        $filas = DB::table($tabla)->orderBy('id')->get(['id', 'tipo_evento', 'precio_jornada', 'precio_modulo'])->toArray();
+
+        $migracion = $this->migracionJorDupla($tabla);
+        $migracion->up();
+        $migracion->up();
+
+        $this->assertSame(['JORNADA', 'JOR_MOD', 'SEM_DUPLA', 'JOR_DUPLA'], $this->valoresEnum($tabla));
+        $this->assertEquals($antes, $this->atributos($tabla));
+        $columnas = array_column(DB::select("SHOW COLUMNS FROM `{$tabla}`"), 'Field');
+        $i = array_search('precio_jornada', $columnas);
+        $this->assertSame(['precio_jornada_presencial', 'precio_jornada_virtual'], [$columnas[$i + 1], $columnas[$i + 2]]);
+        $this->assertEquals($filas, DB::table($tabla)->orderBy('id')->get(['id', 'tipo_evento', 'precio_jornada', 'precio_modulo'])->toArray(),
+            'JOR_MOD y JORNADA conservan sus importes; no se trasladan a las columnas nuevas');
+        $this->assertSame(['0.00', '0.00'], DB::table($tabla)->orderBy('id')->pluck('precio_jornada_presencial')->all());
+    }
+
+    public function test_migracion_jor_dupla_down_protege_eventos_e_importes(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('JORNADA','JOR_MOD') NOT NULL DEFAULT 'JORNADA'");
+        DB::statement("ALTER TABLE `{$tabla}` ADD `precio_jornada` decimal(10,2) NULL AFTER `precio_seminario`");
+        $migracion = $this->migracionJorDupla($tabla);
+        $migracion->up();
+
+        DB::table($tabla)->insert(['tipo_evento' => 'JORNADA', 'precio_jornada_virtual' => 638000]);
+        try {
+            $migracion->down();
+            $this->fail('down() debía negarse a revertir con importes.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('importe en precio_jornada_virtual', $e->getMessage());
+        }
+
+        DB::table($tabla)->update(['precio_jornada_virtual' => 0, 'tipo_evento' => 'JOR_DUPLA', 'deleted_at' => now()]);
+        try {
+            $migracion->down();
+            $this->fail('down() debía negarse a revertir con eventos JOR_DUPLA en la papelera.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('tipo_evento = JOR_DUPLA', $e->getMessage());
+        }
+        $this->assertContains('JOR_DUPLA', $this->valoresEnum($tabla));
+        $this->assertTrue(Schema::hasColumns($tabla, ['precio_jornada_presencial', 'precio_jornada_virtual']));
+    }
+
     // ── Utilidades ───────────────────────────────────────────────────
+
+    private function migracionJorDupla(string $tabla): object
+    {
+        $migracion = require database_path('migrations/2026_10_23_100000_add_jor_dupla_to_eventos_table.php');
+        $migracion->tabla = $tabla;
+
+        return $migracion;
+    }
 
     private function migracionPresencial(string $tabla): object
     {
@@ -434,7 +581,7 @@ class SemDuplaMysqlTest extends TestCase
             'correo' => 'prueba.integracion.'.Str::random(6).'@appfyc2025.test', 'areas_encargadas' => [1], 'url_hv' => 'prueba',
         ])->id;
 
-        $precios = array_fill_keys(['precio_jornada', 'precio_seminario', 'precio_seminario_presencial', 'precio_seminario_streaming',
+        $precios = array_fill_keys(['precio_jornada', 'precio_jornada_presencial', 'precio_jornada_virtual', 'precio_seminario', 'precio_seminario_presencial', 'precio_seminario_streaming',
             'precio_modulo', 'precio_modulo_virtual', 'precio_cng', 'precio_cng_virtual', 'precio_curso_intensivo_hibrido',
             'precio_curso_intensivo_virtual', 'precio_diplomado_hibrido', 'precio_diplomado_virtual'], 0);
 
