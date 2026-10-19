@@ -53,7 +53,7 @@ final class AccesoPortal
      */
     public function alcance(string $clave, string $correoNormalizado): ?array
     {
-        $d = $this->cargar($clave);
+        $d = $this->cargarConVinculos($clave);
         $m = EmisionesModernas::filas($clave);
         if ($d['filas']->isEmpty() && $m->isEmpty()) {
             return null;
@@ -154,14 +154,14 @@ final class AccesoPortal
      *
      * @return list<array<string,mixed>>
      */
-    public function tarjetasModernas(string $clave, string|array|null $grupo = null): array
+    public function tarjetasModernas(string $clave, string|array|null $grupo = null, ?int $desde = null): array
     {
         if (self::lista($grupo) === []) {
             return [];   // un scope vacío NUNCA es «documento completo»
         }
         $tarjetas = [];
-        $filas = EmisionesModernas::filas($clave);
-        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
+        $filas = EmisionesModernas::filas($clave, $desde);
+        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas, $desde)) {
             return [];
         }
         foreach ($filas as $f) {
@@ -180,13 +180,13 @@ final class AccesoPortal
     }
 
     /** Fila moderna de una emisión SOLO si pertenece al documento y al alcance de la sesión (la descarga nunca se autoriza por id solo). */
-    public function emisionModerna(string $clave, string|array|null $grupo, int $emisionId): ?object
+    public function emisionModerna(string $clave, string|array|null $grupo, int $emisionId, ?int $desde = null): ?object
     {
         if (self::lista($grupo) === []) {
             return null;
         }
-        $filas = EmisionesModernas::filas($clave);
-        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas)) {
+        $filas = EmisionesModernas::filas($clave, $desde);
+        if (! $this->documentoCompletoSeguro($clave, $grupo, $filas, $desde)) {
             return null;
         }
         foreach ($filas as $f) {
@@ -205,12 +205,12 @@ final class AccesoPortal
      *
      * @param  Collection<int,object>  $modernas
      */
-    private function documentoCompletoSeguro(string $clave, string|array|null $grupo, Collection $modernas): bool
+    private function documentoCompletoSeguro(string $clave, string|array|null $grupo, Collection $modernas, ?int $desde = null): bool
     {
         if ($grupo !== null) {
             return true;
         }
-        $historicos = $this->cargar($clave)['grupos'];
+        $historicos = $this->cargarConVinculos($clave, $desde)['grupos'];
 
         return collect($historicos)->concat($modernas->pluck('grupo'))->unique()->count() <= 1;
     }
@@ -238,9 +238,9 @@ final class AccesoPortal
      * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null}  $filtros
      * @return array{items:list<array<string,mixed>>,total:int,total_sin_filtros:int,descargables:int,anios:list<int>,hay_sin_anio:bool,q:string,anio:?string,orden:string,pagina:int,paginas:int,por_pagina:int,desde:int,hasta:int,con_controles:bool,filtrado:bool}
      */
-    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = []): array
+    public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
-        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo)];
+        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
         usort($todas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
         $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
         $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';
@@ -385,6 +385,26 @@ final class AccesoPortal
         }
 
         return array_values(array_unique(array_map('strval', is_array($grupos) ? $grupos : [$grupos])));
+    }
+
+    /**
+     * Igual que `cargar()`, pero con los VÍNCULOS EXPLÍCITOS de identidad aplicados al GRUPO de cada fila histórica: si un administrador vinculó (con evidencia) un
+     * grupo de nombre con el de la misma persona, ambos cuentan como UNO para decidir el acceso. Sin vínculos vigentes es idéntico a `cargar()`. Con `$desde`,
+     * solo los vínculos creados antes de ese instante (una sesión anterior no hereda permisos nuevos). Nunca cambia ningún dato histórico.
+     *
+     * @return array{filas: Collection<int,CertificadoLegado>, correos: array<int,array<string,bool>>, grupos: array<int,string>}
+     */
+    public function cargarConVinculos(string $clave, ?int $desde = null): array
+    {
+        $d = $this->cargar($clave);
+        $mapa = VinculosIdentidadModerna::mapa($clave, $desde);
+        if ($mapa !== []) {
+            foreach ($d['grupos'] as $id => $g) {
+                $d['grupos'][$id] = $mapa[$g] ?? $g;
+            }
+        }
+
+        return $d;
     }
 
     /**

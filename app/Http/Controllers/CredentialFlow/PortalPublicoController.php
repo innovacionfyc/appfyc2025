@@ -134,7 +134,8 @@ class PortalPublicoController extends Controller
                 'anio' => is_scalar($request->query('anio')) ? (string) $request->query('anio') : null,
                 'orden' => is_string($request->query('orden')) ? $request->query('orden') : null,
                 'page' => is_scalar($request->query('page')) ? (int) $request->query('page') : 1,
-            ]
+            ],
+            $request->attributes->get('cf_portal_desde')
         );
 
         // Estado de la encuesta opcional por certificado de la página (solo lectura; no condiciona ninguna descarga).
@@ -202,7 +203,7 @@ class PortalPublicoController extends Controller
      */
     public function descargarModerno(Request $request, int $emision): Response|RedirectResponse
     {
-        $fila = $this->acceso->emisionModerna((string) $request->attributes->get('cf_portal_documento'), $request->attributes->get('cf_portal_grupos'), $emision);
+        $fila = $this->acceso->emisionModerna((string) $request->attributes->get('cf_portal_documento'), $request->attributes->get('cf_portal_grupos'), $emision, $request->attributes->get('cf_portal_desde'));
         if ($fila === null) {
             abort(404);   // ajeno, inexistente o fuera del alcance: igual que «no existe»
         }
