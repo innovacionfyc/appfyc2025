@@ -18,6 +18,7 @@ use App\Support\CredentialFlow\Legado\ElegibilidadLegado;
 use App\Support\CredentialFlow\Legado\PdfHistoricoInconsistente;
 use App\Support\CredentialFlow\Legado\RenderNoPermitido;
 use App\Support\CredentialFlow\Portal\AccesoPortal;
+use App\Support\CredentialFlow\Portal\EmisionesModernas;
 use App\Support\CredentialFlow\Portal\Hmac;
 use App\Support\CredentialFlow\Portal\ServicioOtp;
 use App\Support\CredentialFlow\Portal\SesionPortal;
@@ -137,7 +138,7 @@ class PortalPublicoController extends Controller
         );
 
         // Estado de la encuesta opcional por certificado de la página (solo lectura; no condiciona ninguna descarga).
-        return $this->vista($request, 'panel', ['tarjetas' => $listado['items'], 'listado' => $listado, 'encuestas' => $this->encuesta->estados($listado['items'], $request->session())]);
+        return $this->vista($request, 'panel', ['tarjetas' => $listado['items'], 'listado' => $listado, 'encuestas' => $this->encuesta->estados(array_values(array_filter($listado['items'], fn ($t) => empty($t['moderno']))), $request->session())]);
     }
 
     public function descargar(Request $request, int $certificado, CongeladorLegado $congelador): Response
@@ -189,6 +190,42 @@ class PortalPublicoController extends Controller
         ]);
 
         $respuesta = new BinaryFileResponse($congelador->rutaFisica($archivo), 200, ['Content-Type' => 'application/pdf', 'X-Content-Type-Options' => 'nosniff'], false);
+        $respuesta->setContentDisposition('attachment', 'certificado.pdf');
+
+        return $respuesta;
+    }
+
+    /**
+     * Descarga de un certificado MODERNO (emisión oficial de un participante nativo). Se autoriza SOLO por documento + grupo de la sesión: la emisión debe
+     * pertenecer a un participante de ese documento dentro del alcance; conocer su id (o su código) no basta. Se entrega el PDF ya emitido y verificado
+     * (existencia, bytes y SHA-256); nunca se genera ni se reemite nada. Una emisión revocada no se entrega.
+     */
+    public function descargarModerno(Request $request, int $emision): Response|RedirectResponse
+    {
+        $fila = $this->acceso->emisionModerna((string) $request->attributes->get('cf_portal_documento'), $request->attributes->get('cf_portal_grupos'), $emision);
+        if ($fila === null) {
+            abort(404);   // ajeno, inexistente o fuera del alcance: igual que «no existe»
+        }
+        $panel = fn (string $mensaje) => redirect()->route('portal.panel')->with('error', $mensaje);
+        if (! EmisionesModernas::habilita($fila)) {
+            return $panel('Este certificado fue revocado y no está disponible para descargar.');
+        }
+
+        $modelo = Emision::query()->find($emision);
+        try {
+            $ruta = $modelo === null ? throw new EmisionException(EmisionException::ARCHIVO_EMISION_NO_EXISTE, '', 409) : AlmacenEmisiones::rutaFisicaVerificada($modelo);
+        } catch (EmisionException $e) {
+            Log::error('Credential Flow: el PDF de una emisión moderna no está disponible o no es íntegro.', ['emision' => $emision, 'codigo' => $e->codigo]);
+
+            return $panel('No fue posible entregar el certificado en este momento. Contactar a soporte para recibir ayuda.');
+        }
+
+        Descarga::create([
+            'emision_id' => $modelo->id, 'via' => Descarga::VIA_PORTAL, 'origen' => Descarga::ORIGEN_CREDENTIAL_FLOW,
+            'descargado_at' => now(), 'ip_hash' => Hmac::ip($request->ip()),
+        ]);
+
+        $respuesta = new BinaryFileResponse($ruta, 200, ['Content-Type' => 'application/pdf', 'X-Content-Type-Options' => 'nosniff'], false);
         $respuesta->setContentDisposition('attachment', 'certificado.pdf');
 
         return $respuesta;
