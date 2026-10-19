@@ -192,4 +192,28 @@ class VinculoIdentidadModernaTest extends PortalTestCase
         $this->artisan('credential-flow:identidad-vincular', $base + ['--ejecutar' => true, '--usuario' => $this->admin()->id])->assertExitCode(0);
         $this->assertSame(1, DB::table('cf_vinculos_identidad')->where('estado', 'vigente')->count());
     }
+
+    public function test_si_la_grafia_correcta_tambien_existe_como_historico_propio_con_el_mismo_correo_el_vinculo_las_unifica(): void
+    {
+        // Caso real: además de las filas con la grafía errónea hay UNA fila histórica con la grafía correcta y el MISMO correo.
+        $molde = (array) DB::table('cf_certificados_legado')->where('id', $this->idCert(1))->first();
+        unset($molde['id']);
+        $propio = DB::table('cf_certificados_legado')->insertGetId(['nombre_completo' => self::NOMBRE_MODERNO, 'codigo_legado' => null] + $molde);
+        DB::table('cf_correos')->insert(['certificado_legado_id' => $propio, 'correo' => self::CORREO, 'correo_normalizado' => self::CORREO, 'estado' => 'valido', 'orden' => 1, 'es_principal' => 0, 'origen' => 'legado', 'created_at' => now(), 'updated_at' => now()]);
+        $e = $this->emitirModerno();
+
+        $this->assertNull((new AccesoPortal)->alcance('1000001', self::CORREO), 'sin vínculo: el correo está en dos grupos');
+        $this->vincular();
+        $this->assertSame(['grupo' => null], (new AccesoPortal)->alcance('1000001', self::CORREO), 'con vínculo, ambos grupos cuentan como uno');
+
+        $this->entrar('1.000.001', self::CORREO)->assertRedirect(route('portal.panel'));
+        $t = $this->tarjetas($this->get(route('portal.panel'))->getContent());
+        $this->assertSame(1, count(array_filter($t, fn ($x) => str_ends_with($x, '*'))));
+        $this->get(route('portal.descargar-moderno', $e->id))->assertOk();
+        $this->get(route('portal.descargar', $propio))->assertStatus(200);   // la fila histórica con la grafía correcta es parte del mismo documento completo
+        // Otra persona (otro nombre y otro correo) sigue sin ver nada de lo anterior.
+        $this->post(route('portal.salir'));
+        $this->emitirModerno('PERSONA DISTINTA DE ANA', 'distinta@example.test');
+        $this->assertSame(['grupo' => NombreConservador::grupoId('PERSONA DISTINTA DE ANA')], (new AccesoPortal)->alcance('1000001', 'distinta@example.test'));
+    }
 }
