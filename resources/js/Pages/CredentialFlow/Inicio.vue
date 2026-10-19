@@ -3,7 +3,7 @@ import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
-import { LayoutTemplate, Users, Sparkles, History, Archive, Mail, ArrowRight } from "lucide-vue-next";
+import { LayoutTemplate, Users, Sparkles, History, Archive, Mail, ClipboardList, ArrowRight } from "lucide-vue-next";
 
 // Los pasos del módulo. Plantillas y Bases de participantes tienen su propia pantalla; Generación e Historial no:
 // se hacen dentro de cada base, así que esas tarjetas llevan a la lista de bases y lo dicen.
@@ -55,6 +55,14 @@ const pasos = [
     accion: "Abrir envíos",
     icono: Mail,
     acento: "text-sky-700 bg-sky-50",
+  },
+  {
+    titulo: "Encuestas",
+    descripcion: "Resultados por evento, informes y exportaciones a Excel y CSV de las encuestas, históricas y actuales. Solo lectura.",
+    ruta: "credential-flow.encuestas.resumen",
+    accion: "Abrir encuestas",
+    icono: ClipboardList,
+    acento: "text-emerald-700 bg-emerald-50",
   },
 ];
 </script>
