@@ -80,6 +80,36 @@ final class LectorArchivo
         return $extension === 'xlsx' ? $this->leerXlsx($ruta, $mime) : $this->leerCsv($ruta, $mime);
     }
 
+    /**
+     * Comprobaciones de seguridad de un .xlsx subido (las mismas de `leer`: extensión, tamaño, tipo, firma ZIP, macros, zip bombs) SIN abrirlo con OpenSpout.
+     * Las usan otros lectores auxiliares (p. ej. el de valores calculados) para no duplicar ni relajar estas reglas. Devuelve la ruta del archivo temporal.
+     *
+     * @throws ErrorArchivoException
+     */
+    public function verificarXlsx(UploadedFile $archivo): string
+    {
+        if (! $archivo->isValid()) {
+            throw new ErrorArchivoException(ErrorFila::ARCHIVO_INVALIDO, 'El archivo no se pudo subir completo. Inténtalo de nuevo.');
+        }
+        if (strtolower($archivo->getClientOriginalExtension()) !== 'xlsx') {
+            throw new ErrorArchivoException(ErrorFila::EXTENSION_NO_PERMITIDA, 'Solo se admiten libros de Excel .xlsx (no .xls, .xlsm, .xlsb ni .ods).');
+        }
+        $ruta = $archivo->getRealPath();
+        if ($ruta === false || ! is_file($ruta)) {
+            throw new ErrorArchivoException(ErrorFila::ARCHIVO_INVALIDO, 'No se pudo leer el archivo subido.');
+        }
+        if (filesize($ruta) > self::ARCHIVO_MAX_BYTES) {
+            throw new ErrorArchivoException(ErrorFila::ARCHIVO_MUY_GRANDE, 'El archivo supera los '.(self::ARCHIVO_MAX_BYTES / 1024 / 1024).' MB permitidos.');
+        }
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($ruta) ?: '';
+        if (! in_array($mime, self::MIME_XLSX, true) || file_get_contents($ruta, false, null, 0, 4) !== "PK\x03\x04") {
+            throw new ErrorArchivoException(ErrorFila::ARCHIVO_INVALIDO, 'El archivo no es un libro de Excel .xlsx válido.');
+        }
+        $this->verificarZip($ruta);
+
+        return $ruta;
+    }
+
     // ── XLSX ──────────────────────────────────────────────────────────────────
 
     private function leerXlsx(string $ruta, string $mime): LecturaArchivo
