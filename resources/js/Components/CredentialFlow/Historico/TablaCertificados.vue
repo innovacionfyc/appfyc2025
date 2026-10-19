@@ -43,7 +43,10 @@ defineProps({
           <td class="px-4 py-4 text-slate-600 font-semibold whitespace-nowrap"><span class="inline-flex items-center gap-1.5"><Mail class="w-3.5 h-3.5 text-slate-400" />{{ c.correo }}</span></td>
           <td class="px-4 py-4 text-right font-semibold text-slate-600"><span class="inline-flex items-center gap-1.5"><Download class="w-3.5 h-3.5 text-slate-400" />{{ c.descargas }}</span></td>
           <td class="px-4 py-4 text-slate-600 font-semibold">{{ c.estado }}</td>
-          <td class="px-6 py-4 text-right">
+          <td class="px-6 py-4 text-right whitespace-nowrap">
+            <a v-if="c.pdf_disponible" :href="route('credential-flow.historico.certificados.pdf', c.id)" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 mr-2 rounded-full bg-slate-100 text-[12px] font-bold text-slate-700 hover:bg-slate-200 transition-all" data-accion="pdf-historico" :aria-label="`Abrir el PDF de ${c.nombre}`">
+              <Download class="w-3.5 h-3.5" /> PDF
+            </a>
             <Link :href="route('credential-flow.historico.certificados.show', c.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all" :aria-label="`Ver el certificado de ${c.nombre}`">
               Ver <ArrowRight class="w-3.5 h-3.5" />
             </Link>

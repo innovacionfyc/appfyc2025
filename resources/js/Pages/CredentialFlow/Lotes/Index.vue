@@ -43,6 +43,14 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
       <DashboardHeader title="Bases de participantes" subtitle="Las listas de personas a las que les generarás certificados" :stats="headerStats">
         <template #actions>
           <Link
+            :href="route('credential-flow.eventos.index')"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all"
+            data-accion="ver-eventos"
+          >
+            <CalendarDays class="w-4 h-4" />
+            Eventos
+          </Link>
+          <Link
             :href="route('credential-flow.lotes.nuevo')"
             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all"
             data-accion="nuevo-lote"

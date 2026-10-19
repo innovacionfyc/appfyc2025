@@ -415,13 +415,19 @@ class CongeladorLegadoTest extends HistoricoTestCase
         $this->assertStringStartsWith('PDF_HISTORICO_INCONSISTENTE', $r->getContent());
     }
 
-    public function test_el_historico_de_lectura_sigue_sin_botones_de_pdf_ni_enlaces_a_la_ruta(): void
+    public function test_el_historico_de_lectura_no_ofrece_generar_pdf_y_solo_enlaza_los_ya_disponibles(): void
     {
+        // Nada en el histórico genera PDF: ningún botón «Generar PDF». El enlace a la ruta del PDF existe SOLO en la tabla de certificados y
+        // únicamente para filas con `pdf_disponible` (PDF ya congelado, vigente y conciliado); las demás pantallas no enlazan a ella.
         foreach (['Pages/CredentialFlow/Historico/Certificado.vue', 'Pages/CredentialFlow/Historico/Evento.vue', 'Components/CredentialFlow/Historico/TablaCertificados.vue'] as $vue) {
             $fuente = file_get_contents(resource_path('js/'.$vue));
-            $this->assertStringNotContainsString('certificados.pdf', $fuente, "$vue no debe enlazar al PDF");
-            $this->assertDoesNotMatchRegularExpression('/<(button|a)[^>]*>[^<]*(Descargar|Generar PDF)/i', $fuente);
+            $this->assertDoesNotMatchRegularExpression('/<(button|a)[^>]*>[^<]*Generar PDF/i', $fuente);
+            if (! str_ends_with($vue, 'TablaCertificados.vue')) {
+                $this->assertStringNotContainsString('certificados.pdf', $fuente, "$vue no debe enlazar al PDF");
+            }
         }
+        $tabla = file_get_contents(resource_path('js/Components/CredentialFlow/Historico/TablaCertificados.vue'));
+        $this->assertMatchesRegularExpression('/v-if="c\.pdf_disponible"[^>]*certificados\.pdf/s', $tabla);
     }
 
     public function test_la_migracion_no_se_ve_afectada_y_los_certificados_sin_pdf_siguen_sin_pdf(): void

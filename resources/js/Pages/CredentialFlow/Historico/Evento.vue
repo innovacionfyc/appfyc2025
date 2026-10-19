@@ -8,13 +8,16 @@ import Paginador from "@/Components/CredentialFlow/Historico/Paginador.vue";
 import AvisoHistorico from "@/Components/CredentialFlow/Historico/AvisoHistorico.vue";
 import TablaCertificados from "@/Components/CredentialFlow/Historico/TablaCertificados.vue";
 import { useFiltrosHistorico } from "@/Composables/CredentialFlow/useFiltrosHistorico";
-import { Search, X } from "lucide-vue-next";
+import { Search, X, Download } from "lucide-vue-next";
 
 const props = defineProps({
   evento: { type: Object, required: true },
   certificados: { type: Object, required: true }, // paginador de Laravel
   filtros: { type: Object, required: true },
+  descarga: { type: Object, default: () => ({ elegibles: 0, disponibles: 0, sin_pdf: 0, duplicados: 0, excluidos: {} }) }, // qué entraría en el ZIP histórico del evento
 });
+
+const totalExcluidos = () => Object.values(props.descarga.excluidos ?? {}).reduce((a, b) => a + b, 0);
 
 const { filtros, aplicar, aplicarConEspera, limpiar, hayFiltros } = useFiltrosHistorico(() => route("credential-flow.historico.eventos.show", props.evento.id), props.filtros);
 
@@ -70,6 +73,24 @@ const tarjetas = [
       <div v-if="evento.avisos.length" class="mt-4 space-y-3" data-avisos>
         <AvisoHistorico v-for="(a, i) in evento.avisos" :key="i" :aviso="a" />
       </div>
+
+      <!-- Descarga del evento: solo PDF históricos ya generados y vigentes; no genera nada -->
+      <section class="mt-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm px-5 py-4" data-descarga-historica>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[11px] uppercase tracking-wide font-black text-slate-400">Descarga del evento (históricos)</p>
+            <p class="mt-1 text-sm font-semibold text-slate-600">
+              {{ n(descarga.disponibles) }} PDF {{ descarga.disponibles === 1 ? "listo" : "listos" }} para el ZIP
+              <template v-if="descarga.sin_pdf"> · {{ n(descarga.sin_pdf) }} elegibles aún sin PDF generado (no entran al ZIP; se generan al abrirlos uno a uno)</template>
+              <template v-if="totalExcluidos()"> · {{ n(totalExcluidos()) }} no elegibles (revocados, reemplazados o en revisión)</template>
+            </p>
+            <p class="mt-1 text-[12px] font-semibold text-slate-400">Solo certificados de este evento histórico. Los certificados nuevos se descargan desde Eventos.</p>
+          </div>
+          <a v-if="descarga.disponibles > 0" :href="route('credential-flow.historico.eventos.zip', evento.id)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all" data-accion="zip-historico">
+            <Download class="w-4 h-4" /> Descargar ZIP histórico
+          </a>
+        </div>
+      </section>
 
       <h3 class="mt-10 text-lg font-extrabold text-slate-900">Certificados del evento</h3>
 
