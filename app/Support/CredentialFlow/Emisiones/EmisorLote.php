@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -39,33 +40,72 @@ final class EmisorLote
     /** @return array<string,int> */
     public function resumen(Lote $lote): array
     {
-        $pendientes = $lote->participantes()->whereDoesntHave('emisiones')->count();
+        // Las cifras oficiales son de los participantes REALES; los de control (QA) van aparte y solo aparecen si la base los tiene.
+        $reales = fn () => $lote->participantes()->where('es_control_qa', false);
+        // «Pendiente de emitir» = elegible y sin emisión. Los pendientes de validación y los no elegibles NO entran a la emisión oficial.
+        $pendientes = $reales()->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->count();
+        $tipoPendiente = $reales()->where('tipo_documento_confirmado', false)->whereDoesntHave('emisiones')->count();
 
-        return [
-            'participantes' => $lote->participantes()->count(),
-            'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->count(),
-            'revocados' => $lote->participantes()->whereHas('emisiones')->whereDoesntHave('emisionVigente')->count(),
+        $r = [
+            'participantes' => $reales()->count(),
+            'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->whereIn('participante_id', $reales()->select('id'))->count(),
+            'revocados' => $reales()->whereHas('emisiones')->whereDoesntHave('emisionVigente')->count(),
             'pendientes' => $pendientes,
             'a_emitir' => min($pendientes, self::LIMITE),
             'limite' => self::LIMITE,
         ];
+
+        $enEspera = $reales()->where('elegibilidad', Participante::PENDIENTE)->whereDoesntHave('emisiones')->count();
+        $noElegibles = $reales()->where('elegibilidad', Participante::NO_ELEGIBLE)->whereDoesntHave('emisiones')->count();
+        if ($tipoPendiente > 0) {
+            $r['tipo_pendiente'] = $tipoPendiente;
+        }
+        if ($enEspera > 0 || $noElegibles > 0) {
+            $r['en_validacion'] = $enEspera;
+            $r['no_elegibles'] = $noElegibles;
+        }
+
+        $qa = $lote->participantes()->where('es_control_qa', true);
+        if ((clone $qa)->exists()) {
+            $qaPendientes = (clone $qa)->whereDoesntHave('emisiones')->count();
+            $r['qa'] = [
+                'participantes' => (clone $qa)->count(),
+                'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->whereIn('participante_id', (clone $qa)->select('id'))->count(),
+                'pendientes' => $qaPendientes,
+                'a_emitir' => min($qaPendientes, self::LIMITE),
+                'plantilla_lista' => app(ServicioQa::class)->plantilla() !== null,
+            ];
+        }
+
+        return $r;
     }
 
     /**
      * @return array{operacion:string, total:int, emisiones:array<int,int>, restantes:int}
      *
+     * Por defecto emite SOLO a los participantes REALES con la plantilla de la base. Con `$pruebasInternas` emite SOLO a los de control (QA) y SOLO con la
+     * plantilla de pruebas internas («PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA»): nunca se mezclan ni se emite un certificado académico a un contacto QA.
+     *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function emitirPendientes(Lote $lote, ?int $usuarioId): array
+    public function emitirPendientes(Lote $lote, ?int $usuarioId, bool $pruebasInternas = false): array
     {
-        $plantilla = $lote->plantilla;
+        $plantilla = $pruebasInternas ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
+            throw new EmisionException(
+                EmisionException::PLANTILLA_NO_DISPONIBLE,
+                $pruebasInternas ? 'No hay una plantilla de pruebas internas (QA) designada. Márcala en Plantillas antes de emitir las pruebas.' : 'La plantilla de esta base ya no está disponible.',
+                409
+            );
         }
 
-        $pendientes = $lote->participantes()->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
+        if (! $pruebasInternas) {
+            app(ServicioVistaPrevia::class)->exigir($lote);
+        }
+
+        $pendientes = $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
         if ($pendientes->isEmpty()) {
-            throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay participantes pendientes de emitir en esta base.', 409);
+            throw new EmisionException(EmisionException::SIN_PENDIENTES, $pruebasInternas ? 'No hay contactos de control (QA) pendientes de emitir en esta base.' : 'No hay participantes pendientes de emitir en esta base.', 409);
         }
 
         // 1–2: snapshots + huellas y prevalidación total (todo o nada).
@@ -199,7 +239,7 @@ final class EmisorLote
             'operacion' => $operacion,
             'total' => count($emisiones),
             'emisiones' => array_map(fn (Emision $e) => $e->id, $emisiones),
-            'restantes' => $lote->participantes()->whereDoesntHave('emisiones')->count(),
+            'restantes' => $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->whereDoesntHave('emisiones')->count(),
         ];
     }
 

@@ -35,6 +35,10 @@ final class ImportadorParticipantes
     /** Columnas OPCIONALES: si el archivo no las trae, la importación sigue como antes (bases antiguas sin correo). */
     private const ALIAS_OPCIONAL = [
         'correo' => ['correo', 'correoelectronico', 'correoelectronicoinstitucional', 'email', 'mail', 'emailaddress', 'direccioncorreo'],
+        // Estado de certificación de cada persona: elegible | pendiente | no_elegible. Sin la columna, todos quedan «elegible» (como siempre).
+        'elegibilidad' => ['elegibilidad', 'estadodecertificacion', 'estadocertificacion'],
+        // Tipo de documento (C.C., C.E., T.I., pasaporte…). Si la columna existe y la celda está vacía (o dice «por verificar»), la persona se guarda con el tipo SIN CONFIRMAR.
+        'tipo_documento' => ['tipodedocumento', 'tipodocumento', 'tipodoc', 'tipoid'],
     ];
 
     /** Datos que se definen una sola vez en el formulario del lote; no pueden venir por fila. */
@@ -131,9 +135,15 @@ final class ImportadorParticipantes
         $sinCaja = $this->elementosVariables($plantilla);
 
         foreach ($datos as $fila) {
+            $celdaDocumento = $fila['celdas'][$columnas['documento']] ?? new CeldaCruda;
+            $tipo = isset($columnas['tipo_documento']) ? self::tipoDocumentoDe($fila['celdas'][$columnas['tipo_documento']] ?? new CeldaCruda, $fila['fila']) : ['tipo' => null, 'confirmado' => true, 'errores' => [], 'avisos' => []];
+            // Con un tipo confirmado y un documento que es solo el número, se guardan juntos («C.C. 1.023.456.789»), como siempre se ha escrito en el certificado.
+            if ($tipo['tipo'] !== null && ! $celdaDocumento->vacia() && ! $celdaDocumento->formula && is_scalar($celdaDocumento->valor) && ! self::yaTraeSuTipo((string) $celdaDocumento->valor, $tipo['tipo'])) {
+                $celdaDocumento = CeldaCruda::texto($tipo['tipo'].' '.trim((string) $celdaDocumento->valor));
+            }
             $r = ValidadorParticipante::validar(
                 $fila['celdas'][$columnas['nombre_completo']] ?? new CeldaCruda,
-                $fila['celdas'][$columnas['documento']] ?? new CeldaCruda,
+                $celdaDocumento,
                 $fila['fila'],
             );
             $errFila = $r->errores;
@@ -141,6 +151,9 @@ final class ImportadorParticipantes
             $correo = isset($columnas['correo']) ? ValidadorCorreo::validar($fila['celdas'][$columnas['correo']] ?? new CeldaCruda, $fila['fila']) : ['correos' => [], 'errores' => [], 'avisos' => [], 'vista' => ''];
             $errFila = [...$errFila, ...$correo['errores']];
             $avisos = [...$avisos, ...$correo['avisos']];
+            $elegibilidad = isset($columnas['elegibilidad']) ? self::elegibilidadDe($fila['celdas'][$columnas['elegibilidad']] ?? new CeldaCruda, $fila['fila']) : ['valor' => Participante::ELEGIBLE, 'motivo' => null, 'errores' => [], 'avisos' => []];
+            $errFila = [...$errFila, ...$elegibilidad['errores'], ...$tipo['errores']];
+            $avisos = [...$avisos, ...$elegibilidad['avisos'], ...$tipo['avisos']];
 
             if ($r->clave !== null) {
                 if (isset($vistas[$r->clave])) {
@@ -154,7 +167,7 @@ final class ImportadorParticipantes
                 $conError++;
                 $errores = [...$errores, ...$errFila];
             } else {
-                $participantes[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombre, 'documento' => $r->documento, 'documento_clave' => $r->clave, 'correos' => $correo['correos'], 'correo_columna' => isset($columnas['correo'])];
+                $participantes[] = ['fila' => $fila['fila'], 'nombre_completo' => $r->nombre, 'documento' => $r->documento, 'documento_clave' => $r->clave, 'correos' => $correo['correos'], 'correo_columna' => isset($columnas['correo']), 'elegibilidad' => $elegibilidad['valor'], 'elegibilidad_motivo' => $elegibilidad['motivo'], 'elegibilidad_columna' => isset($columnas['elegibilidad']), 'tipo_documento_confirmado' => $tipo['confirmado'], 'tipo_columna' => isset($columnas['tipo_documento'])];
                 if ($sinCaja !== []) {
                     $avisos = [...$avisos, ...$this->avisosDeCaja($sinCaja, $plantilla, $r, $fila['fila'])];
                 }
@@ -175,7 +188,7 @@ final class ImportadorParticipantes
      *
      * @throws ImportacionInvalidaException
      */
-    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes): Lote
+    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null): Lote
     {
         $resultado = $this->validar($archivo, $plantilla, $datosComunes);
         if (! $resultado->valido()) {
@@ -186,9 +199,10 @@ final class ImportadorParticipantes
         $nombreArchivo = self::sanearNombre($archivo->getClientOriginalName());
         $usuario = Auth::id();
 
-        return DB::transaction(function () use ($resultado, $plantilla, $nombre, $descripcion, $datosComunes, $hash, $nombreArchivo, $usuario) {
+        return DB::transaction(function () use ($resultado, $plantilla, $nombre, $descripcion, $datosComunes, $hash, $nombreArchivo, $usuario, $eventoId) {
             $lote = Lote::create([
                 'plantilla_id' => $plantilla->id,
+                ...($eventoId === null ? [] : ['evento_id' => $eventoId]),
                 'nombre' => $nombre,
                 'descripcion' => $descripcion,
                 'datos_comunes' => $datosComunes,
@@ -199,9 +213,11 @@ final class ImportadorParticipantes
             $ahora = now();
             $conCorreo = 0;
             $conColumnaCorreo = ($resultado->participantes[0]['correo_columna'] ?? false) === true;   // igual para todo el archivo
+            $conColumnaElegibilidad = ($resultado->participantes[0]['elegibilidad_columna'] ?? false) === true;
+            $conColumnaTipo = ($resultado->participantes[0]['tipo_columna'] ?? false) === true;
             foreach (array_chunk($resultado->participantes, self::CHUNK) as $bloque) {
                 // insert() no dispara HasAuditFields: created_by/update_by se rellenan a mano.
-                DB::table('cf_participantes')->insert(array_map(function (array $p) use ($lote, $usuario, $ahora, $conColumnaCorreo) {
+                DB::table('cf_participantes')->insert(array_map(function (array $p) use ($lote, $usuario, $ahora, $conColumnaCorreo, $conColumnaElegibilidad, $conColumnaTipo) {
                     // Mismo convenio que `Participante::CORREO_*`: un correo válido → se guarda en la fila; varios → `multiple` y la fuente son las filas de
                     // cf_correos; ninguno → `sin_correo` solo si el archivo traía la columna (las bases antiguas conservan NULL).
                     $validos = $p['correos'] ?? [];
@@ -224,6 +240,8 @@ final class ImportadorParticipantes
                         'documento' => $p['documento'],
                         'documento_clave' => $p['documento_clave'],
                         ...$columnasCorreo,
+                        ...(! $conColumnaElegibilidad ? [] : ['elegibilidad' => $p['elegibilidad'], 'elegibilidad_motivo' => $p['elegibilidad'] === Participante::ELEGIBLE ? null : ($p['elegibilidad_motivo'] ?? 'Indicado así en el archivo de importación.')]),
+                        ...(! $conColumnaTipo ? [] : ['tipo_documento_confirmado' => $p['tipo_documento_confirmado']]),
                         'fila_origen' => $p['fila'],
                         'created_by' => $usuario,
                         'update_by' => $usuario,
@@ -292,6 +310,89 @@ final class ImportadorParticipantes
         $nombre = trim($nombre);
 
         return mb_substr($nombre === '' ? 'archivo' : $nombre, 0, 150);
+    }
+
+    /** ¿El documento escrito ya empieza por ese mismo tipo («C.C. 123», «cc123», «Pasaporte AB1»)? Entonces no se duplica. */
+    private static function yaTraeSuTipo(string $documento, string $tipo): bool
+    {
+        $patron = match ($tipo) {
+            'C.C.' => 'c\.?\s?c\.?',
+            'C.E.' => 'c\.?\s?e\.?',
+            'T.I.' => 't\.?\s?i\.?',
+            'PASAPORTE' => 'pasaporte',
+            default => preg_quote(mb_strtolower($tipo), '/'),
+        };
+
+        return preg_match('/^\s*'.$patron.'(?![\p{L}])/iu', $documento) === 1;
+    }
+
+    /**
+     * Estado de certificación de la fila. NUNCA eleva a nadie: «elegible», «pendiente» y «no elegible» se leen tal cual; «Cupos» y cualquier otro texto (p. ej. el que
+     * trae el formulario de inscripción) quedan «pendiente de validación» con un aviso, sin rechazar la carga y sin interpretarlos como asistencia completa.
+     *
+     * @return array{valor:string,motivo:?string,errores:list<ErrorFila>,avisos:list<ErrorFila>}
+     */
+    private static function elegibilidadDe(CeldaCruda $celda, int $fila): array
+    {
+        if ($celda->vacia()) {
+            return ['valor' => Participante::PENDIENTE, 'motivo' => 'Sin estado en el archivo: pendiente de validación.', 'errores' => [], 'avisos' => []];
+        }
+        if ($celda->formula) {
+            return ['valor' => Participante::PENDIENTE, 'motivo' => null, 'errores' => [ErrorFila::error(ErrorFila::ELEGIBILIDAD_INVALIDA, 'El estado de certificación no puede ser una fórmula.', $fila, 'elegibilidad')], 'avisos' => []];
+        }
+        $texto = Texto::limpiar((string) (is_scalar($celda->valor) ? $celda->valor : ''));
+        $valor = match (Texto::encabezado($texto)) {
+            'elegible' => Participante::ELEGIBLE,
+            'pendiente', 'pendientedevalidacion' => Participante::PENDIENTE,
+            'noelegible' => Participante::NO_ELEGIBLE,
+            default => null,
+        };
+        if ($valor !== null) {
+            return ['valor' => $valor, 'motivo' => $valor === Participante::ELEGIBLE ? null : 'Indicado así en el archivo de importación.', 'errores' => [], 'avisos' => []];
+        }
+
+        $corto = mb_substr($texto, 0, 40);
+        $esCupos = Texto::encabezado($texto) === 'cupos';
+        $motivo = $esCupos ? 'Cupos: asistencia pendiente de validación (no se asume asistencia completa ni horas).' : "Valor «{$corto}» del archivo sin interpretar: pendiente de validación.";
+
+        return ['valor' => Participante::PENDIENTE, 'motivo' => $motivo, 'errores' => [], 'avisos' => [ErrorFila::aviso(ErrorFila::ELEGIBILIDAD_INVALIDA, "«{$corto}» no es un estado de certificación (elegible, pendiente o no elegible): la persona queda pendiente de validación y no se emitirá hasta confirmarla.", $fila, 'elegibilidad', $corto)]];
+    }
+
+    /**
+     * Tipo de documento de la fila: un tipo reconocido (lo confirma), vacío o «por verificar» (queda SIN CONFIRMAR: se guarda y se valida después, sin suponer C.C.) o
+     * un texto desconocido (error de la fila).
+     *
+     * @return array{tipo:?string,confirmado:bool,errores:list<ErrorFila>,avisos:list<ErrorFila>}
+     */
+    private static function tipoDocumentoDe(CeldaCruda $celda, int $fila): array
+    {
+        $sinConfirmar = fn () => ['tipo' => null, 'confirmado' => false, 'errores' => [], 'avisos' => [ErrorFila::aviso(ErrorFila::TIPO_DOCUMENTO_SIN_CONFIRMAR, 'Tipo de documento sin confirmar: la persona se guarda, pero no se emitirá hasta confirmarlo (no se supone C.C.).', $fila, 'tipo_documento')]];
+        if ($celda->vacia()) {
+            return $sinConfirmar();
+        }
+        if ($celda->formula) {
+            return ['tipo' => null, 'confirmado' => false, 'errores' => [ErrorFila::error(ErrorFila::TIPO_DOCUMENTO_INVALIDO, 'El tipo de documento no puede ser una fórmula.', $fila, 'tipo_documento')], 'avisos' => []];
+        }
+        $texto = Texto::limpiar((string) (is_scalar($celda->valor) ? $celda->valor : ''));
+        $tipo = match (Texto::encabezado($texto)) {
+            'cc', 'cedula', 'cedulaciudadania', 'cedulasdeciudadania', 'cedulaasciudadania' => 'C.C.',
+            'ce', 'cedulaextranjeria', 'cedulasdeextranjeria' => 'C.E.',
+            'ti', 'tarjetaidentidad', 'tarjetadeidentidad' => 'T.I.',
+            'pasaporte', 'pa' => 'PASAPORTE',
+            'nit' => 'NIT',
+            'pep' => 'PEP',
+            'ppt' => 'PPT',
+            'pendiente', 'porverificar', 'sinconfirmar', 'noconfirmado', 'verificar', 'sintipo' => '',
+            default => null,
+        };
+        if ($tipo === '') {
+            return $sinConfirmar();
+        }
+        if ($tipo === null) {
+            return ['tipo' => null, 'confirmado' => false, 'errores' => [ErrorFila::error(ErrorFila::TIPO_DOCUMENTO_INVALIDO, 'Tipo de documento no reconocido. Usa C.C., C.E., T.I., Pasaporte, NIT, PEP o PPT; o déjalo vacío para confirmarlo después.', $fila, 'tipo_documento', mb_substr($texto, 0, 40))], 'avisos' => []];
+        }
+
+        return ['tipo' => $tipo, 'confirmado' => true, 'errores' => [], 'avisos' => []];
     }
 
     /** @param  array<string,array<int,string>>  $tabla */

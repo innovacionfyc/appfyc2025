@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -103,9 +104,28 @@ final class EmisorCredencial
 
     private function crear(Participante $participante, Lote $lote, ?Emision $reemplaza, ?string $motivo, ?int $usuarioId, ?string $operacion = null, ?\Closure $alCrear = null): Emision
     {
-        $plantilla = $lote->plantilla;
+        // Solo un participante ELEGIBLE se certifica; uno pendiente de validación o no elegible se habilita primero (nunca se emite por defecto).
+        if (($participante->elegibilidad ?? Participante::ELEGIBLE) !== Participante::ELEGIBLE) {
+            throw new EmisionException(EmisionException::NO_ELEGIBLE, 'Este participante está '.(($participante->elegibilidad ?? '') === Participante::PENDIENTE ? 'pendiente de validación' : 'marcado como no elegible').' y no se puede certificar. Cambia su estado a «elegible» cuando se confirme.', 409);
+        }
+
+        // Un participante de control (QA) NUNCA se emite con la plantilla académica de la base: solo con la de pruebas internas.
+        $esQa = (bool) ($participante->es_control_qa ?? false);
+
+        // Una emisión OFICIAL exige el tipo de documento confirmado y, en la base, una plantilla válida con la vista previa revisada.
+        if (! $esQa) {
+            if (! ($participante->tipo_documento_confirmado ?? true)) {
+                throw new EmisionException(EmisionException::TIPO_DOCUMENTO_PENDIENTE, 'El tipo de documento de este participante no está confirmado. Confírmalo en «Editar participante» antes de emitir.', 409);
+            }
+            app(ServicioVistaPrevia::class)->exigir($lote);
+        }
+        $plantilla = $esQa ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
+            throw new EmisionException(
+                EmisionException::PLANTILLA_NO_DISPONIBLE,
+                $esQa ? 'No hay una plantilla de pruebas internas (QA) designada. Márcala en Plantillas antes de emitir las pruebas.' : 'La plantilla de esta base ya no está disponible.',
+                409
+            );
         }
 
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).

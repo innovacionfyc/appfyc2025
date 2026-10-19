@@ -11,7 +11,24 @@ import { router } from "@inertiajs/vue3";
 const props = defineProps({
   lotes: { type: Object, required: true }, // paginador de Laravel: { data, current_page, last_page, total, prev_page_url, next_page_url }
   eliminadas: { type: Array, default: () => [] }, // bases eliminadas antes (ocultas), con su espacio aún ocupado
+  estado: { type: String, default: "activa" }, // filtro actual por estado operativo
+  estados: { type: Object, default: () => ({ activa: 0, borrador: 0, archivada: 0, prueba: 0 }) }, // conteo por estado
+  estado_disponible: { type: Boolean, default: false },
 });
+
+const PESTANAS = [
+  { clave: "activa", rotulo: "Activas" },
+  { clave: "borrador", rotulo: "Borradores" },
+  { clave: "archivada", rotulo: "Archivadas" },
+  { clave: "prueba", rotulo: "Pruebas internas" },
+];
+const filtrar = (clave) => router.get(route("credential-flow.lotes.index"), clave === "activa" ? {} : { estado: clave }, { preserveScroll: true });
+// Cambiar el estado de una base solo la reordena en el listado; pide confirmación y nunca toca participantes ni certificados.
+const cambiarEstado = (l, nuevo) => {
+  if (!nuevo || nuevo === l.estado_operativo) return;
+  if (!window.confirm(`¿Mover la base «${l.nombre}» a «${PESTANAS.find((p) => p.clave === nuevo).rotulo}»? Solo cambia dónde aparece en la lista; no se modifica ningún participante ni certificado.`)) return;
+  router.put(route("credential-flow.lotes.estado", l.id), { estado: nuevo, confirmo: true }, { preserveScroll: true });
+};
 
 const headerStats = computed(() => [
   { label: "Bases", value: props.lotes.total ?? 0, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
@@ -61,6 +78,13 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
         </template>
       </DashboardHeader>
 
+      <div v-if="estado_disponible" class="mt-6 flex flex-wrap items-center gap-2" data-filtros-estado>
+        <button v-for="p in PESTANAS" :key="p.clave" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold transition-all" :class="estado === p.clave ? 'bg-primary-vinotinto text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'" :data-filtro="p.clave" :aria-pressed="estado === p.clave" @click="filtrar(p.clave)">
+          {{ p.rotulo }} <span class="text-[11px] opacity-80">{{ estados[p.clave] ?? 0 }}</span>
+        </button>
+        <Link :href="route('credential-flow.qa.contactos')" class="ml-auto text-[12px] font-bold text-slate-500 hover:text-primary-vinotinto underline-offset-2 hover:underline" data-accion="ver-contactos-qa">Contactos QA</Link>
+      </div>
+
       <div v-if="lotes.data.length === 0" class="mt-8 text-center py-20 space-y-4 bg-white rounded-[2rem] border border-dashed border-slate-200" data-sin-lotes>
         <div class="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mx-auto">
           <Users class="w-9 h-9 text-slate-400" />
@@ -87,6 +111,7 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
                 <th class="text-left font-black px-4 py-4">Fecha</th>
                 <th class="text-right font-black px-4 py-4">Participantes</th>
                 <th class="text-left font-black px-4 py-4">Creado</th>
+                <th v-if="estado_disponible" class="text-left font-black px-4 py-4">Estado</th>
                 <th class="px-6 py-4"><span class="sr-only">Acciones</span></th>
               </tr>
             </thead>
@@ -98,9 +123,14 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
                 </td>
                 <td class="px-4 py-4 text-slate-600 font-semibold break-words max-w-xs">{{ l.evento ?? "—" }}</td>
                 <td class="px-4 py-4 text-slate-600 font-semibold">{{ l.fecha ?? "—" }}</td>
-                <td class="px-4 py-4 text-right font-black text-slate-900">{{ l.participantes }}</td>
+                <td class="px-4 py-4 text-right font-black text-slate-900">{{ l.participantes }}<span v-if="l.qa" class="block text-[11px] font-bold text-violet-600">+ {{ l.qa }} QA</span></td>
                 <td class="px-4 py-4 text-slate-500 font-semibold whitespace-nowrap">
                   <span class="inline-flex items-center gap-1.5"><CalendarDays class="w-3.5 h-3.5 text-slate-400" />{{ formatFecha(l.created_at) }}</span>
+                </td>
+                <td v-if="estado_disponible" class="px-4 py-4">
+                  <select :value="l.estado_operativo" class="rounded-xl border border-slate-200 bg-white text-[12px] font-bold text-slate-600 px-2 py-1" :aria-label="`Estado de la base ${l.nombre}`" data-campo="estado-base" @change="cambiarEstado(l, $event.target.value); $event.target.value = l.estado_operativo">
+                    <option v-for="p in PESTANAS" :key="p.clave" :value="p.clave">{{ p.rotulo }}</option>
+                  </select>
                 </td>
                 <td class="px-6 py-4 text-right">
                   <Link :href="route('credential-flow.lotes.show', l.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all" :aria-label="`Abrir la base ${l.nombre}`">

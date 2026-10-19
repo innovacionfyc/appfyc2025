@@ -18,9 +18,25 @@ class Lote extends Model
 
     protected $table = 'cf_lotes';
 
+    /** Estado OPERATIVO de la base (solo organiza el listado; no afecta emisiones ni descargas). Todas las bases existentes quedan «activa». */
+    public const ACTIVA = 'activa';
+
+    public const BORRADOR = 'borrador';
+
+    public const ARCHIVADA = 'archivada';
+
+    public const PRUEBA = 'prueba';
+
+    public const ESTADOS_OPERATIVOS = [self::ACTIVA, self::BORRADOR, self::ARCHIVADA, self::PRUEBA];
+
     protected $fillable = [
         'plantilla_id',
         'evento_id',
+        'estado_operativo',
+        'vista_previa_generada_at',
+        'vista_previa_confirmada_at',
+        'vista_previa_plantilla_id',
+        'vista_previa_huella',
         'nombre',
         'descripcion',
         'datos_comunes',
@@ -30,6 +46,8 @@ class Lote extends Model
 
     protected $casts = [
         'datos_comunes' => 'array',
+        'vista_previa_generada_at' => 'datetime',
+        'vista_previa_confirmada_at' => 'datetime',
     ];
 
     public function plantilla(): BelongsTo

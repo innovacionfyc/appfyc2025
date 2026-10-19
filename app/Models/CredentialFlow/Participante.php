@@ -28,6 +28,15 @@ class Participante extends Model
 
     public const CORREO_ESTADOS = [self::CORREO_VALIDO, self::CORREO_MULTIPLE, self::CORREO_INVALIDO, self::CORREO_SIN_CORREO];
 
+    /** Elegibilidad para certificación: solo los ELEGIBLES entran a una emisión oficial. */
+    public const ELEGIBLE = 'elegible';
+
+    public const PENDIENTE = 'pendiente';
+
+    public const NO_ELEGIBLE = 'no_elegible';
+
+    public const ELEGIBILIDADES = [self::ELEGIBLE, self::PENDIENTE, self::NO_ELEGIBLE];
+
     protected $table = 'cf_participantes';
 
     protected $fillable = [
@@ -40,10 +49,17 @@ class Participante extends Model
         'correo_estado',
         'fila_origen',
         'es_control_qa',
+        'elegibilidad',
+        'intensidad_horaria',
+        'elegibilidad_motivo',
+        'correo_actualizado_at',
+        'tipo_documento_confirmado',
     ];
 
     protected $casts = [
         'es_control_qa' => 'boolean',
+        'correo_actualizado_at' => 'datetime',
+        'tipo_documento_confirmado' => 'boolean',
     ];
 
     public function emisiones(): HasMany

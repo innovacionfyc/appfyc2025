@@ -28,6 +28,8 @@ const aLiberar = ref(null); // plantilla para «Eliminar definitivamente»
 
 // ── Búsqueda local ────────────────────────────────────────────────────────────
 const searchQuery = ref("");
+// Plantillas designadas para pruebas internas (QA): se ofrecen como «variante de pruebas» de los diseños institucionales.
+const opcionesQa = computed(() => props.plantillas.filter((p) => p.es_plantilla_qa));
 const filtradas = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return props.plantillas;
@@ -226,6 +228,20 @@ const eliminar = (plantilla) => {
             <SquarePen class="w-4 h-4" />
             Editar diseño
           </Link>
+          <label v-if="p.apta_qa || p.es_plantilla_qa" class="flex items-center gap-2 text-[12px] font-bold text-violet-700" data-plantilla-qa>
+            <input type="checkbox" class="rounded border-violet-300" :checked="p.es_plantilla_qa" @change="router.put(route('credential-flow.plantillas.qa', p.id), { es_plantilla_qa: $event.target.checked }, { preserveScroll: true })" />
+            Usar para las pruebas internas (QA)
+          </label>
+          <p v-else-if="!p.es_plantilla_qa" class="text-[11px] font-semibold text-slate-400" data-plantilla-qa-ayuda>
+            Para una variante de pruebas: copia este diseño y agrega el texto «PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA». Luego podrás designarla.
+          </p>
+          <label v-if="!p.es_plantilla_qa && opcionesQa.length" class="flex items-center gap-2 text-[12px] font-semibold text-slate-500" data-variante-qa>
+            Variante de pruebas:
+            <select class="rounded-lg border border-slate-200 text-[12px] py-1" :value="p.variante_qa_id ?? ''" @change="router.put(route('credential-flow.plantillas.variante-qa', p.id), { variante_qa_id: $event.target.value || null }, { preserveScroll: true })">
+              <option value="">La general de pruebas</option>
+              <option v-for="o in opcionesQa.filter((x) => x.id !== p.id)" :key="o.id" :value="o.id">{{ o.nombre }}</option>
+            </select>
+          </label>
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-3 border-t border-dashed border-slate-200" data-zona-liberar-espacio>
             <span class="text-[11px] font-semibold text-slate-400">¿Ya no la necesitas? Libera espacio.</span>
             <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-bold text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all" data-accion="eliminar-definitivamente" @click="aLiberar = p">

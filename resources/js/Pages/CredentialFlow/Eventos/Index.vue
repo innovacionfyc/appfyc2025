@@ -6,6 +6,9 @@ import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import { CalendarDays, ArrowRight, Link2, History, AlertTriangle } from "lucide-vue-next";
 
+const nuevo = reactive({ nombre: "", fecha: "" });
+const crearEvento = (datos = {}) => router.post(route("credential-flow.eventos.store"), { ...nuevo, ...datos }, { preserveScroll: true });
+
 const props = defineProps({
   eventos: { type: Array, default: () => [] }, // eventos nativos con su resumen (reales vs QA)
   sin_evento: { type: Array, default: () => [] }, // bases que aún no pertenecen a ningún evento, con la propuesta de asociación (unir | crear | ambigua)
@@ -38,6 +41,21 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
 
       <DashboardHeader title="Eventos" subtitle="Agrupa las bases de un mismo evento (presencial, virtual…) y descarga sus certificados" :stats="headerStats" />
 
+      <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 sm:p-6" data-nuevo-evento>
+        <h2 class="text-sm font-extrabold text-slate-700">1. Crear un evento</h2>
+        <p class="mt-1 text-[13px] font-medium text-slate-500">Primero el evento y luego sus participantes. Si ya existe uno igual (mismo nombre y año), se abre ese: no se duplica por modalidad ni por volver a importar.</p>
+        <form class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="crearEvento()">
+          <label class="min-w-0 flex-1 basis-64 text-[12px] font-bold text-slate-500">Nombre del evento
+            <input v-model="nuevo.nombre" type="text" maxlength="255" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" data-campo="nuevo-nombre" />
+          </label>
+          <label class="min-w-0 basis-56 text-[12px] font-bold text-slate-500">Fecha
+            <input v-model="nuevo.fecha" type="text" maxlength="120" placeholder="16 de octubre de 2026" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" data-campo="nuevo-fecha" />
+          </label>
+          <button type="submit" :disabled="!nuevo.nombre.trim() || !nuevo.fecha.trim()" class="px-4 py-2 rounded-full bg-primary-vinotinto text-white text-[12px] font-bold disabled:opacity-40" data-accion="crear-evento">Crear evento</button>
+          <button type="button" :disabled="!nuevo.nombre.trim() || !nuevo.fecha.trim()" class="px-4 py-2 rounded-full bg-white border border-slate-200 text-[12px] font-bold text-slate-700 disabled:opacity-40" data-accion="crear-evento-confirmado" @click="crearEvento({ crear_nuevo: true })">Es un evento distinto, crear de todos modos</button>
+        </form>
+      </section>
+
       <div v-if="eventos.length === 0" class="mt-8 text-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-200" data-sin-eventos>
         <p class="text-slate-600 font-bold text-lg">Aún no hay eventos creados desde Credential Flow</p>
         <p class="text-slate-400 text-sm max-w-md mx-auto px-4 mt-2">Asocia una base de la lista de abajo y se creará su evento.</p>
@@ -69,6 +87,7 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
               <td class="px-4 py-4 text-right font-black text-amber-600">{{ e.reales.pendientes }}</td>
               <td class="px-4 py-4 text-right text-slate-500 font-semibold">{{ e.qa.participantes }}</td>
               <td class="px-6 py-4 text-right">
+                <Link :href="route('credential-flow.lotes.nuevo', { evento: e.id })" class="mr-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-[12px] font-bold text-slate-700 hover:bg-slate-50" data-accion="importar-participantes">Importar participantes</Link>
                 <Link :href="route('credential-flow.eventos.show', e.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all">
                   Abrir <ArrowRight class="w-3.5 h-3.5" />
                 </Link>

@@ -14,11 +14,15 @@ import { ArrowLeft, Download, CircleAlert, RotateCcw, LayoutTemplate } from "luc
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
   limites: { type: Object, default: () => ({ archivoMb: 2, filas: 1000 }) },
+  eventos: { type: Array, default: () => [] }, // eventos de Credential Flow: primero se elige (o se crea) el evento y luego se importan sus participantes
+  evento_seleccionado: { type: Number, default: null },
+  qa_catalogo: { type: Object, default: () => ({ listo: true, motivos: [] }) }, // si no está listo, no se puede crear la base
 });
 
 const COLOR = "#942934";
 
 const form = reactive({
+  evento_id: props.evento_seleccionado && props.eventos.some((e) => e.id === props.evento_seleccionado) ? props.evento_seleccionado : "",
   plantilla_id: "",
   nombre: "",
   descripcion: "",
@@ -42,6 +46,20 @@ watch(
   () => {
     if (!ocupado.value) resultado.value = null;
   }
+);
+
+const eventoElegido = computed(() => props.eventos.find((e) => e.id === Number(form.evento_id)) ?? null);
+const opcionesEventos = computed(() => props.eventos.map((e) => ({ id: e.id, nombre: e.fecha ? `${e.nombre} · ${e.fecha}` : e.nombre })));
+
+// Con un evento elegido, su nombre y su fecha rellenan el formulario; el evento ya no se escribe a mano (así nunca nace un duplicado).
+watch(
+  eventoElegido,
+  (e) => {
+    if (!e) return;
+    form.evento = e.nombre;
+    if (!form.fecha && e.fecha) form.fecha = e.fecha;
+  },
+  { immediate: true }
 );
 
 const limpiarError = (campo) => {
@@ -153,10 +171,34 @@ const headerStats = computed(() => [
         </Link>
       </div>
 
+      <div v-else-if="!qa_catalogo.listo" class="mt-8 rounded-[2rem] border border-amber-200 bg-amber-50 p-6 space-y-2" role="alert" data-catalogo-qa-incompleto>
+        <p class="text-lg font-extrabold text-amber-800">Antes de crear una base, completa los contactos QA</p>
+        <p class="text-sm font-semibold text-amber-800">Cada base nueva incorpora sola a los contactos de control oficiales. Para no crear una base incompleta, la creación está detenida hasta que el catálogo esté listo:</p>
+        <ul class="list-disc pl-5 text-sm font-semibold text-amber-800"><li v-for="m in qa_catalogo.motivos" :key="m">{{ m }}</li></ul>
+        <Link :href="route('credential-flow.qa.contactos')" class="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-2xl bg-white border border-amber-200 text-sm font-bold text-amber-800 hover:bg-amber-100 transition-all" data-accion="ir-contactos-qa">Ir a Contactos QA</Link>
+      </div>
+
       <form v-else class="mt-8 space-y-6" novalidate @submit.prevent="validar">
         <!-- Datos de la base -->
         <section class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-5">
           <h3 class="text-lg font-extrabold text-slate-900">1. Datos de la base</h3>
+
+          <FormInput
+            v-model="form.evento_id"
+            label="Evento"
+            type="select"
+            icon="event"
+            placeholder="Elige el evento (si no existe, créalo primero)"
+            :options="opcionesEventos"
+            :activeColor="COLOR"
+            :error="errores.evento_id"
+            @clearError="limpiarError('evento_id')"
+            data-campo="evento-id"
+          />
+          <p class="-mt-3 text-[12px] font-semibold text-slate-500">
+            <template v-if="eventoElegido">La base quedará asociada sola al evento «{{ eventoElegido.nombre }}». Para otra modalidad del mismo evento, crea otra base eligiendo este mismo evento.</template>
+            <template v-else>¿No está el evento? <Link :href="route('credential-flow.eventos.index')" class="text-primary-vinotinto underline">Créalo primero en Eventos</Link>; evita así duplicados.</template>
+          </p>
 
           <FormInput
             v-model="form.plantilla_id"
@@ -181,7 +223,11 @@ const headerStats = computed(() => [
           </p>
 
           <div class="grid gap-5 md:grid-cols-3">
-            <FormInput v-model="form.evento" label="Evento" type="text" icon="event" placeholder="Nombre del evento" :max="200" :required="true" :activeColor="COLOR" :error="errores.evento" @clearError="limpiarError('evento')" />
+            <div v-if="eventoElegido" class="rounded-2xl bg-slate-50 px-4 py-3" data-evento-fijo>
+              <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Evento</p>
+              <p class="text-sm font-extrabold text-slate-800 break-words">{{ eventoElegido.nombre }}</p>
+            </div>
+            <FormInput v-else v-model="form.evento" label="Evento" type="text" icon="event" placeholder="Nombre del evento" :max="200" :required="true" :activeColor="COLOR" :error="errores.evento" @clearError="limpiarError('evento')" />
             <FormInput v-model="form.fecha" label="Fecha" type="text" icon="calendar_month" placeholder="29 de septiembre de 2026" :max="80" :required="true" :activeColor="COLOR" :error="errores.fecha" @clearError="limpiarError('fecha')" />
             <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria" type="text" icon="schedule" placeholder="16 horas" :max="30" :required="true" :activeColor="COLOR" :error="errores.intensidad_horaria" @clearError="limpiarError('intensidad_horaria')" />
           </div>
