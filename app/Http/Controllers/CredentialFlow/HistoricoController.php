@@ -5,11 +5,17 @@ namespace App\Http\Controllers\CredentialFlow;
 use App\Http\Controllers\Controller;
 use App\Models\CredentialFlow\CertificadoLegado;
 use App\Models\CredentialFlow\EventoCertificacion;
+use App\Support\CredentialFlow\Emisiones\EmisionException;
+use App\Support\CredentialFlow\Emisiones\GeneradorZip;
+use App\Support\CredentialFlow\Eventos\DescargaHistorica;
 use App\Support\CredentialFlow\Historico\ConsultaEncuestas;
 use App\Support\CredentialFlow\Historico\ConsultaHistorica;
+use App\Support\CredentialFlow\Legado\CongeladorLegado;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Histórico (evaluaciones legado) del administrador: SOLO LECTURA. Todas las rutas son GET; ninguna escribe en cf_eventos,
@@ -40,7 +46,7 @@ class HistoricoController extends Controller
         ]);
     }
 
-    public function evento(Request $request, EventoCertificacion $evento): Response
+    public function evento(Request $request, EventoCertificacion $evento, DescargaHistorica $descarga): Response
     {
         abort_unless($evento->origen === EventoCertificacion::ORIGEN_LEGADO, 404);
 
@@ -51,9 +57,24 @@ class HistoricoController extends Controller
 
         return Inertia::render('CredentialFlow/Historico/Evento', [
             'evento' => $this->consulta->evento($evento),
+            'descarga' => $descarga->resumen($evento),
             'certificados' => $this->consulta->certificadosDeEvento($evento, $f)->withQueryString(),
             'filtros' => $f + ['q' => '', 'conciliacion' => ''],
         ]);
+    }
+
+    /**
+     * ZIP de los PDF históricos YA congelados y elegibles del evento. Solo lectura: no genera, no congela ni asigna códigos. Si algún PDF esperado falta o
+     * no coincide con su huella, no se entrega ningún ZIP (nunca incompleto como si estuviera completo).
+     */
+    public function zip(EventoCertificacion $evento, GeneradorZip $zip, DescargaHistorica $descarga, CongeladorLegado $congelador): BinaryFileResponse|RedirectResponse
+    {
+        abort_unless($evento->origen === EventoCertificacion::ORIGEN_LEGADO, 404);
+        try {
+            return $zip->paraEventoHistorico($evento, $descarga, $congelador);
+        } catch (EmisionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     public function certificado(CertificadoLegado $certificado): Response

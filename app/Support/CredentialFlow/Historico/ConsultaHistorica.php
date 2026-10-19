@@ -245,7 +245,7 @@ final class ConsultaHistorica
     private function baseCertificados(): Builder
     {
         return DB::table('cf_certificados_legado as c')->join('cf_eventos as e', 'e.id', '=', 'c.evento_id')
-            ->select('c.id', 'c.evento_id', 'c.nombre_completo', 'c.tipo_documento', 'c.documento', 'c.codigo_legado', 'c.conciliacion_estado', 'c.estado', 'c.grupo_duplicado', 'e.nombre as evento_nombre', 'e.anio as evento_anio');
+            ->select('c.id', 'c.evento_id', 'c.nombre_completo', 'c.tipo_documento', 'c.documento', 'c.codigo_legado', 'c.conciliacion_estado', 'c.estado', 'c.grupo_duplicado', 'c.pdf_archivo', 'e.nombre as evento_nombre', 'e.anio as evento_anio');
     }
 
     private function paginarCertificados(Builder $q, int $porPagina): LengthAwarePaginator
@@ -268,6 +268,8 @@ final class ConsultaHistorica
             'descargas' => (int) ($descargas[$c->id] ?? 0),
             'estado' => PresentadorHistorico::estadoCertificado($c->estado),
             'duplicado' => $c->grupo_duplicado !== null,
+            // PDF ya congelado y certificado vigente y conciliado: se puede abrir sin generar nada (la ruta del PDF aplica además la elegibilidad completa).
+            'pdf_disponible' => $c->pdf_archivo !== null && $c->estado === 'vigente' && $c->conciliacion_estado === 'ok',
             'evento' => ['id' => (int) $c->evento_id, 'nombre' => $c->evento_nombre, 'anio_etiqueta' => PresentadorHistorico::anio($c->evento_anio === null ? null : (int) $c->evento_anio)],
         ]);
     }

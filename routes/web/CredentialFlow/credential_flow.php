@@ -10,6 +10,7 @@ use App\Http\Controllers\CredentialFlow\EncuestaComentariosController;
 use App\Http\Controllers\CredentialFlow\EncuestaExportController;
 use App\Http\Controllers\CredentialFlow\EncuestaInformeController;
 use App\Http\Controllers\CredentialFlow\EnvioController;
+use App\Http\Controllers\CredentialFlow\EventoCertificacionController;
 use App\Http\Controllers\CredentialFlow\HistoricoController;
 use App\Http\Controllers\CredentialFlow\HistoricoPdfController;
 use App\Http\Controllers\CredentialFlow\IdentidadDecisionController;
@@ -67,10 +68,18 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/emisiones/{emision}/revocar', [EmisionController::class, 'revocar'])->middleware('throttle:30,1')->name('emisiones.revocar');
     Route::post('/emisiones/{emision}/reemitir', [EmisionController::class, 'reemitir'])->middleware('throttle:30,1')->name('emisiones.reemitir');
 
+    // Eventos de certificación: asociar bases (presencial/virtual…) a un evento, separar las de control (QA) y descargar los certificados vigentes del evento
+    Route::get('/eventos', [EventoCertificacionController::class, 'index'])->name('eventos.index');
+    Route::get('/eventos/{evento}', [EventoCertificacionController::class, 'show'])->name('eventos.show');
+    Route::get('/eventos/{evento}/zip', [EventoCertificacionController::class, 'zip'])->middleware('throttle:10,1')->name('eventos.zip');
+    Route::post('/lotes/{lote}/evento/desde-base', [EventoCertificacionController::class, 'desdeBase'])->middleware('throttle:30,1')->name('lotes.evento.desde-base');
+    Route::put('/lotes/{lote}/evento', [EventoCertificacionController::class, 'asociar'])->middleware('throttle:30,1')->name('lotes.evento');
+
     // Histórico (evaluaciones legado): SOLO LECTURA. Únicamente rutas GET; no hay ninguna que escriba en las tablas históricas.
     Route::prefix('historico')->name('historico.')->middleware(CabecerasAdminSensible::class)->group(function () {
         Route::get('/', [HistoricoController::class, 'eventos'])->name('index');
         Route::get('/eventos/{evento}', [HistoricoController::class, 'evento'])->whereNumber('evento')->name('eventos.show');
+        Route::get('/eventos/{evento}/zip', [HistoricoController::class, 'zip'])->whereNumber('evento')->middleware('throttle:10,1')->name('eventos.zip');
         Route::get('/certificados/{certificado}', [HistoricoController::class, 'certificado'])->whereNumber('certificado')->name('certificados.show');
         Route::get('/plantillas', [HistoricoController::class, 'plantillas'])->name('plantillas.index');
         Route::get('/encuestas', [HistoricoController::class, 'encuestas'])->name('encuestas');

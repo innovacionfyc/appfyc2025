@@ -39,6 +39,11 @@ class Participante extends Model
         'correo_normalizado',
         'correo_estado',
         'fila_origen',
+        'es_control_qa',
+    ];
+
+    protected $casts = [
+        'es_control_qa' => 'boolean',
     ];
 
     public function emisiones(): HasMany
