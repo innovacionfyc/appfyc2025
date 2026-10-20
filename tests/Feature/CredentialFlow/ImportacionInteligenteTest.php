@@ -282,6 +282,8 @@ class ImportacionInteligenteTest extends EmisionesTestCase
             ['plantilla_id' => 999999],
             ['evento' => ['decision' => 'borrar']],
             ['masivas' => [['filas' => 'todas', 'campos' => ['nombre_completo' => 'X']]]],
+            ['masivas' => [['filas' => 'todas', 'senal' => 'completo', 'campos' => ['elegibilidad' => 'elegible']]]],   // F5: la elegibilidad y el tipo solo se cambian en bloque con vista previa
+            ['masivas' => [['filas' => [15, 16], 'campos' => ['tipo_documento' => 'cc']]]],
         ];
         foreach ($casos as $caso) {
             $this->corregir($id, 1, $caso)->assertStatus(422)->assertJsonPath('error.code', 'CORRECCION_INVALIDA');
@@ -294,13 +296,14 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $id = $this->analizar()->assertCreated()->json('borrador.id');
 
         $r = $this->corregir($id, 1, [
-            'masivas' => [['filas' => 'todas', 'senal' => 'completo', 'campos' => ['elegibilidad' => 'elegible']], ['filas' => [15, 16], 'campos' => ['tipo_documento' => 'cc']]],
-            'participantes' => ['17' => ['nombre_completo' => 'NOMBRE CORREGIDO', 'excluir' => true]],
+            'masivas' => [['filas' => [15, 16], 'campos' => ['intensidad_horaria' => '3 HORAS']]],
+            'participantes' => ['15' => ['elegibilidad' => 'elegible', 'tipo_documento' => 'cc'], '20' => ['elegibilidad' => 'elegible'], '17' => ['nombre_completo' => 'NOMBRE CORREGIDO', 'excluir' => true]],
         ])->assertOk();
 
         $p = collect($r->json('borrador.participantes'))->keyBy('fila');
-        $this->assertSame(['elegible', 'C.C.'], [$p[15]['elegibilidad'], $p[15]['tipo_documento']]);
-        $this->assertSame(['elegible', null], [$p[20]['elegibilidad'], $p[20]['tipo_documento']]);
+        $this->assertSame(['elegible', 'C.C.', '3 HORAS'], [$p[15]['elegibilidad'], $p[15]['tipo_documento'], $p[15]['intensidad_horaria']]);
+        $this->assertSame(['elegible', null, null], [$p[20]['elegibilidad'], $p[20]['tipo_documento'], $p[20]['intensidad_horaria']]);
+        $this->assertSame('3 HORAS', $p[16]['intensidad_horaria']);
         $this->assertSame('pendiente', $p[30]['elegibilidad'], 'Cupos no se vuelve elegible por una corrección sobre los «Completo»');
         $this->assertTrue($p[17]['excluir']);
         $this->assertSame('NOMBRE CORREGIDO', $p[17]['nombre_completo']);
@@ -478,13 +481,18 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         Mail::fake();
         Queue::fake();
         Notification::fake();
-        [$id, $v] = $this->borradorListo(null, ['masivas' => [['filas' => 'todas', 'senal' => 'completo', 'campos' => ['elegibilidad' => 'elegible']]]]);
+        // Los «Completo» (todas las filas menos la 30, que es «Cupos») los marca el administrador, persona por persona o con la acción masiva de F5.
+        $completos = [];
+        foreach (array_merge(range(15, 29), [31]) as $f) {
+            $completos[(string) $f] = ['elegibilidad' => 'elegible'];
+        }
+        [$id, $v] = $this->borradorListo(null, ['participantes' => $completos]);
 
         $lote = Lote::findOrFail($this->confirmar($id, $v)->assertCreated()->json('lote_id'));
 
         $porEstado = $lote->participantes()->where('es_control_qa', false)->pluck('elegibilidad', 'fila_origen');
         $this->assertSame(16, $porEstado->filter(fn ($e) => $e === Participante::ELEGIBLE)->count(), 'solo los que el administrador marcó');
-        $this->assertSame(Participante::PENDIENTE, $porEstado[17], 'Cupos queda pendiente');   // fila Excel 30 → línea de CSV 17
+        $this->assertSame(Participante::PENDIENTE, $porEstado[30], 'Cupos queda pendiente');   // fila 30 del Excel (la base guarda la fila REAL, no la línea del CSV intermedio)
         // Aunque sean elegibles, sin tipo de documento confirmado no hay nada para emitir.
         try {
             app(EmisorLote::class)->emitirPendientes($lote, null);

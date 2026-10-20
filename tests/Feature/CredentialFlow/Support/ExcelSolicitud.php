@@ -31,7 +31,7 @@ final class ExcelSolicitud
     }
 
     /**
-     * @param  array{documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, nombres?: array<int,string>, observaciones?: array<int,string>, linea_evento?: string, sin_importrange?: bool}  $opc
+     * @param  array{fila_encabezado?: int, documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, nombres?: array<int,string>, observaciones?: array<int,string>, linea_evento?: string, sin_importrange?: bool}  $opc
      */
     public static function bytes(int $personas = 17, array $opc = []): string
     {
@@ -43,12 +43,13 @@ final class ExcelSolicitud
             'F9' => 'Intensidad de horas', 'G9' => self::texto('Módulo 5 Horas'),
             'B10' => 'URL hoja de Calculo Formato Base Inscritos', 'D10' => 'abc123',
         ];
+        $h = $opc['fila_encabezado'] ?? 14;   // fila de los encabezados de la tabla (el bloque del evento queda arriba, en las filas 7 a 10)
         foreach (['B' => 'Item', 'C' => 'Identificaciòn', 'D' => 'Nombres y Apellidos', 'E' => 'Correo Electronico', 'F' => 'Diploma', 'G' => 'Sesión', 'H' => 'Certificado con intensidad completa', 'I' => 'Selección de Sesiones o Cupo a Certificar ', 'J' => 'Observaciones o comentarios adicionales'] as $col => $t) {
-            $c[$col.'14'] = $t;
+            $c[$col.$h] = $t;
         }
         $base = $opc['documento_base'] ?? 1000000;
         for ($i = 1; $i <= $personas; $i++) {
-            $f = 14 + $i;
+            $f = $h + $i;
             $cupo = $i === $personas - 1 && $personas >= 2;
             $c['B'.$f] = $i;
             $doc = $opc['documentos'][$i] ?? null;
@@ -67,8 +68,8 @@ final class ExcelSolicitud
             }
         }
         for ($i = $personas + 1; $i <= $personas + 4; $i++) {      // filas numeradas de relleno, como las deja la plantilla
-            $c['B'.(14 + $i)] = $i;
-            $c['D'.(14 + $i)] = ['f' => self::reserva('""'), 't' => 'str', 'v' => ''];
+            $c['B'.($h + $i)] = $i;
+            $c['D'.($h + $i)] = ['f' => self::reserva('""'), 't' => 'str', 'v' => ''];
         }
 
         return XlsxSintetico::libro([['nombre' => 'Solicitud', 'celdas' => $c]]);

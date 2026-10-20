@@ -157,6 +157,110 @@ final class ServicioImportaciones
         });
     }
 
+    // ================================================================= acciones masivas (F5)
+
+    /**
+     * Qué pasaría si se aplicara una acción masiva. Solo LEE: no guarda nada, no sube la versión y no crea nada. La respuesta lleva una `huella` de lo mostrado:
+     * `aplicarMasiva` solo actúa si lo que va a hacer es exactamente lo que se mostró.
+     *
+     * @param  array<string,mixed>  $entrada
+     * @return array<string,mixed>
+     *
+     * @throws ImportacionException
+     */
+    public function previsualizarMasiva(Importacion $importacion, int $version, array $entrada): array
+    {
+        $this->vigente($importacion);
+        $actual = Importacion::query()->findOrFail($importacion->id);
+        $this->exigirEnRevision($actual);
+        $this->exigirVersion($actual, $version);
+
+        $analisis = $actual->analisis ?? [];
+        $accion = AccionesMasivas::normalizar($entrada, $analisis);
+
+        return AccionesMasivas::planear($analisis, array_replace_recursive(Borrador::vacias(), $actual->correcciones ?? []), $accion, $actual->version);
+    }
+
+    /**
+     * Aplica una acción masiva al BORRADOR (nunca crea la base ni emite). Todo o nada, bajo bloqueo y con la versión que el administrador está viendo.
+     * Un reintento con el mismo `operacion_id` (doble clic, red lenta) no vuelve a aplicar nada: devuelve el borrador tal como quedó.
+     *
+     * @param  array<string,mixed>  $entrada  campo, valor, filas, verificado, confirmar_sobrescritura
+     * @return array{0: Importacion, 1: bool, 2: array<string,mixed>|null} borrador, si fue un reintento ya aplicado y el plan aplicado
+     *
+     * @throws ImportacionException
+     */
+    public function aplicarMasiva(Importacion $importacion, int $version, string $operacionId, string $huella, array $entrada): array
+    {
+        $this->vigente($importacion);
+
+        return DB::transaction(function () use ($importacion, $version, $operacionId, $huella, $entrada) {
+            $actual = Importacion::query()->whereKey($importacion->id)->lockForUpdate()->firstOrFail();
+            $this->exigirEnRevision($actual);
+
+            $corr = array_replace_recursive(Borrador::vacias(), $actual->correcciones ?? []);
+            if (collect($corr['historial'])->contains(fn ($h) => ($h['id'] ?? null) === $operacionId)) {
+                return [$actual, true, null];   // ya se aplicó: es un reintento
+            }
+            $this->exigirVersion($actual, $version);
+
+            $analisis = $actual->analisis ?? [];
+            $accion = AccionesMasivas::normalizar($entrada, $analisis);
+            $plan = AccionesMasivas::planear($analisis, $corr, $accion, $actual->version);
+
+            if (! hash_equals($plan['huella'], $huella)) {
+                throw new ImportacionException(ImportacionException::VISTA_PREVIA_OBSOLETA, 'Lo que vas a aplicar ya no es lo que revisaste (el borrador o la selección cambiaron). Vuelve a revisar los cambios.', 409);
+            }
+            if ($plan['se_modifican'] === 0) {
+                throw new ImportacionException(ImportacionException::ACCION_SIN_CAMBIOS, 'Ninguna de las personas seleccionadas cambiaría: no hay nada que aplicar.', 422);
+            }
+            if ($plan['requiere_verificacion'] && $accion['verificado'] !== true) {
+                throw new ImportacionException(ImportacionException::VERIFICACION_REQUERIDA, 'Para marcar como elegibles confirma que ya verificaste la asistencia de esas personas.', 422, [['campo' => 'verificado', 'mensaje' => 'Falta confirmar que verificaste la asistencia.']]);
+            }
+            if ($plan['requiere_confirmar_sobrescritura'] && $accion['confirmar_sobrescritura'] !== true) {
+                throw new ImportacionException(ImportacionException::SOBRESCRITURA_SIN_CONFIRMAR, "Este cambio reemplaza una decisión que ya habías tomado en {$plan['sobrescriben']} ".($plan['sobrescriben'] === 1 ? 'persona' : 'personas').'. Confirma que quieres reemplazarla.', 422, [['campo' => 'confirmar_sobrescritura', 'mensaje' => 'Falta confirmar el reemplazo.']]);
+            }
+
+            $actual->update(['correcciones' => AccionesMasivas::aplicar($corr, $plan, $operacionId, $accion['verificado']), 'version' => $actual->version + 1]);
+            // Solo cantidades: ningún nombre, documento ni correo llega al registro.
+            Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se aplicó un cambio masivo a un borrador de importación inteligente (sin crear la base ni emitir)', extra: [
+                'importacion_id' => $actual->id, 'campo' => $plan['campo'], 'valor' => $plan['valor'], 'aplicados' => $plan['se_modifican'], 'omitidos' => $plan['omitidos_total'], 'sobrescritos' => $plan['sobrescriben'],
+            ]);
+
+            return [$actual->fresh(), false, $plan];
+        });
+    }
+
+    /**
+     * Deshace la última acción masiva (solo si nadie volvió a tocar a esas personas).
+     *
+     * @throws ImportacionException
+     */
+    public function deshacerMasiva(Importacion $importacion, int $version, string $operacionId): Importacion
+    {
+        $this->vigente($importacion);
+
+        return DB::transaction(function () use ($importacion, $version, $operacionId) {
+            $actual = Importacion::query()->whereKey($importacion->id)->lockForUpdate()->firstOrFail();
+            $this->exigirEnRevision($actual);
+            $this->exigirVersion($actual, $version);
+
+            $corr = AccionesMasivas::deshacer(array_replace_recursive(Borrador::vacias(), $actual->correcciones ?? []), $operacionId);
+            $actual->update(['correcciones' => $corr, 'version' => $actual->version + 1]);
+            Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se deshizo un cambio masivo de un borrador de importación inteligente', extra: ['importacion_id' => $actual->id]);
+
+            return $actual->fresh();
+        });
+    }
+
+    /** @throws ImportacionException */
+    private function exigirVersion(Importacion $importacion, int $version): void
+    {
+        if ($importacion->version !== $version) {
+            throw new ImportacionException(ImportacionException::VERSION_DESACTUALIZADA, 'El borrador cambió mientras lo revisabas. Vuelve a cargarlo antes de seguir.', 409);
+        }
+    }
+
     // ================================================================= evaluar
 
     /**
@@ -361,6 +465,7 @@ final class ServicioImportaciones
             'datos_comunes' => $analisis === [] ? [] : Borrador::datosComunes($analisis, $corr),
             'plantilla_id' => $corr['plantilla_id'], 'nombre_base' => $corr['nombre_base'], 'confirmados' => $corr['confirmados'],
             'participantes' => $analisis === [] ? [] : Borrador::participantes($analisis, $corr),
+            'historial' => AccionesMasivas::historialPublico($corr),
             'avisos_generales' => $analisis === [] ? null : $this->avisosGenerales($analisis),
             'validacion' => $evaluacion,
         ];
@@ -434,9 +539,12 @@ final class ServicioImportaciones
                 $nombreBase = $corr['nombre_base'] ?? Texto::limpiar(mb_substr(($plan['comunes']['evento'] ?? 'Base').' — '.($plan['comunes']['fecha'] ?? ''), 0, 200));
                 $lote = $this->importador->importar($archivo, $plan['plantilla'], $nombreBase, null, $plan['comunes'], $evento?->id, $actual->archivo_hash, $actual->archivo_nombre);
 
+                // Trazabilidad: `fila_origen` pasa de la línea del CSV intermedio a la fila REAL del Excel (correspondencia comprobada; si no cuadra, se deshace todo).
+                // Va ANTES de incorporar los QA, que no tienen fila de origen.
+                $idsPorPosicion = FilasDeOrigen::asignar($lote->id, $plan['incluidos']);
                 foreach ($plan['incluidos'] as $i => $p) {
                     if ($p['intensidad_horaria'] !== null) {
-                        Participante::query()->where('lote_id', $lote->id)->where('fila_origen', $i + 2)->update(['intensidad_horaria' => $p['intensidad_horaria']]);
+                        Participante::query()->whereKey($idsPorPosicion[$i])->update(['intensidad_horaria' => $p['intensidad_horaria']]);
                     }
                 }
 

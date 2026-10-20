@@ -1,5 +1,6 @@
 <script setup>
-// Asistente de importación inteligente (F4): SUBIR EXCEL → REVISAR DATOS → VISTA PREVIA → CONFIRMAR IMPORTACIÓN.
+// Asistente GUIADO de importación inteligente: SUBIR EXCEL → CONFIRMAR EVENTO → DATOS DEL CERTIFICADO → REVISAR PERSONAS → VER EL PDF → CREAR LA BASE.
+// Son etapas de una misma pantalla: en cada una se muestra una decisión principal, qué acabas de hacer y qué sigue.
 // Solo existe con la bandera CREDENTIAL_FLOW_IMPORTACION_INTELIGENTE encendida (apagada por defecto). Analizar, revisar y ver la vista previa NO crean nada:
 // la base solo se crea con el botón «Crear base de participantes» del último paso.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -8,14 +9,18 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import Pasos from "@/Components/CredentialFlow/Importacion/Pasos.vue";
 import PasoSubir from "@/Components/CredentialFlow/Importacion/PasoSubir.vue";
-import PasoRevisar from "@/Components/CredentialFlow/Importacion/PasoRevisar.vue";
+import Guia from "@/Components/CredentialFlow/Importacion/Guia.vue";
+import EtapaEvento from "@/Components/CredentialFlow/Importacion/EtapaEvento.vue";
+import EtapaDatos from "@/Components/CredentialFlow/Importacion/EtapaDatos.vue";
+import EtapaPersonas from "@/Components/CredentialFlow/Importacion/EtapaPersonas.vue";
 import PasoVistaPrevia from "@/Components/CredentialFlow/Importacion/PasoVistaPrevia.vue";
 import PasoConfirmar from "@/Components/CredentialFlow/Importacion/PasoConfirmar.vue";
-import { ArrowLeft, ArrowRight, Save, LoaderCircle, TriangleAlert, Trash2 } from "lucide-vue-next";
+import { ArrowLeft, ArrowRight, LoaderCircle, TriangleAlert, Trash2 } from "lucide-vue-next";
 import { PASOS, crearAsistente } from "@/Composables/CredentialFlow/importacionInteligente";
 
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
+  plantilla_sugerida: { type: Number, default: null },
   borradores: { type: Array, default: () => [] },
   borrador_id: { type: Number, default: null },
   limites: { type: Object, default: () => ({ archivoMb: 2, filas: 1000, retencionDias: 7 }) },
@@ -76,7 +81,9 @@ watch(
   }
 );
 
-const siguiente = () => indice.value < PASOS.length - 1 && a.irA(PASOS[indice.value + 1].id);
+// UNA sola acción principal por pantalla: la registra la etapa que está a la vista (ver `registrarPrincipal`) y se muestra aquí, junto a «Atrás». Si algo impide
+// usarla, el botón queda apagado SOLO mientras se guarda y siempre dice qué falta.
+const principal = computed(() => a.principal.value);
 const anterior = () => indice.value > 0 && a.irA(PASOS[indice.value - 1].id);
 const descartar = async () => {
   await a.descartar();
@@ -102,14 +109,15 @@ const hayBarra = computed(() => a.borrador.value && !a.lote.value && a.paso.valu
         <header class="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 class="text-2xl sm:text-3xl font-black text-slate-900">Importación inteligente</h1>
-            <p class="text-sm font-medium text-slate-500">Sube el Excel del cliente, revisa lo que encontramos y crea la base de participantes.</p>
+            <p v-if="!a.borrador.value" class="text-sm font-medium text-slate-500">Te llevamos paso a paso: sube el Excel, confirma lo que encontramos y crea la base de participantes.</p>
           </div>
-          <Link :href="route('credential-flow.lotes.nuevo')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
+          <Link v-if="!a.borrador.value" :href="route('credential-flow.lotes.nuevo')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
             <ArrowLeft class="w-4 h-4" aria-hidden="true" /> Importación de siempre
           </Link>
         </header>
 
-        <div class="rounded-3xl border border-slate-200 bg-white p-2 sm:p-3 mb-6"><Pasos /></div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-3 sm:p-4 mb-4"><Pasos /></div>
+        <div class="mb-6"><Guia /></div>
 
         <p class="sr-only" role="status" aria-live="polite" data-aviso-vivo>{{ a.aviso.value }}</p>
 
@@ -124,7 +132,9 @@ const hayBarra = computed(() => a.borrador.value && !a.lote.value && a.paso.valu
         <div v-if="cargandoInicial" class="flex items-center gap-2 py-10 justify-center text-sm font-semibold text-slate-500" role="status"><LoaderCircle class="w-4 h-4 animate-spin" aria-hidden="true" /> Abriendo tu borrador…</div>
         <template v-else>
           <PasoSubir v-if="a.paso.value === 'subir'" />
-          <PasoRevisar v-else-if="a.paso.value === 'revisar'" />
+          <EtapaEvento v-else-if="a.paso.value === 'evento'" />
+          <EtapaDatos v-else-if="a.paso.value === 'datos'" />
+          <EtapaPersonas v-else-if="a.paso.value === 'personas'" />
           <PasoVistaPrevia v-else-if="a.paso.value === 'vista'" />
           <PasoConfirmar v-else />
         </template>
@@ -145,17 +155,16 @@ const hayBarra = computed(() => a.borrador.value && !a.lote.value && a.paso.valu
           <button type="button" :disabled="indice === 0 || a.guardando.value" class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-extrabold text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-50" data-accion="atras" @click="anterior">
             <ArrowLeft class="w-4 h-4" aria-hidden="true" /> Atrás
           </button>
-          <p class="order-last sm:order-none w-full sm:w-auto text-center text-[12px] font-bold" :class="a.sinGuardar.value ? 'text-amber-700' : 'text-slate-400'" data-estado-guardado>
-            {{ a.guardando.value ? "Guardando…" : a.sinGuardar.value ? "Tienes cambios sin guardar" : "Todo guardado en el borrador" }}
-          </p>
-          <div class="flex items-center gap-2">
-            <button v-if="a.sinGuardar.value" type="button" :disabled="a.guardando.value" class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/40 hover:bg-primary-vinotinto/5 disabled:opacity-50" data-accion="guardar" @click="a.guardar()">
-              <LoaderCircle v-if="a.guardando.value" class="w-4 h-4 animate-spin" aria-hidden="true" /><Save v-else class="w-4 h-4" aria-hidden="true" /> Guardar cambios
-            </button>
-            <button v-if="a.paso.value !== 'confirmar'" type="button" :disabled="a.guardando.value" class="inline-flex items-center gap-1.5 rounded-xl bg-primary-vinotinto px-5 py-2.5 text-sm font-extrabold text-white hover:brightness-110 disabled:opacity-50" data-accion="continuar" @click="siguiente">
-              Continuar <ArrowRight class="w-4 h-4" aria-hidden="true" />
-            </button>
+          <div class="order-last sm:order-none w-full sm:w-auto text-center space-y-0.5" data-estado-guardado>
+            <p class="text-[12px] font-bold" :class="a.sinGuardar.value ? 'text-amber-700' : 'text-slate-400'">
+              {{ a.guardando.value ? "Guardando…" : a.sinGuardar.value ? "Tienes cambios sin guardar; se guardan al continuar" : "Todo guardado en el borrador" }}
+              <button v-if="a.sinGuardar.value && !a.guardando.value" type="button" class="ml-1 underline underline-offset-2 hover:text-amber-900" data-accion="guardar" @click="a.guardar()">Guardar ahora</button>
+            </p>
+            <p v-if="principal?.razon" class="text-[12px] font-bold text-amber-700" data-razon-principal>{{ principal.razon }}</p>
           </div>
+          <button v-if="principal" type="button" :disabled="principal.deshabilitado || a.guardando.value" class="inline-flex items-center gap-1.5 rounded-xl bg-primary-vinotinto px-5 py-2.5 text-sm font-extrabold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 disabled:opacity-60 disabled:cursor-not-allowed" data-accion="principal" @click="principal.accion()">
+            {{ principal.texto }} <ArrowRight class="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </Sidebar>

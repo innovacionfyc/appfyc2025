@@ -54,6 +54,8 @@ class ImportacionInteligenteController extends Controller
 
         return Inertia::render('CredentialFlow/Importacion/Asistente', [
             'plantillas' => $plantillas,
+            // Solo se sugiere si el número configurado es una de las plantillas válidas que se ofrecen; nunca se elige sola.
+            'plantilla_sugerida' => $plantillas->contains('id', config('credential_flow.importacion_inteligente.plantilla_sugerida_id')) ? (int) config('credential_flow.importacion_inteligente.plantilla_sugerida_id') : null,
             'borradores' => $borradores,
             'borrador_id' => $request->integer('borrador') ?: null,
             'limites' => ['archivoMb' => LectorArchivo::ARCHIVO_MAX_BYTES / 1024 / 1024, 'filas' => LectorArchivo::FILAS_MAX, 'retencionDias' => (int) config('credential_flow.importacion_inteligente.retencion_dias', 7)],
@@ -144,6 +146,47 @@ class ImportacionInteligenteController extends Controller
 
             return response()->json(['borrador' => $this->servicio->vista($actualizado)]);
         }, 'corregir');
+    }
+
+    /** F5 · Qué haría una acción masiva (elegibilidad o tipo de documento) con la selección. Solo calcula: no guarda nada. */
+    public function accionMasivaVistaPrevia(Request $request, Importacion $importacion): JsonResponse
+    {
+        $this->propio($request, $importacion);
+        $request->validate(['version' => ['required', 'integer', 'min:1']], ['version.required' => 'Falta la versión del borrador que estás revisando.']);
+
+        return $this->proteger(function () use ($request, $importacion) {
+            return response()->json(['vista_previa' => $this->servicio->previsualizarMasiva($importacion, $request->integer('version'), $request->only(['campo', 'valor', 'filas']))]);
+        }, 'vista previa masiva');
+    }
+
+    /** F5 · Aplica la acción masiva al BORRADOR (no crea la base ni emite). Exige la versión y la huella de lo que se revisó. */
+    public function accionMasivaAplicar(Request $request, Importacion $importacion): JsonResponse
+    {
+        $this->propio($request, $importacion);
+        $request->validate(
+            ['version' => ['required', 'integer', 'min:1'], 'operacion_id' => ['required', 'uuid'], 'huella' => ['required', 'string', 'size:64']],
+            ['version.required' => 'Falta la versión del borrador que estás revisando.', 'operacion_id.required' => 'Falta el identificador de la operación.', 'operacion_id.uuid' => 'El identificador de la operación no es válido.', 'huella.required' => 'Revisa los cambios antes de aplicarlos.', 'huella.size' => 'Revisa los cambios antes de aplicarlos.']
+        );
+
+        return $this->proteger(function () use ($request, $importacion) {
+            [$actualizado, $repetida, $plan] = $this->servicio->aplicarMasiva($importacion, $request->integer('version'), (string) $request->input('operacion_id'), (string) $request->input('huella'), $request->only(['campo', 'valor', 'filas', 'verificado', 'confirmar_sobrescritura']));
+
+            return response()->json([
+                'borrador' => $this->servicio->vista($actualizado), 'repetida' => $repetida,
+                'resultado' => $plan === null ? null : ['campo' => $plan['campo'], 'valor' => $plan['valor'], 'aplicados' => $plan['se_modifican'], 'omitidos' => $plan['omitidos_total'], 'sobrescritos' => $plan['sobrescriben']],
+            ]);
+        }, 'aplicar masiva');
+    }
+
+    /** F5 · Deshace la última acción masiva. */
+    public function accionMasivaDeshacer(Request $request, Importacion $importacion, string $operacion): JsonResponse
+    {
+        $this->propio($request, $importacion);
+        $request->validate(['version' => ['required', 'integer', 'min:1']], ['version.required' => 'Falta la versión del borrador que estás revisando.']);
+
+        return $this->proteger(function () use ($request, $importacion, $operacion) {
+            return response()->json(['borrador' => $this->servicio->vista($this->servicio->deshacerMasiva($importacion, $request->integer('version'), $operacion))]);
+        }, 'deshacer masiva');
     }
 
     /** ¿Está listo para importar? Solo lee: no escribe en ninguna tabla. */

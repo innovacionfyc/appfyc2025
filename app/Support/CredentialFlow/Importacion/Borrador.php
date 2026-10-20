@@ -29,8 +29,11 @@ final class Borrador
     /** Campos que una corrección individual puede tocar. */
     private const CAMPOS_FILA = ['nombre_completo', 'documento', 'tipo_documento', 'correo', 'elegibilidad', 'intensidad_horaria', 'excluir'];
 
-    /** Campos que una corrección masiva puede tocar (nombres, documentos y correos se corrigen uno a uno). */
-    private const CAMPOS_MASIVOS = ['tipo_documento', 'elegibilidad', 'intensidad_horaria', 'excluir'];
+    /**
+     * Campos que una corrección masiva «sin vista previa» puede tocar. La elegibilidad y el tipo de documento NO están aquí: se cambian en bloque solo con las acciones
+     * masivas de F5 (`AccionesMasivas`), que exigen vista previa, verificación y confirmación. Nombres, documentos y correos se corrigen uno a uno.
+     */
+    private const CAMPOS_MASIVOS = ['intensidad_horaria', 'excluir'];
 
     private const RAIZ = ['plantilla_id', 'nombre_base', 'datos_comunes', 'confirmados', 'evento', 'participantes', 'masivas'];
 
@@ -42,7 +45,7 @@ final class Borrador
         return [
             'plantilla_id' => null, 'nombre_base' => null, 'datos_comunes' => [],
             'confirmados' => ['datos_comunes' => [], 'valores_desactualizados' => false, 'valores_ambiguos' => false],
-            'evento' => null, 'participantes' => [],
+            'evento' => null, 'participantes' => [], 'historial' => [],
         ];
     }
 
@@ -140,6 +143,9 @@ final class Borrador
             throw self::invalida('Las correcciones masivas no son válidas.', 'masivas');
         }
         foreach ($masivas as $i => $m) {
+            if (is_array($m) && is_array($m['campos'] ?? null) && array_intersect(array_keys($m['campos']), ['elegibilidad', 'tipo_documento']) !== []) {
+                throw self::invalida('La elegibilidad y el tipo de documento se cambian en bloque desde «Acciones sobre la selección», con vista previa y confirmación.', "masivas.{$i}.campos");
+            }
             $destino = self::filasDeMasiva($m, $i, $analisis, $filas);
             foreach ($destino as $fila) {
                 $actual['participantes'][(string) $fila] = self::fusionarFila($actual['participantes'][(string) $fila] ?? [], (array) $m['campos'], self::CAMPOS_MASIVOS, "masivas.{$i}.campos");

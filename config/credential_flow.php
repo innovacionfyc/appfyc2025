@@ -102,6 +102,9 @@ return [
         'activa' => (bool) env('CREDENTIAL_FLOW_IMPORTACION_INTELIGENTE', false),
         'retencion_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_RETENCION_DIAS', 7),
         'conservar_metadatos_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_METADATOS_DIAS', 30),
+        // Plantilla institucional que el asistente SUGIERE en la vista previa (solo la sugiere: nunca la elige sola). Vacío = sin sugerencia. Si el número no corresponde a una plantilla
+        // válida (con diseño y que no sea de pruebas internas), no se sugiere nada. Cómo se marca una plantilla «aprobada» de forma definitiva se decide en la fase de piloto.
+        'plantilla_sugerida_id' => env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') !== null && env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') !== '' ? (int) env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') : null,
     ],
 
     'qa' => [

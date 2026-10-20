@@ -1,16 +1,25 @@
 <script setup>
-// Paso 2 · Participantes editables. Nada se presume: la elegibilidad empieza en «Pendiente» y el tipo de documento queda «Por confirmar» hasta que tú lo decidas.
+// Participantes editables (dentro de la etapa «Revisar personas»). Nada se presume: la elegibilidad empieza en «Pendiente» y el tipo de documento queda «Por confirmar» hasta que tú lo decidas.
 // Cada persona es una ficha que se adapta al ancho: los nombres y correos se muestran COMPLETOS (el campo crece) y se editan ahí mismo; los avisos y lo que decía el Excel
 // van dentro de «Detalles». Las correcciones se guardan en el borrador (no en la base).
 import { computed, nextTick, ref, watch } from "vue";
 import { Search, RotateCcw, TriangleAlert, UserX, ChevronRight, X } from "lucide-vue-next";
 import CampoAutoajustable from "./CampoAutoajustable.vue";
+import AccionesMasivas from "./AccionesMasivas.vue";
 import { ASISTENCIA, AVISOS_FILA, ELEGIBILIDADES, TIPOS_DOCUMENTO, destacar, useAsistente } from "@/Composables/CredentialFlow/importacionInteligente";
 
 const a = useAsistente();
-const LOTE = 50;
+const LOTE = 10; // se muestran de a pocas personas: nadie necesita ver decenas de fichas a la vez
+const MAS = 25;
 
 const busqueda = ref("");
+// Fichas abiertas («Ver o corregir»). Por defecto todas están cerradas: la lista es compacta.
+const abiertas = ref(new Set());
+function alternarFicha(fila) {
+  const n = new Set(abiertas.value);
+  n.has(fila) ? n.delete(fila) : n.add(fila);
+  abiertas.value = n;
+}
 const filtro = ref("todos");
 const visibles = ref(LOTE);
 
@@ -21,9 +30,12 @@ const FILTROS = [
   { id: "tipo", etiqueta: "Tipo por confirmar", test: (p) => !p.excluir && !p.tipo_documento },
   { id: "elegibilidad", etiqueta: "Elegibilidad pendiente", test: (p) => !p.excluir && p.elegibilidad === "pendiente" },
   { id: "faltan", etiqueta: "Faltan datos", test: (p) => !p.excluir && (p.faltan.length > 0 || !p.correo) },
+  { id: "completo", etiqueta: "Completo", test: (p) => !p.excluir && p.senal === "completo" },
   { id: "cupos", etiqueta: "Cupos", test: (p) => !p.excluir && p.senal === "cupo" },
   { id: "excluidos", etiqueta: "Excluidos", test: (p) => p.excluir },
+  { id: "seleccionadas", etiqueta: "Seleccionadas", test: (p) => a.seleccion.value.has(p.fila) && a.esSeleccionable(p) },
 ];
+const nombreFiltro = computed(() => (filtroAviso.value ? "Con aviso" : (FILTROS.find((f) => f.id === filtro.value)?.etiqueta ?? "Todos")));
 const filtroAviso = computed(() => (filtro.value.startsWith("aviso:") ? filtro.value.slice(6) : null));
 const probar = (p) => {
   if (filtroAviso.value) return !p.excluir && p.avisos.includes(filtroAviso.value);
@@ -84,12 +96,15 @@ watch(
     if (i >= visibles.value) visibles.value = i + 1;
     await nextTick();
     await nextTick();
+    abiertas.value = new Set([...abiertas.value, f.fila]); // el dato que hay que corregir se ve dentro de su ficha
+    await nextTick();
     const ficha = document.querySelector(`[data-fila="${f.fila}"]`);
     if (!ficha) return;
     const campo = f.campo ? ficha.querySelector(`[data-campo-fila="${f.campo}"]`) : null;
     destacar(ficha, false);
     (campo ?? ficha.querySelector("input:not([type=checkbox]), textarea, select"))?.focus({ preventScroll: true });
-  }
+  },
+  { immediate: true } // la lista se abre al pedir «Revisar este dato»: si ya había un destino pendiente, se atiende al aparecer
 );
 </script>
 
@@ -140,35 +155,54 @@ watch(
       </button>
     </div>
 
-    <label v-if="a.participantes.value.some((p) => p.valores_ambiguos.length && !p.excluir)" class="flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-[13px] font-extrabold text-amber-900 cursor-pointer">
-      <input type="checkbox" class="mt-0.5 rounded accent-[#942934]" :checked="a.confirmados.value.valores_ambiguos === true" data-confirmar-ambiguos @change="a.marcarConfirmacion('valores_ambiguos', $event.target.checked)" />
-      Algunos datos no se detectaron con certeza (están marcados). Ya los revisé y están bien.
-    </label>
 
     <p v-if="a.borrador.value?.avisos_generales?.observaciones_no_se_conservan" class="flex items-start gap-2 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-600" data-aviso-observaciones>
       <TriangleAlert class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
       <span>Las observaciones que trae el Excel se pueden ver aquí (en «Detalles»), pero <strong>no se guardarán</strong> en la base: todavía no hay dónde conservarlas.</span>
     </p>
 
+    <AccionesMasivas parte="barra" :lista="lista" :visibles="visibles" :filtro-nombre="nombreFiltro" :hay-filtro="filtro !== 'todos' || !!busqueda" @ver-seleccionadas="filtro = 'seleccionadas'" />
+
     <ul class="space-y-3" data-lista-participantes>
       <li
         v-for="p in lista.slice(0, visibles)"
         :key="p.fila"
-        class="rounded-2xl border px-4 py-3 space-y-3 transition-shadow"
-        :class="p.excluir ? 'border-slate-200 bg-slate-50 opacity-75' : error(p.fila, 'nombre_completo') || erroresServidor[p.fila] ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200 bg-white'"
+        class="rounded-2xl border px-3.5 py-2.5 space-y-1.5 transition-shadow"
+        :class="p.excluir ? 'border-slate-200 bg-slate-50' : error(p.fila, 'nombre_completo') || erroresServidor[p.fila] ? 'border-rose-300 bg-rose-50/30' : a.seleccion.value.has(p.fila) ? 'border-sky-300 bg-sky-50/40' : 'border-slate-200 bg-white'"
         :data-fila="p.fila"
       >
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="text-[12px] font-black text-slate-400">Fila del Excel: {{ p.fila }}<span v-if="p.modificados.length" class="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-extrabold text-sky-700 ring-1 ring-sky-200" data-corregido>Corregido</span></span>
-          <div class="flex flex-wrap items-center gap-3">
-            <span v-if="p.excluir" class="inline-flex items-center gap-1 text-[11px] font-extrabold text-slate-500"><UserX class="w-3.5 h-3.5" aria-hidden="true" /> No se importará</span>
-          <label class="inline-flex items-center gap-2 text-[12px] font-extrabold text-slate-600 cursor-pointer">
-            <input type="checkbox" class="rounded accent-[#942934]" :checked="!p.excluir" :aria-label="`Incluir a la fila ${p.fila} en la importación`" :data-incluir="p.fila" @change="a.editarFila(p.fila, 'excluir', !$event.target.checked)" />
-            Importar a esta persona
+        <!-- Fila compacta: quién es, qué asistencia trae y en qué estado está. La ficha completa solo se abre con «Ver o corregir». -->
+        <div class="flex items-start gap-3">
+          <label class="mt-0.5 shrink-0 inline-flex items-center" :title="a.esSeleccionable(p) ? 'Seleccionar para revisar con otras personas' : p.excluir ? 'No se importará: no se puede seleccionar.' : 'Se parece a un contacto de control (QA): no se puede seleccionar.'">
+            <input type="checkbox" class="w-5 h-5 rounded accent-[#942934]" :checked="a.seleccion.value.has(p.fila) && a.esSeleccionable(p)" :disabled="!a.esSeleccionable(p)" :aria-label="`Seleccionar para revisar a ${p.nombre_completo || 'la fila ' + p.fila}`" :data-seleccionar="p.fila" @change="a.alternarSeleccion(p.fila)" />
           </label>
+          <div class="min-w-0 flex-1 space-y-1">
+            <p class="text-[14px] font-extrabold text-slate-900 break-words" data-nombre-fila>
+              {{ p.nombre_completo || "Sin nombre" }}
+              <span v-if="p.modificados.length" class="ml-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-extrabold text-sky-700 ring-1 ring-sky-200" data-corregido>Corregido</span>
+            </p>
+            <p class="text-[12.5px] font-semibold text-slate-500 break-words">Documento {{ p.documento || "—" }} · fila {{ p.fila }} del Excel</p>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ring-1" :class="(ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).clase" :data-asistencia="p.senal">{{ (ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).etiqueta }}</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ring-1" :class="p.elegibilidad === 'elegible' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : p.elegibilidad === 'no_elegible' ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-slate-100 text-slate-600 ring-slate-200'" :data-estado-elegibilidad="p.elegibilidad">{{ ELEGIBILIDADES.find((e) => e.valor === p.elegibilidad)?.etiqueta ?? p.elegibilidad }}</span>
+              <span v-if="p.excluir" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-extrabold text-slate-500"><UserX class="w-3 h-3" aria-hidden="true" /> No se importará</span>
+              <span v-if="erroresServidor[p.fila]" class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-black text-rose-700 ring-1 ring-rose-200" data-con-problema>Hay un dato por corregir</span>
+            </div>
           </div>
         </div>
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
+          <label class="inline-flex items-center gap-2 text-[12.5px] font-extrabold text-slate-600 cursor-pointer" title="Quitar la marca la deja fuera de la base. No tiene que ver con seleccionar para revisar.">
+            <input type="checkbox" class="rounded accent-[#942934]" :checked="!p.excluir" :aria-label="`Incluir en la base a ${p.nombre_completo || 'la fila ' + p.fila}`" :data-incluir="p.fila" @change="a.editarFila(p.fila, 'excluir', !$event.target.checked)" />
+            Incluir en la base
+          </label>
+          <button type="button" class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12.5px] font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/30 hover:bg-primary-vinotinto/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50" :aria-expanded="abiertas.has(p.fila)" :aria-controls="`ficha-${p.fila}`" data-ver-corregir @click="alternarFicha(p.fila)">
+            <ChevronRight class="w-3.5 h-3.5 transition-transform" :class="abiertas.has(p.fila) ? 'rotate-90' : ''" aria-hidden="true" />
+            {{ abiertas.has(p.fila) ? "Cerrar la ficha" : "Ver o corregir" }}
+          </button>
+        </div>
 
+        <!-- Ficha completa (solo cuando hace falta) -->
+        <div v-if="abiertas.has(p.fila)" :id="`ficha-${p.fila}`" class="space-y-3 border-t border-slate-100 pt-3" data-ficha-abierta>
         <div class="ficha-campos"><div class="ficha-rejilla">
           <div class="ficha-ancho ficha-c6">
             <label :for="`n-${p.fila}`" :class="etiqueta">Nombre</label>
@@ -240,12 +274,13 @@ watch(
             </button>
           </div>
         </details>
+        </div>
       </li>
     </ul>
 
     <p v-if="lista.length === 0" class="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">Ningún participante coincide con ese filtro.</p>
     <div v-if="lista.length > visibles" class="text-center">
-      <button type="button" class="rounded-xl px-5 py-2 text-[13px] font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/30 hover:bg-primary-vinotinto/5" data-mostrar-mas @click="visibles += LOTE">Mostrar más ({{ lista.length - visibles }} restantes)</button>
+      <button type="button" class="rounded-xl px-5 py-2 text-[13px] font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/30 hover:bg-primary-vinotinto/5" data-mostrar-mas @click="visibles += MAS">Mostrar más ({{ lista.length - visibles }} restantes)</button>
     </div>
   </section>
 </template>

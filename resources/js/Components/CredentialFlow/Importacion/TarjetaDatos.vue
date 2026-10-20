@@ -23,22 +23,22 @@ function marcarRevisados(si) {
     <section v-if="totalDesactualizables > 0" class="rounded-3xl border border-amber-300 bg-amber-50 p-5 space-y-3" aria-labelledby="titulo-aviso-importrange" data-aviso-importrange>
       <h3 id="titulo-aviso-importrange" class="flex items-start gap-2 text-base font-extrabold text-amber-900">
         <TriangleAlert class="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
-        <span>{{ totalDesactualizables }} datos de este Excel pueden no estar al día</span>
+        <span>Parte de la información se obtuvo de otra hoja</span>
       </h3>
       <p class="text-sm font-semibold text-amber-900/90">
-        Estos datos no están escritos en el Excel: los trae de <strong>otra hoja de Google Sheets</strong>. Si esa hoja cambió después de exportar el archivo, aquí pueden verse datos viejos.
-        Compáralos con la fuente antes de continuar.
+        {{ totalDesactualizables }} datos vienen de otra hoja de Google Sheets. <strong>Comprueba que estén actualizados antes de continuar.</strong>
       </p>
       <details class="text-[13px] font-semibold text-amber-900">
-        <summary class="cursor-pointer font-extrabold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded">Ver el detalle</summary>
+        <summary class="cursor-pointer font-extrabold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded">¿Cómo lo compruebo?</summary>
+        <p class="mt-2">Abre la hoja de Google Sheets de donde sale esta lista y compara unos cuantos datos. Si algo no coincide, descarga el Excel actualizado y súbelo otra vez.</p>
         <ul class="mt-2 list-disc pl-5 space-y-1">
-          <li>{{ generales.desactualizables_evento }} del evento: {{ datosDesactualizables.map((d) => d.etiqueta.toLowerCase()).join(", ") || "datos del evento" }} y el nombre del evento.</li>
-          <li>{{ generales.desactualizables_participantes }} de los participantes: nombres, documentos, correos y la información de asistencia.</li>
+          <li>{{ generales.desactualizables_evento }} de la capacitación: {{ datosDesactualizables.map((d) => d.etiqueta.toLowerCase()).join(", ") || "datos de la capacitación" }} y su nombre.</li>
+          <li>{{ generales.desactualizables_participantes }} de las personas: nombres, documentos, correos y asistencia.</li>
         </ul>
       </details>
       <label class="flex items-start gap-2 rounded-2xl bg-white/70 px-4 py-3 text-sm font-extrabold text-amber-950 cursor-pointer">
         <input type="checkbox" class="mt-0.5 rounded accent-[#942934]" :checked="revisados" data-confirmar-importrange @change="marcarRevisados($event.target.checked)" />
-        Ya los revisé y confirmo que están al día.
+        Ya lo comprobé: está actualizado.
       </label>
     </section>
 
@@ -84,7 +84,7 @@ function marcarRevisados(si) {
 
         <label v-if="d.estado === 'revisar' || (d.estado === 'confirmado' && d.origen === 'excel')" class="flex items-start gap-2 text-[13px] font-semibold text-slate-700 cursor-pointer">
           <input type="checkbox" class="mt-0.5 rounded accent-[#942934]" :checked="d.confirmado" :data-confirmar-dato="d.campo" @change="a.confirmarDato(d.campo, $event.target.checked)" />
-          {{ d.desactualizable ? "Está al día y es correcto." : "Lo revisé y es correcto." }}
+          {{ d.desactualizable ? "Lo comprobé: está actualizado y es correcto." : "Lo revisé y es correcto." }}
         </label>
       </div>
     </section>

@@ -492,14 +492,15 @@ class ImportacionAsistenteTest extends EmisionesTestCase
     {
         $leer = fn (string $f) => file_get_contents(resource_path('js/'.$f));
         $todo = $leer('Components/CredentialFlow/Importacion/TarjetaEvento.vue').$leer('Components/CredentialFlow/Importacion/TarjetaDatos.vue')
-            .$leer('Components/CredentialFlow/Importacion/TablaParticipantes.vue').$leer('Components/CredentialFlow/Importacion/PasoVistaPrevia.vue');
+            .$leer('Components/CredentialFlow/Importacion/TablaParticipantes.vue').$leer('Components/CredentialFlow/Importacion/PasoVistaPrevia.vue')
+            .$leer('Components/CredentialFlow/Importacion/EtapaPersonas.vue').$leer('Components/CredentialFlow/Importacion/EtapaDatos.vue');
 
         foreach (['data-seccion="evento"', ':data-dato="d.campo"', 'data-aviso-importrange', 'data-confirmar-ambiguos', 'data-seccion="participantes"', 'data-seccion="datos"', 'id="plantilla"',
             'data-lista-participantes', ':data-fila="p.fila"', 'data-campo-fila="documento"', 'data-campo-fila="tipo_documento"', 'data-campo-fila="elegibilidad"', 'campo="correo"', 'campo="nombre_completo"'] as $ancla) {
             $this->assertStringContainsString($ancla, $todo, "falta el anclaje $ancla");
         }
         $composable = $leer('Composables/CredentialFlow/importacionInteligente.js');
-        foreach (['[data-seccion=evento]', '[data-seccion=datos]', '[data-aviso-importrange]', '[data-confirmar-ambiguos]', '[data-seccion=participantes]', '#plantilla', '[data-dato="${b.campo}"]'] as $selector) {
+        foreach (['[data-seccion=evento]', '[data-seccion=datos]', '[data-tarea-importrange]', '[data-confirmar-ambiguos]', '[data-seccion=personas]', '#plantilla', '[data-tarea-dato="${campo}"]'] as $selector) {
             $this->assertStringContainsString($selector, $composable, "el composable no busca $selector");
         }
     }

@@ -38,6 +38,20 @@ final class ImportacionException extends RuntimeException
 
     public const VISTA_PREVIA_DATOS_INCOMPLETOS = 'VISTA_PREVIA_DATOS_INCOMPLETOS';
 
+    public const FILA_ORIGEN_INCONSISTENTE = 'FILA_DE_ORIGEN_INCONSISTENTE';
+
+    public const ACCION_INVALIDA = 'ACCION_MASIVA_INVALIDA';
+
+    public const ACCION_SIN_CAMBIOS = 'ACCION_MASIVA_SIN_CAMBIOS';
+
+    public const VERIFICACION_REQUERIDA = 'ACCION_MASIVA_SIN_VERIFICACION';
+
+    public const SOBRESCRITURA_SIN_CONFIRMAR = 'ACCION_MASIVA_SOBRESCRITURA_SIN_CONFIRMAR';
+
+    public const VISTA_PREVIA_OBSOLETA = 'ACCION_MASIVA_VISTA_PREVIA_OBSOLETA';
+
+    public const DESHACER_NO_POSIBLE = 'ACCION_MASIVA_NO_SE_PUEDE_DESHACER';
+
     /** @param  array<int|string,mixed>  $detalles */
     public function __construct(
         public readonly string $codigo,

@@ -1,5 +1,5 @@
 <script setup>
-// Paso 4 · Confirmar. Resume qué va a pasar y qué NO. La base solo se crea al pulsar «Crear base de participantes»; cambiar de paso, cerrar o recargar no importan nada.
+// Etapa 6 · Crear la base. Resume qué va a pasar y qué NO. La base solo se crea al pulsar «Crear base de participantes»; cambiar de paso, cerrar o recargar no importan nada.
 // Crear la base NO emite certificados. Aquí se separan DOS clases de pendientes:
 //  · los que IMPIDEN CREAR la base (los dicta el servidor: bloqueos), y
 //  · los que NO impiden crearla pero IMPIDEN EMITIR certificados (tipo de documento y elegibilidad por confirmar).
@@ -19,7 +19,7 @@ const bloqueos = computed(() => v.value?.bloqueos ?? []);
 const agrupados = computed(() => {
   const m = new Map();
   for (const b of bloqueos.value) {
-    const def = BLOQUEOS[b.codigo] ?? { titulo: b.mensaje, paso: "revisar" };
+    const def = BLOQUEOS[b.codigo] ?? { titulo: b.mensaje, paso: "personas" };
     const g = m.get(b.codigo) ?? { codigo: b.codigo, titulo: def.titulo, paso: def.paso, items: [] };
     g.items.push(b);
     m.set(b.codigo, g);
@@ -30,7 +30,7 @@ const nombreDato = (campo) => DATOS.find((d) => d.campo === campo)?.etiqueta ?? 
 const etiquetaItem = (b) => (b.fila != null ? `Fila ${b.fila}` : b.campo ? `Dato «${nombreDato(b.campo)}»` : null);
 // El servidor nombra los datos por su clave (intensidad_horaria): aquí se muestran con su nombre de pantalla.
 const mensajeItem = (b) => (b.campo && b.fila == null ? b.mensaje.split(`«${b.campo}»`).join(`«${nombreDato(b.campo)}»`) : b.mensaje);
-const textoIr = (g, b) => (b.fila != null ? `Ir a la fila ${b.fila}` : b.campo ? "Ir a ese dato" : g.paso === "vista" ? "Ir a elegir la plantilla" : "Ir a resolverlo");
+const textoIr = (g, b) => (b.fila != null ? `Revisar la fila ${b.fila}` : b.campo ? "Revisar este dato" : g.paso === "vista" ? "Elegir la plantilla" : "Revisar este dato");
 
 const evento = computed(() => {
   const d = a.evento.value?.decision;
@@ -60,7 +60,7 @@ const paraEmitir = computed(() => [
 
 const crear = () => puede.value && a.confirmar();
 const irAFiltro = async (filtro) => {
-  if (await a.irA("revisar")) a.foco.value = { tipo: "filtro", id: filtro };
+  if (await a.irA("personas")) a.verPersonas(filtro);
 };
 </script>
 
@@ -122,7 +122,7 @@ const irAFiltro = async (filtro) => {
       <section v-if="agrupados.length" class="rounded-3xl border border-amber-300 bg-amber-50 p-5 space-y-3" aria-labelledby="titulo-bloqueos" data-bloqueos>
         <div>
           <h3 id="titulo-bloqueos" class="flex items-center gap-2 text-base font-extrabold text-amber-900"><CircleAlert class="w-5 h-5" aria-hidden="true" /> Antes de crear la base</h3>
-          <p class="text-[13px] font-semibold text-amber-900/80">Estos pendientes <strong>impiden crear la base</strong>. Cada botón te lleva al lugar exacto.</p>
+          <p class="text-[13px] font-semibold text-amber-900/80">{{ sinResolver === 1 ? "Falta 1 cosa" : `Faltan ${sinResolver} cosas` }} que <strong>impiden crear la base</strong>. Cada botón «Revisar este dato» te lleva al lugar exacto.</p>
         </div>
         <ul class="space-y-2">
           <li v-for="g in agrupados" :key="g.codigo" class="rounded-2xl bg-white/80 px-4 py-3" :data-bloqueo="g.codigo">
@@ -152,8 +152,8 @@ const irAFiltro = async (filtro) => {
         <p v-else class="text-[13px] font-semibold text-emerald-700">No queda ningún dato pendiente para emitir.</p>
       </section>
 
-      <section class="rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="titulo-no-guarda" data-no-se-guarda>
-        <h3 id="titulo-no-guarda" class="text-sm font-extrabold text-slate-800">Lo que NO quedará guardado</h3>
+      <details class="rounded-3xl border border-slate-200 bg-white p-5" data-no-se-guarda>
+        <summary class="cursor-pointer text-sm font-extrabold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 rounded">Ver detalles: lo que NO quedará guardado</summary>
         <ul class="mt-2 list-disc pl-5 text-[13px] font-semibold text-slate-600 space-y-1">
           <li>El archivo Excel original: solo se recuerda su huella para detectar si se vuelve a subir.</li>
           <li>Las observaciones del Excel (todavía no hay dónde conservarlas).</li>
@@ -161,7 +161,7 @@ const irAFiltro = async (filtro) => {
           <li>Las fórmulas y las hojas externas del Excel.</li>
           <li>El borrador: sus datos personales se borran al crear la base.</li>
         </ul>
-      </section>
+      </details>
 
       <p v-if="a.error.value && a.paso.value === 'confirmar'" class="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-bold text-rose-700" role="alert" data-error-confirmar>{{ a.error.value.mensaje }}</p>
 
