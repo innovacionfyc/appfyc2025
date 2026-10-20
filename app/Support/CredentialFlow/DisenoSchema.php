@@ -135,6 +135,24 @@ final class DisenoSchema
         return self::contarQr($diseno['elements'] ?? []) > 0;
     }
 
+    /**
+     * Claves de los campos dinámicos que el diseño imprime (sin repetidos, en orden de aparición).
+     *
+     * @param  array<string,mixed>  $diseno
+     * @return list<string>
+     */
+    public static function camposUsados(array $diseno): array
+    {
+        $usados = [];
+        foreach ($diseno['elements'] ?? [] as $e) {
+            if (is_array($e) && ($e['type'] ?? null) === self::TIPO_TEXTO && is_string($e['field'] ?? null)) {
+                $usados[$e['field']] = true;
+            }
+        }
+
+        return array_keys($usados);
+    }
+
     /** ¿Algún campo dinámico usa prefijo, sufijo o varias líneas? */
     public static function usaTextoAvanzado(array $diseno): bool
     {

@@ -13,7 +13,9 @@ namespace App\Support\CredentialFlow;
  *
  * Reglas del catálogo:
  *  - Las claves son estables y NO se renombran (hay diseños guardados que las referencian). Solo
- *    se pueden agregar.
+ *    se pueden agregar. Los cinco campos originales (nombre_completo, documento, evento, fecha, intensidad_horaria) conservan su
+ *    comportamiento; los agregados después (modalidad, texto_certificacion, texto_complementario, ciudad) son OPCIONALES: los
+ *    escribe el administrador como datos comunes de la base y solo se exigen cuando el diseño los imprime.
  *  - Todos los valores son texto ya listo para imprimir. `documento` es el documento tal como se cargó (normalmente solo
  *    el número, p. ej. "73.156.827"): un «C.C. » delante lo pone el DISEÑO como prefijo del elemento, no el dato.
  *    `fecha` no es un tipo date: puede ser "29 DE SEPTIEMBRE DE 2026" o
@@ -28,6 +30,12 @@ final class CamposDinamicos
     public const FORMATO_MAYUSCULAS = 'mayusculas';
 
     public const FORMATO_LITERAL = 'literal';
+
+    /**
+     * Campos que se guardan como datos comunes de la base (`cf_lotes.datos_comunes`) pero NO son obligatorios: si la base no los trae,
+     * simplemente no existen en sus datos (nunca se guardan vacíos ni se inventan), y un diseño que los imprima no podrá emitir.
+     */
+    public const COMUNES_OPCIONALES = ['modalidad', 'texto_certificacion', 'texto_complementario', 'ciudad'];
 
     private const CAMPOS = [
         'nombre_completo' => [
@@ -70,6 +78,40 @@ final class CamposDinamicos
             'multilinea' => false,
             'formato' => self::FORMATO_LITERAL,
         ],
+        // Modalidad tal como la confirma el administrador («Virtual-Sincrónico y Remoto»): se imprime LITERAL, sin traducirla a un catálogo.
+        'modalidad' => [
+            'etiqueta' => 'Modalidad',
+            'tipo' => 'string',
+            'preview' => 'Virtual-Sincrónico y Remoto',
+            'maxLongitud' => 120,
+            'multilinea' => false,
+            'formato' => self::FORMATO_LITERAL,
+        ],
+        // Textos que aprueba el administrador para cada evento. No existe ningún texto por defecto: la plantilla solo lleva el campo.
+        'texto_certificacion' => [
+            'etiqueta' => 'Texto de certificación',
+            'tipo' => 'string',
+            'preview' => 'Texto de certificación aprobado por el administrador para este evento.',
+            'maxLongitud' => 600,
+            'multilinea' => true,
+            'formato' => self::FORMATO_LITERAL,
+        ],
+        'texto_complementario' => [
+            'etiqueta' => 'Texto complementario',
+            'tipo' => 'string',
+            'preview' => 'Texto complementario aprobado por el administrador para este evento.',
+            'maxLongitud' => 600,
+            'multilinea' => true,
+            'formato' => self::FORMATO_LITERAL,
+        ],
+        'ciudad' => [
+            'etiqueta' => 'Ciudad',
+            'tipo' => 'string',
+            'preview' => 'BOGOTÁ D.C.',
+            'maxLongitud' => 80,
+            'multilinea' => false,
+            'formato' => self::FORMATO_LITERAL,
+        ],
     ];
 
     /** Claves válidas, en el orden del catálogo. */
@@ -82,6 +124,12 @@ final class CamposDinamicos
     public static function existe(mixed $key): bool
     {
         return is_string($key) && array_key_exists($key, self::CAMPOS);
+    }
+
+    /** ¿El campo admite saltos de línea en su valor? (solo los textos largos configurables) */
+    public static function admiteSaltosDeLinea(string $key): bool
+    {
+        return (self::CAMPOS[$key]['multilinea'] ?? false) === true;
     }
 
     /** Catálogo completo indexado por clave, con la clave también dentro de cada campo. */

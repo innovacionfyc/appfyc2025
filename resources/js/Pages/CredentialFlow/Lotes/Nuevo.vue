@@ -29,6 +29,11 @@ const form = reactive({
   evento: "",
   fecha: "",
   intensidad_horaria: "",
+  // Opcionales: solo se guardan si se escriben; la plantilla los imprime únicamente si su diseño los usa.
+  modalidad: "",
+  ciudad: "",
+  texto_certificacion: "",
+  texto_complementario: "",
   archivo: null,
 });
 
@@ -230,6 +235,18 @@ const headerStats = computed(() => [
             <FormInput v-else v-model="form.evento" label="Evento" type="text" icon="event" placeholder="Nombre del evento" :max="200" :required="true" :activeColor="COLOR" :error="errores.evento" @clearError="limpiarError('evento')" />
             <FormInput v-model="form.fecha" label="Fecha" type="text" icon="calendar_month" placeholder="29 de septiembre de 2026" :max="80" :required="true" :activeColor="COLOR" :error="errores.fecha" @clearError="limpiarError('fecha')" />
             <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria" type="text" icon="schedule" placeholder="16 horas" :max="30" :required="true" :activeColor="COLOR" :error="errores.intensidad_horaria" @clearError="limpiarError('intensidad_horaria')" />
+          </div>
+
+          <div class="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-4" data-datos-opcionales>
+            <p class="text-[12px] font-semibold text-slate-500">
+              Opcionales: solo hacen falta si la plantilla imprime estos datos. Se guardan tal como los escribes; no se completan ni se cambian solos.
+            </p>
+            <div class="grid gap-5 md:grid-cols-2">
+              <FormInput v-model="form.modalidad" label="Modalidad (opcional)" type="textarea" :rows="1" icon="devices" placeholder="Virtual-Sincrónico y Remoto" :max="120" :activeColor="COLOR" :error="errores.modalidad" @clearError="limpiarError('modalidad')" data-campo="modalidad" />
+              <FormInput v-model="form.ciudad" label="Ciudad (opcional)" type="textarea" :rows="1" icon="location_on" placeholder="Solo si el evento la define" :max="80" :activeColor="COLOR" :error="errores.ciudad" @clearError="limpiarError('ciudad')" data-campo="ciudad" />
+            </div>
+            <FormInput v-model="form.texto_certificacion" label="Texto de certificación (opcional)" type="textarea" :rows="3" icon="description" placeholder="Texto aprobado para este evento" :max="600" :activeColor="COLOR" :error="errores.texto_certificacion" @clearError="limpiarError('texto_certificacion')" data-campo="texto-certificacion" />
+            <FormInput v-model="form.texto_complementario" label="Texto complementario (opcional)" type="textarea" :rows="3" icon="notes" placeholder="Texto aprobado para este evento" :max="600" :activeColor="COLOR" :error="errores.texto_complementario" @clearError="limpiarError('texto_complementario')" data-campo="texto-complementario" />
           </div>
         </section>
 

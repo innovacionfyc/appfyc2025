@@ -99,6 +99,9 @@ final class EmisorLote
             );
         }
 
+        // Datos opcionales que el diseño imprime (modalidad, ciudad, textos): si faltan, se avisa qué completar antes de cualquier otro control.
+        DatosRequeridos::exigir($lote, $plantilla);
+
         if (! $pruebasInternas) {
             app(ServicioVistaPrevia::class)->exigir($lote);
         }

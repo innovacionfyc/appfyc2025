@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CredentialFlow;
 
+use App\Models\CredentialFlow\Lote;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Contracts\Validation\Validator;
@@ -26,6 +27,11 @@ class UpdateLoteRequest extends FormRequest
             'evento' => ['required', 'string'],
             'fecha' => ['required', 'string'],
             'intensidad_horaria' => ['required', 'string'],
+            // Opcionales: solo se guardan si vienen con contenido (ver ValidadorDatosComunes).
+            'modalidad' => ['nullable', 'string', 'max:2000'],
+            'ciudad' => ['nullable', 'string', 'max:2000'],
+            'texto_certificacion' => ['nullable', 'string', 'max:5000'],
+            'texto_complementario' => ['nullable', 'string', 'max:5000'],
         ];
     }
 
@@ -50,11 +56,20 @@ class UpdateLoteRequest extends FormRequest
             if (Texto::limpiar((string) $this->input('nombre')) === '') {
                 $validator->errors()->add('nombre', 'El nombre de la base es obligatorio.');
             }
-            $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::CAMPOS));
+            $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::todos()));
             foreach ($comunes['errores'] as $campo => $mensaje) {
                 $validator->errors()->add($campo, $mensaje);
             }
             $this->comunes = $comunes['datos'];
+
+            // Una petición que ni siquiera menciona un dato opcional (cliente anterior) no debe borrarlo; vaciar el campo en el formulario sí lo quita.
+            $lote = $this->route('lote');
+            $actuales = $lote instanceof Lote ? ($lote->datos_comunes ?? []) : [];
+            foreach (ValidadorDatosComunes::OPCIONALES as $campo) {
+                if (! $this->exists($campo) && isset($actuales[$campo]) && ! isset($this->comunes[$campo])) {
+                    $this->comunes[$campo] = $actuales[$campo];
+                }
+            }
         }];
     }
 

@@ -14,7 +14,7 @@ const emit = defineEmits(["close"]);
 
 const COLOR = "#942934";
 
-const form = useForm({ nombre: "", descripcion: "", evento: "", fecha: "", intensidad_horaria: "" });
+const form = useForm({ nombre: "", descripcion: "", evento: "", fecha: "", intensidad_horaria: "", modalidad: "", ciudad: "", texto_certificacion: "", texto_complementario: "" });
 
 watch(
   () => props.show,
@@ -26,6 +26,10 @@ watch(
     form.evento = props.lote.datos_comunes?.evento ?? "";
     form.fecha = props.lote.datos_comunes?.fecha ?? "";
     form.intensidad_horaria = props.lote.datos_comunes?.intensidad_horaria ?? "";
+    form.modalidad = props.lote.datos_comunes?.modalidad ?? "";
+    form.ciudad = props.lote.datos_comunes?.ciudad ?? "";
+    form.texto_certificacion = props.lote.datos_comunes?.texto_certificacion ?? "";
+    form.texto_complementario = props.lote.datos_comunes?.texto_complementario ?? "";
   }
 );
 
@@ -70,6 +74,12 @@ const submit = () => {
                 <FormInput v-model="form.fecha" label="Fecha" type="text" icon="calendar_month" :max="80" :required="true" :activeColor="COLOR" :error="form.errors.fecha" @clearError="form.clearErrors('fecha')" />
                 <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria" type="text" icon="schedule" :max="30" :required="true" :activeColor="COLOR" :error="form.errors.intensidad_horaria" @clearError="form.clearErrors('intensidad_horaria')" />
               </div>
+              <div class="grid gap-5 sm:grid-cols-2" data-datos-opcionales>
+                <FormInput v-model="form.modalidad" label="Modalidad (opcional)" type="textarea" :rows="1" icon="devices" :max="120" :activeColor="COLOR" :error="form.errors.modalidad" @clearError="form.clearErrors('modalidad')" data-campo="modalidad" />
+                <FormInput v-model="form.ciudad" label="Ciudad (opcional)" type="textarea" :rows="1" icon="location_on" :max="80" :activeColor="COLOR" :error="form.errors.ciudad" @clearError="form.clearErrors('ciudad')" data-campo="ciudad" />
+              </div>
+              <FormInput v-model="form.texto_certificacion" label="Texto de certificación (opcional)" type="textarea" :rows="3" icon="description" :max="600" :activeColor="COLOR" :error="form.errors.texto_certificacion" @clearError="form.clearErrors('texto_certificacion')" data-campo="texto-certificacion" />
+              <FormInput v-model="form.texto_complementario" label="Texto complementario (opcional)" type="textarea" :rows="3" icon="notes" :max="600" :activeColor="COLOR" :error="form.errors.texto_complementario" @clearError="form.clearErrors('texto_complementario')" data-campo="texto-complementario" />
             </div>
 
             <div class="px-6 sm:px-8 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4 shrink-0">

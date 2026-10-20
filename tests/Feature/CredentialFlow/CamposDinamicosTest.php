@@ -15,6 +15,9 @@ class CamposDinamicosTest extends CredentialFlowTestCase
 {
     private const CLAVES_V1 = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
 
+    /** Campos agregados en F2: opcionales, se escriben como datos comunes de la base. */
+    private const CLAVES_F2 = ['modalidad', 'texto_certificacion', 'texto_complementario', 'ciudad'];
+
     /** Claves exactas de un elemento del diseño: esta fase no agrega ninguna. */
     private const CLAVES_ELEMENTO = [
         'align', 'color', 'field', 'fontFamily', 'fontSize', 'fontWeight',
@@ -64,10 +67,12 @@ class CamposDinamicosTest extends CredentialFlowTestCase
 
     // ── Catálogo ──────────────────────────────────────────────────────────────
 
-    public function test_el_catalogo_contiene_exactamente_los_cinco_campos_v1(): void
+    public function test_el_catalogo_conserva_los_cinco_campos_v1_al_inicio_y_agrega_los_opcionales(): void
     {
-        $this->assertSame(self::CLAVES_V1, CamposDinamicos::claves());
-        $this->assertSame(self::CLAVES_V1, array_keys(CamposDinamicos::todos()));
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], CamposDinamicos::claves());
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], array_keys(CamposDinamicos::todos()));
+        $this->assertSame(self::CLAVES_V1, array_slice(CamposDinamicos::claves(), 0, 5), 'las claves originales no se renombran ni se reordenan');
+        $this->assertSame(self::CLAVES_F2, CamposDinamicos::COMUNES_OPCIONALES);
     }
 
     public function test_las_claves_son_unicas_y_estables_en_snake_case(): void
@@ -89,7 +94,9 @@ class CamposDinamicosTest extends CredentialFlowTestCase
             $this->assertIsInt($campo['maxLongitud']);
             $this->assertGreaterThan(0, $campo['maxLongitud']);
             $this->assertSame('string', $campo['tipo']);
-            $this->assertFalse($campo['multilinea'], "$key no debe admitir varias líneas en V1");
+            $this->assertIsBool($campo['multilinea']);
+            // Solo los dos textos largos configurables admiten saltos de línea en su valor.
+            $this->assertSame(in_array($key, ['texto_certificacion', 'texto_complementario'], true), $campo['multilinea'], $key);
             $this->assertContains($campo['formato'], [CamposDinamicos::FORMATO_MAYUSCULAS, CamposDinamicos::FORMATO_LITERAL]);
             $this->assertLessThanOrEqual($campo['maxLongitud'], mb_strlen($campo['preview']), "preview de $key excede su longitud máxima");
         }
@@ -106,7 +113,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $this->assertSame('16 HORAS', $todos['intensidad_horaria']['preview']);
 
         $this->assertSame(
-            ['Nombre completo', 'Documento', 'Evento', 'Fecha', 'Intensidad horaria'],
+            ['Nombre completo', 'Documento', 'Evento', 'Fecha', 'Intensidad horaria', 'Modalidad', 'Texto de certificación', 'Texto complementario', 'Ciudad'],
             array_column($todos, 'etiqueta')
         );
     }
@@ -125,7 +132,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
     {
         $campos = CamposDinamicos::paraEditor();
 
-        $this->assertSame(self::CLAVES_V1, array_column($campos, 'key'));
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], array_column($campos, 'key'));
         foreach ($campos as $campo) {
             $this->assertEqualsCanonicalizing(['key', 'etiqueta', 'preview', 'maxLongitud', 'tipo'], array_keys($campo));
         }
@@ -390,7 +397,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
             ->get(route('credential-flow.plantillas.editor', $p))
             ->assertInertia(fn (Assert $page) => $page
                 ->component('CredentialFlow/Editor')
-                ->has('schema.campos', 5)
+                ->has('schema.campos', 9)
                 ->where('schema.campos.0.key', 'nombre_completo')
                 ->where('schema.campos.0.etiqueta', 'Nombre completo')
                 ->where('schema.campos.0.preview', 'JUAN CARLOS PÉREZ GÓMEZ')
