@@ -85,6 +85,9 @@ final class FlujoDeBase
         } elseif (! $vistaOk) {
             $faltan[] = $generada ? 'Confirmar la plantilla después de revisar la vista previa.' : 'Abrir y revisar la vista previa de un participante con la plantilla actual.';
         }
+        if ($plantillaOk && ($datosDelDiseno = DatosRequeridos::faltantes($lote->plantilla->diseno, $lote->datos_comunes ?? [])) !== []) {
+            $faltan[] = 'Completar en «Editar base» lo que imprime la plantilla: '.implode(', ', $datosDelDiseno).'.';
+        }
         if ($tipoPendiente > 0) {
             $faltan[] = "{$tipoPendiente} ".($tipoPendiente === 1 ? 'participante con tipo de documento por confirmar' : 'participantes con tipo de documento por confirmar').' (no se emiten hasta confirmarlo).';
         }

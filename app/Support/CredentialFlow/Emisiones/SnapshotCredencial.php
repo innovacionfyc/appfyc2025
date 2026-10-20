@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Emisiones;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\Storage;
 final readonly class SnapshotCredencial
 {
     /**
-     * @param  array<string,string>  $datos  nombre_completo, documento, evento, fecha, intensidad_horaria + lote_nombre, plantilla_nombre
+     * @param  array<string,string>  $datos  nombre_completo, documento, evento, fecha, intensidad_horaria (+ modalidad, ciudad, textos si el diseño los imprime) + lote_nombre, plantilla_nombre
      * @param  array<string,mixed>  $diseno
      * @param  array<string,mixed>  $generador
      */
@@ -77,6 +78,14 @@ final readonly class SnapshotCredencial
         }
 
         $datos = DatosDeParticipante::para($participante, $lote)->todos();
+        // Los datos opcionales de la base (modalidad, ciudad, textos…) entran al snapshot SOLO si este diseño los imprime: un diseño anterior produce
+        // exactamente el mismo snapshot que antes, aunque la base tenga esos datos escritos.
+        $usados = DisenoSchema::camposUsados($diseno);
+        foreach (CamposDinamicos::COMUNES_OPCIONALES as $opcional) {
+            if (! in_array($opcional, $usados, true)) {
+                unset($datos[$opcional]);
+            }
+        }
         ksort($datos);
         $datos['lote_nombre'] = (string) $lote->nombre;
         $datos['plantilla_nombre'] = (string) $plantilla->nombre;

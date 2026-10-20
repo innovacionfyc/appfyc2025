@@ -109,6 +109,7 @@ class LoteController extends Controller
 
         return Inertia::render('CredentialFlow/Lotes/Nuevo', [
             'plantillas' => $plantillas,
+            'importacion_inteligente' => config('credential_flow.importacion_inteligente.activa', false) === true,   // enlace al asistente; con la bandera apagada no se muestra nada
             'eventos' => $eventos,
             'evento_seleccionado' => $request->integer('evento') ?: null,
             'qa_catalogo' => config('credential_flow.qa.automatico', true) && config('credential_flow.qa.exigir_catalogo', true) ? app(AdministradorContactosQa::class)->catalogoListo() : ['listo' => true, 'motivos' => [], 'activos' => 0, 'esperados' => 0],

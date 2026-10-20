@@ -15,6 +15,7 @@ use App\Http\Controllers\CredentialFlow\FlujoLoteController;
 use App\Http\Controllers\CredentialFlow\HistoricoController;
 use App\Http\Controllers\CredentialFlow\HistoricoPdfController;
 use App\Http\Controllers\CredentialFlow\IdentidadDecisionController;
+use App\Http\Controllers\CredentialFlow\ImportacionInteligenteController;
 use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
 use App\Http\Controllers\CredentialFlow\PlantillaController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\CredentialFlow\QaContactosController;
 use App\Http\Controllers\CredentialFlow\QaController;
 use App\Http\Controllers\CredentialFlow\ReemplazoController;
 use App\Http\Middleware\CabecerasAdminSensible;
+use App\Http\Middleware\ImportacionInteligenteActiva;
 use Illuminate\Support\Facades\Route;
 
 // F&C Credential Flow: módulo exclusivamente administrativo (no existe ninguna ruta pública).
@@ -152,6 +154,26 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
         Route::get('/exportar/xlsx', [EncuestaExportController::class, 'xlsx'])->middleware('throttle:10,1,cf-encuestas-exportar')->name('exportar.xlsx');
         Route::get('/exportar/csv/{conjunto?}', [EncuestaExportController::class, 'csv'])->where('conjunto', 'resumen|preguntas|distribucion')->middleware('throttle:10,1,cf-encuestas-exportar')->name('exportar.csv');
         Route::get('/comentarios', [EncuestaComentariosController::class, 'index'])->middleware(['rol:super-admin', 'throttle:30,1,cf-encuestas-comentarios'])->name('comentarios');
+    });
+
+    // Importación inteligente desde el Excel original (F3). APAGADA por defecto (`credential_flow.importacion_inteligente.activa`): con el interruptor apagado todas estas
+    // rutas responden 404. Un borrador es privado de quien lo creó. Solo `confirmar` crea una base; analizar, consultar, corregir, validar y rechazar no crean nada.
+    // Cada POST/PUT lleva su PROPIO contador de límite (tercer parámetro de throttle).
+    Route::prefix('importaciones')->name('importaciones.')->middleware([ImportacionInteligenteActiva::class, CabecerasAdminSensible::class])->group(function () {
+        Route::get('/', [ImportacionInteligenteController::class, 'index'])->name('index');
+        Route::get('/asistente', [ImportacionInteligenteController::class, 'asistente'])->name('asistente');
+        Route::post('/analizar', [ImportacionInteligenteController::class, 'analizar'])->middleware('throttle:10,1,cf-imp-analizar')->name('analizar');
+        Route::get('/{importacion}', [ImportacionInteligenteController::class, 'show'])->whereNumber('importacion')->name('show');
+        Route::put('/{importacion}/correcciones', [ImportacionInteligenteController::class, 'corregir'])->whereNumber('importacion')->middleware('throttle:60,1,cf-imp-corregir')->name('correcciones');
+        Route::get('/{importacion}/vista-previa', [ImportacionInteligenteController::class, 'vistaPrevia'])->whereNumber('importacion')->middleware('throttle:60,1,cf-imp-vista')->name('vista-previa');
+        Route::get('/{importacion}/vista-previa/pdf', [ImportacionInteligenteController::class, 'vistaPreviaPdf'])->whereNumber('importacion')->middleware('throttle:20,1,cf-imp-vista-pdf')->name('vista-previa.pdf');
+        // Acciones masivas sobre el BORRADOR (F5): elegibilidad y tipo de documento en bloque, con vista previa vinculante. No crean bases ni emisiones.
+        Route::post('/{importacion}/acciones-masivas/vista-previa', [ImportacionInteligenteController::class, 'accionMasivaVistaPrevia'])->whereNumber('importacion')->middleware('throttle:60,1,cf-imp-masiva-vista')->name('masivas.vista-previa');
+        Route::post('/{importacion}/acciones-masivas', [ImportacionInteligenteController::class, 'accionMasivaAplicar'])->whereNumber('importacion')->middleware('throttle:30,1,cf-imp-masiva')->name('masivas.aplicar');
+        Route::post('/{importacion}/acciones-masivas/{operacion}/deshacer', [ImportacionInteligenteController::class, 'accionMasivaDeshacer'])->whereNumber('importacion')->whereUuid('operacion')->middleware('throttle:30,1,cf-imp-masiva-deshacer')->name('masivas.deshacer');
+        Route::post('/{importacion}/validar', [ImportacionInteligenteController::class, 'validar'])->whereNumber('importacion')->middleware('throttle:30,1,cf-imp-validar')->name('validar');
+        Route::post('/{importacion}/confirmar', [ImportacionInteligenteController::class, 'confirmar'])->whereNumber('importacion')->middleware('throttle:6,1,cf-imp-confirmar')->name('confirmar');
+        Route::post('/{importacion}/rechazar', [ImportacionInteligenteController::class, 'rechazar'])->whereNumber('importacion')->middleware('throttle:20,1,cf-imp-rechazar')->name('rechazar');
     });
 
     // Eliminación definitiva (acción aparte del «Eliminar» normal). Incluye registros ya eliminados (soft delete).

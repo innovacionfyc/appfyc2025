@@ -94,6 +94,19 @@ return [
         'exige_vista_previa' => (bool) env('CREDENTIAL_FLOW_EXIGE_VISTA_PREVIA', true),
     ],
 
+    // Importación inteligente de certificados desde el Excel original (F3). APAGADA por defecto: con el interruptor en false las rutas nuevas responden 404 y el
+    // procedimiento de siempre (Nueva base) no cambia. Los borradores guardan datos personales CIFRADOS y se borran al confirmar, rechazar o vencer:
+    // `retencion_dias` es la vigencia de un borrador sin confirmar y `conservar_metadatos_dias` cuánto se conserva la fila (sin datos personales) de los terminados.
+    // La limpieza es el comando `credential-flow:importaciones-limpiar` (programado a diario; que corra solo depende del cron `schedule:run` del servidor).
+    'importacion_inteligente' => [
+        'activa' => (bool) env('CREDENTIAL_FLOW_IMPORTACION_INTELIGENTE', false),
+        'retencion_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_RETENCION_DIAS', 7),
+        'conservar_metadatos_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_METADATOS_DIAS', 30),
+        // Plantilla institucional que el asistente SUGIERE en la vista previa (solo la sugiere: nunca la elige sola). Vacío = sin sugerencia. Si el número no corresponde a una plantilla
+        // válida (con diseño y que no sea de pruebas internas), no se sugiere nada. Cómo se marca una plantilla «aprobada» de forma definitiva se decide en la fase de piloto.
+        'plantilla_sugerida_id' => env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') !== null && env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') !== '' ? (int) env('CREDENTIAL_FLOW_IMPORTACION_PLANTILLA_SUGERIDA') : null,
+    ],
+
     'qa' => [
         'automatico' => (bool) env('CREDENTIAL_FLOW_QA_AUTOMATICO', true),
         // Cuántos contactos oficiales debe tener el catálogo al inicializarlo desde las bases QA (se comprueba antes de cargar nada).

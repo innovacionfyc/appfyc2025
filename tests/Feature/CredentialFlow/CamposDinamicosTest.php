@@ -15,6 +15,9 @@ class CamposDinamicosTest extends CredentialFlowTestCase
 {
     private const CLAVES_V1 = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
 
+    /** Campos agregados en F2: opcionales, se escriben como datos comunes de la base. */
+    private const CLAVES_F2 = ['modalidad', 'texto_certificacion', 'texto_complementario', 'ciudad'];
+
     /** Claves exactas de un elemento del diseño: esta fase no agrega ninguna. */
     private const CLAVES_ELEMENTO = [
         'align', 'color', 'field', 'fontFamily', 'fontSize', 'fontWeight',
@@ -64,10 +67,12 @@ class CamposDinamicosTest extends CredentialFlowTestCase
 
     // ── Catálogo ──────────────────────────────────────────────────────────────
 
-    public function test_el_catalogo_contiene_exactamente_los_cinco_campos_v1(): void
+    public function test_el_catalogo_conserva_los_cinco_campos_v1_al_inicio_y_agrega_los_opcionales(): void
     {
-        $this->assertSame(self::CLAVES_V1, CamposDinamicos::claves());
-        $this->assertSame(self::CLAVES_V1, array_keys(CamposDinamicos::todos()));
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], CamposDinamicos::claves());
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], array_keys(CamposDinamicos::todos()));
+        $this->assertSame(self::CLAVES_V1, array_slice(CamposDinamicos::claves(), 0, 5), 'las claves originales no se renombran ni se reordenan');
+        $this->assertSame(self::CLAVES_F2, CamposDinamicos::COMUNES_OPCIONALES);
     }
 
     public function test_las_claves_son_unicas_y_estables_en_snake_case(): void
@@ -89,7 +94,9 @@ class CamposDinamicosTest extends CredentialFlowTestCase
             $this->assertIsInt($campo['maxLongitud']);
             $this->assertGreaterThan(0, $campo['maxLongitud']);
             $this->assertSame('string', $campo['tipo']);
-            $this->assertFalse($campo['multilinea'], "$key no debe admitir varias líneas en V1");
+            $this->assertIsBool($campo['multilinea']);
+            // Solo los dos textos largos configurables admiten saltos de línea en su valor.
+            $this->assertSame(in_array($key, ['texto_certificacion', 'texto_complementario'], true), $campo['multilinea'], $key);
             $this->assertContains($campo['formato'], [CamposDinamicos::FORMATO_MAYUSCULAS, CamposDinamicos::FORMATO_LITERAL]);
             $this->assertLessThanOrEqual($campo['maxLongitud'], mb_strlen($campo['preview']), "preview de $key excede su longitud máxima");
         }
@@ -106,7 +113,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $this->assertSame('16 HORAS', $todos['intensidad_horaria']['preview']);
 
         $this->assertSame(
-            ['Nombre completo', 'Documento', 'Evento', 'Fecha', 'Intensidad horaria'],
+            ['Nombre completo', 'Documento', 'Evento', 'Fecha', 'Intensidad horaria', 'Modalidad', 'Texto de certificación', 'Texto complementario', 'Ciudad'],
             array_column($todos, 'etiqueta')
         );
     }
@@ -125,7 +132,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
     {
         $campos = CamposDinamicos::paraEditor();
 
-        $this->assertSame(self::CLAVES_V1, array_column($campos, 'key'));
+        $this->assertSame([...self::CLAVES_V1, ...self::CLAVES_F2], array_column($campos, 'key'));
         foreach ($campos as $campo) {
             $this->assertEqualsCanonicalizing(['key', 'etiqueta', 'preview', 'maxLongitud', 'tipo'], array_keys($campo));
         }
@@ -390,7 +397,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
             ->get(route('credential-flow.plantillas.editor', $p))
             ->assertInertia(fn (Assert $page) => $page
                 ->component('CredentialFlow/Editor')
-                ->has('schema.campos', 5)
+                ->has('schema.campos', 9)
                 ->where('schema.campos.0.key', 'nombre_completo')
                 ->where('schema.campos.0.etiqueta', 'Nombre completo')
                 ->where('schema.campos.0.preview', 'JUAN CARLOS PÉREZ GÓMEZ')
@@ -417,7 +424,7 @@ class CamposDinamicosTest extends CredentialFlowTestCase
         $delModulo = $rutas->filter(fn ($u) => str_contains($u, 'credential-flow'));
 
         // Las 7 de las fases 1 y 2, el PDF de prueba de la fase 5 y las 12 de lotes/participantes de la fase 6 y las 8 de emisiones de la fase 7 y las 4 de eliminación definitiva (resumen y borrado de base y de plantilla) y las 5 del histórico (solo GET: eventos, evento, certificado, plantillas y búsqueda) la 1 de prueba administrativa del PDF histórico congelado y la 1 de las encuestas históricas (solo lectura) y la 1 de envíos de correo (solo lectura) y las 2 de casos de conciliación (bandeja y detalle, solo lectura) y las 4 acciones de resolución de casos (3 de plantillas y la consolidación de código, POST), todas administrativas. Más las 5 del asistente de reemplazo de la Fase 10B-2B-2B (1 GET y 4 POST: clon, diseño, vista previa y emisión). Más las 2 de decisiones de identidad de la Fase 10B-3A (POST: crear y revocar; registran, no autorizan). Más las 5 de eventos de certificación (3 GET: lista, detalle y ZIP por evento; 2 de asociación de bases: desde su evento y a uno elegido). Más 1 GET del ZIP de certificados históricos por evento (solo lectura).
-        $this->assertCount(87, $delModulo);   // 62 anteriores + 7 de resultados e informes de encuestas (Fase 15A) + 6 de eventos y descargas por evento (3 GET de eventos, 2 de asociación y 1 GET del ZIP histórico) + 4 de contactos QA (emitir pruebas, incorporar a una base, designar la plantilla de pruebas internas y su variante por diseño) + 1 para crear un evento antes de importar + 4 de la pantalla Contactos QA (listar, corregir, activar/desactivar, inicializar) + 1 de estado operativo de las bases
+        $this->assertCount(100, $delModulo);   // 62 anteriores + 7 de resultados e informes de encuestas (Fase 15A) + 6 de eventos y descargas por evento (3 GET de eventos, 2 de asociación y 1 GET del ZIP histórico) + 4 de contactos QA (emitir pruebas, incorporar a una base, designar la plantilla de pruebas internas y su variante por diseño) + 1 para crear un evento antes de importar + 4 de la pantalla Contactos QA (listar, corregir, activar/desactivar, inicializar) + 1 de estado operativo de las bases + 7 de la importación inteligente (F3; listar, analizar, consultar, corregir, validar, confirmar y rechazar borradores; apagadas por defecto) + 3 del asistente de F4 (pantalla, datos de la vista previa y PDF de la vista previa) + 3 de las acciones masivas de F5 (vista previa, aplicar y deshacer)
         $this->assertCount(0, $delModulo->reject(fn ($u) => str_starts_with($u, 'admin/credential-flow')));
     }
 }

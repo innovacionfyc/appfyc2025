@@ -43,6 +43,8 @@ final class EmisionException extends RuntimeException
 
     public const VISTA_PREVIA_PENDIENTE = 'VISTA_PREVIA_PENDIENTE';
 
+    public const DATOS_DEL_DISENO_INCOMPLETOS = 'DATOS_DEL_DISENO_INCOMPLETOS';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

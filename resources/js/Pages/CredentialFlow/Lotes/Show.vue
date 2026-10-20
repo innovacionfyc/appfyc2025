@@ -346,6 +346,22 @@ const confirmarMotivo = async (motivo) => {
               <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Intensidad horaria</dt>
               <dd class="font-bold text-slate-700" data-dato="intensidad">{{ lote.datos_comunes.intensidad_horaria }}</dd>
             </div>
+            <div v-if="lote.datos_comunes.modalidad">
+              <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Modalidad</dt>
+              <dd class="font-bold text-slate-700 break-words" data-dato="modalidad">{{ lote.datos_comunes.modalidad }}</dd>
+            </div>
+            <div v-if="lote.datos_comunes.ciudad">
+              <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Ciudad</dt>
+              <dd class="font-bold text-slate-700 break-words" data-dato="ciudad">{{ lote.datos_comunes.ciudad }}</dd>
+            </div>
+            <div v-if="lote.datos_comunes.texto_certificacion" class="sm:col-span-2 xl:col-span-3">
+              <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Texto de certificación</dt>
+              <dd class="font-semibold text-slate-700 whitespace-pre-line break-words" data-dato="texto-certificacion">{{ lote.datos_comunes.texto_certificacion }}</dd>
+            </div>
+            <div v-if="lote.datos_comunes.texto_complementario" class="sm:col-span-2 xl:col-span-3">
+              <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Texto complementario</dt>
+              <dd class="font-semibold text-slate-700 whitespace-pre-line break-words" data-dato="texto-complementario">{{ lote.datos_comunes.texto_complementario }}</dd>
+            </div>
             <div>
               <dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Plantilla</dt>
               <dd class="font-bold text-slate-700 inline-flex items-center gap-1.5">

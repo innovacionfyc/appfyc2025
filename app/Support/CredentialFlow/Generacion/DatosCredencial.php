@@ -24,6 +24,11 @@ final readonly class DatosCredencial
             'evento' => 'GESTIÓN INTEGRAL DE PROPIEDAD HORIZONTAL',
             'fecha' => '29 DE SEPTIEMBRE DE 2026',
             'intensidad_horaria' => '16 HORAS',
+            // Ejemplos ficticios para probar el diseño en el editor; nunca se usan para emitir.
+            'modalidad' => 'Virtual-Sincrónico y Remoto',
+            'texto_certificacion' => 'Texto de certificación aprobado por el administrador para este evento.',
+            'texto_complementario' => 'Texto complementario aprobado por el administrador para este evento.',
+            'ciudad' => 'BOGOTÁ D.C.',
         ]);
     }
 
@@ -49,7 +54,12 @@ final readonly class DatosCredencial
             }
             $nfc = \Normalizer::normalize($valor, \Normalizer::FORM_C);
             $valor = $nfc === false ? $valor : $nfc;
-            if (preg_match('/\p{Cc}/u', $valor) === 1) {
+            // Solo los textos largos configurables admiten saltos de línea (\n); en el resto cualquier carácter de control es un error.
+            $saltos = CamposDinamicos::admiteSaltosDeLinea($clave);
+            if ($saltos) {
+                $valor = str_replace("\r\n", "\n", $valor);
+            }
+            if (preg_match($saltos ? '/[^\P{Cc}\n]/u' : '/\p{Cc}/u', $valor) === 1) {
                 throw GeneracionCredencialException::con(GeneracionCredencialException::DATO_INVALIDO, "El dato «{$etiqueta}» tiene caracteres de control no permitidos.");
             }
             $max = $catalogo[$clave]['maxLongitud'];

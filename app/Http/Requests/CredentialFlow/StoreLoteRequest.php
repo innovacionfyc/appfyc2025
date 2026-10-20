@@ -37,6 +37,11 @@ class StoreLoteRequest extends FormRequest
             'evento' => ['required', 'string'],
             'fecha' => ['required', 'string'],
             'intensidad_horaria' => ['required', 'string'],
+            // Opcionales: solo se guardan si vienen con contenido (ver ValidadorDatosComunes).
+            'modalidad' => ['nullable', 'string', 'max:2000'],
+            'ciudad' => ['nullable', 'string', 'max:2000'],
+            'texto_certificacion' => ['nullable', 'string', 'max:5000'],
+            'texto_complementario' => ['nullable', 'string', 'max:5000'],
             'archivo' => ['required', 'file'],
             // Evento elegido (o creado) ANTES de importar: la base queda asociada sola.
             'evento_id' => ['nullable', 'integer'],
@@ -92,7 +97,7 @@ class StoreLoteRequest extends FormRequest
                 $validator->errors()->add('nombre', 'El nombre de la base es obligatorio.');
             }
 
-            $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::CAMPOS));
+            $comunes = ValidadorDatosComunes::validar($this->only(ValidadorDatosComunes::todos()));
             foreach ($comunes['errores'] as $campo => $mensaje) {
                 $validator->errors()->add($campo, $mensaje);
             }

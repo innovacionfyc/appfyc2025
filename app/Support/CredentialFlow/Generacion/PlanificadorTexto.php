@@ -2,6 +2,7 @@
 
 namespace App\Support\CredentialFlow\Generacion;
 
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
 
@@ -128,7 +129,7 @@ final class PlanificadorTexto
             if ($ajuste['noCabe']) {
                 throw GeneracionCredencialException::con(
                     GeneracionCredencialException::NO_CABE,
-                    'El valor del campo no cabe en su caja aun reduciendo el tamaño al '.round(DisenoSchema::ESCALA_MINIMA_TEXTO_DINAMICO * 100).' %. Ensancha la caja o baja el tamaño.',
+                    'El valor del campo no cabe en su caja aun reduciendo el tamaño al '.round(DisenoSchema::ESCALA_MINIMA_TEXTO_DINAMICO * 100).' %. Ensancha la caja o baja el tamaño'.(CamposDinamicos::admiteSaltosDeLinea((string) $campo) ? ', o activa «varias líneas» en este elemento.' : '.'),
                     $id
                 );
             }

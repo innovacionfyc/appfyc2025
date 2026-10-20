@@ -188,15 +188,16 @@ final class ImportadorParticipantes
      *
      * @throws ImportacionInvalidaException
      */
-    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null): Lote
+    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null, ?string $hashOriginal = null, ?string $nombreOriginal = null): Lote
     {
         $resultado = $this->validar($archivo, $plantilla, $datosComunes);
         if (! $resultado->valido()) {
             throw new ImportacionInvalidaException($resultado);
         }
 
-        $hash = hash_file('sha256', $archivo->getRealPath());
-        $nombreArchivo = self::sanearNombre($archivo->getClientOriginalName());
+        // La importación inteligente valida un CSV revisado, generado desde el borrador, pero la base debe recordar el Excel ORIGINAL (para detectar el mismo archivo).
+        $hash = $hashOriginal ?? hash_file('sha256', $archivo->getRealPath());
+        $nombreArchivo = self::sanearNombre($nombreOriginal ?? $archivo->getClientOriginalName());
         $usuario = Auth::id();
 
         return DB::transaction(function () use ($resultado, $plantilla, $nombre, $descripcion, $datosComunes, $hash, $nombreArchivo, $usuario, $eventoId) {
