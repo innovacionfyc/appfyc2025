@@ -409,6 +409,13 @@ final class Borrador
                 'sesion' => $valor('sesion'),
                 'observaciones' => $valor('observaciones'),
                 'posible_qa' => $p['posible_qa'] ?? null,
+                // Lo que decía el Excel, tal cual, para comparar con lo corregido.
+                'originales' => [
+                    'nombre_completo' => is_array($campo('nombre_completo')) ? ($campo('nombre_completo')['original'] ?? null) : null,
+                    'documento' => is_array($campo('documento')) ? ($campo('documento')['original'] ?? null) : null,
+                    'correo' => is_array($campo('correo')) ? ($campo('correo')['original'] ?? null) : null,
+                    'tipo_documento' => is_array($tipoAnalizado) ? ($tipoAnalizado['original'] ?? null) : null,
+                ],
                 'corregidos' => $corregidos,
                 'valores_ambiguos' => $dudosos,
                 'valores_desactualizados' => $desactualizados,

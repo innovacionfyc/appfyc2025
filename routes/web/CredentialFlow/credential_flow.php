@@ -161,9 +161,12 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     // Cada POST/PUT lleva su PROPIO contador de límite (tercer parámetro de throttle).
     Route::prefix('importaciones')->name('importaciones.')->middleware([ImportacionInteligenteActiva::class, CabecerasAdminSensible::class])->group(function () {
         Route::get('/', [ImportacionInteligenteController::class, 'index'])->name('index');
+        Route::get('/asistente', [ImportacionInteligenteController::class, 'asistente'])->name('asistente');
         Route::post('/analizar', [ImportacionInteligenteController::class, 'analizar'])->middleware('throttle:10,1,cf-imp-analizar')->name('analizar');
         Route::get('/{importacion}', [ImportacionInteligenteController::class, 'show'])->whereNumber('importacion')->name('show');
         Route::put('/{importacion}/correcciones', [ImportacionInteligenteController::class, 'corregir'])->whereNumber('importacion')->middleware('throttle:60,1,cf-imp-corregir')->name('correcciones');
+        Route::get('/{importacion}/vista-previa', [ImportacionInteligenteController::class, 'vistaPrevia'])->whereNumber('importacion')->middleware('throttle:60,1,cf-imp-vista')->name('vista-previa');
+        Route::get('/{importacion}/vista-previa/pdf', [ImportacionInteligenteController::class, 'vistaPreviaPdf'])->whereNumber('importacion')->middleware('throttle:20,1,cf-imp-vista-pdf')->name('vista-previa.pdf');
         Route::post('/{importacion}/validar', [ImportacionInteligenteController::class, 'validar'])->whereNumber('importacion')->middleware('throttle:30,1,cf-imp-validar')->name('validar');
         Route::post('/{importacion}/confirmar', [ImportacionInteligenteController::class, 'confirmar'])->whereNumber('importacion')->middleware('throttle:6,1,cf-imp-confirmar')->name('confirmar');
         Route::post('/{importacion}/rechazar', [ImportacionInteligenteController::class, 'rechazar'])->whereNumber('importacion')->middleware('throttle:20,1,cf-imp-rechazar')->name('rechazar');

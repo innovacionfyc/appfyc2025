@@ -31,7 +31,7 @@ final class ExcelSolicitud
     }
 
     /**
-     * @param  array{documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, linea_evento?: string, sin_importrange?: bool}  $opc
+     * @param  array{documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, nombres?: array<int,string>, observaciones?: array<int,string>, linea_evento?: string, sin_importrange?: bool}  $opc
      */
     public static function bytes(int $personas = 17, array $opc = []): string
     {
@@ -53,10 +53,13 @@ final class ExcelSolicitud
             $c['B'.$f] = $i;
             $doc = $opc['documentos'][$i] ?? null;
             $c['C'.$f] = $doc !== null ? $doc : ['f' => self::reserva((string) ($base + $i)), 't' => 'n', 'v' => (string) ($base + $i)];
-            $c['D'.$f] = self::soloReserva(sprintf('PERSONA %02d PRUEBA', $i));
+            $c['D'.$f] = self::soloReserva($opc['nombres'][$i] ?? sprintf('PERSONA %02d PRUEBA', $i));
             $c['E'.$f] = self::texto($opc['correos'][$i] ?? sprintf('persona%02d@example.test', $i));
             $c['F'.$f] = $i % 2 === 0;
             $c['G'.$f] = self::texto($cupo ? 'Cupos' : 'Completo');
+            if (isset($opc['observaciones'][$i])) {
+                $c['J'.$f] = $opc['observaciones'][$i];
+            }
             if ($cupo) {
                 $c['I'.$f] = self::texto('X');
             } else {

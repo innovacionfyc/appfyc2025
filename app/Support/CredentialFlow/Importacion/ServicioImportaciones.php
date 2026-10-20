@@ -291,7 +291,9 @@ final class ServicioImportaciones
             }
             foreach (array_slice($resultado->errores, 0, 200) as $e) {
                 $filaExcel = $e->fila !== null && $e->fila >= 2 ? ($incluidos[$e->fila - 2]['fila'] ?? null) : null;
-                $bloquear('fila_invalida', $e->mensaje, ['fila' => $filaExcel, 'campo' => $e->columna, 'error' => $e->codigo]);
+                // El importador cuenta las líneas del CSV revisado (encabezado = 1): en el mensaje se muestran como filas del EXCEL, que es lo que ve el administrador.
+                $mensaje = preg_replace_callback('/\bfila (\d+)\b/u', fn ($m) => 'fila '.($incluidos[(int) $m[1] - 2]['fila'] ?? $m[1]), $e->mensaje) ?? $e->mensaje;
+                $bloquear('fila_invalida', $mensaje, ['fila' => $filaExcel, 'campo' => $e->columna, 'error' => $e->codigo]);
             }
             if (count($resultado->errores) > 200) {
                 $bloquear('fila_invalida', 'Hay más de 200 errores: corrige los primeros y vuelve a validar.');
@@ -328,7 +330,10 @@ final class ServicioImportaciones
         ];
 
         return [
+            // `bloqueos` son SOLO los pendientes que impiden CREAR la base. `pendientes_para_emitir` son los que NO la impiden (la base se crea igual), pero la persona no
+            // podrá recibir su certificado oficial hasta que se resuelvan.
             'listo' => $bloqueos === [], 'bloqueos' => $bloqueos, 'avisos' => $avisos, 'resumen' => $resumen,
+            'pendientes_para_emitir' => ['tipo_documento' => $resumen['tipo_documento_por_confirmar'], 'elegibilidad' => $resumen['pendientes'], 'no_elegibles' => $resumen['no_elegibles'], 'asistencia_cupo' => $resumen['asistencia_cupo']],
             'plan' => ['plantilla' => $plantilla, 'evento' => $evento, 'decision' => $decision, 'nombre_evento' => $nombreEvento, 'comunes' => $finales, 'incluidos' => $incluidos, 'propuesta_evento' => $propuesta],
         ];
     }
@@ -356,8 +361,35 @@ final class ServicioImportaciones
             'datos_comunes' => $analisis === [] ? [] : Borrador::datosComunes($analisis, $corr),
             'plantilla_id' => $corr['plantilla_id'], 'nombre_base' => $corr['nombre_base'], 'confirmados' => $corr['confirmados'],
             'participantes' => $analisis === [] ? [] : Borrador::participantes($analisis, $corr),
+            'avisos_generales' => $analisis === [] ? null : $this->avisosGenerales($analisis),
             'validacion' => $evaluacion,
         ];
+    }
+
+    /**
+     * Avisos que la pantalla agrupa en una sola tarjeta (en vez de uno por dato): cuántos valores vienen de fórmulas que pueden estar desactualizadas
+     * (por ejemplo `IMPORTRANGE` de Google Sheets) y si hay observaciones del Excel que NO se conservarán en la base.
+     *
+     * @param  array<string,mixed>  $analisis
+     * @return array{desactualizables_evento: int, desactualizables_participantes: int, observaciones_no_se_conservan: bool}
+     */
+    private function avisosGenerales(array $analisis): array
+    {
+        $evento = count(array_filter($analisis['evento'] ?? [], fn ($v) => is_array($v) && ($v['desactualizable'] ?? false) === true));
+        $participantes = 0;
+        $observaciones = false;
+        foreach ($analisis['tabla']['participantes'] ?? [] as $p) {
+            foreach ($p['campos'] ?? [] as $campo => $v) {
+                if (is_array($v) && ($v['desactualizable'] ?? false) === true) {
+                    $participantes++;
+                }
+                if ($campo === 'observaciones' && is_array($v) && ($v['valor'] ?? null) !== null) {
+                    $observaciones = true;
+                }
+            }
+        }
+
+        return ['desactualizables_evento' => $evento, 'desactualizables_participantes' => $participantes, 'observaciones_no_se_conservan' => $observaciones];
     }
 
     // ================================================================= confirmar

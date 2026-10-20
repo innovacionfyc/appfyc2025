@@ -34,6 +34,10 @@ final class ImportacionException extends RuntimeException
 
     public const IMPORTACION_INVALIDA = 'IMPORTACION_INVALIDA';
 
+    public const VISTA_PREVIA_SIN_PLANTILLA = 'VISTA_PREVIA_SIN_PLANTILLA';
+
+    public const VISTA_PREVIA_DATOS_INCOMPLETOS = 'VISTA_PREVIA_DATOS_INCOMPLETOS';
+
     /** @param  array<int|string,mixed>  $detalles */
     public function __construct(
         public readonly string $codigo,

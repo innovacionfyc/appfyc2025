@@ -13,6 +13,7 @@ import { ArrowLeft, Download, CircleAlert, RotateCcw, LayoutTemplate } from "luc
 
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
+  importacion_inteligente: { type: Boolean, default: false }, // enlace al asistente; solo si la bandera está encendida
   limites: { type: Object, default: () => ({ archivoMb: 2, filas: 1000 }) },
   eventos: { type: Array, default: () => [] }, // eventos de Credential Flow: primero se elige (o se crea) el evento y luego se importan sus participantes
   evento_seleccionado: { type: Number, default: null },
@@ -163,6 +164,16 @@ const headerStats = computed(() => [
           </Link>
         </template>
       </DashboardHeader>
+
+      <Link
+        v-if="importacion_inteligente"
+        :href="route('credential-flow.importaciones.asistente')"
+        class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-vinotinto/30 bg-primary-vinotinto/5 px-5 py-4 transition-colors hover:bg-primary-vinotinto/10"
+        data-enlace-asistente
+      >
+        <span class="text-sm font-extrabold text-primary-vinotinto">Nuevo · Importación inteligente</span>
+        <span class="text-[13px] font-semibold text-slate-600">Sube el Excel original del cliente y revisa los datos paso a paso.</span>
+      </Link>
 
       <!-- Sin plantillas con diseño -->
       <div v-if="plantillas.length === 0" class="mt-8 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center py-16 px-6 space-y-3" data-sin-plantillas>

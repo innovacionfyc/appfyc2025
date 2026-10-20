@@ -4,14 +4,24 @@ namespace App\Http\Controllers\CredentialFlow;
 
 use App\Http\Controllers\Controller;
 use App\Models\CredentialFlow\Importacion;
+use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
+use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Importacion\ImportacionException;
 use App\Support\CredentialFlow\Importacion\ServicioImportaciones;
+use App\Support\CredentialFlow\Importacion\VistaPreviaImportacion;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Participantes\LectorArchivo;
+use App\Support\CredentialFlow\Qa\AdministradorContactosQa;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
@@ -21,7 +31,70 @@ use Throwable;
  */
 class ImportacionInteligenteController extends Controller
 {
-    public function __construct(private readonly ServicioImportaciones $servicio) {}
+    public function __construct(private readonly ServicioImportaciones $servicio, private readonly VistaPreviaImportacion $vistaPrevia) {}
+
+    /**
+     * Pantalla del asistente (F4): subir el Excel → revisar → vista previa → confirmar. Solo entrega lo que la pantalla necesita para empezar; los datos del borrador
+     * (personales) se piden después por la API, que comprueba la propiedad del borrador.
+     */
+    public function asistente(Request $request): InertiaResponse
+    {
+        $this->servicio->limpiar();
+        $plantillas = Plantilla::query()->whereNotNull('diseno')
+            ->when(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa'), fn ($q) => $q->where('es_plantilla_qa', false))
+            ->latest()->get(['id', 'nombre', 'diseno'])
+            ->filter(fn (Plantilla $p) => ServicioVistaPrevia::plantillaValida($p))
+            ->map(fn (Plantilla $p) => ['id' => $p->id, 'nombre' => $p->nombre])->values();
+        $borradores = Importacion::query()->where('usuario_id', $request->user()->id)->where('estado', Importacion::EN_REVISION)->orderByDesc('id')->limit(10)
+            ->get(['id', 'version', 'archivo_nombre', 'resumen', 'expira_at', 'created_at'])
+            ->map(fn (Importacion $i) => [
+                'id' => $i->id, 'archivo' => $i->archivo_nombre, 'participantes' => $i->resumen['participantes'] ?? null,
+                'expira_at' => $i->expira_at?->toIso8601String(), 'creado_at' => $i->created_at?->toIso8601String(),
+            ])->values();
+
+        return Inertia::render('CredentialFlow/Importacion/Asistente', [
+            'plantillas' => $plantillas,
+            'borradores' => $borradores,
+            'borrador_id' => $request->integer('borrador') ?: null,
+            'limites' => ['archivoMb' => LectorArchivo::ARCHIVO_MAX_BYTES / 1024 / 1024, 'filas' => LectorArchivo::FILAS_MAX, 'retencionDias' => (int) config('credential_flow.importacion_inteligente.retencion_dias', 7)],
+            'qa' => config('credential_flow.qa.automatico', true) ? app(AdministradorContactosQa::class)->catalogoListo() : ['listo' => true, 'motivos' => [], 'activos' => 0, 'esperados' => 0],
+            'qa_automatico' => (bool) config('credential_flow.qa.automatico', true),
+        ]);
+    }
+
+    /** Datos que se imprimirían y qué falta para dibujar el PDF. Solo lee. */
+    public function vistaPrevia(Request $request, Importacion $importacion): JsonResponse
+    {
+        $this->propio($request, $importacion);
+
+        return $this->proteger(function () use ($request, $importacion) {
+            $fresco = Importacion::query()->findOrFail($importacion->id);
+
+            return response()->json(['vista_previa' => $this->vistaPrevia->datos($fresco, $request->integer('fila') ?: null)]);
+        }, 'vista previa');
+    }
+
+    /** PDF de vista previa (no es un certificado emitido: no se guarda, no tiene código oficial ni emisión). */
+    public function vistaPreviaPdf(Request $request, Importacion $importacion): Response
+    {
+        $this->propio($request, $importacion);
+
+        return $this->proteger(function () use ($request, $importacion) {
+            $fresco = Importacion::query()->findOrFail($importacion->id);
+            try {
+                $bytes = $this->vistaPrevia->pdf($fresco, $request->integer('fila') ?: null);
+            } catch (GeneracionCredencialException $e) {
+                return response()->json(['error' => ['code' => $e->codigo, 'message' => $e->getMessage()]], 422);
+            }
+
+            return response($bytes, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="vista-previa.pdf"',
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }, 'vista previa pdf');
+    }
 
     /** Mis borradores en revisión (solo resumen, sin datos personales). */
     public function index(Request $request): JsonResponse
@@ -123,7 +196,7 @@ class ImportacionInteligenteController extends Controller
         abort_unless($importacion->usuario_id === $request->user()->id, 404);
     }
 
-    private function proteger(callable $accion, string $operacion): JsonResponse
+    private function proteger(callable $accion, string $operacion): Response
     {
         try {
             return $accion();
