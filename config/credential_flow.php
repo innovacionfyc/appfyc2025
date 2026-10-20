@@ -94,6 +94,16 @@ return [
         'exige_vista_previa' => (bool) env('CREDENTIAL_FLOW_EXIGE_VISTA_PREVIA', true),
     ],
 
+    // Importación inteligente de certificados desde el Excel original (F3). APAGADA por defecto: con el interruptor en false las rutas nuevas responden 404 y el
+    // procedimiento de siempre (Nueva base) no cambia. Los borradores guardan datos personales CIFRADOS y se borran al confirmar, rechazar o vencer:
+    // `retencion_dias` es la vigencia de un borrador sin confirmar y `conservar_metadatos_dias` cuánto se conserva la fila (sin datos personales) de los terminados.
+    // La limpieza es el comando `credential-flow:importaciones-limpiar` (programado a diario; que corra solo depende del cron `schedule:run` del servidor).
+    'importacion_inteligente' => [
+        'activa' => (bool) env('CREDENTIAL_FLOW_IMPORTACION_INTELIGENTE', false),
+        'retencion_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_RETENCION_DIAS', 7),
+        'conservar_metadatos_dias' => (int) env('CREDENTIAL_FLOW_IMPORTACION_METADATOS_DIAS', 30),
+    ],
+
     'qa' => [
         'automatico' => (bool) env('CREDENTIAL_FLOW_QA_AUTOMATICO', true),
         // Cuántos contactos oficiales debe tener el catálogo al inicializarlo desde las bases QA (se comprueba antes de cargar nada).
