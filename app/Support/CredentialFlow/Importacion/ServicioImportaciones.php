@@ -9,6 +9,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Eventos\AsociacionAmbiguaException;
@@ -353,8 +354,17 @@ final class ServicioImportaciones
             }
         }
         $finales = $validacion['datos'];
-        if ($plantilla !== null && ($faltan = DatosRequeridos::faltantes($plantilla->diseno, $finales)) !== []) {
+        // La modalidad puede venir POR PERSONA (columna «Modalidad» del Excel): la general de la base solo hace falta para quien no tenga la suya. Nunca se inventa.
+        $aImportar = array_values(array_filter($participantes, fn ($p) => ! $p['excluir']));
+        $sinModalidad = array_values(array_filter($aImportar, fn ($p) => trim((string) ($p['modalidad'] ?? '')) === ''));
+        $conPropia = $aImportar !== [] && count($sinModalidad) < count($aImportar);
+        if ($plantilla !== null && ($faltan = DatosRequeridos::faltantes($plantilla->diseno, $finales, $conPropia)) !== []) {
             $bloquear('datos_del_diseno_incompletos', 'La plantilla imprime '.implode(', ', array_map(fn ($e) => "«{$e}»", $faltan)).' y el borrador no tiene ese dato.', ['campos' => $faltan]);
+        }
+        if ($plantilla !== null && $conPropia && $sinModalidad !== [] && trim((string) ($finales['modalidad'] ?? '')) === '' && in_array('modalidad', DisenoSchema::camposUsados($plantilla->diseno), true)) {
+            $n = count($sinModalidad);
+            $bloquear('modalidad_faltante', ($n === 1 ? 'Una persona no tiene' : "{$n} personas no tienen").' modalidad y la base no tiene una general: escríbela en cada una o como modalidad general de la base. Nunca se completa sola.',
+                ['filas' => array_map(fn ($p) => $p['fila'], array_slice($sinModalidad, 0, 200))]);
         }
 
         // ── Participantes ────────────────────────────────────────────────────
@@ -372,6 +382,10 @@ final class ServicioImportaciones
             $t = $p['intensidad_horaria'];
             if ($t !== null && (Texto::tieneControl($t) || mb_strlen($t) > 255 || ValidadorParticipante::noSoportados($t) !== [])) {
                 $bloquear('intensidad_individual_invalida', 'La intensidad horaria individual no se puede imprimir.', ['fila' => $p['fila']]);
+            }
+            $m = $p['modalidad'] ?? null;
+            if ($m !== null && (Texto::tieneControl($m) || mb_strlen($m) > 120 || ValidadorParticipante::noSoportados($m) !== [])) {
+                $bloquear('modalidad_individual_invalida', 'La modalidad de esta persona no se puede imprimir.', ['fila' => $p['fila']]);
             }
         }
 
@@ -431,6 +445,8 @@ final class ServicioImportaciones
             'con_valores_desactualizados' => count(array_filter($incluidos, fn ($p) => $p['valores_desactualizados'] !== [])),
             'con_valores_ambiguos' => count(array_filter($incluidos, fn ($p) => $p['valores_ambiguos'] !== [])),
             'asistencia_cupo' => count(array_filter($incluidos, fn ($p) => $p['senal'] === 'cupo')),
+            // Cuántas personas hay de cada modalidad propia (vacío si el Excel no trae modalidad por persona).
+            'por_modalidad' => array_count_values(array_values(array_filter(array_map(fn ($p) => $p['modalidad'] ?? null, $incluidos), fn ($m) => is_string($m) && $m !== ''))),
         ];
 
         return [
@@ -543,12 +559,14 @@ final class ServicioImportaciones
                 // Va ANTES de incorporar los QA, que no tienen fila de origen.
                 $idsPorPosicion = FilasDeOrigen::asignar($lote->id, $plan['incluidos']);
                 foreach ($plan['incluidos'] as $i => $p) {
-                    if ($p['intensidad_horaria'] !== null) {
-                        Participante::query()->whereKey($idsPorPosicion[$i])->update(['intensidad_horaria' => $p['intensidad_horaria']]);
+                    $propios = array_filter(['intensidad_horaria' => $p['intensidad_horaria'], 'modalidad' => $p['modalidad'] ?? null], fn ($v) => $v !== null && $v !== '');
+                    if ($propios !== []) {
+                        Participante::query()->whereKey($idsPorPosicion[$i])->update($propios);
                     }
                 }
 
                 $this->incorporarQa($lote, $usuarioId);
+                $this->trasladarVistaPrevia($lote, $corr, $plan);
 
                 $actual->update([
                     'estado' => Importacion::CONFIRMADO, 'lote_id' => $lote->id, 'clave_activa' => null, 'confirmado_at' => now(), 'confirmado_por' => $usuarioId,
@@ -565,6 +583,30 @@ final class ServicioImportaciones
                 @unlink($archivo->getRealPath());
             }
         }
+    }
+
+    /**
+     * Si el administrador ya VIO el PDF en el asistente con ESTA plantilla (mismo diseño y PDF base) y con ESTOS datos de la base, y después confirmó crearla,
+     * la base nace con la vista previa revisada y confirmada: no se le pide la misma revisión dos veces. Si cambió algo (otra plantilla, diseño editado, otros
+     * datos del certificado) o nunca abrió el PDF, la base la pide como siempre. Cambios posteriores de la plantilla la vuelven a exigir (ServicioVistaPrevia).
+     *
+     * @param  array<string,mixed>  $corr
+     * @param  array<string,mixed>  $plan
+     */
+    private function trasladarVistaPrevia(Lote $lote, array $corr, array $plan): void
+    {
+        $vp = $corr['vista_previa'] ?? null;
+        $plantilla = $plan['plantilla'] ?? null;
+        if (! is_array($vp) || ! $plantilla instanceof Plantilla || (int) ($vp['plantilla_id'] ?? 0) !== $plantilla->id
+            || ! hash_equals((string) ($vp['huella'] ?? ''), ServicioVistaPrevia::huella($plantilla))
+            || ! hash_equals((string) ($vp['datos'] ?? ''), VistaPreviaImportacion::huellaDatos($plan['comunes']))) {
+            return;
+        }
+        $lote->forceFill([
+            'vista_previa_generada_at' => now(), 'vista_previa_confirmada_at' => now(),
+            'vista_previa_plantilla_id' => $plantilla->id, 'vista_previa_huella' => ServicioVistaPrevia::huella($plantilla),
+        ])->save();
+        Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'La vista previa revisada en la importación inteligente quedó confirmada para la base', extra: ['lote_id' => $lote->id, 'plantilla_id' => $plantilla->id]);
     }
 
     /**

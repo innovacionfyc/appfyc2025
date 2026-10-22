@@ -158,6 +158,9 @@ final class EmisorCredencial
                     }
                 } elseif (Emision::where('participante_id', $bloqueado->id)->where('estado', Emision::EMITIDA)->exists()) {
                     throw $this->yaVigente();
+                } elseif ($alCrear === null && ! $bloqueado->es_control_qa) {
+                    // Primera emisión oficial: nadie se certifica dos veces en el mismo evento desde otra base (la reemisión y el reemplazo histórico no pasan por aquí).
+                    DuplicadosEnEvento::exigir($loteActual, [$bloqueado]);
                 }
 
                 if (! hash_equals($snapshot->huella, SnapshotCredencial::huella($bloqueado, $loteActual, $plantillaActual))) {

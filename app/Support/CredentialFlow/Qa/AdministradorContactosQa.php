@@ -59,13 +59,15 @@ final class AdministradorContactosQa
             ->groupBy('documento_clave');
 
         return $contactos->map(function (ContactoQa $c) use ($porDocumento, $porCorreo, $enBases) {
-            $bases = ($enBases[$c->documento_clave] ?? collect())->map(function ($b) use ($c) {
+            // Una base con modalidades por persona tiene al contacto una vez POR MODALIDAD: se lista la base una sola vez.
+            $bases = ($enBases[$c->documento_clave] ?? collect())->groupBy('lote_id')->map(function ($filas) use ($c) {
+                $b = $filas->first();
                 $comunes = is_string($b->datos_comunes) ? (json_decode($b->datos_comunes, true) ?: []) : (array) $b->datos_comunes;
 
                 return [
                     'lote_id' => (int) $b->lote_id, 'nombre' => $b->lote_nombre, 'evento' => $comunes['evento'] ?? null,
-                    // ¿La fila de la base coincide con el catálogo? Si no, se informa; jamás se corrige sola.
-                    'coincide' => $this->mismoNombre((string) $b->nombre_completo, $c->nombre_completo) && (string) $b->correo_normalizado === $c->correo_normalizado,
+                    // ¿Las filas de la base coinciden con el catálogo? Si no, se informa; jamás se corrige sola.
+                    'coincide' => $filas->every(fn ($f) => $this->mismoNombre((string) $f->nombre_completo, $c->nombre_completo) && (string) $f->correo_normalizado === $c->correo_normalizado),
                 ];
             })->values()->all();
 

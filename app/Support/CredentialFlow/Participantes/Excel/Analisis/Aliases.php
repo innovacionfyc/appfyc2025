@@ -40,6 +40,8 @@ final class Aliases
         'observaciones' => ['observacionesocomentariosadicionales', 'observaciones', 'observacion', 'comentarios', 'notas'],
         'elegibilidad' => ['estadodecertificacion', 'estadodeasistencia', 'elegibilidad', 'asistencia', 'estado'],
         'intensidad_individual' => ['intensidadhorariaindividual', 'intensidadindividual', 'horasindividuales', 'horascertificadas'],
+        // Modalidad de CADA persona (un mismo Excel puede traer presenciales y virtuales). Se conserva literal; nunca se traduce ni se inventa.
+        'modalidad' => ['modalidaddeparticipacion', 'modalidaddeasistencia', 'modalidadasistida', 'modalidaddelevento', 'modalidad'],
         'item' => ['consecutivo', 'item', 'numero', 'no', 'n'],
     ];
 

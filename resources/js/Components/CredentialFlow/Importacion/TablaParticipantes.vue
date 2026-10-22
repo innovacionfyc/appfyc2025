@@ -32,6 +32,7 @@ const FILTROS = [
   { id: "faltan", etiqueta: "Faltan datos", test: (p) => !p.excluir && (p.faltan.length > 0 || !p.correo) },
   { id: "completo", etiqueta: "Completo", test: (p) => !p.excluir && p.senal === "completo" },
   { id: "cupos", etiqueta: "Cupos", test: (p) => !p.excluir && p.senal === "cupo" },
+  { id: "sin_modalidad", etiqueta: "Sin modalidad", test: (p) => mostrarModalidad.value && !p.excluir && !String(p.modalidad ?? "").trim(), solo: () => mostrarModalidad.value },
   { id: "excluidos", etiqueta: "Excluidos", test: (p) => p.excluir },
   { id: "seleccionadas", etiqueta: "Seleccionadas", test: (p) => a.seleccion.value.has(p.fila) && a.esSeleccionable(p) },
 ];
@@ -54,12 +55,21 @@ watch([busqueda, filtro], () => (visibles.value = LOTE));
 const erroresServidor = computed(() => {
   const m = {};
   for (const b of a.validacion.value?.bloqueos ?? []) {
-    if (b.fila != null && ["fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida"].includes(b.codigo)) (m[b.fila] ??= []).push(b.mensaje);
+    if (b.fila != null && ["fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida", "modalidad_individual_invalida"].includes(b.codigo)) (m[b.fila] ??= []).push(b.mensaje);
   }
   return m;
 });
 
 const mostrarIntensidad = computed(() => a.participantes.value.some((p) => p.intensidad_horaria) || Object.values(a.edicion.participantes).some((c) => "intensidad_horaria" in c));
+// La modalidad POR PERSONA se muestra cuando el Excel la trae (columna «Modalidad») o cuando ya escribiste alguna.
+const mostrarModalidad = computed(() => a.participantes.value.some((p) => p.modalidad || p.originales?.modalidad != null) || Object.values(a.edicion.participantes).some((c) => "modalidad" in c));
+// Cuántas personas hay de cada modalidad (solo las que se importarán): «8 Presencial · 2 Virtual».
+const porModalidad = computed(() => {
+  const n = {};
+  for (const p of a.participantes.value) if (!p.excluir && String(p.modalidad ?? "").trim()) n[p.modalidad] = (n[p.modalidad] ?? 0) + 1;
+  return Object.entries(n);
+});
+const filtrosVisibles = computed(() => FILTROS.filter((f) => !f.solo || f.solo()));
 const error = (fila, campo) => a.erroresCampo[`${fila}:${campo}`];
 const aviso = (c) => AVISOS_FILA[c] ?? c;
 // Los avisos de la fila: los que no tienen su propio lugar en la pantalla (el tipo por confirmar tiene su filtro; los datos desactualizados, su tarjeta).
@@ -116,6 +126,9 @@ watch(
         <p class="text-[13px] font-semibold text-slate-500">
           {{ a.resumenParticipantes.value.completos }} con asistencia «Completo» · {{ a.resumenParticipantes.value.cupos }} «Cupos» · ninguno es elegible hasta que tú lo decidas.
         </p>
+        <p v-if="porModalidad.length" class="text-[13px] font-extrabold text-slate-700" data-resumen-modalidades>
+          Modalidad de cada persona: <span v-for="([m, n], i) in porModalidad" :key="m">{{ i ? " · " : "" }}{{ n }} {{ m }}</span>
+        </p>
       </div>
       <div class="relative w-full sm:w-72">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
@@ -139,7 +152,7 @@ watch(
 
     <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar participantes">
       <button
-        v-for="f in FILTROS"
+        v-for="f in filtrosVisibles"
         :key="f.id"
         type="button"
         :aria-pressed="filtro === f.id"
@@ -184,6 +197,7 @@ watch(
             <p class="text-[12.5px] font-semibold text-slate-500 break-words">Documento {{ p.documento || "—" }} · fila {{ p.fila }} del Excel</p>
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ring-1" :class="(ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).clase" :data-asistencia="p.senal">{{ (ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).etiqueta }}</span>
+              <span v-if="mostrarModalidad && !p.excluir" class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ring-1" :class="String(p.modalidad ?? '').trim() ? 'bg-violet-50 text-violet-700 ring-violet-200' : 'bg-amber-50 text-amber-800 ring-amber-300'" :data-modalidad-fila="p.fila">{{ String(p.modalidad ?? "").trim() || "Sin modalidad" }}</span>
               <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ring-1" :class="p.elegibilidad === 'elegible' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : p.elegibilidad === 'no_elegible' ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-slate-100 text-slate-600 ring-slate-200'" :data-estado-elegibilidad="p.elegibilidad">{{ ELEGIBILIDADES.find((e) => e.valor === p.elegibilidad)?.etiqueta ?? p.elegibilidad }}</span>
               <span v-if="p.excluir" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-extrabold text-slate-500"><UserX class="w-3 h-3" aria-hidden="true" /> No se importará</span>
               <span v-if="erroresServidor[p.fila]" class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-black text-rose-700 ring-1 ring-rose-200" data-con-problema>Hay un dato por corregir</span>
@@ -236,6 +250,11 @@ watch(
             <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black ring-1" :class="(ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).clase" :data-asistencia="p.senal">{{ (ASISTENCIA[p.senal] ?? ASISTENCIA.sin_senal).etiqueta }}</span>
           </div>
 
+          <div v-if="mostrarModalidad" class="ficha-c3">
+            <label :for="`m-${p.fila}`" :class="etiqueta">Modalidad</label>
+            <input :id="`m-${p.fila}`" type="text" maxlength="120" :value="p.modalidad ?? ''" :disabled="p.excluir" placeholder="Por ejemplo «Presencial»" data-campo-fila="modalidad" :class="[entrada, !String(p.modalidad ?? '').trim() && !p.excluir ? 'border-amber-400 bg-amber-50' : '']" @input="a.editarFila(p.fila, 'modalidad', $event.target.value === '' ? null : $event.target.value)" />
+          </div>
+
           <div class="ficha-c3">
             <label :for="`e-${p.fila}`" :class="etiqueta">Elegibilidad</label>
             <select :id="`e-${p.fila}`" :value="p.elegibilidad" :disabled="p.excluir" data-campo-fila="elegibilidad" :class="entrada" :data-elegibilidad="p.fila" @change="a.editarFila(p.fila, 'elegibilidad', $event.target.value)">
@@ -259,6 +278,7 @@ watch(
               <dt class="font-black uppercase tracking-widest text-slate-400">Nombre</dt><dd class="break-words">{{ p.originales?.nombre_completo ?? "—" }}</dd>
               <dt class="font-black uppercase tracking-widest text-slate-400">Documento</dt><dd class="break-words">{{ p.originales?.documento ?? "—" }}</dd>
               <dt class="font-black uppercase tracking-widest text-slate-400">Correo</dt><dd class="break-words">{{ p.originales?.correo ?? "—" }}</dd>
+              <template v-if="mostrarModalidad"><dt class="font-black uppercase tracking-widest text-slate-400">Modalidad</dt><dd class="break-words">{{ p.originales?.modalidad ?? "—" }}</dd></template>
               <template v-if="p.sesion"><dt class="font-black uppercase tracking-widest text-slate-400">Sesión</dt><dd>{{ p.sesion }}</dd></template>
               <template v-if="p.observaciones"><dt class="font-black uppercase tracking-widest text-slate-400">Observaciones</dt><dd class="break-words">{{ p.observaciones }} <span class="text-amber-700">(no se guardará)</span></dd></template>
             </dl>

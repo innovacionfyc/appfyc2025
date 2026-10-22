@@ -33,7 +33,19 @@ final class DatosDeParticipante
                 $datos[$campo] = $comunes[$campo];
             }
         }
+        // La modalidad de la persona (un mismo Excel puede traer presenciales y virtuales) reemplaza a la de la base, igual que la intensidad individual.
+        if (($modalidad = self::modalidadPropia($participante)) !== null) {
+            $datos['modalidad'] = $modalidad;
+        }
 
         return DatosCredencial::fromArray($datos);
+    }
+
+    /** Modalidad propia de la persona, o null si usa la de la base. */
+    public static function modalidadPropia(Participante $participante): ?string
+    {
+        $m = trim((string) ($participante->modalidad ?? ''));
+
+        return $m === '' ? null : $m;
     }
 }

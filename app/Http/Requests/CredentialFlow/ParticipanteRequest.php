@@ -6,9 +6,11 @@ use App\Models\CredentialFlow\Participante;
 use App\Support\CredentialFlow\Participantes\CeldaCruda;
 use App\Support\CredentialFlow\Participantes\CorreosDeParticipante;
 use App\Support\CredentialFlow\Participantes\ResultadoFila;
+use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorParticipante;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Alta y edición manual de un participante. Usa EXACTAMENTE el mismo validador que la importación
@@ -38,6 +40,7 @@ class ParticipanteRequest extends FormRequest
             'correo' => ['nullable', 'string', 'max:600'],
             'elegibilidad' => ['nullable', 'in:'.implode(',', Participante::ELEGIBILIDADES)],
             'intensidad_horaria' => ['nullable', 'string', 'max:60', 'not_regex:/^[=+\-@]/'],
+            'modalidad' => ['nullable', 'string', 'max:120', 'not_regex:/^[=+\-@]/'],
             'elegibilidad_motivo' => ['nullable', 'string', 'max:255'],
             'tipo_documento_pendiente' => ['nullable', 'boolean'],
         ];
@@ -73,6 +76,8 @@ class ParticipanteRequest extends FormRequest
                     ->where('lote_id', $this->route('lote')->id)
                     ->where('documento_clave', $r->clave)
                     ->when($propio, fn ($q) => $q->where('id', '!=', $propio))
+                    // Un contacto QA aparece una vez por modalidad de la base: sus otras filas QA no son un duplicado.
+                    ->when($this->route('participante')?->es_control_qa, fn ($q) => $q->where('es_control_qa', false))
                     ->exists();
 
                 if ($duplicado) {
@@ -125,6 +130,11 @@ class ParticipanteRequest extends FormRequest
         if ($this->has('intensidad_horaria')) {
             $i = trim((string) $this->input('intensidad_horaria'));
             $datos['intensidad_horaria'] = $i === '' ? null : mb_substr($i, 0, 60);
+        }
+        // Modalidad propia (opcional): vacía = la general de la base. Se guarda literal (solo se limpian los espacios).
+        if ($this->has('modalidad') && Schema::hasColumn('cf_participantes', 'modalidad')) {
+            $m = Texto::limpiar((string) $this->input('modalidad'));
+            $datos['modalidad'] = $m === '' ? null : mb_substr($m, 0, 120);
         }
 
         // El tipo de documento se confirma eligiéndolo; sin tipo la persona queda «por confirmar» y no se emite. Solo si el formulario lo envía.

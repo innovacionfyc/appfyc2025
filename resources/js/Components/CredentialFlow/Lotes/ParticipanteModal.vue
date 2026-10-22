@@ -15,7 +15,7 @@ const emit = defineEmits(["close"]);
 
 const COLOR = "#942934";
 
-const form = useForm({ nombre_completo: "", documento: "", correo: "", elegibilidad: "elegible", intensidad_horaria: "", elegibilidad_motivo: "", tipo_documento_pendiente: true });
+const form = useForm({ nombre_completo: "", documento: "", correo: "", elegibilidad: "elegible", intensidad_horaria: "", modalidad: "", elegibilidad_motivo: "", tipo_documento_pendiente: true });
 
 // Tipo y número se piden por separado, pero se guardan juntos como siempre («C.C. 1.023.456.789»): la clave canónica, el portal y el OTP no cambian.
 const TIPOS = ["C.C.", "C.E.", "T.I.", "PASAPORTE", "NIT", "PEP", "PPT"];
@@ -64,6 +64,7 @@ watch(
     form.correo = props.participante?.correo ?? "";
     form.elegibilidad = props.participante?.elegibilidad ?? "elegible";
     form.intensidad_horaria = props.participante?.intensidad_horaria ?? "";
+    form.modalidad = props.participante?.modalidad ?? "";
     form.elegibilidad_motivo = props.participante?.elegibilidad_motivo ?? "";
     // Un participante nuevo queda «por confirmar» hasta elegir su tipo; uno existente conserva lo que ya tiene (editar otros datos no lo cambia).
     form.tipo_documento_pendiente = props.participante ? props.participante.tipo_documento_confirmado === false : true;
@@ -121,7 +122,8 @@ const submit = () => {
                 <FormInput v-model="form.elegibilidad" label="Estado de certificación" type="select" icon="verified" placeholder="Elige el estado" :options="opcionesElegibilidad" :activeColor="COLOR" :error="form.errors.elegibilidad" data-campo="elegibilidad" />
                 <FormInput v-if="requiereMotivo" v-model="form.elegibilidad_motivo" label="Motivo (queda en el historial)" type="text" icon="notes" placeholder="Ej: cupos — asistencia por validar" :max="255" :required="true" :activeColor="COLOR" :error="form.errors.elegibilidad_motivo" @clearError="form.clearErrors('elegibilidad_motivo')" data-campo="elegibilidad-motivo" />
                 <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria propia (opcional)" type="text" icon="schedule" placeholder="Déjalo vacío para usar la del evento" :max="60" :activeColor="COLOR" :error="form.errors.intensidad_horaria" @clearError="form.clearErrors('intensidad_horaria')" data-campo="intensidad-participante" />
-                <p class="text-[12px] font-semibold text-slate-400">Solo las personas «Elegibles» entran a la emisión oficial. Las pendientes o no elegibles nunca se emiten en masa. La intensidad propia es una excepción aprobada; no se inventan horas.</p>
+                <FormInput v-model="form.modalidad" label="Modalidad propia (opcional)" type="text" icon="devices" placeholder="Déjalo vacío para usar la de la base" :max="120" :activeColor="COLOR" :error="form.errors.modalidad" @clearError="form.clearErrors('modalidad')" data-campo="modalidad-participante" />
+                <p class="text-[12px] font-semibold text-slate-400">Solo las personas «Elegibles» entran a la emisión oficial. Las pendientes o no elegibles nunca se emiten en masa. La intensidad propia es una excepción aprobada; no se inventan horas. La modalidad propia se imprime tal cual (por ejemplo, «Presencial» o «Virtual»).</p>
               </div>
               <p class="text-[12px] font-semibold text-slate-400">
                 El nombre se guarda en mayúsculas. El documento se guarda tal como lo escribas (así se imprime).

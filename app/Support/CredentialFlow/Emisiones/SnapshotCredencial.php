@@ -116,9 +116,15 @@ final readonly class SnapshotCredencial
     /** Hash determinista de las entradas vivas que originan el snapshot. */
     public static function huella(Participante $participante, Lote $lote, Plantilla $plantilla): string
     {
+        $persona = ['id' => $participante->id, 'lote_id' => $participante->lote_id, 'nombre_completo' => $participante->nombre_completo, 'documento' => $participante->documento,
+            'intensidad_horaria' => $participante->intensidad_horaria ?? null, 'elegibilidad' => $participante->elegibilidad ?? Participante::ELEGIBLE];
+        // La modalidad propia solo entra si existe: una persona sin ella conserva exactamente la misma huella que antes.
+        if (($modalidad = DatosDeParticipante::modalidadPropia($participante)) !== null) {
+            $persona['modalidad'] = $modalidad;
+        }
+
         return self::hashCanonico([
-            'participante' => ['id' => $participante->id, 'lote_id' => $participante->lote_id, 'nombre_completo' => $participante->nombre_completo, 'documento' => $participante->documento,
-                'intensidad_horaria' => $participante->intensidad_horaria ?? null, 'elegibilidad' => $participante->elegibilidad ?? Participante::ELEGIBLE],
+            'participante' => $persona,
             'lote' => ['id' => $lote->id, 'plantilla_id' => $lote->plantilla_id, 'nombre' => $lote->nombre, 'datos_comunes' => $lote->datos_comunes],
             'plantilla' => ['id' => $plantilla->id, 'nombre' => $plantilla->nombre, 'diseno' => $plantilla->diseno, 'schema_version' => (int) $plantilla->schema_version, 'hash' => $plantilla->hash_sha256],
         ]);

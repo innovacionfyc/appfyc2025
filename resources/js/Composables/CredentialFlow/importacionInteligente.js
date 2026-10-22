@@ -17,7 +17,7 @@ export const PASOS = [
 ];
 
 // Códigos de bloqueo del servidor que se resuelven en la etapa de las personas.
-const BLOQUEOS_PERSONAS = ["valores_ambiguos_sin_revisar", "sin_participantes", "fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida"];
+const BLOQUEOS_PERSONAS = ["valores_ambiguos_sin_revisar", "sin_participantes", "fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida", "modalidad_faltante", "modalidad_individual_invalida"];
 
 // «la fecha», «el texto de certificación»…: cómo se nombra cada dato en una frase (y el género para «correcta/correcto»).
 export const NOMBRES_DATOS = {
@@ -76,6 +76,8 @@ export const BLOQUEOS = {
   fila_invalida: { titulo: "Hay participantes con datos que corregir", paso: "personas", ancla: "participantes" },
   documento_de_contacto_qa: { titulo: "Un documento coincide con un contacto de control (QA)", paso: "personas", ancla: "participantes" },
   intensidad_individual_invalida: { titulo: "Una intensidad individual no se puede imprimir", paso: "personas", ancla: "participantes" },
+  modalidad_faltante: { titulo: "Hay personas sin modalidad", paso: "personas", ancla: "participantes" },
+  modalidad_individual_invalida: { titulo: "Una modalidad no se puede imprimir", paso: "personas", ancla: "participantes" },
   catalogo_qa_incompleto: { titulo: "Los contactos de control (QA) no están completos", paso: "confirmar" },
 };
 
@@ -126,7 +128,7 @@ function nuevoId() {
 }
 
 // Campo del servidor (columna del importador) → atributo `data-campo-fila` de la entrada de la tabla.
-const CAMPO_FILA = { nombre_completo: "nombre_completo", documento: "documento", tipo_documento: "tipo_documento", correo: "correo", elegibilidad: "elegibilidad", intensidad_horaria: "intensidad_horaria" };
+const CAMPO_FILA = { nombre_completo: "nombre_completo", documento: "documento", tipo_documento: "tipo_documento", correo: "correo", elegibilidad: "elegibilidad", intensidad_horaria: "intensidad_horaria", modalidad: "modalidad" };
 
 /** Espera (hasta ~1 s) a que exista el elemento y lo devuelve; null si nunca aparece. */
 async function esperar(selector) {
@@ -854,9 +856,10 @@ export function crearAsistente(props) {
       el = await esperar("[data-seccion=evento]");
     } else if (def.paso === "datos") {
       el = await esperar(datoActivo.value === "__personas" ? "[data-tarea-importrange]" : campo ? `[data-tarea-dato="${campo}"]` : "[data-seccion=datos]");
-    } else if (b.fila != null) {
+    } else if (b.fila != null || (Array.isArray(b.filas) && b.filas.length > 0)) {
+      // Un bloqueo de varias personas (por ejemplo, sin modalidad) lleva a la primera de ellas.
       listaAbierta.value = true;
-      foco.value = { tipo: "fila", fila: Number(b.fila), campo: CAMPO_FILA[b.campo] ?? null };
+      foco.value = { tipo: "fila", fila: Number(b.fila ?? b.filas[0]), campo: CAMPO_FILA[b.campo] ?? (String(b.codigo).startsWith("modalidad_") ? "modalidad" : null) };
 
       return true; // la tabla lo atiende
     } else if (b.codigo === "valores_ambiguos_sin_revisar") {

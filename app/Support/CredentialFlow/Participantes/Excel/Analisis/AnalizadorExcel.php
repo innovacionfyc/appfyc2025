@@ -349,6 +349,10 @@ final class AnalizadorExcel
         } elseif (isset($columnas['intensidad_individual'])) {
             $campos['intensidad_individual'] = Normalizadores::faltante('intensidad_individual', $celda('intensidad_individual'), $h);
         }
+        if (isset($columnas['modalidad'])) {
+            $c = $celda('modalidad');
+            $campos['modalidad'] = $c !== null && $c->tieneDato() ? Normalizadores::modalidad($c, $h, $columnas['modalidad']->encabezado) : Normalizadores::faltante('modalidad', $c, $h);
+        }
         if (isset($columnas['elegibilidad'])) {
             $campos['elegibilidad'] = $this->elegibilidadDeclarada($celda('elegibilidad'), $h);
         }
