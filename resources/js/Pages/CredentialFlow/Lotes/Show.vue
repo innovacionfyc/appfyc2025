@@ -175,27 +175,51 @@ const volverAEmitir = (p) => {
   });
 };
 
+// «Emitir certificados»: los oficiales pendientes y, en el mismo flujo, las pruebas internas (QA) pendientes, cada grupo con su plantilla y por separado.
+const qaPendientes = computed(() => resumen.value.qa?.pendientes ?? 0);
+const puedeEmitir = computed(() => (resumen.value.pendientes > 0 && vistaLista.value) || (resumen.value.pendientes === 0 && qaPendientes.value > 0));
+const avisoQa = ref(null);
+
 const emitirPendientes = () => {
-  const n = resumen.value.a_emitir;
+  const n = resumen.value.pendientes > 0 ? resumen.value.a_emitir : 0;
   const resto = resumen.value.pendientes - n;
+  const nQa = resumen.value.qa?.a_emitir ?? 0;
+  const qaLista = !!resumen.value.qa?.plantilla_lista;
+  const partes = [];
+  if (n > 0) partes.push(`${n === 1 ? "Se emitirá 1 certificado oficial" : `Se emitirán ${n} certificados oficiales`}. Si algo falla, no se emite ninguno.`);
+  if (resto > 0) partes.push(`${resto === 1 ? "Quedará 1 pendiente" : `Quedarán ${resto} pendientes`} (se emiten máximo ${resumen.value.limite} por vez).`);
+  if (nQa > 0) {
+    partes.push(
+      qaLista
+        ? `${n > 0 ? "Además, aparte, " : nQa === 1 ? "Se emitirá " : "Se emitirán "}${nQa === 1 ? "1 certificado de PRUEBA INTERNA" : `${nQa} certificados de PRUEBA INTERNA`} para los contactos de control, con la plantilla de prueba (sin validez académica; no entran al ZIP).`
+        : "Las pruebas internas (QA) no se podrán emitir: falta designar la plantilla de prueba de esta base.",
+    );
+  }
+  partes.push("Los certificados emitidos no cambian aunque luego edites los datos.");
   openConfirmationModal({
-    title: "Emitir pendientes",
+    title: "Emitir certificados",
     icon: "check",
-    confirmText: `Emitir ${n}`,
-    message:
-      `${n === 1 ? "Se emitirá 1 certificado" : `Se emitirán ${n} certificados`}. Si algo falla, no se emite ninguno.` +
-      (resto > 0 ? ` ${resto === 1 ? "Quedará 1 pendiente" : `Quedarán ${resto} pendientes`} (se emiten máximo ${resumen.value.limite} por vez).` : "") +
-      " Los certificados emitidos no cambian aunque luego edites los datos.",
+    confirmText: n > 0 ? `Emitir ${n}${nQa > 0 && qaLista ? ` + ${nQa} QA` : ""}` : `Emitir ${nQa} QA`,
+    message: partes.join(" "),
     onConfirm: async () => {
       procesando.value = true;
       avisoExito.value = null;
+      avisoQa.value = null;
       const r = await ejecutar("emitir-lote", route("credential-flow.lotes.emitir", props.lote.id));
       procesando.value = false;
       closeConfirmationModal();
       if (r) {
-        avisoExito.value =
-          (r.resultado.total === 1 ? "Se emitió 1 certificado." : `Se emitieron ${r.resultado.total} certificados.`) +
-          (r.resultado.restantes > 0 ? (r.resultado.restantes === 1 ? " Queda 1 pendiente." : ` Quedan ${r.resultado.restantes} pendientes.`) : "");
+        const ok = [];
+        if (r.resultado) {
+          ok.push(
+            (r.resultado.total === 1 ? "Se emitió 1 certificado oficial." : `Se emitieron ${r.resultado.total} certificados oficiales.`) +
+              (r.resultado.restantes > 0 ? (r.resultado.restantes === 1 ? " Queda 1 pendiente." : ` Quedan ${r.resultado.restantes} pendientes.`) : ""),
+          );
+        }
+        if (r.qa) ok.push(r.qa.total === 1 ? "Se emitió 1 certificado de prueba interna (QA)." : `Se emitieron ${r.qa.total} certificados de prueba interna (QA).`);
+        avisoExito.value = ok.join(" ") || null;
+        // Las pruebas QA fallaron: los oficiales quedaron emitidos, pero NO se informa un éxito completo.
+        if (r.qa_error) avisoQa.value = `Las pruebas internas (QA) no se emitieron: ${r.qa_error.message} Los certificados oficiales sí quedaron emitidos. Puedes reintentar solo las pruebas con «Emitir pruebas internas».`;
         recargar();
       }
     },
@@ -216,6 +240,7 @@ const emitirPruebasQa = () => {
       procesando.value = false;
       closeConfirmationModal();
       if (r) {
+        avisoQa.value = null;
         avisoExito.value = r.resultado.total === 1 ? "Se emitió 1 certificado de prueba interna." : `Se emitieron ${r.resultado.total} certificados de prueba interna.`;
         recargar();
       }
@@ -294,10 +319,10 @@ const confirmarMotivo = async (motivo) => {
 
       <DashboardHeader :title="lote.nombre" :subtitle="lote.descripcion || 'Base de participantes'" :stats="headerStats">
         <template #actions>
-          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.pendientes === 0 || !vistaLista" :title="vistaLista ? '' : 'Antes de emitir, revisa la vista previa y confirma la plantilla'" data-accion="emitir-pendientes" @click="emitirPendientes">
+          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || !puedeEmitir" :title="resumen.pendientes > 0 && !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" data-accion="emitir-pendientes" @click="emitirPendientes">
             <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
             <BadgeCheck v-else class="w-4 h-4" />
-            Emitir pendientes<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span>
+            Emitir certificados<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span><span v-if="qaPendientes > 0" class="opacity-80"> + {{ qaPendientes }} QA</span>
           </button>
           <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50" :disabled="generando !== null || resumen.vigentes === 0" data-accion="descargar-zip" @click="descargarZip">
             <Loader2 v-if="generando === 'zip'" class="w-4 h-4 animate-spin" />
@@ -446,6 +471,10 @@ const confirmarMotivo = async (motivo) => {
         </ul>
       </div>
 
+      <div v-if="avisoQa" class="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800 text-[13px] font-semibold" role="alert" data-aviso="qa-fallido">
+        <span class="flex-1">{{ avisoQa }}</span>
+        <button type="button" class="text-[12px] underline" @click="avisoQa = null">Cerrar</button>
+      </div>
       <div v-if="avisoExito" class="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-700 text-[13px] font-semibold" role="status" data-aviso="exito">
         <CircleCheck class="w-4 h-4 mt-0.5 shrink-0" />
         <span class="flex-1">{{ avisoExito }}</span>

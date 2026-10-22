@@ -75,8 +75,56 @@ final class EmisorLote
                 'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->whereIn('participante_id', (clone $qa)->select('id'))->count(),
                 'pendientes' => $qaPendientes,
                 'a_emitir' => min($qaPendientes, self::LIMITE),
-                'plantilla_lista' => app(ServicioQa::class)->plantilla() !== null,
+                // La plantilla con la que se emitirían las pruebas de ESTA base (su variante de prueba o la designada por omisión).
+                'plantilla_lista' => app(ServicioQa::class)->plantillaPara($lote) !== null,
             ];
+        }
+
+        return $r;
+    }
+
+    /**
+     * «Emitir certificados» en UN solo flujo: primero los OFICIALES pendientes (con la plantilla de la base) y después las PRUEBAS INTERNAS (QA) pendientes
+     * (con la plantilla de prueba). Cada grupo es su propia operación todo-o-nada: nunca se mezclan.
+     *
+     *  - Si fallan los oficiales, se lanza el error y no se intenta QA (no se emitió nada).
+     *  - Si fallan las pruebas QA, los oficiales ya emitidos se conservan y el resultado lo dice (`qa_error`): nunca se informa un éxito completo. Las pruebas
+     *    se reintentan solas con «Emitir pruebas internas», sin tocar los oficiales.
+     *  - Un grupo sin pendientes se omite (`null`): un segundo clic no duplica nada; una base ya emitida (oficiales completos) solo completa sus QA.
+     *
+     * @return array{oficiales: ?array<string,mixed>, qa: ?array<string,mixed>, qa_error: ?array{code:string, message:string}}
+     *
+     * @throws EmisionException|GeneracionCredencialException
+     */
+    public function emitirTodo(Lote $lote, ?int $usuarioId): array
+    {
+        $pendientes = fn (bool $qa) => $lote->participantes()->where('es_control_qa', $qa)->where('elegibilidad', Participante::ELEGIBLE)
+            ->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->exists();
+        $hayOficiales = $pendientes(false);
+        $hayQa = $pendientes(true);
+        if (! $hayOficiales && ! $hayQa) {
+            throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay certificados pendientes de emitir en esta base (ni oficiales ni pruebas internas).', 409);
+        }
+
+        $r = ['oficiales' => null, 'qa' => null, 'qa_error' => null];
+        if ($hayOficiales) {
+            $r['oficiales'] = $this->emitirPendientes($lote, $usuarioId);
+        }
+        if ($hayQa) {
+            try {
+                $r['qa'] = $this->emitirPendientes($lote->fresh(), $usuarioId, true);
+            } catch (EmisionException|GeneracionCredencialException $e) {
+                if ($r['oficiales'] === null) {
+                    throw $e;   // no se emitió nada: es un error, no un resultado parcial
+                }
+                $r['qa_error'] = ['code' => $e->codigo, 'message' => $e->getMessage()];
+            } catch (Throwable $e) {
+                if ($r['oficiales'] === null) {
+                    throw $e;
+                }
+                Log::error('Credential Flow: las pruebas internas (QA) no se emitieron tras la emisión oficial', ['lote' => $lote->id, 'error' => LogSeguro::resumen($e)]);
+                $r['qa_error'] = ['code' => 'ERROR_INESPERADO', 'message' => 'Las pruebas internas no se pudieron emitir. Reinténtalo con «Emitir pruebas internas».'];
+            }
         }
 
         return $r;
