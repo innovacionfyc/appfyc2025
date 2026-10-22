@@ -259,7 +259,7 @@ class ImportacionAsistenteTest extends EmisionesTestCase
 
         $textos = $this->textos($this->pdfVista($id, 15)->assertOk());
 
-        $this->assertContains('C.C. 1000001', $textos);
+        $this->assertContains('C.C. 1.000.001', $textos);
         $this->assertContains('presencial EN SALA — Bogotá', $textos, 'la modalidad no se cambia ni se pasa a mayúsculas');
         $this->assertNotContains(X::MODALIDAD, $textos);
     }
