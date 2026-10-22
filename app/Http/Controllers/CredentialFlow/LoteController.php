@@ -62,6 +62,8 @@ class LoteController extends Controller
                 'fecha' => $l->datos_comunes['fecha'] ?? null,
                 'participantes' => $l->participantes_count,
                 'qa' => $l->qa_count,
+                // Contactos QA distintos (con modalidades por persona, cada contacto tiene una prueba por modalidad).
+                'qa_contactos' => $l->qa_count > 0 ? $l->participantes()->where('es_control_qa', true)->distinct()->count('documento_clave') : 0,
                 'estado_operativo' => $l->estado_operativo ?? Lote::ACTIVA,
                 'created_at' => $l->created_at?->toIso8601String(),
             ]);
@@ -216,7 +218,7 @@ class LoteController extends Controller
             ->with('emisionVigente:id,participante_id,version,codigo')
             ->withCount('emisiones')
             ->orderBy('id')
-            ->paginate(self::POR_PAGINA_PARTICIPANTES, ['id', 'nombre_completo', 'documento', 'fila_origen', 'es_control_qa', ...(Schema::hasColumn('cf_participantes', 'correo') ? ['correo', 'correo_estado'] : []), 'elegibilidad', 'intensidad_horaria', 'elegibilidad_motivo', 'tipo_documento_confirmado'])
+            ->paginate(self::POR_PAGINA_PARTICIPANTES, ['id', 'nombre_completo', 'documento', 'fila_origen', 'es_control_qa', ...(Schema::hasColumn('cf_participantes', 'correo') ? ['correo', 'correo_estado'] : []), 'elegibilidad', 'intensidad_horaria', ...(Schema::hasColumn('cf_participantes', 'modalidad') ? ['modalidad'] : []), 'elegibilidad_motivo', 'tipo_documento_confirmado'])
             ->withQueryString()
             // Estado DERIVADO de cf_emisiones (no hay columna de estado en el participante):
             // sin emisiones = «sin_emitir», una vigente = «emitida», solo historial = «revocada».
@@ -228,6 +230,7 @@ class LoteController extends Controller
                 'es_control_qa' => (bool) $p->es_control_qa,
                 'elegibilidad' => $p->elegibilidad ?? 'elegible',
                 'intensidad_horaria' => $p->intensidad_horaria,
+                'modalidad' => $p->modalidad ?? null,
                 'elegibilidad_motivo' => $p->elegibilidad_motivo,
                 'tipo_documento_confirmado' => (bool) ($p->tipo_documento_confirmado ?? true),
                 // El correo actual, tal como se guardó (varios separados por «; »). Solo lo ve el administrador, para poder corregirlo.

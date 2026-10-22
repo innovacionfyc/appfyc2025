@@ -123,7 +123,7 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
                 </td>
                 <td class="px-4 py-4 text-slate-600 font-semibold break-words max-w-xs">{{ l.evento ?? "—" }}</td>
                 <td class="px-4 py-4 text-slate-600 font-semibold">{{ l.fecha ?? "—" }}</td>
-                <td class="px-4 py-4 text-right font-black text-slate-900">{{ l.participantes }}<span v-if="l.qa" class="block text-[11px] font-bold text-violet-600">+ {{ l.qa }} QA</span></td>
+                <td class="px-4 py-4 text-right font-black text-slate-900">{{ l.participantes }}<span v-if="l.qa" class="block text-[11px] font-bold text-violet-600" :title="l.qa > (l.qa_contactos || l.qa) ? `${l.qa} pruebas internas (una por modalidad)` : undefined">+ {{ l.qa_contactos || l.qa }} QA</span></td>
                 <td class="px-4 py-4 text-slate-500 font-semibold whitespace-nowrap">
                   <span class="inline-flex items-center gap-1.5"><CalendarDays class="w-3.5 h-3.5 text-slate-400" />{{ formatFecha(l.created_at) }}</span>
                 </td>

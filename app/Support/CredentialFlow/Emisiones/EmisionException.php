@@ -45,6 +45,9 @@ final class EmisionException extends RuntimeException
 
     public const DATOS_DEL_DISENO_INCOMPLETOS = 'DATOS_DEL_DISENO_INCOMPLETOS';
 
+    /** La persona ya tiene un certificado oficial vigente del mismo evento en otra base (ver DuplicadosEnEvento). */
+    public const DUPLICADO_EN_EVENTO = 'DUPLICADO_EN_EVENTO';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -39,8 +40,12 @@ final class VistaPreviaImportacion
         $masLargo = collect($incluidos)->sortByDesc(fn ($x) => mb_strlen((string) $x['nombre_completo']))->first();
 
         return [
-            'participante' => $p['participante'] === null ? null : ['fila' => $p['participante']['fila'], 'nombre_completo' => $p['participante']['nombre_completo'], 'tipo_documento' => $p['participante']['tipo_documento']],
-            'participantes' => array_map(fn ($x) => ['fila' => $x['fila'], 'nombre_completo' => $x['nombre_completo']], $incluidos),
+            'participante' => $p['participante'] === null ? null : ['fila' => $p['participante']['fila'], 'nombre_completo' => $p['participante']['nombre_completo'], 'tipo_documento' => $p['participante']['tipo_documento'],
+                'modalidad' => $p['participante']['modalidad'] ?? null],
+            'participantes' => array_map(fn ($x) => ['fila' => $x['fila'], 'nombre_completo' => $x['nombre_completo'], 'modalidad' => $x['modalidad'] ?? null], $incluidos),
+            // Una persona de ejemplo por cada modalidad propia, para revisar el PDF de todas antes de crear la base.
+            'una_por_modalidad' => collect($incluidos)->filter(fn ($x) => ($x['modalidad'] ?? null) !== null && $x['modalidad'] !== '')->unique('modalidad')
+                ->map(fn ($x) => ['modalidad' => $x['modalidad'], 'fila' => $x['fila']])->values()->all(),
             'fila_nombre_mas_largo' => $masLargo['fila'] ?? null,
             'plantilla' => $p['plantilla'] === null ? null : ['id' => $p['plantilla']->id, 'nombre' => $p['plantilla']->nombre],
             'campos' => $p['campos'],
@@ -66,7 +71,43 @@ final class VistaPreviaImportacion
             throw new ImportacionException(ImportacionException::VISTA_PREVIA_DATOS_INCOMPLETOS, 'Todavía no se puede dibujar el PDF: '.implode(' ', $p['problemas']), 422, array_map(fn ($m) => ['mensaje' => $m], $p['problemas']));
         }
 
-        return GeneradorCredencialPdf::generar($p['plantilla'], DatosCredencial::fromArray($p['datos']));
+        $bytes = GeneradorCredencialPdf::generar($p['plantilla'], DatosCredencial::fromArray($p['datos']));
+        $this->registrarRevision($importacion, $p['plantilla'], $p['comunes']);
+
+        return $bytes;
+    }
+
+    /**
+     * Huella de los datos del certificado que son de la BASE (evento, fecha, intensidad, modalidad general, ciudad, textos): si cambian después de ver el PDF,
+     * la revisión ya no vale. Los datos de cada persona no cuentan (la vista previa muestra solo una de ejemplo).
+     *
+     * @param  array<string,string>  $comunes
+     */
+    public static function huellaDatos(array $comunes): string
+    {
+        ksort($comunes);
+
+        return hash('sha256', json_encode($comunes, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * Deja constancia en el borrador de que el administrador VIO el PDF con esta plantilla y estos datos. Al crear la base, si nada de eso cambió, la base no
+     * vuelve a pedir la misma revisión (ver ServicioImportaciones::confirmar). No cambia la versión del borrador ni lo que el administrador está editando.
+     *
+     * @param  array<string,string>  $comunes
+     */
+    private function registrarRevision(Importacion $importacion, Plantilla $plantilla, array $comunes): void
+    {
+        DB::transaction(function () use ($importacion, $plantilla, $comunes) {
+            $actual = Importacion::query()->whereKey($importacion->id)->lockForUpdate()->first();
+            if ($actual === null || ! $actual->enRevision()) {
+                return;
+            }
+            $corr = $actual->correcciones ?? [];
+            $corr['vista_previa'] = ['plantilla_id' => $plantilla->id, 'huella' => ServicioVistaPrevia::huella($plantilla), 'datos' => self::huellaDatos($comunes), 'at' => now()->toIso8601String()];
+            $actual->correcciones = $corr;
+            $actual->save();
+        });
     }
 
     /**
@@ -103,6 +144,7 @@ final class VistaPreviaImportacion
         }
         $validacion = ValidadorDatosComunes::validar($entrada);
         $datos = $validacion['datos'];
+        $comunesValidados = $datos;   // los de la base, antes de poner los de la persona de ejemplo
         $erroresComunes = $validacion['errores'];
 
         // Persona de ejemplo.
@@ -125,6 +167,10 @@ final class VistaPreviaImportacion
             }
             if (($persona['intensidad_horaria'] ?? null) !== null && $persona['intensidad_horaria'] !== '') {
                 $datos['intensidad_horaria'] = (string) $persona['intensidad_horaria'];
+            }
+            // Su propia modalidad (si la trae) reemplaza a la general, igual que en el certificado oficial.
+            if (($persona['modalidad'] ?? null) !== null && $persona['modalidad'] !== '') {
+                $datos['modalidad'] = (string) $persona['modalidad'];
             }
             if ($tipo === null) {
                 $avisos[] = 'El tipo de documento de esta persona está por confirmar: el certificado oficial no se podrá emitir hasta confirmarlo.';
@@ -163,6 +209,6 @@ final class VistaPreviaImportacion
             }
         }
 
-        return ['plantilla' => $plantilla, 'participante' => $persona, 'incluidos' => $incluidos, 'datos' => $datos, 'campos' => $campos, 'problemas' => array_values(array_unique($problemas)), 'avisos' => $avisos];
+        return ['plantilla' => $plantilla, 'participante' => $persona, 'incluidos' => $incluidos, 'datos' => $datos, 'comunes' => $comunesValidados, 'campos' => $campos, 'problemas' => array_values(array_unique($problemas)), 'avisos' => $avisos];
     }
 }

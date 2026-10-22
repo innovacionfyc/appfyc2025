@@ -27,7 +27,7 @@ final class Borrador
     public const SENALES = ['completo', 'cupo', 'conflicto', 'desconocida', 'sin_senal'];
 
     /** Campos que una corrección individual puede tocar. */
-    private const CAMPOS_FILA = ['nombre_completo', 'documento', 'tipo_documento', 'correo', 'elegibilidad', 'intensidad_horaria', 'excluir'];
+    private const CAMPOS_FILA = ['nombre_completo', 'documento', 'tipo_documento', 'correo', 'elegibilidad', 'intensidad_horaria', 'modalidad', 'excluir'];
 
     /**
      * Campos que una corrección masiva «sin vista previa» puede tocar. La elegibilidad y el tipo de documento NO están aquí: se cambian en bloque solo con las acciones
@@ -222,7 +222,9 @@ final class Borrador
 
                 continue;
             }
-            $t = self::texto($valor, "{$ruta}.{$campo}", $campo === 'correo' ? 320 : ($campo === 'documento' ? 60 : 200), true);
+            $t = self::texto($valor, "{$ruta}.{$campo}", match ($campo) {
+                'correo' => 320, 'documento' => 60, 'modalidad' => 120, default => 200
+            }, true);
             if ($t === null) {
                 unset($actual[$campo]);
 
@@ -358,10 +360,10 @@ final class Borrador
             $intensidadAnalizada = $campo('intensidad_individual');
             $intensidadSegura = is_array($intensidadAnalizada) && ($intensidadAnalizada['confianza'] ?? null) === 'confiable' ? ($intensidadAnalizada['valor'] ?? null) : null;
 
-            $corregidos = array_values(array_intersect(array_keys($c), ['nombre_completo', 'documento', 'tipo_documento', 'correo']));   // la asistencia (sesión, casillas) no se corrige aquí: se decide con la elegibilidad
+            $corregidos = array_values(array_intersect(array_keys($c), ['nombre_completo', 'documento', 'tipo_documento', 'correo', 'modalidad']));   // la asistencia (sesión, casillas) no se corrige aquí: se decide con la elegibilidad
             $dudosos = [];
             $desactualizados = [];
-            foreach (['nombre_completo', 'documento', 'correo', 'tipo_documento', 'sesion', 'certificado_completo', 'seleccion_cupo'] as $k) {
+            foreach (['nombre_completo', 'documento', 'correo', 'tipo_documento', 'modalidad', 'sesion', 'certificado_completo', 'seleccion_cupo'] as $k) {
                 $v = $campo($k);
                 if (! is_array($v) || in_array($k, $corregidos, true) || ($v['confianza'] ?? null) === 'faltante') {
                     continue;
@@ -409,6 +411,8 @@ final class Borrador
                 'correo' => $c['correo'] ?? $correoBase,
                 'elegibilidad' => $c['elegibilidad'] ?? 'pendiente',
                 'intensidad_horaria' => $c['intensidad_horaria'] ?? $intensidadSegura,
+                // Modalidad de ESTA persona, literal como viene en el Excel (o la que escribió el administrador). Null = usará la general de la base.
+                'modalidad' => $c['modalidad'] ?? $valor('modalidad'),
                 'excluir' => ($c['excluir'] ?? false) === true,
                 'senal' => $p['senal'],
                 'diploma_marcado' => $p['diploma'] ?? null,          // solo informativo: nunca autoriza ni impide emitir
@@ -421,6 +425,7 @@ final class Borrador
                     'documento' => is_array($campo('documento')) ? ($campo('documento')['original'] ?? null) : null,
                     'correo' => is_array($campo('correo')) ? ($campo('correo')['original'] ?? null) : null,
                     'tipo_documento' => is_array($tipoAnalizado) ? ($tipoAnalizado['original'] ?? null) : null,
+                    'modalidad' => is_array($campo('modalidad')) ? ($campo('modalidad')['original'] ?? null) : null,
                 ],
                 'corregidos' => $corregidos,
                 'valores_ambiguos' => $dudosos,

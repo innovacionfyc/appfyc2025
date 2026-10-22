@@ -41,10 +41,33 @@ const headerStats = computed(() => [
   { label: "Participantes", value: props.lote.emision.participantes, icon: "groups", color: "text-primary-vinotinto", bg: "bg-primary-vinotinto/10" },
   ...(props.lote.emision.en_validacion ? [{ label: "Por validar", value: props.lote.emision.en_validacion, icon: "pending", color: "text-amber-600", bg: "bg-amber-50" }] : []),
   ...(props.lote.emision.no_elegibles ? [{ label: "No elegibles", value: props.lote.emision.no_elegibles, icon: "block", color: "text-slate-500", bg: "bg-slate-100" }] : []),
-  ...(props.lote.emision.qa ? [{ label: "Control (QA)", value: props.lote.emision.qa.participantes, icon: "science", color: "text-violet-600", bg: "bg-violet-50" }] : []),
+  ...(props.lote.emision.qa ? [{ label: etiquetaQa(props.lote.emision.qa), value: contactosQa(props.lote.emision.qa), icon: "science", color: "text-violet-600", bg: "bg-violet-50" }] : []),
 ]);
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios);
+
+// Contactos QA: personas DISTINTAS. Con modalidades por persona, cada contacto tiene una prueba interna por modalidad (8 contactos · 16 pruebas).
+function contactosQa(qa) {
+  return qa?.contactos ?? qa?.participantes ?? 0;
+}
+function etiquetaQa(qa) {
+  const pruebas = qa?.participantes ?? 0;
+  return pruebas > contactosQa(qa) ? `Contactos QA · ${pruebas} pruebas` : "Contactos QA";
+}
+
+// En la tabla, las pruebas QA del MISMO contacto (una por modalidad) van juntas: la primera fila muestra a la persona y las siguientes solo su otra prueba.
+const sigueContactoQa = (i) => {
+  const p = props.participantes.data[i];
+  const antes = props.participantes.data[i - 1];
+  return !!(p?.es_control_qa && antes?.es_control_qa && antes.documento === p.documento);
+};
+const pruebasDelContacto = (i) => {
+  const p = props.participantes.data[i];
+  if (!p?.es_control_qa) return 0;
+  let n = 1;
+  while (props.participantes.data[i + n]?.es_control_qa && props.participantes.data[i + n].documento === p.documento) n++;
+  return n;
+};
 
 const formatFecha = (iso) => {
   if (!iso) return "—";
@@ -434,7 +457,7 @@ const confirmarMotivo = async (motivo) => {
         <p class="text-[12px] font-semibold text-violet-800 flex-1 min-w-[min(100%,16rem)]">
           <FlaskConical class="inline w-3.5 h-3.5 mr-1" />
           <template v-if="resumen.qa">
-            <span class="font-black">Contactos de control (QA): {{ resumen.qa.participantes }}.</span> No cuentan como participantes reales. Sus certificados son de prueba interna, sin validez académica
+            <span class="font-black" data-qa-resumen>Contactos de control (QA): {{ contactosQa(resumen.qa) }}<template v-if="resumen.qa.participantes > contactosQa(resumen.qa)"> · {{ resumen.qa.participantes }} pruebas internas (una por modalidad)</template>.</span> No cuentan como participantes reales. Sus certificados son de prueba interna, sin validez académica
             ({{ resumen.qa.vigentes }} {{ plural(resumen.qa.vigentes, "emitido", "emitidos") }}, {{ resumen.qa.pendientes }} sin emitir).
             <span v-if="!resumen.qa.plantilla_lista" class="text-amber-700">Falta designar la plantilla de pruebas internas en Plantillas.</span>
           </template>
@@ -477,18 +500,25 @@ const confirmarMotivo = async (motivo) => {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <tr v-for="p in participantes.data" :key="p.id" class="hover:bg-slate-50/60 transition-colors" :data-participante="p.id">
-                <td class="px-6 py-3 font-extrabold text-slate-900 break-words">
-                  {{ p.nombre_completo }}
-                  <span v-if="p.es_control_qa" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black align-middle" data-qa>QA</span>
+              <tr v-for="(p, i) in participantes.data" :key="p.id" class="hover:bg-slate-50/60 transition-colors" :class="p.es_control_qa ? 'bg-violet-50/30' : ''" :style="sigueContactoQa(i) ? 'border-top-color: transparent' : ''" :data-participante="p.id" :data-sigue-contacto-qa="sigueContactoQa(i) ? '' : undefined">
+                <td class="px-6 py-3 font-extrabold text-slate-900 break-words" :class="sigueContactoQa(i) ? 'pl-12' : ''">
+                  <template v-if="sigueContactoQa(i)">
+                    <span class="text-[12px] font-bold text-slate-400">↳ Misma persona, otra prueba</span>
+                  </template>
+                  <template v-else>
+                    {{ p.nombre_completo }}
+                  </template>
+                  <span v-if="p.es_control_qa" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black align-middle" data-qa>QA<template v-if="!sigueContactoQa(i) && pruebasDelContacto(i) > 1"> · {{ pruebasDelContacto(i) }} pruebas</template></span>
                   <span v-if="p.elegibilidad === 'pendiente'" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black align-middle" :title="p.elegibilidad_motivo ?? ''" data-elegibilidad="pendiente">Pendiente de validación</span>
                   <span v-else-if="p.elegibilidad === 'no_elegible'" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black align-middle" :title="p.elegibilidad_motivo ?? ''" data-elegibilidad="no_elegible">No elegible</span>
                   <span v-if="p.tipo_documento_confirmado === false" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black align-middle" title="El tipo de documento no está confirmado: no se emite hasta confirmarlo" data-tipo-documento="pendiente">Tipo de documento por confirmar</span>
                   <span v-if="p.intensidad_horaria" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 text-[10px] font-black align-middle" title="Intensidad horaria propia (excepción aprobada)" data-intensidad>{{ p.intensidad_horaria }}</span>
+                  <span v-if="p.modalidad" class="ml-2 inline-flex px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black align-middle" title="Modalidad de esta persona" data-modalidad>{{ p.modalidad }}</span>
                 </td>
-                <td class="px-4 py-3 font-semibold text-slate-600 break-words">{{ p.documento }}</td>
+                <td class="px-4 py-3 font-semibold text-slate-600 break-words"><span v-if="!sigueContactoQa(i)">{{ p.documento }}</span></td>
                 <td class="px-4 py-3 text-[12px] font-semibold break-all max-w-[14rem]" data-correo>
-                  <span v-if="p.correo" class="text-slate-600"><Mail class="inline w-3 h-3 mr-1 text-slate-400" />{{ p.correo }}</span>
+                  <span v-if="sigueContactoQa(i)" class="sr-only">{{ p.correo }}</span>
+                  <span v-else-if="p.correo" class="text-slate-600"><Mail class="inline w-3 h-3 mr-1 text-slate-400" />{{ p.correo }}</span>
                   <span v-else class="text-amber-600">Sin correo</span>
                 </td>
                 <td class="px-4 py-3" data-estado-emision :data-estado="p.estado_emision">

@@ -69,7 +69,9 @@ final class EmisorLote
         if ((clone $qa)->exists()) {
             $qaPendientes = (clone $qa)->whereDoesntHave('emisiones')->count();
             $r['qa'] = [
+                // `participantes` = pruebas internas (filas QA: una por contacto y modalidad); `contactos` = personas distintas (los contactos oficiales).
                 'participantes' => (clone $qa)->count(),
+                'contactos' => (clone $qa)->distinct()->count('documento_clave'),
                 'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->whereIn('participante_id', (clone $qa)->select('id'))->count(),
                 'pendientes' => $qaPendientes,
                 'a_emitir' => min($qaPendientes, self::LIMITE),
@@ -99,16 +101,23 @@ final class EmisorLote
             );
         }
 
+        $pendientes = $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
+
         // Datos opcionales que el diseño imprime (modalidad, ciudad, textos): si faltan, se avisa qué completar antes de cualquier otro control.
-        DatosRequeridos::exigir($lote, $plantilla);
+        // La modalidad se mira por persona: la de la base solo hace falta para quien no tenga la suya.
+        DatosRequeridos::exigir($lote, $plantilla, $pendientes);
 
         if (! $pruebasInternas) {
             app(ServicioVistaPrevia::class)->exigir($lote);
         }
 
-        $pendientes = $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
         if ($pendientes->isEmpty()) {
             throw new EmisionException(EmisionException::SIN_PENDIENTES, $pruebasInternas ? 'No hay contactos de control (QA) pendientes de emitir en esta base.' : 'No hay participantes pendientes de emitir en esta base.', 409);
+        }
+
+        // Nadie se certifica dos veces en el mismo evento desde otra base (los QA nunca cuentan).
+        if (! $pruebasInternas) {
+            DuplicadosEnEvento::exigir($lote, $pendientes);
         }
 
         // 1–2: snapshots + huellas y prevalidación total (todo o nada).
@@ -176,6 +185,9 @@ final class EmisorLote
                 }
                 if (Emision::whereIn('participante_id', $ids)->exists()) {
                     throw new EmisionException(EmisionException::EMISION_YA_VIGENTE, 'Alguno de los participantes ya fue emitido por otra operación. No se emitió nada: vuelve a intentarlo.', 409);
+                }
+                if ($bloqueados->contains(fn (Participante $p) => ! $p->es_control_qa)) {
+                    DuplicadosEnEvento::exigir($loteActual, $bloqueados->values());   // otra base del evento pudo emitir mientras se generaban los PDF
                 }
                 foreach ($ids as $id) {
                     if (! hash_equals($snapshots[$id]->huella, SnapshotCredencial::huella($bloqueados[$id], $loteActual, $plantillaActual))) {

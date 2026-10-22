@@ -85,8 +85,23 @@ final class FlujoDeBase
         } elseif (! $vistaOk) {
             $faltan[] = $generada ? 'Confirmar la plantilla después de revisar la vista previa.' : 'Abrir y revisar la vista previa de un participante con la plantilla actual.';
         }
-        if ($plantillaOk && ($datosDelDiseno = DatosRequeridos::faltantes($lote->plantilla->diseno, $lote->datos_comunes ?? [])) !== []) {
-            $faltan[] = 'Completar en «Editar base» lo que imprime la plantilla: '.implode(', ', $datosDelDiseno).'.';
+        if ($plantillaOk) {
+            // La modalidad puede venir por persona: la general de la base solo hace falta para quien no tenga la suya. Se mira a quienes faltan por emitir; si ya
+            // no queda nadie, a todos los reales (así no aparece un aviso falso cuando ya se emitió todo con modalidades propias).
+            $porEmitir = $lote->participantes()->where('es_control_qa', false)->whereDoesntHave('emisiones')->get();
+            if ($porEmitir->isEmpty()) {
+                $porEmitir = $lote->participantes()->where('es_control_qa', false)->get();
+            }
+            $sinModalidad = DatosRequeridos::sinModalidad($lote->plantilla->diseno, $lote, $porEmitir);
+            $conPropia = $porEmitir->isNotEmpty() && count($sinModalidad) < $porEmitir->count();
+            $datosDelDiseno = DatosRequeridos::faltantes($lote->plantilla->diseno, $lote->datos_comunes ?? [], $conPropia);
+            if ($datosDelDiseno !== []) {
+                $faltan[] = 'Completar en «Editar base» lo que imprime la plantilla: '.implode(', ', $datosDelDiseno).'.';
+            }
+            if ($conPropia && $sinModalidad !== []) {
+                $n = count($sinModalidad);
+                $faltan[] = "{$n} ".($n === 1 ? 'participante sin modalidad' : 'participantes sin modalidad').' (complétala en cada uno o como modalidad general en «Editar base»).';
+            }
         }
         if ($tipoPendiente > 0) {
             $faltan[] = "{$tipoPendiente} ".($tipoPendiente === 1 ? 'participante con tipo de documento por confirmar' : 'participantes con tipo de documento por confirmar').' (no se emiten hasta confirmarlo).';

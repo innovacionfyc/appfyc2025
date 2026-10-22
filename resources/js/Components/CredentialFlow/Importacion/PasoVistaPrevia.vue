@@ -135,12 +135,29 @@ onBeforeUnmount(() => {
         <summary class="cursor-pointer text-[13px] font-extrabold text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 rounded">Probar con otra persona</summary>
         <label for="persona" class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1 mt-2">Ver el certificado de</label>
         <select id="persona" :value="fila ?? ''" :disabled="!vp?.participantes?.length" class="w-full rounded-xl border-slate-300 text-sm font-semibold focus:border-primary-vinotinto focus:ring-primary-vinotinto/30" data-select-persona @change="cambiarPersona($event.target.value)">
-          <option v-for="p in vp?.participantes ?? []" :key="p.fila" :value="p.fila">{{ p.nombre_completo }}</option>
+          <option v-for="p in vp?.participantes ?? []" :key="p.fila" :value="p.fila">{{ p.nombre_completo }}{{ p.modalidad ? ` — ${p.modalidad}` : "" }}</option>
         </select>
         <button v-if="vp?.fila_nombre_mas_largo && vp.fila_nombre_mas_largo !== fila" type="button" class="mt-2 text-[12px] font-extrabold text-primary-vinotinto underline-offset-2 hover:underline" data-nombre-largo @click="cambiarPersona(vp.fila_nombre_mas_largo)">
           Probar con el nombre más largo
         </button>
       </details>
+    </div>
+
+    <!-- Un ejemplo de CADA modalidad del Excel: revisa cómo sale el certificado presencial y el virtual antes de crear la base. -->
+    <div v-if="(vp?.una_por_modalidad?.length ?? 0) > 1" class="flex flex-wrap items-center gap-2 rounded-2xl bg-violet-50/60 border border-violet-200 px-4 py-3" data-una-por-modalidad>
+      <span class="text-[13px] font-extrabold text-violet-900">Ver un certificado de cada modalidad:</span>
+      <button
+        v-for="m in vp.una_por_modalidad"
+        :key="m.fila"
+        type="button"
+        class="rounded-full px-3 py-1 text-[12px] font-extrabold ring-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50"
+        :class="m.fila === fila ? 'bg-violet-700 text-white ring-violet-700' : 'bg-white text-violet-800 ring-violet-300 hover:bg-violet-100'"
+        :aria-pressed="m.fila === fila"
+        :data-ver-modalidad="m.modalidad"
+        @click="cambiarPersona(m.fila)"
+      >
+        {{ m.modalidad }}
+      </button>
     </div>
 
     <p v-if="errorDatos" class="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-bold text-rose-700" role="alert">{{ errorDatos }}</p>

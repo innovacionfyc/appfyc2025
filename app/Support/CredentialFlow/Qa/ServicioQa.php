@@ -43,6 +43,9 @@ final class ServicioQa
      * Incorpora a la base los contactos QA que le falten. Idempotente: se reconoce por documento (clave) dentro de la base, así que repetirlo no duplica y
      * no toca a nadie que ya esté. Si el documento de un contacto ya está en la base como participante real, NO se reclasifica (eso es decisión del administrador).
      *
+     * Si los participantes reales traen modalidad PROPIA (un Excel con presenciales y virtuales), TODOS los contactos entran una vez POR CADA modalidad presente
+     * (con esa modalidad), para probar cada certificado: los ocho en cada modalidad, nunca repartidos. Sin modalidades propias, entran una sola vez, como siempre.
+     *
      * @return array{creados:int,existentes:int,omitidos:int,total:int}
      */
     public function incorporar(Lote $lote, ?int $usuarioId = null): array
@@ -55,25 +58,37 @@ final class ServicioQa
 
         DB::transaction(function () use ($lote, $contactos, &$r) {
             Lote::query()->whereKey($lote->id)->lockForUpdate()->first(); // dos incorporaciones simultáneas de la misma base se serializan
-            $presentes = Participante::query()->where('lote_id', $lote->id)->pluck('es_control_qa', 'documento_clave');
+            $conModalidad = Schema::hasColumn('cf_participantes', 'modalidad');
+            $presentes = Participante::query()->where('lote_id', $lote->id)->get(['documento_clave', 'es_control_qa', ...($conModalidad ? ['modalidad'] : [])]);
+            $reales = $presentes->where('es_control_qa', false)->pluck('documento_clave')->flip();
+            $qa = $presentes->where('es_control_qa', true)->mapWithKeys(fn (Participante $p) => [self::claveQa($p->documento_clave, $conModalidad ? $p->modalidad : null) => true]);
+            $variantes = $conModalidad ? (self::modalidadesDe($lote) ?: [null]) : [null];
+            $r['total'] = $contactos->count() * count($variantes);
             $hayCorreos = Schema::hasTable('cf_correos');
 
             foreach ($contactos as $c) {
-                if ($presentes->has($c->documento_clave)) {
-                    // Ya está: si es de control cuenta como existente; si es un participante real con el mismo documento, se omite y se informa.
-                    $presentes[$c->documento_clave] ? $r['existentes']++ : $r['omitidos']++;
+                foreach ($variantes as $modalidad) {
+                    if ($reales->has($c->documento_clave)) {
+                        $r['omitidos']++;   // un participante real con el mismo documento: se omite y se informa
 
-                    continue;
+                        continue;
+                    }
+                    if ($qa->has(self::claveQa($c->documento_clave, $modalidad))) {
+                        $r['existentes']++;
+
+                        continue;
+                    }
+                    $p = Participante::create([
+                        'lote_id' => $lote->id, 'nombre_completo' => $c->nombre_completo, 'documento' => $c->documento, 'documento_clave' => $c->documento_clave,
+                        'correo' => $c->correo, 'correo_normalizado' => $c->correo_normalizado, 'correo_estado' => Participante::CORREO_VALIDO, 'es_control_qa' => true,
+                        ...($modalidad !== null ? ['modalidad' => $modalidad] : []),
+                    ]);
+                    if ($hayCorreos) {
+                        Correo::create(['participante_id' => $p->id, 'correo' => $c->correo, 'correo_normalizado' => $c->correo_normalizado, 'estado' => Correo::ESTADO_VALIDO,
+                            'orden' => 1, 'es_principal' => true, 'origen' => Correo::ORIGEN_CREDENTIAL_FLOW]);
+                    }
+                    $r['creados']++;
                 }
-                $p = Participante::create([
-                    'lote_id' => $lote->id, 'nombre_completo' => $c->nombre_completo, 'documento' => $c->documento, 'documento_clave' => $c->documento_clave,
-                    'correo' => $c->correo, 'correo_normalizado' => $c->correo_normalizado, 'correo_estado' => Participante::CORREO_VALIDO, 'es_control_qa' => true,
-                ]);
-                if ($hayCorreos) {
-                    Correo::create(['participante_id' => $p->id, 'correo' => $c->correo, 'correo_normalizado' => $c->correo_normalizado, 'estado' => Correo::ESTADO_VALIDO,
-                        'orden' => 1, 'es_principal' => true, 'origen' => Correo::ORIGEN_CREDENTIAL_FLOW]);
-                }
-                $r['creados']++;
             }
         });
 
@@ -82,6 +97,33 @@ final class ServicioQa
         }
 
         return $r;
+    }
+
+    /**
+     * Modalidades PROPIAS de los participantes reales de la base, en el orden en que aparecen (sin repetir mayúsculas/espacios). Vacío si nadie trae la suya.
+     *
+     * @return list<string>
+     */
+    public static function modalidadesDe(Lote $lote): array
+    {
+        if (! Schema::hasColumn('cf_participantes', 'modalidad')) {
+            return [];
+        }
+        $vistas = [];
+        $valores = Participante::query()->where('lote_id', $lote->id)->where('es_control_qa', false)->whereNotNull('modalidad')->orderBy('id')->pluck('modalidad');
+        foreach ($valores as $m) {
+            $t = trim((string) $m);
+            if ($t !== '') {
+                $vistas[mb_strtolower($t, 'UTF-8')] ??= $t;
+            }
+        }
+
+        return array_values($vistas);
+    }
+
+    private static function claveQa(string $documentoClave, ?string $modalidad): string
+    {
+        return $documentoClave.'|'.mb_strtolower(trim((string) $modalidad), 'UTF-8');
     }
 
     /**

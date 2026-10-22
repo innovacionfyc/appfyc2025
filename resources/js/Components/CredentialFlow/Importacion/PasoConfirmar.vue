@@ -15,6 +15,8 @@ const abiertos = ref({});
 
 const r = computed(() => a.resumenParticipantes.value);
 const v = computed(() => a.validacion.value);
+// Modalidades propias del Excel (los contactos QA se prueban en cada una).
+const modalidades = computed(() => Object.keys(v.value?.resumen?.por_modalidad ?? {}));
 const bloqueos = computed(() => v.value?.bloqueos ?? []);
 const agrupados = computed(() => {
   const m = new Map();
@@ -111,7 +113,9 @@ const irAFiltro = async (filtro) => {
         <li class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3" data-resumen="qa">
           <ShieldCheck class="w-5 h-5 shrink-0 mt-0.5" :class="qa.listo ? 'text-emerald-600' : 'text-amber-600'" aria-hidden="true" />
           <span class="text-sm"><strong class="text-slate-800">Contactos de control (QA).</strong>{{ " " }}<span class="font-semibold text-slate-600">
-              <template v-if="a.props.qa_automatico">Se agregarán solos los {{ qa.activos }} contactos de control a la base; si alguno no entra, la base no se crea. No cuentan como participantes reales.</template>
+              <template v-if="a.props.qa_automatico">
+                Se agregarán solos los {{ qa.activos }} contactos de control a la base<template v-if="modalidades.length > 1">, una vez por cada modalidad: {{ qa.activos * modalidades.length }} pruebas internas ({{ modalidades.map((m) => `${qa.activos} ${m}`).join(" y ") }})</template>; si alguno no entra, la base no se crea. No cuentan como participantes reales.
+              </template>
               <template v-else>La incorporación automática de contactos de control está apagada.</template>
             </span>
           </span>

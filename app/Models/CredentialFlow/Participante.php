@@ -51,6 +51,7 @@ class Participante extends Model
         'es_control_qa',
         'elegibilidad',
         'intensidad_horaria',
+        'modalidad',
         'elegibilidad_motivo',
         'correo_actualizado_at',
         'tipo_documento_confirmado',
