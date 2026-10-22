@@ -69,9 +69,17 @@ class EmisionController extends Controller
         return response()->json(['resumen' => $this->emisorLote->resumen($lote)]);
     }
 
+    /**
+     * «Emitir certificados»: los oficiales pendientes y, en el mismo flujo, las pruebas internas (QA) pendientes. `resultado` conserva la forma de siempre
+     * (los oficiales); `qa` y `qa_error` informan las pruebas aparte. Si solo quedaban pruebas QA, `resultado` es null.
+     */
     public function emitirLote(Lote $lote): JsonResponse|HttpResponse
     {
-        return $this->ejecutar(fn () => response()->json(['resultado' => $this->emisorLote->emitirPendientes($lote, Auth::id())], 201));
+        return $this->ejecutar(function () use ($lote) {
+            $r = $this->emisorLote->emitirTodo($lote, Auth::id());
+
+            return response()->json(['resultado' => $r['oficiales'], 'qa' => $r['qa'], 'qa_error' => $r['qa_error']], 201);
+        });
     }
 
     /** Emite SOLO los contactos de control (QA) pendientes de la base, con la plantilla de pruebas internas. Nunca emite certificados académicos a un QA. */

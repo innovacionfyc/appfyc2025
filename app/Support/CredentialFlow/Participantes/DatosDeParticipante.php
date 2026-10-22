@@ -20,7 +20,7 @@ final class DatosDeParticipante
 
         $datos = [
             'nombre_completo' => $participante->nombre_completo,
-            'documento' => $participante->documento,
+            'documento' => self::documentoParaImprimir((string) $participante->documento),
             'evento' => $comunes['evento'] ?? '',
             'fecha' => $comunes['fecha'] ?? '',
             // La del evento/base es la predeterminada; una excepción aprobada por participante la reemplaza. Nunca se inventan horas.
@@ -47,5 +47,19 @@ final class DatosDeParticipante
         $m = trim((string) ($participante->modalidad ?? ''));
 
         return $m === '' ? null : $m;
+    }
+
+    /**
+     * Cómo se IMPRIME el documento: una cédula de ciudadanía escrita solo con dígitos («C.C. 40343234») sale con puntos de miles («C.C. 40.343.234»).
+     * Conserva todos los dígitos (también ceros a la izquierda). No cambia el dato guardado ni su clave (portal/OTP), ni otros tipos de documento
+     * (pasaporte, PPT, C.E.…), ni un documento que ya traiga su propio formato.
+     */
+    public static function documentoParaImprimir(string $documento): string
+    {
+        if (preg_match('/^C\.C\.\s*(\d{4,})$/u', trim($documento), $m) !== 1) {
+            return $documento;
+        }
+
+        return 'C.C. '.strrev(implode('.', str_split(strrev($m[1]), 3)));
     }
 }

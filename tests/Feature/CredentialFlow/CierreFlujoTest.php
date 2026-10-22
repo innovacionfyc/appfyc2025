@@ -357,18 +357,20 @@ class CierreFlujoTest extends EmisionesTestCase
         $beto = $por('BETO DOS');
         $this->actingAs($admin)->put(route('credential-flow.participantes.update', [$lote->id, $beto->id]), ['nombre_completo' => 'BETO DOS', 'documento' => 'C.C. 9.700.002', 'tipo_documento_pendiente' => false])->assertSessionHasNoErrors();
 
-        // 5. Vista previa revisada y plantilla confirmada → emisión masiva SOLO de elegibles con tipo confirmado.
+        // 5. Vista previa revisada y plantilla confirmada → un clic: los oficiales SOLO de elegibles con tipo confirmado y, aparte, las pruebas QA.
         $this->vistaPreviaConfirmada($lote);
-        $this->actingAs($admin)->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 3);
-        $this->assertSame(['ANA UNO', 'BETO DOS', 'DIEGO CUATRO'], Participante::whereIn('id', Emision::where('lote_id', $lote->id)->pluck('participante_id'))->orderBy('id')->pluck('nombre_completo')->all());
+        $this->actingAs($admin)->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 3)->assertJsonPath('qa.total', 3)->assertJsonPath('qa_error', null);
+        $reales = $lote->participantes()->where('es_control_qa', false)->select('id');
+        $this->assertSame(['ANA UNO', 'BETO DOS', 'DIEGO CUATRO'], Participante::whereIn('id', Emision::where('lote_id', $lote->id)->whereIn('participante_id', $reales)->pluck('participante_id'))->orderBy('id')->pluck('nombre_completo')->all());
         $this->assertSame(0, Emision::where('participante_id', $por('CARLA TRES')->id)->count(), '«Cupos» no se emite');
 
         $emAna = Emision::where('participante_id', $ana->id)->firstOrFail();
         $pdfAna = $this->actingAs($admin)->get(route('credential-flow.emisiones.descargar', $emAna))->assertOk()->getContent();
         $this->assertNotContains('PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', array_column((new InspectorPdf($pdfAna))->textos(), 'texto'));
 
-        // 6. Pruebas internas aparte, visiblemente marcadas.
-        $this->actingAs($admin)->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated()->assertJsonPath('resultado.total', 3);
+        // 6. Pruebas internas ya emitidas en el mismo clic, visiblemente marcadas; reintentarlas no duplica nada.
+        $this->actingAs($admin)->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'SIN_PENDIENTES');
+        $this->assertSame(6, Emision::where('lote_id', $lote->id)->count());
         $emQa = Emision::where('lote_id', $lote->id)->whereIn('participante_id', $lote->participantes()->where('es_control_qa', true)->select('id'))->firstOrFail();
         $this->assertContains('PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', array_column((new InspectorPdf($this->actingAs($admin)->get(route('credential-flow.emisiones.descargar', $emQa))->getContent()))->textos(), 'texto'));
 
