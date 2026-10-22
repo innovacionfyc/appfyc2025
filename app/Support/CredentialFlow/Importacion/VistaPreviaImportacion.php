@@ -11,6 +11,7 @@ use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Support\Facades\DB;
@@ -163,7 +164,7 @@ final class VistaPreviaImportacion
                 $datos['nombre_completo'] = $nombre;
             }
             if ($doc !== '') {
-                $datos['documento'] = $doc;
+                $datos['documento'] = DatosDeParticipante::documentoParaImprimir($doc);   // igual que en el certificado oficial
             }
             if (($persona['intensidad_horaria'] ?? null) !== null && $persona['intensidad_horaria'] !== '') {
                 $datos['intensidad_horaria'] = (string) $persona['intensidad_horaria'];
