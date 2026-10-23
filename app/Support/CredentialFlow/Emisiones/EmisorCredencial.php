@@ -121,11 +121,9 @@ final class EmisorCredencial
         }
         $plantilla = $esQa ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(
-                EmisionException::PLANTILLA_NO_DISPONIBLE,
-                $esQa ? 'No hay una plantilla de pruebas internas (QA) designada. Márcala en Plantillas antes de emitir las pruebas.' : 'La plantilla de esta base ya no está disponible.',
-                409
-            );
+            throw $esQa
+                ? new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, 'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada: la prueba no se emite con el diseño de otra capacitación.', 409)
+                : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
 
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).

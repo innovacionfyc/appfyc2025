@@ -177,7 +177,9 @@ const volverAEmitir = (p) => {
 
 // «Emitir certificados»: los oficiales pendientes y, en el mismo flujo, las pruebas internas (QA) pendientes, cada grupo con su plantilla y por separado.
 const qaPendientes = computed(() => resumen.value.qa?.pendientes ?? 0);
-const puedeEmitir = computed(() => (resumen.value.pendientes > 0 && vistaLista.value) || (resumen.value.pendientes === 0 && qaPendientes.value > 0));
+// Con pruebas QA pendientes y sin la variante de prueba de la plantilla, la emisión conjunta no empieza (ni los oficiales): así nunca queda a medias.
+const faltaVarianteQa = computed(() => qaPendientes.value > 0 && !resumen.value.qa?.plantilla_lista);
+const puedeEmitir = computed(() => !faltaVarianteQa.value && ((resumen.value.pendientes > 0 && vistaLista.value) || (resumen.value.pendientes === 0 && qaPendientes.value > 0)));
 const avisoQa = ref(null);
 
 const emitirPendientes = () => {
@@ -192,7 +194,7 @@ const emitirPendientes = () => {
     partes.push(
       qaLista
         ? `${n > 0 ? "Además, aparte, " : nQa === 1 ? "Se emitirá " : "Se emitirán "}${nQa === 1 ? "1 certificado de PRUEBA INTERNA" : `${nQa} certificados de PRUEBA INTERNA`} para los contactos de control, con la plantilla de prueba (sin validez académica; no entran al ZIP).`
-        : "Las pruebas internas (QA) no se podrán emitir: falta designar la plantilla de prueba de esta base.",
+        : "Las pruebas internas (QA) no se podrán emitir: la plantilla de esta base no tiene su variante de prueba.",
     );
   }
   partes.push("Los certificados emitidos no cambian aunque luego edites los datos.");
@@ -319,7 +321,7 @@ const confirmarMotivo = async (motivo) => {
 
       <DashboardHeader :title="lote.nombre" :subtitle="lote.descripcion || 'Base de participantes'" :stats="headerStats">
         <template #actions>
-          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || !puedeEmitir" :title="resumen.pendientes > 0 && !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" data-accion="emitir-pendientes" @click="emitirPendientes">
+          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || !puedeEmitir" :title="faltaVarianteQa ? 'La plantilla de esta base no tiene su variante de pruebas internas (QA)' : resumen.pendientes > 0 && !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" data-accion="emitir-pendientes" @click="emitirPendientes">
             <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
             <BadgeCheck v-else class="w-4 h-4" />
             Emitir certificados<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span><span v-if="qaPendientes > 0" class="opacity-80"> + {{ qaPendientes }} QA</span>
@@ -488,7 +490,9 @@ const confirmarMotivo = async (motivo) => {
           <template v-if="resumen.qa">
             <span class="font-black" data-qa-resumen>Contactos de control (QA): {{ contactosQa(resumen.qa) }}<template v-if="resumen.qa.participantes > contactosQa(resumen.qa)"> · {{ resumen.qa.participantes }} pruebas internas (una por modalidad)</template>.</span> No cuentan como participantes reales. Sus certificados son de prueba interna, sin validez académica
             ({{ resumen.qa.vigentes }} {{ plural(resumen.qa.vigentes, "emitido", "emitidos") }}, {{ resumen.qa.pendientes }} sin emitir).
-            <span v-if="!resumen.qa.plantilla_lista" class="text-amber-700">Falta designar la plantilla de pruebas internas en Plantillas.</span>
+            <span v-if="!resumen.qa.plantilla_lista" class="text-amber-700" data-falta-variante-qa>
+              La plantilla de esta base no tiene su variante de pruebas internas (QA). Las pruebas nunca se emiten con el diseño de otra capacitación<template v-if="qaPendientes > 0">: «Emitir certificados» no empezará hasta asociarla, para no dejar la emisión a medias</template>.
+            </span>
           </template>
           <template v-else>Esta base aún no tiene los contactos de control (QA) del equipo.</template>
         </p>

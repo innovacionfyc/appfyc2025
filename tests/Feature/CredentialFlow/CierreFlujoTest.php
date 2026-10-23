@@ -60,13 +60,15 @@ class CierreFlujoTest extends EmisionesTestCase
         return app(ImportadorParticipantes::class)->importar(UploadedFile::fake()->createWithContent('b.csv', $csv), $this->plantillaLista(), $nombre, null, self::COMUNES);
     }
 
-    private function plantillaQa(): Plantilla
+    /** Plantilla de pruebas internas; con `$de`, queda asociada como la variante QA de esa plantilla (la ÚNICA con la que salen sus pruebas). */
+    private function plantillaQa(?Plantilla $de = null): Plantilla
     {
         $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
         $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), $campos, array_keys($campos));
         $els[] = $this->elemento(['type' => 'text', 'text' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'y' => 380, 'fontSize' => 18]);
         $p = $this->plantillaLista($els);
         $p->update(['nombre' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'es_plantilla_qa' => true]);
+        $de?->update(['variante_qa_id' => $p->id]);
 
         return $p->fresh();
     }
@@ -225,10 +227,13 @@ class CierreFlujoTest extends EmisionesTestCase
         $this->emitirPor($lote, $lote->participantes()->where('es_control_qa', false)->firstOrFail())->assertCreated();   // sin exigir todavía
 
         $this->exigirVistaPrevia();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 1);
+        // Con pruebas QA pendientes y sin la variante de prueba de su plantilla, la emisión conjunta no empieza: ni los oficiales.
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
+        $this->assertSame(1, Emision::where('lote_id', $lote->id)->count(), 'no se emitió nada más');
 
-        $this->plantillaQa();
+        $this->plantillaQa($lote->plantilla);
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated()->assertJsonPath('resultado.total', 3);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 1);
 
         // La vista previa de un QA no cuenta como revisión de la plantilla oficial.
         $otra = $this->importar("nombre_completo,documento\nTRES,C.C. 9.100.093\n", 'Otra');
@@ -323,8 +328,8 @@ class CierreFlujoTest extends EmisionesTestCase
         config(['credential_flow.qa.exigir_catalogo' => true]);
         $this->exigirVistaPrevia();
         $this->sembrarCatalogo(3);
-        $this->plantillaQa();
         $plantilla = $this->plantillaLista();
+        $this->plantillaQa($plantilla);
         $admin = $this->admin();
 
         // 1. Evento primero, luego importar (columna de tipo vacía en una persona; «Cupos» en otra).

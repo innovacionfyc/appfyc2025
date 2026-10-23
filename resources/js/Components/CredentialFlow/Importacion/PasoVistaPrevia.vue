@@ -22,6 +22,9 @@ const plantillaActual = computed(() => a.plantillaId.value ?? "");
 const hayPdf = computed(() => vp.value?.pdf_disponible === true);
 // Datos que faltan para dibujar el PDF, cada uno con su botón «Revisar este dato».
 const faltantes = computed(() => (vp.value?.campos ?? []).filter((c) => c.falta));
+// Cómo se leerá la fecha con esta plantilla («realizado el día…» o «realizado los días…», según la fecha) y con qué variante saldrán las pruebas QA.
+const fechaSeLee = computed(() => (vp.value?.campos ?? []).find((c) => c.clave === "fecha")?.se_lee ?? null);
+const plantillaElegida = computed(() => plantillas.find((p) => String(p.id) === String(plantillaActual.value)) ?? null);
 const COMUNES = ["fecha", "intensidad_horaria", "modalidad", "ciudad", "texto_certificacion", "texto_complementario"];
 async function revisarFaltante(c) {
   if (COMUNES.includes(c.clave)) return a.irADato(c.clave);
@@ -130,6 +133,10 @@ onBeforeUnmount(() => {
         <p v-if="plantillas.length === 0" class="mt-2 text-[13px] font-semibold text-rose-700" role="alert" data-sin-plantillas>
           Todavía no hay plantillas con diseño guardado. <Link :href="route('credential-flow.plantillas.index')" class="underline">Crea o termina una en Plantillas</Link> y vuelve.
         </p>
+        <p v-if="plantillaElegida" class="mt-2 text-[12.5px] font-semibold" :class="plantillaElegida.variante_qa ? 'text-slate-500' : 'text-amber-800'" data-variante-qa>
+          <template v-if="plantillaElegida.variante_qa">Las pruebas internas (QA) saldrán con su variante: «{{ plantillaElegida.variante_qa }}».</template>
+          <template v-else>Esta plantilla no tiene variante de pruebas internas (QA): podrás crear la base, pero «Emitir certificados» no empezará hasta asociarla. Las pruebas nunca se emiten con el diseño de otra capacitación.</template>
+        </p>
       </div>
       <details class="md:col-span-1 self-start" data-otra-persona>
         <summary class="cursor-pointer text-[13px] font-extrabold text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 rounded">Probar con otra persona</summary>
@@ -168,6 +175,10 @@ onBeforeUnmount(() => {
       <ul v-if="vp.avisos.length" class="space-y-2" data-avisos-vista>
         <li v-for="m in vp.avisos" :key="m" class="flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-[13px] font-semibold text-amber-900"><Info class="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />{{ m }}</li>
       </ul>
+
+      <p v-if="plantillaActual !== '' && fechaSeLee" class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-[13px] font-semibold text-slate-700 break-words" data-fecha-se-lee>
+        La fecha se leerá así en el certificado: <strong class="text-slate-900">«{{ fechaSeLee }}»</strong>
+      </p>
 
 
       <section v-if="plantillaActual === ''" class="rounded-3xl border border-slate-200 bg-slate-50 p-5" data-sin-plantilla-elegida>

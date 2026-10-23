@@ -48,7 +48,7 @@ export const ASISTENCIA = {
 
 // Datos del certificado que se pueden revisar (el nombre del evento se decide en su propia tarjeta).
 export const DATOS = [
-  { campo: "fecha", etiqueta: "Fecha", ayuda: "Tal como se imprimirá, por ejemplo «16 de octubre de 2026» o «22 y 23 de octubre de 2026».", requerido: true, largo: false },
+  { campo: "fecha", etiqueta: "Fecha", ayuda: "Tal como se imprimirá, por ejemplo «16 de octubre de 2026» o «22 y 23 de octubre de 2026». «el día» o «los días» se escribe solo, según la fecha.", requerido: true, largo: false },
   { campo: "intensidad_horaria", etiqueta: "Intensidad horaria", ayuda: "Por ejemplo «5 HORAS».", requerido: true, largo: false },
   { campo: "modalidad", etiqueta: "Modalidad", ayuda: "Se imprime exactamente como la escribas o la confirmes.", requerido: false, largo: false },
   { campo: "ciudad", etiqueta: "Ciudad", ayuda: "Solo si el evento la define. No se inventa.", requerido: false, largo: false },
@@ -70,6 +70,7 @@ export const BLOQUEOS = {
   dato_comun_sin_confirmar: { titulo: "Falta revisar un dato del certificado", paso: "datos", ancla: "datos" },
   dato_comun_invalido: { titulo: "Un dato del certificado no se puede imprimir", paso: "datos", ancla: "datos" },
   datos_del_diseno_incompletos: { titulo: "La plantilla imprime un dato que falta", paso: "datos", ancla: "datos" },
+  fecha_sin_dias_claros: { titulo: "No se sabe si la fecha es de un día o de varios", paso: "datos", ancla: "datos" },
   valores_desactualizados_sin_revisar: { titulo: "Faltan por revisar datos que pueden estar desactualizados", paso: "datos", ancla: "avisos" },
   valores_ambiguos_sin_revisar: { titulo: "Faltan por revisar datos dudosos", paso: "personas", ancla: "avisos" },
   sin_participantes: { titulo: "No queda ningún participante por importar", paso: "personas", ancla: "participantes" },

@@ -7,6 +7,7 @@ use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\GeneradorZip;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
@@ -42,8 +43,13 @@ class QaAutomaticoTest extends PortalTestCase
         return app(ImportadorParticipantes::class)->importar(UploadedFile::fake()->createWithContent('base.csv', $csv), $this->plantillaLista(), $nombre, null, self::COMUNES);
     }
 
-    /** Variante de pruebas del diseño institucional: los mismos cinco campos más la advertencia como TEXTO VISIBLE del diseño (no solo en el nombre). */
-    private function plantillaQa(bool $designar = true, bool $conAdvertencia = true, string $nombre = 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA'): Plantilla
+    /**
+     * Variante de pruebas del diseño institucional: los mismos cinco campos más la advertencia como TEXTO VISIBLE del diseño (no solo en el nombre). Con `$de`,
+     * queda asociada como la variante QA de la plantilla de esas bases: la ÚNICA con la que salen sus pruebas.
+     *
+     * @param  list<Lote>  $de
+     */
+    private function plantillaQa(bool $designar = true, bool $conAdvertencia = true, string $nombre = 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', array $de = []): Plantilla
     {
         $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
         $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), $campos, array_keys($campos));
@@ -52,6 +58,9 @@ class QaAutomaticoTest extends PortalTestCase
         }
         $p = $this->plantillaLista($els);
         $p->update(['nombre' => $nombre, 'es_plantilla_qa' => $designar]);
+        foreach ($de as $lote) {
+            Plantilla::whereKey($lote->plantilla_id)->update(['variante_qa_id' => $p->id]);
+        }
 
         return $p->fresh();
     }
@@ -130,7 +139,12 @@ class QaAutomaticoTest extends PortalTestCase
     {
         $lote = $this->baseConQa();
 
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 2)->assertJsonPath('resultado.restantes', 0);
+        // Por la ruta de la pantalla: con QA pendientes y sin la variante de su plantilla no empieza nada (ni los oficiales).
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
+        $this->assertSame(0, Emision::where('lote_id', $lote->id)->count());
+
+        $r = app(EmisorLote::class)->emitirPendientes($lote, null);   // la parte OFICIAL de «Emitir certificados»
+        $this->assertSame([2, 0], [$r['total'], $r['restantes']]);
 
         $emitidos = Emision::where('lote_id', $lote->id)->pluck('participante_id');
         $this->assertCount(2, $emitidos);
@@ -141,14 +155,14 @@ class QaAutomaticoTest extends PortalTestCase
     public function test_emitir_pruebas_internas_usa_solo_la_plantilla_qa_y_solo_a_los_qa(): void
     {
         $lote = $this->baseConQa();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated();
+        $this->assertSame(2, app(EmisorLote::class)->emitirPendientes($lote, null)['total']);
         $reales = Emision::where('lote_id', $lote->id)->orderBy('id')->get()->map->only(['id', 'plantilla_id', 'pdf_hash', 'estado', 'codigo'])->all();
 
-        // Sin plantilla de pruebas designada: no se emite nada (ni se cae a la plantilla académica).
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'PLANTILLA_NO_DISPONIBLE');
+        // Sin la variante de pruebas de su plantilla: no se emite nada (ni se cae a la plantilla académica ni a otra de pruebas).
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
         $this->assertSame(2, Emision::where('lote_id', $lote->id)->count());
 
-        $qa = $this->plantillaQa();
+        $qa = $this->plantillaQa(de: [$lote]);
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated()->assertJsonPath('resultado.total', 3);
 
         $emQa = Emision::where('lote_id', $lote->id)->whereIn('participante_id', Participante::where('lote_id', $lote->id)->where('es_control_qa', true)->select('id'))->get();
@@ -164,8 +178,8 @@ class QaAutomaticoTest extends PortalTestCase
         $lote = $this->baseConQa();
         $qa = Participante::where('lote_id', $lote->id)->where('es_control_qa', true)->orderBy('id')->first();
 
-        $this->emitirPor($lote, $qa)->assertStatus(409)->assertJsonPath('error.code', 'PLANTILLA_NO_DISPONIBLE');
-        $p = $this->plantillaQa();
+        $this->emitirPor($lote, $qa)->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
+        $p = $this->plantillaQa(de: [$lote]);
         $this->emitirPor($lote, $qa)->assertCreated();
 
         $this->assertSame($p->id, Emision::where('participante_id', $qa->id)->value('plantilla_id'));
@@ -190,18 +204,17 @@ class QaAutomaticoTest extends PortalTestCase
     public function test_una_plantilla_marcada_pero_sin_advertencia_en_el_diseno_no_emite_nada(): void
     {
         $lote = $this->baseConQa();
-        $this->plantillaQa(true, false);   // designada «a la fuerza» pero sin el texto: no se puede usar
+        $this->plantillaQa(true, false, de: [$lote]);   // designada y asociada «a la fuerza» pero sin el texto: no se puede usar
 
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'PLANTILLA_NO_DISPONIBLE');
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
         $this->assertSame(0, Emision::where('lote_id', $lote->id)->count());
     }
 
     public function test_el_pdf_de_prueba_interna_imprime_la_advertencia_y_el_oficial_no(): void
     {
         $lote = $this->baseConQa();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated();
-        $this->plantillaQa();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated();
+        $this->plantillaQa(de: [$lote]);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('qa.total', 3);
 
         $porQa = fn (bool $qa) => Emision::where('lote_id', $lote->id)->whereIn('participante_id', Participante::where('lote_id', $lote->id)->where('es_control_qa', $qa)->select('id'))->get();
         foreach ($porQa(true) as $e) {
@@ -217,7 +230,8 @@ class QaAutomaticoTest extends PortalTestCase
         $lote = $this->baseConQa();
         $propia = $this->plantillaQa(true, true, 'Variante del diseño de esta base');
         $reciente = $this->plantillaQa(true, true, 'Variante genérica más reciente');
-        $this->assertSame($reciente->id, app(ServicioQa::class)->plantilla()?->id, 'Sin variante propia gana la última designada');
+        $this->assertSame($reciente->id, app(ServicioQa::class)->plantilla()?->id, 'La última designada sigue siendo la de omisión del catálogo…');
+        $this->assertNull(app(ServicioQa::class)->plantillaPara($lote), '…pero una base sin variante propia NO la usa: sus pruebas no salen con el diseño de otra capacitación');
 
         $this->actingAs($this->admin())->put(route('credential-flow.plantillas.variante-qa', $lote->plantilla_id), ['variante_qa_id' => $propia->id])->assertSessionHas('success');
         $this->assertSame($propia->id, app(ServicioQa::class)->plantillaPara($lote->fresh())?->id, 'La variante propia del diseño de la base manda sobre la última designada');
@@ -234,9 +248,8 @@ class QaAutomaticoTest extends PortalTestCase
     public function test_el_zip_de_la_base_deja_fuera_las_pruebas_internas(): void
     {
         $lote = $this->baseConQa();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated();
-        $this->plantillaQa();
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated();
+        $this->plantillaQa(de: [$lote]);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 2)->assertJsonPath('qa.total', 3);
 
         $r = $this->actingAs($this->admin())->get(route('credential-flow.lotes.zip', $lote))->assertOk();
 
@@ -251,7 +264,7 @@ class QaAutomaticoTest extends PortalTestCase
     public function test_un_contacto_qa_prueba_otp_y_descarga_su_certificado_de_prueba(): void
     {
         $lote = $this->baseConQa();
-        $this->plantillaQa();
+        $this->plantillaQa(de: [$lote]);
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated();
         $em = Emision::where('lote_id', $lote->id)->whereIn('participante_id', Participante::where('documento_clave', 'CC8000001')->select('id'))->firstOrFail();
 
@@ -364,12 +377,9 @@ class QaAutomaticoTest extends PortalTestCase
         $presencial = $this->baseConQa();
         $virtual = $this->baseConQa("nombre_completo,documento,correo\nVIRTUAL UNO,9.400.001,v1@example.test\n");
         Lote::whereIn('id', [$presencial->id, $virtual->id])->update(['evento_id' => $evento->id]);
+        $this->plantillaQa(de: [$presencial, $virtual]);
         foreach ([$presencial, $virtual] as $l) {
-            $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $l))->assertCreated();
-        }
-        $this->plantillaQa();
-        foreach ([$presencial, $virtual] as $l) {
-            $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $l))->assertCreated();
+            $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $l))->assertCreated()->assertJsonPath('qa.total', 3)->assertJsonPath('qa_error', null);   // un clic: sus oficiales y, aparte, sus QA
         }
 
         $resumen = app(ServicioEventos::class)->resumen($evento->fresh());

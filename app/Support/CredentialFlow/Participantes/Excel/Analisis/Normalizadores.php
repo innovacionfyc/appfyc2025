@@ -419,7 +419,12 @@ final class Normalizadores
             $motivos[] = 'varias_fechas';
         }
 
-        return self::valor('fecha', self::textoFecha($fechas), $c, $hoja, $motivos === [] ? ValorDetectado::CONFIABLE : ValorDetectado::AMBIGUO,
+        // Un rango («16 al 18 de octubre») se escribe como rango: listar solo sus extremos («16 y 18») cambiaría el significado.
+        $texto = in_array('rango_de_fechas', $motivos, true) && count($fechas) === 2
+            ? $fechas[0][2].' al '.$fechas[1][2].' de '.self::MESES_TEXTO[$fechas[0][1]].' de '.$fechas[0][0]
+            : self::textoFecha($fechas);
+
+        return self::valor('fecha', $texto, $c, $hoja, $motivos === [] ? ValorDetectado::CONFIABLE : ValorDetectado::AMBIGUO,
             array_values(array_unique($motivos)), $transformacion, ['iso' => $isos[0], 'isos' => $isos], $etiqueta);
     }
 

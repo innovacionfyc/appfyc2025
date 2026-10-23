@@ -11,6 +11,7 @@ use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
@@ -197,7 +198,15 @@ final class VistaPreviaImportacion
             $valor = $datos[$clave] ?? null;
             $imprime = $usados === null ? null : in_array($clave, $usados, true);
             $falta = $imprime === true && $valor === null;
-            $campos[] = ['clave' => $clave, 'etiqueta' => $catalogo[$clave]['etiqueta'], 'valor' => $valor, 'se_imprime' => $imprime, 'falta' => $falta, 'varias_lineas' => $catalogo[$clave]['multilinea']];
+            $campo = ['clave' => $clave, 'etiqueta' => $catalogo[$clave]['etiqueta'], 'valor' => $valor, 'se_imprime' => $imprime, 'falta' => $falta, 'varias_lineas' => $catalogo[$clave]['multilinea']];
+            // La fecha se muestra también tal como se leerá en el certificado: con «el día» / «los días» según la fecha (misma regla que el PDF).
+            if ($clave === 'fecha' && $plantilla !== null && $valor !== null) {
+                $campo['se_lee'] = RedaccionFecha::textoImpreso((array) $plantilla->diseno, (string) $valor);
+                if (RedaccionFecha::requiereRevision((array) $plantilla->diseno, (string) $valor)) {
+                    $problemas[] = 'No podemos saber si la fecha es de un día o de varios: escríbela como «16 de octubre de 2026» o «22 y 23 de octubre de 2026».';
+                }
+            }
+            $campos[] = $campo;
             if ($falta) {
                 $problemas[] = "La plantilla imprime «{$catalogo[$clave]['etiqueta']}» y ese dato todavía no está completo.";
             }

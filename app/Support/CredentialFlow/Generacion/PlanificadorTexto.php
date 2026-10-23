@@ -75,9 +75,14 @@ final class PlanificadorTexto
         }
 
         // Campo dinámico: prefijo + valor + sufijo son UN solo texto (se mide, se centra y se dibuja junto).
+        // En la fecha, «el día» / «los días» del prefijo lo decide la propia fecha (un día o varios), no la plantilla.
         $multilinea = $dinamico && ($el['multiline'] ?? false) === true;
+        $prefijo = (string) ($el['prefix'] ?? '');
+        if ($campo === 'fecha') {
+            $prefijo = RedaccionFecha::prefijo($prefijo, $datos->valor('fecha'));
+        }
         $contenido = $dinamico
-            ? (string) ($el['prefix'] ?? '').$datos->valor((string) $campo).(string) ($el['suffix'] ?? '')
+            ? $prefijo.$datos->valor((string) $campo).(string) ($el['suffix'] ?? '')
             : (string) ($el['text'] ?? '');
         if ($multilinea) {
             $nfc = \Normalizer::normalize($contenido, \Normalizer::FORM_C);

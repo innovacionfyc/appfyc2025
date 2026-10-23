@@ -111,10 +111,12 @@ const irAFiltro = async (filtro) => {
           <span class="text-sm"><strong class="text-slate-800">Plantilla.</strong> <span class="font-semibold text-slate-600">{{ plantilla ? plantilla.nombre : "Todavía no elegiste la plantilla." }}</span></span>
         </li>
         <li class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3" data-resumen="qa">
-          <ShieldCheck class="w-5 h-5 shrink-0 mt-0.5" :class="qa.listo ? 'text-emerald-600' : 'text-amber-600'" aria-hidden="true" />
+          <ShieldCheck class="w-5 h-5 shrink-0 mt-0.5" :class="qa.listo && (!plantilla || plantilla.variante_qa || !a.props.qa_automatico) ? 'text-emerald-600' : 'text-amber-600'" aria-hidden="true" />
           <span class="text-sm"><strong class="text-slate-800">Contactos de control (QA).</strong>{{ " " }}<span class="font-semibold text-slate-600">
               <template v-if="a.props.qa_automatico">
                 Se agregarán solos los {{ qa.activos }} contactos de control a la base<template v-if="modalidades.length > 1">, una vez por cada modalidad: {{ qa.activos * modalidades.length }} pruebas internas ({{ modalidades.map((m) => `${qa.activos} ${m}`).join(" y ") }})</template>; si alguno no entra, la base no se crea. No cuentan como participantes reales.
+                <span v-if="plantilla && plantilla.variante_qa" class="block mt-0.5" data-variante-qa-confirmar>Sus pruebas saldrán con «{{ plantilla.variante_qa }}».</span>
+                <span v-else-if="plantilla" class="block mt-0.5 text-amber-800" data-variante-qa-confirmar>Esta plantilla no tiene variante de pruebas internas: podrás crear la base, pero «Emitir certificados» no empezará hasta asociarla.</span>
               </template>
               <template v-else>La incorporación automática de contactos de control está apagada.</template>
             </span>
