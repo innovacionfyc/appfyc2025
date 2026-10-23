@@ -184,7 +184,8 @@ class ImportadorFase2Test extends EmisionesTestCase
 
         // Los certificados oficiales salen con la modalidad de cada persona, la cédula con puntos y el mes en minúscula.
         config(['credential_flow.emision.exige_vista_previa' => false]);
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 39);
+        $this->artisan('credential-flow:plantilla-variante-qa', ['origen' => $this->plantilla->id, '--ejecutar' => true])->assertExitCode(0);   // sus QA, solo con su variante
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 39)->assertJsonPath('qa.total', 16);
         $virtual = Emision::where('participante_id', $reales->firstWhere('fila_origen', 9)->id)->firstOrFail();
         $textos = array_column((new InspectorPdf($this->actingAs($this->admin())->get(route('credential-flow.emisiones.descargar', $virtual))->getContent()))->textos(), 'texto');
         $this->assertContains('Virtual', $textos);

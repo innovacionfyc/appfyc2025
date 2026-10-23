@@ -199,6 +199,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
 
     public function test_un_excel_con_8_presenciales_y_2_virtuales_da_una_base_y_diez_pdf_con_su_modalidad(): void
     {
+        $this->varianteQa();   // sus pruebas QA salen SOLO con la variante de su plantilla
         $id = $this->analizar($this->excel($this->ochoYDos()));
 
         // Revisión: cada persona con SU modalidad, tal cual la trae el Excel.
@@ -327,6 +328,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
 
     public function test_en_el_asistente_la_modalidad_general_no_rellena_a_quien_le_falta_la_suya(): void
     {
+        $this->varianteQa();   // sus pruebas QA salen SOLO con la variante de su plantilla
         $modalidades = $this->ochoYDos();
         $modalidades[4] = null;   // fila 11: celda de modalidad vacía en un Excel con modalidad por persona
         $id = $this->analizar($this->excel($modalidades));
@@ -395,6 +397,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
 
     public function test_la_vista_previa_revisada_en_el_asistente_no_se_vuelve_a_pedir_en_la_base(): void
     {
+        $this->varianteQa();   // sus pruebas QA salen SOLO con la variante de su plantilla
         $id = $this->borradorConVistaPrevia();
         $version = Importacion::findOrFail($id)->version;
         $this->verPdf($id);
@@ -407,6 +410,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
 
     public function test_sin_abrir_el_pdf_o_si_cambian_los_datos_despues_la_base_la_pide_de_nuevo(): void
     {
+        $this->varianteQa();   // sus pruebas QA salen SOLO con la variante de su plantilla
         // Nunca abrió el PDF.
         $id = $this->borradorConVistaPrevia();
         $lote = $this->confirmar($id);
@@ -426,6 +430,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
 
     public function test_si_la_plantilla_cambia_despues_de_crear_la_base_se_vuelve_a_pedir(): void
     {
+        $this->varianteQa();   // sus pruebas QA salen SOLO con la variante de su plantilla
         $id = $this->borradorConVistaPrevia();
         $this->verPdf($id);
         $lote = $this->confirmar($id);

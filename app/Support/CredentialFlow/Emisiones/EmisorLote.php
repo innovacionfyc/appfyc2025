@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Qa\ServicioQa;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -75,7 +76,7 @@ final class EmisorLote
                 'vigentes' => Emision::where('lote_id', $lote->id)->where('estado', Emision::EMITIDA)->whereIn('participante_id', (clone $qa)->select('id'))->count(),
                 'pendientes' => $qaPendientes,
                 'a_emitir' => min($qaPendientes, self::LIMITE),
-                // La plantilla con la que se emitirían las pruebas de ESTA base (su variante de prueba o la designada por omisión).
+                // Las pruebas de ESTA base solo se emiten con la variante de prueba de su plantilla; sin ella, «Emitir certificados» no empieza.
                 'plantilla_lista' => app(ServicioQa::class)->plantillaPara($lote) !== null,
             ];
         }
@@ -104,6 +105,12 @@ final class EmisorLote
         $hayQa = $pendientes(true);
         if (! $hayOficiales && ! $hayQa) {
             throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay certificados pendientes de emitir en esta base (ni oficiales ni pruebas internas).', 409);
+        }
+
+        // Si hay pruebas QA por emitir, se comprueba ANTES de tocar los oficiales que se pueden emitir (su variante de prueba, los datos que imprime y el plan
+        // de cada PDF). Si no, no empieza nada: un clic nunca deja la emisión a medias por algo que se podía saber antes.
+        if ($hayQa) {
+            $this->exigirQaListo($lote);
         }
 
         $r = ['oficiales' => null, 'qa' => null, 'qa_error' => null];
@@ -142,14 +149,10 @@ final class EmisorLote
     {
         $plantilla = $pruebasInternas ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
-            throw new EmisionException(
-                EmisionException::PLANTILLA_NO_DISPONIBLE,
-                $pruebasInternas ? 'No hay una plantilla de pruebas internas (QA) designada. Márcala en Plantillas antes de emitir las pruebas.' : 'La plantilla de esta base ya no está disponible.',
-                409
-            );
+            throw $pruebasInternas ? $this->sinVarianteQa() : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
 
-        $pendientes = $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
+        $pendientes = $this->pendientes($lote, $pruebasInternas);
 
         // Datos opcionales que el diseño imprime (modalidad, ciudad, textos): si faltan, se avisa qué completar antes de cualquier otro control.
         // La modalidad se mira por persona: la de la base solo hace falta para quien no tenga la suya.
@@ -169,30 +172,7 @@ final class EmisorLote
         }
 
         // 1–2: snapshots + huellas y prevalidación total (todo o nada).
-        [$base, $hashPlantilla] = SnapshotCredencial::cargarPlantilla($plantilla);
-        $pagina = GeneradorCredencialPdf::tamanoPagina($base, ['plantilla' => $plantilla->id]);
-
-        /** @var array<int,SnapshotCredencial> $snapshots por id de participante */
-        $snapshots = [];
-        $fallos = [];
-        foreach ($pendientes as $participante) {
-            try {
-                $snapshot = SnapshotCredencial::capturar($participante, $lote, $plantilla, $hashPlantilla);
-                PlanificadorTexto::planificar($snapshot->diseno, $snapshot->datosCredencial(), $pagina, $snapshot->schemaVersion);
-                PlanificadorQr::planificar($snapshot->diseno, $pagina, $snapshot->schemaVersion);
-                $snapshots[$participante->id] = $snapshot;
-            } catch (GeneracionCredencialException $e) {
-                $fallos[] = ['participante_id' => $participante->id, 'nombre' => $participante->nombre_completo, 'codigo' => $e->codigo, 'mensaje' => $e->getMessage()];
-            }
-        }
-        if ($fallos !== []) {
-            throw new EmisionException(
-                EmisionException::PREVALIDACION_FALLIDA,
-                'Hay '.count($fallos).' participante(s) que no se pueden emitir. No se emitió ninguno: corrige los problemas y vuelve a intentarlo.',
-                422,
-                $fallos
-            );
-        }
+        [$base, $snapshots] = $this->prevalidar($lote, $plantilla, $pendientes);
 
         // 3: espacio y generación en staging (fuera de cualquier transacción).
         EspacioDisco::exigir(EspacioDisco::estimarEmisiones($pendientes->count(), strlen($base)), AlmacenEmisiones::disco()->path(''));
@@ -304,6 +284,79 @@ final class EmisorLote
             'emisiones' => array_map(fn (Emision $e) => $e->id, $emisiones),
             'restantes' => $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->whereDoesntHave('emisiones')->count(),
         ];
+    }
+
+    /** @return Collection<int,Participante> pendientes del grupo (reales o QA), en orden y hasta el límite por operación */
+    private function pendientes(Lote $lote, bool $pruebasInternas)
+    {
+        return $lote->participantes()->where('es_control_qa', $pruebasInternas)->where('elegibilidad', Participante::ELEGIBLE)->where('tipo_documento_confirmado', true)
+            ->whereDoesntHave('emisiones')->orderBy('id')->limit(self::LIMITE)->get();
+    }
+
+    /**
+     * Captura el snapshot de cada pendiente y planifica su PDF sin generarlo. Si uno solo falla, no se emite ninguno.
+     *
+     * @return array{0: string, 1: array<int,SnapshotCredencial>} PDF base y snapshots por id de participante
+     *
+     * @throws EmisionException|GeneracionCredencialException
+     */
+    private function prevalidar(Lote $lote, Plantilla $plantilla, $pendientes): array
+    {
+        [$base, $hashPlantilla] = SnapshotCredencial::cargarPlantilla($plantilla);
+        $pagina = GeneradorCredencialPdf::tamanoPagina($base, ['plantilla' => $plantilla->id]);
+
+        $snapshots = [];
+        $fallos = [];
+        foreach ($pendientes as $participante) {
+            try {
+                $snapshot = SnapshotCredencial::capturar($participante, $lote, $plantilla, $hashPlantilla);
+                PlanificadorTexto::planificar($snapshot->diseno, $snapshot->datosCredencial(), $pagina, $snapshot->schemaVersion);
+                PlanificadorQr::planificar($snapshot->diseno, $pagina, $snapshot->schemaVersion);
+                $snapshots[$participante->id] = $snapshot;
+            } catch (GeneracionCredencialException $e) {
+                $fallos[] = ['participante_id' => $participante->id, 'nombre' => $participante->nombre_completo, 'codigo' => $e->codigo, 'mensaje' => $e->getMessage()];
+            }
+        }
+        if ($fallos !== []) {
+            throw new EmisionException(
+                EmisionException::PREVALIDACION_FALLIDA,
+                'Hay '.count($fallos).' participante(s) que no se pueden emitir. No se emitió ninguno: corrige los problemas y vuelve a intentarlo.',
+                422,
+                $fallos
+            );
+        }
+
+        return [$base, $snapshots];
+    }
+
+    /**
+     * La parte QA de la emisión conjunta se puede hacer: la plantilla de la base tiene su variante de prueba, la variante tiene los datos que imprime y todos
+     * los PDF de prueba se pueden planificar. Solo comprueba: no genera ni guarda nada.
+     *
+     * @throws EmisionException|GeneracionCredencialException
+     */
+    private function exigirQaListo(Lote $lote): void
+    {
+        $plantilla = app(ServicioQa::class)->plantillaPara($lote);
+        if ($plantilla === null) {
+            throw $this->sinVarianteQa();
+        }
+        $pendientes = $this->pendientes($lote, true);
+        DatosRequeridos::exigir($lote, $plantilla, $pendientes);
+        try {
+            $this->prevalidar($lote, $plantilla, $pendientes);
+        } catch (EmisionException $e) {
+            throw new EmisionException($e->codigo, 'Las pruebas internas (QA) de esta base no se pueden emitir. No se emitió nada (ni los oficiales): corrige los problemas y vuelve a intentarlo.', 422, $e->detalles);
+        }
+    }
+
+    private function sinVarianteQa(): EmisionException
+    {
+        return new EmisionException(
+            EmisionException::VARIANTE_QA_FALTANTE,
+            'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada, y las pruebas nunca se emiten con el diseño de otra capacitación. No se emitió nada: asocia la variante de prueba de esta plantilla y vuelve a emitir.',
+            409
+        );
     }
 
     /** @param  array<int,string>  $movidos */

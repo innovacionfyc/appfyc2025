@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Importacion\VistaPreviaImportacion;
 use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Participantes\LectorArchivo;
 use App\Support\CredentialFlow\Qa\AdministradorContactosQa;
+use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,9 +43,10 @@ class ImportacionInteligenteController extends Controller
         $this->servicio->limpiar();
         $plantillas = Plantilla::query()->whereNotNull('diseno')
             ->when(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa'), fn ($q) => $q->where('es_plantilla_qa', false))
-            ->latest()->get(['id', 'nombre', 'diseno'])
+            ->latest()->get()
             ->filter(fn (Plantilla $p) => ServicioVistaPrevia::plantillaValida($p))
-            ->map(fn (Plantilla $p) => ['id' => $p->id, 'nombre' => $p->nombre])->values();
+            // `variante_qa`: con qué plantilla saldrán las pruebas internas de esta plantilla (null = no tiene variante: se avisa antes de crear la base).
+            ->map(fn (Plantilla $p) => ['id' => $p->id, 'nombre' => $p->nombre, 'variante_qa' => app(ServicioQa::class)->varianteDe($p)?->nombre])->values();
         $borradores = Importacion::query()->where('usuario_id', $request->user()->id)->where('estado', Importacion::EN_REVISION)->orderByDesc('id')->limit(10)
             ->get(['id', 'version', 'archivo_nombre', 'resumen', 'expira_at', 'created_at'])
             ->map(fn (Importacion $i) => [

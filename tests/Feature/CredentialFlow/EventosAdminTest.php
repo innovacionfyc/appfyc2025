@@ -52,14 +52,15 @@ class EventosAdminTest extends EmisionesTestCase
         (new ServicioEventos)->marcarParticipantesQa($lote, $ids, true);
     }
 
-    /** Plantilla de pruebas internas: con la marca visible en el nombre y designada para QA. */
-    private function plantillaQa(): Plantilla
+    /** Plantilla de pruebas internas: con la marca visible en el nombre y designada para QA; con `$de`, asociada como la variante QA de esa plantilla. */
+    private function plantillaQa(?Plantilla $de = null): Plantilla
     {
         $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
         $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), $campos, array_keys($campos));
         $els[] = $this->elemento(['type' => 'text', 'text' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'y' => 380, 'fontSize' => 18]);
         $p = $this->plantillaLista($els);
         $p->update(['nombre' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'es_plantilla_qa' => true]);
+        $de?->update(['variante_qa_id' => $p->id]);
 
         return $p->fresh();
     }
@@ -268,7 +269,7 @@ class EventosAdminTest extends EmisionesTestCase
         $this->assertEquals(['participantes' => 2, 'vigentes' => 0, 'revocadas' => 0], $r['qa']);
 
         // Se emite ahora a los QA (solo con la plantilla de pruebas internas): pasan a la columna QA, nunca a la de reales.
-        $this->plantillaQa();
+        $this->plantillaQa($mixta->plantilla);
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $mixta))->assertCreated();
         $r = (new ServicioEventos)->resumen($evento);
         $this->assertSame(3, $r['reales']['vigentes']);

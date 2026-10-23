@@ -48,6 +48,9 @@ final class EmisionException extends RuntimeException
     /** La persona ya tiene un certificado oficial vigente del mismo evento en otra base (ver DuplicadosEnEvento). */
     public const DUPLICADO_EN_EVENTO = 'DUPLICADO_EN_EVENTO';
 
+    /** La plantilla de la base no tiene su variante de pruebas internas: sus QA no se emiten con el diseño de otra capacitación (ver ServicioQa::plantillaPara). */
+    public const VARIANTE_QA_FALTANTE = 'VARIANTE_QA_FALTANTE';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

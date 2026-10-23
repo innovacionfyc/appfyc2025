@@ -129,20 +129,33 @@ class EmisionConQaTest extends EmisionesTestCase
         $z->close();
     }
 
-    public function test_si_fallan_las_pruebas_qa_no_se_informa_exito_y_se_reintentan_solas_sin_tocar_los_oficiales(): void
+    public function test_sin_la_variante_qa_la_emision_conjunta_no_empieza_y_con_ella_un_clic_lo_emite_todo(): void
     {
-        $lote = $this->base();   // todavía no hay plantilla de prueba designada
+        $lote = $this->base();   // todavía no hay variante de prueba de su plantilla
 
+        // Antes de tocar los oficiales se comprueba que las pruebas se pueden emitir: si no, no empieza nada (nunca queda a medias).
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
+        $this->assertSame(0, Emision::count());
+        $this->assertFalse(app(EmisorLote::class)->resumen($lote)['qa']['plantilla_lista']);
+
+        $this->variante();
         $r = $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated();
-        $this->assertSame(3, $r->json('resultado.total'));
-        $this->assertNull($r->json('qa'));
-        $this->assertSame('PLANTILLA_NO_DISPONIBLE', $r->json('qa_error.code'));
-        $oficiales = Emision::orderBy('id')->pluck('id')->all();
+        $this->assertSame([3, 8], [$r->json('resultado.total'), $r->json('qa.total')]);
+        $this->assertNull($r->json('qa_error'));
+        $this->assertSame(11, Emision::count());
+    }
+
+    public function test_reintentar_solo_las_pruebas_internas_no_toca_los_oficiales(): void
+    {
+        $lote = $this->base();
+        app(EmisorLote::class)->emitirPendientes($lote, null);   // los oficiales ya salieron (por ejemplo, antes de asociar la variante)
+        $oficiales = Emision::orderBy('id')->get(['id', 'version', 'pdf_hash'])->toArray();
         $this->assertCount(3, $oficiales);
 
         $this->variante();
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertCreated()->assertJsonPath('resultado.total', 8);
-        $this->assertSame($oficiales, Emision::where('plantilla_id', $this->institucional->id)->orderBy('id')->pluck('id')->all(), 'los oficiales no se reemiten');
+        $this->assertSame($oficiales, Emision::where('plantilla_id', $this->institucional->id)->orderBy('id')->get(['id', 'version', 'pdf_hash'])->toArray(), 'los oficiales no se reemiten');
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir-qa', $lote))->assertStatus(409)->assertJsonPath('error.code', 'SIN_PENDIENTES');
         $this->assertSame(11, Emision::count());
     }
 
@@ -167,7 +180,7 @@ class EmisionConQaTest extends EmisionesTestCase
     {
         $lote = $this->base(2);
         app(EmisorLote::class)->emitirPendientes($lote, null);
-        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertStatus(409)->assertJsonPath('error.code', 'PLANTILLA_NO_DISPONIBLE');
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertStatus(409)->assertJsonPath('error.code', 'VARIANTE_QA_FALTANTE');
         $this->assertSame(2, Emision::count());
     }
 

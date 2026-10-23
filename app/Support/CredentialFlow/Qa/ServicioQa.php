@@ -167,22 +167,23 @@ final class ServicioQa
     }
 
     /**
-     * Plantilla con la que se emiten los contactos QA de ESTA base: la variante de prueba del diseño de la base (si la tiene) o, si no, la designada por
-     * omisión. Solo vale una plantilla DESIGNADA explícitamente y cuyo diseño lleve la advertencia visible; si no, null (no se emite nada).
+     * Plantilla con la que se emiten los contactos QA de ESTA base: EXCLUSIVAMENTE la variante de prueba asociada al diseño de la base. Nunca otra (ni «la
+     * última designada»): las pruebas de una capacitación jamás salen con el diseño de otra. Si la plantilla no tiene variante válida, null y no se emite.
      */
     public function plantillaPara(Lote $lote): ?Plantilla
     {
-        if (! Schema::hasColumn('cf_plantillas', 'es_plantilla_qa')) {
+        return $this->varianteDe($lote->plantilla);
+    }
+
+    /** La variante de pruebas internas asociada a una plantilla institucional: designada y con la advertencia visible; si no, null. */
+    public function varianteDe(?Plantilla $plantilla): ?Plantilla
+    {
+        if ($plantilla?->variante_qa_id === null || ! Schema::hasColumn('cf_plantillas', 'es_plantilla_qa')) {
             return null;
         }
-        $varianteId = $lote->plantilla?->variante_qa_id;
-        if ($varianteId !== null) {
-            $variante = Plantilla::query()->whereKey($varianteId)->where('es_plantilla_qa', true)->first();
+        $variante = Plantilla::query()->whereKey($plantilla->variante_qa_id)->where('es_plantilla_qa', true)->first();
 
-            return $variante !== null && self::tieneAdvertenciaVisible($variante) ? $variante : null;
-        }
-
-        return $this->plantilla();
+        return $variante !== null && self::tieneAdvertenciaVisible($variante) ? $variante : null;
     }
 
     /**

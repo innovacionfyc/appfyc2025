@@ -14,6 +14,7 @@ use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Eventos\AsociacionAmbiguaException;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
+use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Participantes\ErrorArchivoException;
 use App\Support\CredentialFlow\Participantes\ErrorFila;
@@ -361,6 +362,9 @@ final class ServicioImportaciones
         if ($plantilla !== null && ($faltan = DatosRequeridos::faltantes($plantilla->diseno, $finales, $conPropia)) !== []) {
             $bloquear('datos_del_diseno_incompletos', 'La plantilla imprime '.implode(', ', array_map(fn ($e) => "«{$e}»", $faltan)).' y el borrador no tiene ese dato.', ['campos' => $faltan]);
         }
+        if ($plantilla !== null && RedaccionFecha::requiereRevision((array) $plantilla->diseno, (string) ($finales['fecha'] ?? ''))) {
+            $bloquear('fecha_sin_dias_claros', 'No podemos saber si la fecha es de un día o de varios, y la plantilla escribe «el día» o «los días» antes de la fecha. Escríbela como «16 de octubre de 2026» o «22 y 23 de octubre de 2026».', ['campo' => 'fecha']);
+        }
         if ($plantilla !== null && $conPropia && $sinModalidad !== [] && trim((string) ($finales['modalidad'] ?? '')) === '' && in_array('modalidad', DisenoSchema::camposUsados($plantilla->diseno), true)) {
             $n = count($sinModalidad);
             $bloquear('modalidad_faltante', ($n === 1 ? 'Una persona no tiene' : "{$n} personas no tienen").' modalidad y la base no tiene una general: escríbela en cada una o como modalidad general de la base. Nunca se completa sola.',
@@ -470,6 +474,9 @@ final class ServicioImportaciones
             // podrá recibir su certificado oficial hasta que se resuelvan.
             'listo' => $bloqueos === [], 'bloqueos' => $bloqueos, 'avisos' => $avisos, 'resumen' => $resumen,
             'pendientes_para_emitir' => ['tipo_documento' => $resumen['tipo_documento_por_confirmar'], 'elegibilidad' => $resumen['pendientes'], 'no_elegibles' => $resumen['no_elegibles'], 'asistencia_cupo' => $resumen['asistencia_cupo']],
+            // Con qué plantilla saldrán las pruebas internas: SOLO la variante de la plantilla elegida. Sin ella la base se puede crear, pero la emisión
+            // conjunta no empezará hasta asociarla (se avisa aquí, antes de crearla). null = todavía no hay plantilla elegida.
+            'variante_qa' => $plantilla === null ? null : ['nombre' => $this->qa->varianteDe($plantilla)?->nombre],
             'plan' => ['plantilla' => $plantilla, 'evento' => $evento, 'decision' => $decision, 'nombre_evento' => $nombreEvento, 'comunes' => $finales, 'incluidos' => $incluidos, 'propuesta_evento' => $propuesta],
         ];
     }
