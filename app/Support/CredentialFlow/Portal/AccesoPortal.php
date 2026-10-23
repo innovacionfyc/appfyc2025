@@ -247,17 +247,16 @@ final class AccesoPortal
      *  - «antiguos»: lo publicado, del más antiguo al más reciente.
      *  - «nombre»: por nombre de la capacitación (dentro de cada bloque).
      *
-     * Un filtro con un valor inválido (año, mes, día o rango) NUNCA amplía el resultado: devuelve un listado vacío con un aviso. Un valor válido que no tiene
-     * certificados devuelve un listado vacío. Solo `orden` y `page` caen en su valor por omisión, porque no filtran nada.
+     * Un parámetro inválido NUNCA se ignora ni amplía el resultado: devuelve un listado vacío con un aviso. Vale para un tipo inesperado (p. ej. un arreglo
+     * `anio[]=…` en lugar de un valor) en cualquiera de los parámetros, y para un año, mes, día, rango, orden o página mal formados, también con un solo
+     * certificado. Un valor válido que no tiene certificados devuelve un listado vacío sin aviso; una página válida más allá del final muestra la última.
      *
-     * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null,publicado?:?string,desde?:?string,hasta?:?string}  $filtros
+     * @param  array<string,mixed>  $filtros  q, anio, orden, publicado, desde, hasta y page tal como llegan (solo se aceptan textos o enteros)
      * @return array<string,mixed>
      */
     public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
         $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
-        $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
-        $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';
         $anios = array_values(array_unique(array_map('intval', array_filter(array_column($todas, 'anio'), fn ($a) => $a !== null))));
         rsort($anios);
         $haySinAnio = count(array_filter($todas, fn ($t) => $t['anio'] === null)) > 0;
@@ -279,8 +278,36 @@ final class AccesoPortal
 
         // Validación de los filtros: un valor presente pero inválido se informa y deja el listado vacío; nunca se ignora para mostrar más.
         $invalido = null;
-        $texto = fn (mixed $v) => is_scalar($v) ? trim((string) $v) : null;
-        $anioRaw = $texto($filtros['anio'] ?? null);
+        // Solo se aceptan textos o enteros; cualquier otro tipo (un arreglo `anio[]=…`, un objeto…) es un filtro inválido, no un filtro ausente.
+        $texto = function (string $k) use ($filtros, &$invalido): ?string {
+            $v = $filtros[$k] ?? null;
+            if ($v === null || is_string($v) || is_int($v)) {
+                return $v === null ? null : trim((string) $v);
+            }
+            $invalido ??= 'Los filtros indicados no son válidos.';
+
+            return null;
+        };
+        $q = mb_substr($texto('q') ?? '', 0, 80);
+        $ordenRaw = $texto('orden');
+        $orden = 'recientes';
+        if ($ordenRaw !== null && $ordenRaw !== '') {
+            if (in_array($ordenRaw, self::ORDENES, true)) {
+                $orden = $ordenRaw;
+            } else {
+                $invalido ??= 'El orden indicado no es válido.';
+            }
+        }
+        $paginaRaw = $texto('page');
+        $paginaPedida = 1;
+        if ($paginaRaw !== null && $paginaRaw !== '') {
+            if (preg_match('/^[1-9]\d{0,5}$/', $paginaRaw) === 1) {
+                $paginaPedida = (int) $paginaRaw;
+            } else {
+                $invalido ??= 'La página indicada no es válida.';
+            }
+        }
+        $anioRaw = $texto('anio');
         $anio = null;   // null = todos · 'sin' = sin año · 'AAAA' (año del EVENTO)
         if ($anioRaw !== null && $anioRaw !== '') {
             if ($anioRaw === 'sin' || preg_match('/^(19|20)\d{2}$/', $anioRaw) === 1) {
@@ -289,7 +316,7 @@ final class AccesoPortal
                 $invalido = 'El año del evento no es válido.';
             }
         }
-        $publicadoRaw = $texto($filtros['publicado'] ?? null);
+        $publicadoRaw = $texto('publicado');
         $publicado = null;
         if ($publicadoRaw !== null && $publicadoRaw !== '') {
             if (preg_match('/^(19|20)\d{2}(-(0[1-9]|1[0-2]))?$/', $publicadoRaw) === 1) {
@@ -301,7 +328,7 @@ final class AccesoPortal
         $diaDesde = null;
         $diaHasta = null;
         foreach (['desde', 'hasta'] as $k) {
-            $v = $texto($filtros[$k] ?? null);
+            $v = $texto($k);
             if ($v === null || $v === '') {
                 continue;
             }
@@ -319,11 +346,8 @@ final class AccesoPortal
         }
 
         $totalSin = count($todas);
+        // Con un solo certificado no se ofrecen controles (vista simple), pero un parámetro escrito a mano se aplica igual: nunca se ignora en silencio.
         $conControles = $totalSin >= self::MINIMO_CONTROLES;
-        if (! $conControles) {
-            // Con un solo certificado no hay controles: se muestra tal cual, sin filtros.
-            [$q, $anio, $orden, $publicado, $diaDesde, $diaHasta, $invalido] = ['', null, 'recientes', null, null, null, null];
-        }
         $porFecha = $publicado !== null || $diaDesde !== null || $diaHasta !== null;
 
         $norm = fn (string $s) => mb_strtolower(Str::ascii($s));
@@ -358,7 +382,7 @@ final class AccesoPortal
         $total = count($lista);
         $porPagina = self::POR_PAGINA;
         $paginas = max(1, (int) ceil($total / $porPagina));
-        $pagina = max(1, min($paginas, (int) ($filtros['page'] ?? 1)));
+        $pagina = min($paginas, $paginaPedida);
         $items = array_slice($lista, ($pagina - 1) * $porPagina, $porPagina);
 
         return [

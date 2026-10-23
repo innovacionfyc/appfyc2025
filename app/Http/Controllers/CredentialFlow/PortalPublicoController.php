@@ -125,20 +125,16 @@ class PortalPublicoController extends Controller
 
     public function panel(Request $request): Response
     {
-        // Los parámetros de listado (q, anio, orden, publicado, desde, hasta, page) solo filtran dentro del alcance ya autorizado: un filtro inválido deja el listado
-        // vacío con un aviso (nunca lo amplía); un orden o una página raros caen en su valor por omisión.
+        // Los parámetros de listado (q, anio, orden, publicado, desde, hasta, page) solo filtran dentro del alcance ya autorizado. Se pasan TAL COMO LLEGAN:
+        // `tarjetasPaginadas` los valida y un valor inválido o de tipo inesperado (p. ej. `anio[]=…`) deja el listado vacío con un aviso; nunca se ignora ni lo amplía.
+        $filtros = [];
+        foreach (['q', 'anio', 'orden', 'publicado', 'desde', 'hasta', 'page'] as $k) {
+            $filtros[$k] = $request->query($k);
+        }
         $listado = $this->acceso->tarjetasPaginadas(
             (string) $request->attributes->get('cf_portal_documento'),
             $request->attributes->get('cf_portal_grupos'),
-            [
-                'q' => is_string($request->query('q')) ? $request->query('q') : '',
-                'anio' => is_scalar($request->query('anio')) ? (string) $request->query('anio') : null,
-                'orden' => is_string($request->query('orden')) ? $request->query('orden') : null,
-                'publicado' => is_string($request->query('publicado')) ? $request->query('publicado') : null,
-                'desde' => is_string($request->query('desde')) ? $request->query('desde') : null,
-                'hasta' => is_string($request->query('hasta')) ? $request->query('hasta') : null,
-                'page' => is_scalar($request->query('page')) ? (int) $request->query('page') : 1,
-            ],
+            $filtros,
             $request->attributes->get('cf_portal_desde')
         );
 

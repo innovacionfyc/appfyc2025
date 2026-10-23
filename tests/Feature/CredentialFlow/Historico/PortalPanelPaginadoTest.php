@@ -145,10 +145,18 @@ class PortalPanelPaginadoTest extends PortalTestCase
         $this->agregar(30);
         $this->entrar();
 
-        foreach (['?q[]=x&anio[]=1&orden[]=y&page[]=2', '?anio=abc&orden=zzz&page=-4', '?page=999', '?q='.str_repeat('a', 500), '?anio=1900'] as $qs) {
-            $r = $this->get(route('portal.panel').$qs);
-            $r->assertOk();
-            $this->assertLessThanOrEqual(20, substr_count($r->getContent(), 'data-certificado='), $qs);
+        // Malformados (arreglos, textos raros): aviso y ninguna tarjeta; nunca se ignoran para mostrar el listado completo.
+        foreach (['?q[]=x&anio[]=1&orden[]=y&page[]=2', '?anio=abc&orden=zzz&page=-4', '?anio[]=2022', '?page[]=2', '?orden=zzz'] as $qs) {
+            $r = $this->get(route('portal.panel').$qs)->assertOk();
+            $this->assertSame(0, substr_count($r->getContent(), 'data-certificado='), $qs);
+            $r->assertSee('data-filtro-invalido', false);
+        }
+        // Válidos aunque no habituales: página más allá del final (la última), búsqueda larga (se recorta) y un año sin certificados.
+        foreach (['?page=999' => true, '?q='.str_repeat('a', 500) => false, '?anio=1900' => false] as $qs => $conTarjetas) {
+            $r = $this->get(route('portal.panel').$qs)->assertOk();
+            $n = substr_count($r->getContent(), 'data-certificado=');
+            $this->assertTrue($conTarjetas ? $n > 0 && $n <= 20 : $n === 0, $qs);
+            $r->assertDontSee('data-filtro-invalido', false);
         }
     }
 

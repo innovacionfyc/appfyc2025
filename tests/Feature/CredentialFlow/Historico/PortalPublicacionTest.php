@@ -155,9 +155,9 @@ class PortalPublicacionTest extends PortalTestCase
             $this->assertSame(2026, $t['anio']);
         }
 
-        // Un orden desconocido no filtra nada: cae en «más recientes».
+        // Un orden desconocido tampoco se ignora en silencio: aviso claro y listado vacío.
         $raro = $acceso->tarjetasPaginadas($this->clave(), null, ['orden' => 'raro']);
-        $this->assertSame([$todo['total'], 'recientes', null], [$raro['total'], $raro['orden'], $raro['filtro_invalido']]);
+        $this->assertSame([0, 'El orden indicado no es válido.'], [$raro['total'], $raro['filtro_invalido']]);
     }
 
     public function test_un_filtro_invalido_nunca_amplia_el_resultado_y_lo_explica(): void
@@ -190,14 +190,64 @@ class PortalPublicacionTest extends PortalTestCase
         $this->assertSame(0, substr_count($html, 'data-certificado='));
     }
 
+    public function test_parametros_malformados_o_de_tipo_inesperado_nunca_se_ignoran_ni_amplian(): void
+    {
+        $this->sembrarPublicaciones();
+        $this->publicar('Curso solo de Beto', '1 de enero de 2025', '2025-01-15 09:00:00', '9.300.001', 'BETO PRUEBA SINTETICO', 'beto@example.test');
+        $acceso = app(AccesoPortal::class);
+        $todo = $acceso->tarjetasPaginadas($this->clave(), null)['total'];
+
+        // Directo: cualquier tipo que no sea texto o entero, en cualquier parámetro, es un filtro inválido (no un filtro ausente).
+        foreach (['q', 'anio', 'orden', 'publicado', 'desde', 'hasta', 'page'] as $k) {
+            foreach ([['2026'], ['a' => 'b'], [], true, 1.5, new \stdClass] as $raro) {
+                $r = $acceso->tarjetasPaginadas($this->clave(), null, [$k => $raro]);
+                $this->assertSame([0, []], [$r['total'], $r['items']], $k.' '.get_debug_type($raro));
+                $this->assertSame('Los filtros indicados no son válidos.', $r['filtro_invalido'], $k);
+            }
+        }
+        // Página mal formada: aviso. Página válida fuera de rango: la última (compatibilidad con el paginador).
+        foreach (['abc', '-4', '0', '1.5', '2e3', ' 1 x'] as $p) {
+            $this->assertSame([0, 'La página indicada no es válida.'], array_values(array_intersect_key($acceso->tarjetasPaginadas($this->clave(), null, ['page' => $p]), ['total' => 0, 'filtro_invalido' => 0])), $p);
+        }
+        $ultima = $acceso->tarjetasPaginadas($this->clave(), null, ['page' => '999']);
+        $this->assertSame([$ultima['paginas'], null], [$ultima['pagina'], $ultima['filtro_invalido']]);
+        $this->assertNotEmpty($ultima['items']);
+        // Enteros (uso interno) siguen valiendo.
+        $this->assertSame(null, $acceso->tarjetasPaginadas($this->clave(), null, ['anio' => 2026, 'page' => 1])['filtro_invalido']);
+
+        // Por la URL real, con la sesión OTP de Ana: arreglos y valores raros en cada parámetro -> aviso, ninguna tarjeta y nada de Beto.
+        $this->entrar()->assertRedirect(route('portal.panel'));
+        foreach ([
+            'anio[]=2026', 'anio[]=2025&anio[]=2026', 'q[]=beto', 'q[a]=x', 'orden[]=antiguos', 'orden=zzz', 'publicado[]=2025', 'publicado[2025]=01',
+            'desde[]=2025-01-01', 'hasta[]=2030-01-01', 'desde[]=2025-01-01&hasta[]=2025-12-31', 'page[]=2', 'page=abc', 'page=-4', 'page=0',
+            'q=beto&anio[]=2025', 'publicado=2025&orden[]=nombre',
+        ] as $qs) {
+            $html = $this->get(route('portal.panel').'?'.$qs)->assertOk()->getContent();
+            $this->assertSame(0, substr_count($html, 'data-certificado='), $qs);
+            $this->assertStringContainsString('data-filtro-invalido', $html, $qs);
+            preg_match_all('/<h2>(.*?)<\/h2>/s', $html, $titulos);
+            $this->assertNotContains('Curso solo de Beto', array_map(fn ($t) => html_entity_decode(trim($t)), $titulos[1]), $qs);
+        }
+
+        // Los filtros válidos y la paginación siguen igual.
+        $this->assertSame(min(20, $todo), substr_count($this->verPanel(), 'data-certificado='));
+        $this->assertSame(5, substr_count($this->verPanel(['publicado' => '2026-09']), 'data-certificado='));
+        $this->assertSame(count($acceso->tarjetasPaginadas($this->clave(), null, ['page' => '2'])['items']), substr_count($this->verPanel(['page' => 2]), 'data-certificado='));
+        $this->assertStringNotContainsString('data-filtro-invalido', $this->verPanel(['q' => str_repeat('a', 500), 'orden' => 'nombre', 'anio' => '1999']));
+    }
+
     public function test_con_un_solo_certificado_la_vista_es_simple_y_con_dos_ya_hay_buscador(): void
     {
         $this->publicar('Curso único de Beto', '1 de enero de 2025', '2025-01-15 09:00:00', '9.300.001', 'BETO PRUEBA SINTETICO', 'beto@example.test');
         $this->entrar('9.300.001', 'beto@example.test')->assertRedirect(route('portal.panel'));
-        $uno = $this->get(route('portal.panel', ['publicado' => '2026-13']))->assertOk()->getContent();
+        $uno = $this->get(route('portal.panel'))->assertOk()->getContent();
         $this->assertStringNotContainsString('data-controles', $uno, 'con un solo certificado no hay controles');
-        $this->assertStringNotContainsString('data-filtro-invalido', $uno, 'y los parámetros no le quitan su certificado');
         $this->assertSame(1, substr_count($uno, 'data-certificado='));
+        // Sin controles, un parámetro escrito a mano tampoco se ignora en silencio: aviso claro y ninguna tarjeta.
+        $invalido = $this->get(route('portal.panel', ['publicado' => '2026-13']))->assertOk()->getContent();
+        $this->assertStringContainsString('data-filtro-invalido', $invalido);
+        $this->assertSame(0, substr_count($invalido, 'data-certificado='));
+        $this->assertStringNotContainsString('data-controles', $invalido);
 
         $this->publicar('Segundo curso de Beto', '2 de febrero de 2025', '2025-02-20 09:00:00', '9.300.001', 'BETO PRUEBA SINTETICO', 'beto@example.test');
         $dos = $this->get(route('portal.panel'))->assertOk()->getContent();
