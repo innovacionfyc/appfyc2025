@@ -21,6 +21,13 @@ final class ValidadorParticipante
 
     public const DOCUMENTO_MIN_ALFANUMERICOS = 4;
 
+    /**
+     * Prefijo de cédula de ciudadanía o tarjeta de identidad («C.C. 123», «CC:123», «T.I. 123»): su número es SOLO dígitos. Mismas variantes que
+     * reconoce el importador al unir el tipo con el número. Los demás tipos (C.E., pasaporte, PEP, PPT, NIT…) pueden llevar letras y no se tocan.
+     * Riesgo residual conocido: un documento SIN tipo cuyo texto empiece por «CC» o «TI» seguido de un separador se trata como cédula o T.I.
+     */
+    private const PREFIJO_NUMERICO = '/^(c\.?\s?c\.?|t\.?\s?i\.?)(?![\p{L}])\s*[:#-]?\s*(.*)$/iu';
+
     /** Un entero de Excel solo se acepta si cabe sin perder dígitos (Excel guarda 15 cifras significativas). */
     private const ENTERO_EXCEL_MAX = 999_999_999_999_999;
 
@@ -118,8 +125,35 @@ final class ValidadorParticipante
         if (($faltantes = self::noSoportados($texto)) !== []) {
             return [null, [self::errorCaracteres($faltantes, $fila, $col, $texto)], $avisos, $vista];
         }
+        if (($error = self::numeroDeCedula($texto, $fila, $col)) !== null) {
+            return [null, [$error], $avisos, $vista];
+        }
 
         return [$texto, [], $avisos, $vista];
+    }
+
+    /**
+     * Con prefijo de C.C. o T.I. se valida el NÚMERO, sin contar las letras del prefijo: solo dígitos (se admiten puntos o espacios de miles bien
+     * agrupados) y al menos DOCUMENTO_MIN_ALFANUMERICOS dígitos. No cambia el valor: los ceros iniciales y los puntos se conservan tal como vienen.
+     * Va AL FINAL: solo rechaza lo que antes se aceptaba; lo que ya se rechazaba (prefijo sin número, fórmula, carácter no imprimible) conserva su mensaje.
+     * El mínimo es el heredado del sistema (4). Solo se revisa la FORMA del número: no se verifica que el documento exista oficialmente.
+     */
+    private static function numeroDeCedula(string $texto, ?int $fila, string $col): ?ErrorFila
+    {
+        if (preg_match(self::PREFIJO_NUMERICO, $texto, $m) !== 1) {
+            return null;
+        }
+        $tipo = str_starts_with(mb_strtolower(ltrim($m[1])), 'c') ? 'C.C.' : 'T.I.';
+        $numero = trim($m[2]);
+
+        if (preg_match('/^\d+$/', $numero) !== 1 && preg_match('/^\d{1,3}([.\s]\d{3})+$/', $numero) !== 1) {
+            return ErrorFila::error(ErrorFila::DOCUMENTO_INVALIDO, "El número de la {$tipo} solo puede tener dígitos (y, si acaso, puntos de miles): «{$numero}» no es válido.", $fila, $col, $texto);
+        }
+        if (strlen(preg_replace('/\D/', '', $numero) ?? '') < self::DOCUMENTO_MIN_ALFANUMERICOS) {
+            return ErrorFila::error(ErrorFila::DOCUMENTO_MUY_CORTO, "El número de la {$tipo} debe tener al menos ".self::DOCUMENTO_MIN_ALFANUMERICOS." dígitos (sin contar «{$tipo}»).", $fila, $col, $texto);
+        }
+
+        return null;
     }
 
     /**
