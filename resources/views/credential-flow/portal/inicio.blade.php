@@ -1,6 +1,18 @@
 @extends('credential-flow.portal.layout')
 @section('titulo', 'Consulta de certificados')
 @section('ancho', 'estrecho')
+@push('estilos')
+    <style nonce="{{ $nonce }}">
+        .guia-enlace { display: flex; align-items: center; gap: .9rem; margin-top: 1rem; padding: .8rem 1rem; border: 1px solid var(--borde); border-radius: 1.25rem; background: #fff; color: var(--texto); text-decoration: none; box-shadow: var(--sombra); transition: all .3s cubic-bezier(.4, 0, .2, 1); }
+        .guia-enlace:hover { border-color: var(--vino); transform: translateY(-2px); }
+        .guia-enlace:focus-visible { outline: 0; box-shadow: 0 0 0 4px rgba(225, 29, 72, .2); }
+        .guia-enlace img { flex: none; width: 2.6rem; height: auto; }
+        .guia-enlace .guia-texto { flex: 1; min-width: 0; }
+        .guia-enlace strong { display: block; font-size: 1rem; color: var(--vino); }
+        .guia-enlace .suave { display: block; font-size: .88rem; }
+        .guia-enlace svg { flex: none; width: 1.3rem; height: 1.3rem; color: var(--vino); }
+    </style>
+@endpush
 @section('contenido')
     <section class="estrecho aparece" data-pantalla="inicio">
         <div class="tarjeta">
@@ -32,5 +44,11 @@
                 <button class="boton ancho" type="submit">Continuar</button>
             </form>
         </div>
+
+        <a class="guia-enlace" href="{{ route('portal.guia') }}" data-guia-enlace>
+            <img src="/images/ovi/ovi-saluda.png" alt="" width="402" height="519">
+            <span class="guia-texto"><strong>¿Cómo descargar mi certificado?</strong><span class="suave">Guía paso a paso, con ejemplos</span></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
     </section>
 @endsection

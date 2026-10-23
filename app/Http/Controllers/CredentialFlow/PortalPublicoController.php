@@ -54,6 +54,12 @@ class PortalPublicoController extends Controller
         return $this->vista($request, 'inicio');
     }
 
+    /** Guía paso a paso para descargar el certificado. No lee ni crea sesión: todo lo que muestra es ficticio y vale para cualquier persona. */
+    public function guia(Request $request): Response
+    {
+        return $this->vista($request, 'guia', ['sinSesion' => true, 'direccion' => preg_replace('#^https?://#i', '', route('portal.inicio'))]);
+    }
+
     public function solicitar(Request $request): RedirectResponse
     {
         $d = $request->validate(['documento' => ['required', 'string', 'max:60'], 'correo' => ['required', 'string', 'max:254']], [

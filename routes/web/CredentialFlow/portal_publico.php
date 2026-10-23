@@ -8,8 +8,12 @@ use App\Http\Middleware\IniciarSesionPortal;
 use App\Http\Middleware\LimitarEncuestaPortal;
 use App\Http\Middleware\PortalAutenticado;
 use App\Http\Middleware\PortalHabilitado;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 // F&C Credential Flow · portal PÚBLICO de certificados históricos (documento + correo + OTP). Sesión PROPIA (cookie
 // `cf_portal_session`, solo para /certificados), CSRF activo en todos los POST, sin Inertia y sin nada del administrador.
@@ -18,6 +22,12 @@ Route::prefix('certificados')->name('portal.')
     ->middleware([CabecerasPortal::class, PortalHabilitado::class])
     ->withoutMiddleware([StartSession::class, HandleInertiaRequests::class])
     ->group(function () {
+        // Guía ilustrada «¿Cómo descargar mi certificado?»: pública, con datos ficticios y sin sesión ni cookies (como la verificación pública,
+        // se excluyen las piezas del grupo `web` que dependen de ellas); se comparte por enlace.
+        Route::get('/guia', [PortalPublicoController::class, 'guia'])
+            ->withoutMiddleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, ShareErrorsFromSession::class, ValidateCsrfToken::class])
+            ->name('guia');
+
         Route::middleware(IniciarSesionPortal::class)->group(function () {
             Route::get('/', [PortalPublicoController::class, 'inicio'])->name('inicio');
             Route::post('/solicitar', [PortalPublicoController::class, 'solicitar'])->middleware('throttle:cf-portal-solicitud')->name('solicitar');
