@@ -10,8 +10,9 @@ use App\Support\CredentialFlow\Participantes\Excel\Analisis\Normalizadores;
  *  - el TIPO DE DOCUMENTO (uno del catálogo).
  *
  * Reglas que esta clase hace cumplir en el servidor (la pantalla solo las muestra):
- *  - Nada se decide solo: «Completo» no vuelve elegible a nadie por sí mismo; el administrador elige a las personas, el estado y confirma que verificó su asistencia.
- *  - «Cupos» (y la asistencia contradictoria o desconocida) NUNCA se vuelve elegible en bloque: se revisa persona por persona. No existe una regla autorizada para eximirlos.
+ *  - Las personas del Excel ya nacen elegibles (regla de negocio, ver `Borrador`); la asistencia del archivo («Completo», «Cupos»…) no cuenta. Estas acciones
+ *    sirven para cambiar esa elegibilidad a propósito (por ejemplo, decidir a quienes el Excel declara «No elegible»): el administrador elige a las personas
+ *    y el estado, y al marcar «elegible» confirma que lo verificó.
  *  - Los excluidos y las personas que se parecen a un contacto de control (QA) no se tocan; se informan.
  *  - El tipo de documento no tiene valor por defecto ni se deduce del número: viene siempre de lo que el administrador elige.
  *  - Cambiar algo que ya estaba decidido (otro tipo, otra elegibilidad) exige una confirmación adicional.
@@ -20,9 +21,6 @@ use App\Support\CredentialFlow\Participantes\Excel\Analisis\Normalizadores;
 final class AccionesMasivas
 {
     public const CAMPOS = ['elegibilidad', 'tipo_documento'];
-
-    /** Señales de asistencia con las que SÍ se puede marcar «elegible» en bloque (después de que el administrador verifique la asistencia). */
-    public const SENALES_ELEGIBLES = ['completo', 'sin_senal'];
 
     public const HISTORIAL_MAX = 20;
 
@@ -127,8 +125,8 @@ final class AccionesMasivas
             }
             $cambios[] = [
                 'fila' => $fila, 'nombre' => $p['nombre_completo'], 'anterior' => $anterior, 'propuesto' => $valor,
-                // «Sobrescribe» = ya había una decisión (otro tipo, o una elegibilidad distinta de «pendiente»).
-                'sobrescribe' => $campo === 'elegibilidad' ? $anterior !== 'pendiente' : $anterior !== null,
+                // «Sobrescribe» = ya había una decisión (otro tipo, o una elegibilidad que decidió el administrador o declara el Excel; la automática no cuenta).
+                'sobrescribe' => $campo === 'elegibilidad' ? ($p['elegibilidad_origen'] ?? 'automatica') !== 'automatica' && $anterior !== 'pendiente' : $anterior !== null,
                 'tipo_documento_pendiente' => $p['tipo_documento'] === null,
             ];
         }
@@ -158,9 +156,6 @@ final class AccionesMasivas
         }
         if ($p['posible_qa'] !== null) {
             return 'posible_qa';
-        }
-        if ($campo === 'elegibilidad' && $valor === 'elegible' && ! in_array($p['senal'], self::SENALES_ELEGIBLES, true)) {
-            return $p['senal'] === 'cupo' ? 'cupos' : 'asistencia_sin_aclarar';
         }
 
         return null;

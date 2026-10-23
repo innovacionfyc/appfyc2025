@@ -143,17 +143,17 @@ const irAFiltro = async (filtro) => {
         </ul>
       </section>
 
-      <!-- 2 · Pendientes que NO impiden crear la base, pero impiden EMITIR -->
+      <!-- 2 · Elegibilidad y tipo de documento: se resuelven ANTES de crear la base, para que todos puedan recibir su certificado -->
       <section class="rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-2" aria-labelledby="titulo-emitir" data-pendientes-emitir>
-        <h3 id="titulo-emitir" class="flex items-center gap-2 text-base font-extrabold text-slate-800"><Clock3 class="w-5 h-5 text-slate-500" aria-hidden="true" /> Quedará pendiente para emitir</h3>
-        <p class="text-[13px] font-semibold text-slate-600">Estos datos <strong>no impiden crear la base</strong>: las personas entran igual. Pero su certificado <strong>no se podrá emitir</strong> hasta que los completes, después, desde la base.</p>
+        <h3 id="titulo-emitir" class="flex items-center gap-2 text-base font-extrabold text-slate-800"><Clock3 class="w-5 h-5 text-slate-500" aria-hidden="true" /> Listos para emitir</h3>
+        <p class="text-[13px] font-semibold text-slate-600">Las personas del Excel quedan elegibles. La elegibilidad «Pendiente» y el tipo de documento por confirmar se resuelven <strong>antes de crear la base</strong>, para que nadie se quede sin certificado sin que lo veas.</p>
         <ul v-if="paraEmitir.length" class="space-y-1">
           <li v-for="x in paraEmitir" :key="x.id" class="flex flex-wrap items-start justify-between gap-x-3 text-[13px] font-semibold text-slate-700" :data-para-emitir="x.id">
             <span class="min-w-0 flex-1 basis-56">{{ x.texto(x.cantidad) }}</span>
-            <button type="button" class="shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-extrabold text-primary-vinotinto underline-offset-2 hover:underline" @click="irAFiltro(x.filtro)">Completar ahora (opcional)</button>
+            <button type="button" class="shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-extrabold text-primary-vinotinto underline-offset-2 hover:underline" @click="irAFiltro(x.filtro)">Resolver ahora</button>
           </li>
         </ul>
-        <p v-else class="text-[13px] font-semibold text-emerald-700">No queda ningún dato pendiente para emitir.</p>
+        <p v-else class="text-[13px] font-semibold text-emerald-700">Todas las personas podrán recibir su certificado.</p>
       </section>
 
       <details class="rounded-3xl border border-slate-200 bg-white p-5" data-no-se-guarda>

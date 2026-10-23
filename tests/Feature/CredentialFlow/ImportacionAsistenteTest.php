@@ -77,14 +77,22 @@ class ImportacionAsistenteTest extends EmisionesTestCase
             ->assertSuccessful()->json('borrador.id');
     }
 
-    private function decidir(int $id, array $extra = []): array
+    /** Decisiones del administrador. Por defecto también resuelve lo que impide certificar: el tipo de documento (el Excel no lo trae) y quien figura «Cupos». */
+    private function decidir(int $id, array $extra = [], bool $resolverPersonas = true): array
     {
         $version = Importacion::findOrFail($id)->version;
+        $personas = [];
+        if ($resolverPersonas) {
+            foreach ($this->actingAs($this->admin())->getJson(route('credential-flow.importaciones.show', $id))->json('borrador.participantes') as $p) {
+                $personas[(string) $p['fila']] = ['tipo_documento' => 'C.C.'] + ($p['elegibilidad'] === 'pendiente' ? ['elegibilidad' => 'elegible'] : []);
+            }
+        }
 
         return $this->actingAs($this->admin())->putJson(route('credential-flow.importaciones.correcciones', $id), array_replace([
             'version' => $version, 'plantilla_id' => $this->plantilla->id,
             'evento' => ['decision' => 'asociar', 'evento_id' => 631],
             'confirmados' => ['datos_comunes' => ['fecha', 'intensidad_horaria', 'modalidad'], 'valores_desactualizados' => true],
+            'participantes' => $personas,
         ], $extra))->assertOk()->json('borrador');
     }
 
@@ -211,7 +219,7 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $this->assertSame('PERSONA 01 PRUEBA', $campos['nombre_completo']['valor']);
         $this->assertSame('1000001', $campos['documento']['valor'], 'sin tipo confirmado no se supone C.C.');
         $this->assertSame(X::MODALIDAD, $campos['modalidad']['valor'], 'modalidad literal');
-        $this->assertSame('16 DE OCTUBRE DE 2026', $campos['fecha']['valor']);
+        $this->assertSame('16 de octubre de 2026', $campos['fecha']['valor']);
         $this->assertNull($campos['ciudad']['valor']);
         $this->assertNull($campos['nombre_completo']['se_imprime'], 'sin plantilla no se sabe qué imprime');
         $this->assertStringContainsString('tipo de documento', implode(' ', $v['avisos']));
@@ -223,7 +231,7 @@ class ImportacionAsistenteTest extends EmisionesTestCase
     {
         Mail::fake();
         $id = $this->analizar();
-        $this->decidir($id);
+        $this->decidir($id, [], false);   // el tipo de documento sin confirmar todavía: la vista previa muestra solo el número
         $antes = $this->conteos();
         $version = Importacion::findOrFail($id)->version;
 
@@ -242,7 +250,7 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $textos = $this->textos($r);
         $this->assertContains('PERSONA 06 PRUEBA', $textos);
         $this->assertContains('1000006', $textos, 'sin tipo de documento: solo el número');
-        $this->assertContains('16 DE OCTUBRE DE 2026', $textos);
+        $this->assertContains('16 de octubre de 2026', $textos);
         $this->assertContains('5 HORAS', $textos);
 
         $this->assertSame($antes, $this->conteos(), 'ni emisiones, ni bases, ni participantes, ni eventos, ni movimientos');
@@ -415,30 +423,34 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $this->assertStringContainsString('no se emitirá ningún certificado', $codigo);
     }
 
-    // ── Ronda de ajustes UX: qué impide CREAR y qué solo impide EMITIR ─────────
+    // ── Regla de negocio: el Excel trae a quienes se certifican; lo que impide certificar se resuelve ANTES de crear ─────────
 
-    public function test_se_puede_crear_la_base_con_tipo_y_elegibilidad_pendientes_si_lo_obligatorio_esta_resuelto(): void
+    public function test_las_17_personas_nacen_elegibles_y_solo_el_tipo_de_documento_se_resuelve_antes_de_crear_la_base(): void
     {
         $id = $this->analizar();
-        $b = $this->decidir($id);
+        $b = $this->decidir($id, [], false);   // plantilla, evento y datos decididos; las personas, tal como vienen del Excel
 
-        // Lo que impide CREAR la base: nada. Lo que solo impide EMITIR: tipo de documento y elegibilidad de las 17 personas.
+        // Las 17 (16 «Completo» y 1 «Cupos») ya son elegibles sin aprobarlas una por una; solo el tipo de documento de las 17 impide crear la base.
         $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
-        $this->assertTrue($e['listo']);
-        $this->assertSame([], $e['bloqueos']);
-        $this->assertSame(['tipo_documento' => 17, 'elegibilidad' => 17, 'no_elegibles' => 0, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
+        $this->assertFalse($e['listo']);
+        $this->assertSame(['tipo_documento_sin_confirmar'], collect($e['bloqueos'])->pluck('codigo')->all());
+        $this->assertCount(17, $e['bloqueos'][0]['filas']);
+        $this->assertSame(17, $e['resumen']['elegibles']);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => $b['version'], 'confirmar' => true])->assertStatus(422);
+        $this->assertSame(0, Lote::count());
 
+        // Resuelto, la base nace con todos listos para emitir.
+        $b = $this->decidir($id);
+        $this->assertTrue($b['validacion']['listo']);
         $r = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => $b['version'], 'confirmar' => true])->assertCreated();
-
-        $lote = Lote::findOrFail($r->json('lote_id'));
-        $reales = $lote->participantes()->where('es_control_qa', false)->get();
+        $reales = Lote::findOrFail($r->json('lote_id'))->participantes()->where('es_control_qa', false)->get();
         $this->assertCount(17, $reales);
-        $this->assertSame(0, $reales->where('tipo_documento_confirmado', true)->count(), 'ninguno tiene el tipo confirmado');
-        $this->assertSame(17, $reales->where('elegibilidad', Participante::PENDIENTE)->count(), 'todos siguen pendientes');
-        $this->assertSame(0, Emision::count(), 'y por eso no hay nada que emitir');
+        $this->assertSame(17, $reales->where('tipo_documento_confirmado', true)->count());
+        $this->assertSame(17, $reales->where('elegibilidad', Participante::ELEGIBLE)->count());
+        $this->assertSame(0, Emision::count(), 'crear la base no emite nada');
     }
 
-    public function test_los_pendientes_que_impiden_crear_no_se_confunden_con_los_que_impiden_emitir(): void
+    public function test_los_pendientes_que_impiden_crear_se_muestran_con_sus_filas(): void
     {
         $id = $this->analizar();   // sin plantilla ni decisión del evento ni confirmaciones
 
@@ -447,10 +459,10 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $codigos = array_column($e['bloqueos'], 'codigo');
         $this->assertContains('plantilla_faltante', $codigos);
         $this->assertContains('evento_sin_decision', $codigos);
-        $this->assertNotContains('tipo_documento_por_confirmar', $codigos, 'el tipo de documento por confirmar NUNCA bloquea la creación');
-        $this->assertNotContains('elegibilidad_pendiente', $codigos);
+        $this->assertContains('tipo_documento_sin_confirmar', $codigos, 'sin tipo de documento no se podría emitir: se pide antes de crear');
+        $this->assertNotContains('elegibilidad_sin_decidir', $codigos, 'la asistencia «Cupos» no frena a nadie');
         $this->assertSame(17, $e['pendientes_para_emitir']['tipo_documento']);
-        $this->assertSame(17, $e['pendientes_para_emitir']['elegibilidad']);
+        $this->assertSame(0, $e['pendientes_para_emitir']['elegibilidad'], 'las 17 nacen elegibles');
     }
 
     public function test_el_boton_final_no_puede_saltarse_las_validaciones_ni_los_qa(): void

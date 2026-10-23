@@ -1,7 +1,8 @@
 <script setup>
 // Etapa 4 · Revisar personas. No se muestran decenas de fichas de golpe: primero un resumen en palabras simples y DOS grupos claros:
 //  · «Antes de crear la base»: lo que impide crear la base (los dicta el servidor).
-//  · «Puede esperar»: tipo de documento y elegibilidad, que NO impiden crear la base y solo bloquean la emisión posterior.
+//  · «Elegibilidad y tipo de documento»: herramientas para decidir en bloque. Quien está en el Excel nace elegible (la asistencia «Cupos» o «Completo» es solo
+//    informativa); lo que el Excel declara «No elegible» y los tipos de documento por confirmar SÍ impiden crear la base (nadie queda fuera sin que se vea).
 // Las acciones sobre varias personas solo PREPARAN la selección (no deciden nada): tú eliges el valor, revisas a quién afecta y confirmas.
 import { computed } from "vue";
 import { ChevronDown, CircleCheck, CircleAlert, Clock3, Users } from "lucide-vue-next";
@@ -16,7 +17,7 @@ const hayAmbiguos = computed(() => bloqueos.value.some((b) => b.codigo === "valo
 const personasConAmbiguos = computed(() => a.participantes.value.filter((p) => !p.excluir && p.valores_ambiguos.length).length);
 // Todo lo demás se agrupa en una sola frase: «Hay 3 personas con datos por corregir».
 const porCorregir = computed(() => bloqueos.value.filter((b) => b.codigo !== "valores_ambiguos_sin_revisar"));
-const filasConProblema = computed(() => [...new Set(porCorregir.value.map((b) => b.fila).filter((f) => f != null))]);
+const filasConProblema = computed(() => [...new Set(porCorregir.value.flatMap((b) => (b.fila != null ? [b.fila] : (b.filas ?? []))))]);
 const sinPersonas = computed(() => bloqueos.value.some((b) => b.codigo === "sin_participantes"));
 // Cuántas «cosas» (grupos) quedan por resolver: no una por cada fila.
 const hayPorCorregir = computed(() => porCorregir.value.some((b) => b.codigo !== "sin_participantes"));
@@ -25,11 +26,13 @@ const totalPorResolver = computed(() => (hayAmbiguos.value ? 1 : 0) + (hayPorCor
 // Elegibilidad y tipo: cuántos esperan una decisión tuya.
 const completosPorRevisar = computed(() => a.participantes.value.filter((p) => !p.excluir && a.esSeleccionable(p) && p.senal === "completo" && p.elegibilidad !== "elegible").length);
 const sinTipo = computed(() => a.participantes.value.filter((p) => !p.excluir && a.esSeleccionable(p) && !p.tipo_documento).length);
+const porDecidir = computed(() => a.participantes.value.filter((p) => !p.excluir && p.elegibilidad === "pendiente").length);
 const cupos = computed(() => r.value.cupos);
 const personas = (n) => `${n} ${n === 1 ? "persona" : "personas"}`;
 
 const primerBloqueo = computed(() => porCorregir.value[0] ?? null);
-const revisarPrimero = () => primerBloqueo.value && a.resolver(primerBloqueo.value);
+// El tipo de documento de muchas personas se asigna en bloque (con vista previa y confirmación), no fila por fila.
+const revisarPrimero = () => primerBloqueo.value && (primerBloqueo.value.codigo === "tipo_documento_sin_confirmar" ? empezarTipo() : a.resolver(primerBloqueo.value));
 const empezarElegibilidad = () => a.iniciarRevisionMasiva("elegibilidad") && scrollAlPanel();
 const empezarTipo = () => a.iniciarRevisionMasiva("tipo_documento") && scrollAlPanel();
 function scrollAlPanel() {
@@ -64,8 +67,8 @@ registrarPrincipal(a, () => {
     <div>
       <h2 id="titulo-etapa-personas" tabindex="-1" class="text-xl font-extrabold text-slate-900 focus:outline-none">Revisa a las personas</h2>
       <p class="mt-1 text-sm font-medium text-slate-500" data-resumen-personas>
-        Encontramos <strong class="text-slate-800">{{ personas(r.total) }}</strong> en tu Excel: {{ r.completos }} con asistencia «Completo» y {{ r.cupos }} con «Cupos».
-        <strong>Nadie queda aprobado por sí solo</strong>: la elegibilidad y el tipo de documento los decides tú.
+        Encontramos <strong class="text-slate-800">{{ personas(r.total) }}</strong> en tu Excel<template v-if="r.completos || r.cupos">: {{ r.completos }} con asistencia «Completo» y {{ r.cupos }} con «Cupos»</template>.
+        Quien está en tu Excel <strong>queda listo para certificarse</strong>; solo decides si el Excel declara a alguien «No elegible» y el tipo de documento si falta.
       </p>
     </div>
 
@@ -76,7 +79,7 @@ registrarPrincipal(a, () => {
         Antes de crear la base
       </h3>
 
-      <p v-if="!totalPorResolver" class="text-sm font-semibold text-emerald-900/90" data-nada-por-corregir>Aquí no falta nada para poder crear la base. Lo demás es opcional y puede esperar.</p>
+      <p v-if="!totalPorResolver" class="text-sm font-semibold text-emerald-900/90" data-nada-por-corregir>Aquí no falta nada para poder crear la base.</p>
 
       <template v-else>
         <p class="text-[13px] font-semibold text-slate-600">Hay {{ totalPorResolver === 1 ? "1 cosa" : `${totalPorResolver} cosas` }} por resolver para poder crear la base:</p>
@@ -87,7 +90,7 @@ registrarPrincipal(a, () => {
           </li>
           <li v-if="hayPorCorregir" class="rounded-2xl bg-amber-50 px-4 py-3" data-grupo="fila_invalida">
             <p class="text-sm font-extrabold text-amber-950">{{ filasConProblema.length === 1 ? "Hay 1 persona con datos por corregir" : `Hay ${filasConProblema.length || porCorregir.length} personas con datos por corregir` }}</p>
-            <p v-if="primerBloqueo" class="mt-0.5 text-[12.5px] font-semibold text-amber-900/80 break-words">Por ejemplo, la fila {{ primerBloqueo.fila }}: {{ primerBloqueo.mensaje }}</p>
+            <p v-if="primerBloqueo" class="mt-0.5 text-[12.5px] font-semibold text-amber-900/80 break-words">Por ejemplo<template v-if="primerBloqueo.fila != null">, la fila {{ primerBloqueo.fila }}</template>: {{ primerBloqueo.mensaje }}</p>
             <button type="button" class="mt-1 text-[13px] font-extrabold text-primary-vinotinto underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 rounded" data-recomendado data-accion-dato="revisar-dato" @click="revisarPrimero">Ver este dato</button>
           </li>
           <li v-if="hayAmbiguos" class="rounded-2xl bg-amber-50 px-4 py-3 space-y-2" data-grupo="valores_ambiguos">
@@ -105,8 +108,8 @@ registrarPrincipal(a, () => {
     <!-- 2 · Lo que puede esperar -->
     <section class="rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-3" aria-labelledby="titulo-esperar" data-puede-esperar>
       <div>
-        <h3 id="titulo-esperar" class="flex items-center gap-2 text-base font-extrabold text-slate-800"><Clock3 class="w-5 h-5 text-slate-500" aria-hidden="true" /> Puede esperar (opcional ahora)</h3>
-        <p class="text-[13px] font-semibold text-slate-600">Esto <strong>no impide crear la base</strong>. Pero un certificado solo se podrá emitir cuando la persona sea «elegible» y tenga su tipo de documento. Puedes hacerlo ahora o después, desde la base.</p>
+        <h3 id="titulo-esperar" class="flex items-center gap-2 text-base font-extrabold text-slate-800"><Clock3 class="w-5 h-5 text-slate-500" aria-hidden="true" /> Elegibilidad y tipo de documento</h3>
+        <p class="text-[13px] font-semibold text-slate-600">Las personas del Excel quedan <strong>elegibles</strong>. Si alguna queda «Pendiente» o sin tipo de documento, hay que resolverlo antes de crear la base: así nadie se queda sin certificado sin que lo veas.</p>
       </div>
 
       <ul class="space-y-2">
@@ -116,16 +119,17 @@ registrarPrincipal(a, () => {
             <p class="text-[13px] font-semibold text-slate-600">{{ personas(completosPorRevisar) }} con asistencia «Completo» {{ completosPorRevisar === 1 ? "espera" : "esperan" }} tu confirmación. Tú revisas la lista y confirmas que verificaste su asistencia; no se aprueba sola.</p>
             <button type="button" class="rounded-xl px-4 py-2 text-[13px] font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/40 hover:bg-primary-vinotinto/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50" data-iniciar-elegibilidad @click="empezarElegibilidad">Revisar a {{ completosPorRevisar === 1 ? "la persona" : `las ${completosPorRevisar}` }} con «Completo»</button>
           </template>
-          <p v-else class="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-700"><CircleCheck class="w-4 h-4" aria-hidden="true" /> Ya decidiste la elegibilidad de quienes figuran como «Completo».</p>
+          <p v-else-if="porDecidir" class="text-[13px] font-semibold text-amber-800" data-por-decidir>{{ personas(porDecidir) }} {{ porDecidir === 1 ? "queda" : "quedan" }} «Pendiente»: decide en cada una si se certifica.</p>
+          <p v-else class="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-700"><CircleCheck class="w-4 h-4" aria-hidden="true" /> Todas las personas quedan elegibles.</p>
           <p v-if="cupos" class="text-[12.5px] font-semibold text-amber-800" data-nota-cupos>
-            {{ personas(cupos) }} con «Cupos»: no se aprueba en bloque, se decide persona por persona.
+            {{ personas(cupos) }} con «Cupos» en el Excel: es solo informativo, {{ cupos === 1 ? "queda elegible" : "quedan elegibles" }} igual.
             <button type="button" class="ml-1 font-extrabold text-primary-vinotinto underline underline-offset-2" data-ver-cupos @click="a.verPersonas('cupos')">Ver {{ cupos === 1 ? "a esa persona" : "a esas personas" }}</button>
           </p>
         </li>
         <li class="rounded-2xl bg-white px-4 py-3 space-y-1.5" data-tarea-personas="tipo_documento">
           <p class="text-sm font-extrabold text-slate-800">Tipo de documento</p>
           <template v-if="sinTipo">
-            <p class="text-[13px] font-semibold text-slate-600">{{ personas(sinTipo) }} {{ sinTipo === 1 ? "tiene" : "tienen" }} el tipo por confirmar. No lo suponemos: tú eliges el tipo después de comprobarlo.</p>
+            <p class="text-[13px] font-semibold text-amber-800">{{ personas(sinTipo) }} {{ sinTipo === 1 ? "tiene" : "tienen" }} el tipo por confirmar. No lo suponemos: elige el tipo después de comprobarlo (hace falta para crear la base).</p>
             <button type="button" class="rounded-xl px-4 py-2 text-[13px] font-extrabold text-primary-vinotinto ring-1 ring-primary-vinotinto/40 hover:bg-primary-vinotinto/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50" data-iniciar-tipo @click="empezarTipo">Asignar el tipo de documento</button>
           </template>
           <p v-else class="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-700"><CircleCheck class="w-4 h-4" aria-hidden="true" /> Todas las personas tienen su tipo de documento.</p>
@@ -147,7 +151,7 @@ registrarPrincipal(a, () => {
     </section>
 
     <p class="text-[13px] font-semibold" :class="totalPorResolver ? 'text-amber-800' : 'text-slate-500'" data-nota-personas :data-razon-personas="totalPorResolver ? '' : undefined">
-      <template v-if="!totalPorResolver">Lo que dejes pendiente no impide crear la base. Cuando termines de revisar, pulsa el botón de abajo.</template>
+      <template v-if="!totalPorResolver">Cuando termines de revisar, pulsa el botón de abajo.</template>
       <template v-else>Para seguir, resuelve {{ totalPorResolver === 1 ? "la cosa marcada" : "las cosas marcadas" }} en «Antes de crear la base».</template>
     </p>
   </section>

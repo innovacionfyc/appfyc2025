@@ -31,7 +31,9 @@ final class ExcelSolicitud
     }
 
     /**
-     * @param  array{fila_encabezado?: int, documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, nombres?: array<int,string>, observaciones?: array<int,string>, linea_evento?: string, sin_importrange?: bool}  $opc
+     * `elegibilidad` agrega la columna «Elegibilidad» con ese valor en todas las filas (el archivo DECLARA la elegibilidad: por ejemplo «Pendiente»).
+     *
+     * @param  array{fila_encabezado?: int, documento_base?: int, documentos?: array<int,string>, correos?: array<int,string>, nombres?: array<int,string>, observaciones?: array<int,string>, linea_evento?: string, sin_importrange?: bool, elegibilidad?: string}  $opc
      */
     public static function bytes(int $personas = 17, array $opc = []): string
     {
@@ -47,6 +49,9 @@ final class ExcelSolicitud
         foreach (['B' => 'Item', 'C' => 'Identificaciòn', 'D' => 'Nombres y Apellidos', 'E' => 'Correo Electronico', 'F' => 'Diploma', 'G' => 'Sesión', 'H' => 'Certificado con intensidad completa', 'I' => 'Selección de Sesiones o Cupo a Certificar ', 'J' => 'Observaciones o comentarios adicionales'] as $col => $t) {
             $c[$col.$h] = $t;
         }
+        if (isset($opc['elegibilidad'])) {
+            $c['K'.$h] = 'Elegibilidad';
+        }
         $base = $opc['documento_base'] ?? 1000000;
         for ($i = 1; $i <= $personas; $i++) {
             $f = $h + $i;
@@ -60,6 +65,9 @@ final class ExcelSolicitud
             $c['G'.$f] = self::texto($cupo ? 'Cupos' : 'Completo');
             if (isset($opc['observaciones'][$i])) {
                 $c['J'.$f] = $opc['observaciones'][$i];
+            }
+            if (isset($opc['elegibilidad'])) {
+                $c['K'.$f] = $opc['elegibilidad'];
             }
             if ($cupo) {
                 $c['I'.$f] = self::texto('X');

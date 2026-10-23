@@ -356,7 +356,7 @@ final class ServicioImportaciones
         $finales = $validacion['datos'];
         // La modalidad puede venir POR PERSONA (columna «Modalidad» del Excel): la general de la base solo hace falta para quien no tenga la suya. Nunca se inventa.
         $aImportar = array_values(array_filter($participantes, fn ($p) => ! $p['excluir']));
-        $sinModalidad = array_values(array_filter($aImportar, fn ($p) => trim((string) ($p['modalidad'] ?? '')) === ''));
+        $sinModalidad = array_values(array_filter($aImportar, fn ($p) => trim((string) ($p['modalidad'] ?? '')) === '' && ! ($p['modalidad_por_revisar'] ?? false)));   // las «por revisar» tienen su propio bloqueo
         $conPropia = $aImportar !== [] && count($sinModalidad) < count($aImportar);
         if ($plantilla !== null && ($faltan = DatosRequeridos::faltantes($plantilla->diseno, $finales, $conPropia)) !== []) {
             $bloquear('datos_del_diseno_incompletos', 'La plantilla imprime '.implode(', ', array_map(fn ($e) => "«{$e}»", $faltan)).' y el borrador no tiene ese dato.', ['campos' => $faltan]);
@@ -377,6 +377,22 @@ final class ServicioImportaciones
         }
         if (collect($incluidos)->contains(fn ($p) => $p['valores_ambiguos'] !== []) && ($corr['confirmados']['valores_ambiguos'] ?? false) !== true) {
             $bloquear('valores_ambiguos_sin_revisar', 'Algunos datos de participantes no se detectaron con certeza. Revísalos y confirma que están bien.');
+        }
+        // Lo que impide certificar a una persona se resuelve ANTES de crear la base (nadie queda fuera sin que se vea): su modalidad sin aclarar, una
+        // elegibilidad que el Excel declara distinta de «Elegible» (se decide a propósito) y su tipo de documento por confirmar.
+        $filasDe = fn (callable $f) => array_map(fn ($p) => $p['fila'], array_values(array_filter($incluidos, $f)));
+        $cuantas = fn (int $n, string $una, string $varias) => $n === 1 ? $una : str_replace('{n}', (string) $n, $varias);
+        if (($filas = $filasDe(fn ($p) => ($p['modalidad_por_revisar'] ?? false) && trim((string) ($p['modalidad'] ?? '')) === '')) !== []) {
+            $bloquear('modalidad_por_revisar', $cuantas(count($filas), 'Una persona no tiene una modalidad clara en el Excel', '{n} personas no tienen una modalidad clara en el Excel')
+                .' (vacía, confusa o contradictoria): escríbela en cada una. No se usa la modalidad general en su lugar.', ['filas' => array_slice($filas, 0, 200)]);
+        }
+        if (($filas = $filasDe(fn ($p) => $p['elegibilidad'] === 'pendiente')) !== []) {
+            $bloquear('elegibilidad_sin_decidir', $cuantas(count($filas), 'El Excel declara que una persona no es «Elegible»', 'El Excel declara que {n} personas no son «Elegible»')
+                .' («No elegible», «Pendiente» o un estado que no se entiende): decide en cada una si se certifica o no, o exclúyela.', ['filas' => array_slice($filas, 0, 200)]);
+        }
+        if (($filas = $filasDe(fn ($p) => $p['tipo_documento'] === null)) !== []) {
+            $bloquear('tipo_documento_sin_confirmar', $cuantas(count($filas), 'Falta confirmar el tipo de documento de una persona', 'Falta confirmar el tipo de documento de {n} personas')
+                .': sin él no se puede emitir su certificado.', ['filas' => array_slice($filas, 0, 200)]);
         }
         foreach ($incluidos as $p) {
             $t = $p['intensidad_horaria'];

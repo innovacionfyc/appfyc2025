@@ -55,8 +55,6 @@ const v = computed(() => m.vista);
 const titulo = computed(() => (m.campo === "tipo_documento" ? `Asignar el tipo de documento a ${total.value} ${total.value === 1 ? "persona" : "personas"}` : `Proponer la elegibilidad de ${total.value} ${total.value === 1 ? "persona" : "personas"}`));
 const conTipo = computed(() => a.seleccionadas.value.filter((p) => p.tipo_documento).length);
 const sinTipo = computed(() => total.value - conTipo.value);
-const completasEnSeleccion = computed(() => a.seleccionadas.value.filter((p) => p.senal === "completo").length);
-const cuposEnSeleccion = computed(() => a.seleccionadas.value.filter((p) => p.senal === "cupo").length);
 
 const grupos = computed(() => {
   const g = new Map();
@@ -195,9 +193,7 @@ const boton = "inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5
           </label>
         </div>
         <ul class="space-y-1 text-[12px] font-semibold text-slate-500">
-          <li>«Elegible» solo propone que la persona podrá certificarse: <strong>no emite nada</strong>. Que el Excel diga «Completo» no basta; tú confirmas que verificaste su asistencia.</li>
-          <li v-if="cuposEnSeleccion" class="text-amber-700">Hay {{ cuposEnSeleccion }} {{ cuposEnSeleccion === 1 ? "persona" : "personas" }} con asistencia «Cupos»: no se pueden marcar elegibles en bloque (se decide una por una).</li>
-          <li v-if="completasEnSeleccion !== total && !cuposEnSeleccion" class="text-amber-700">{{ total - completasEnSeleccion }} de la selección no figuran como «Completo» en el Excel.</li>
+          <li>«Elegible» solo propone que la persona podrá certificarse: <strong>no emite nada</strong>. Las personas del Excel ya nacen elegibles; esto sirve para decidir a propósito, por ejemplo, a quienes el Excel declara «No elegible».</li>
         </ul>
       </fieldset>
 

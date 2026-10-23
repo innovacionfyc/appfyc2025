@@ -10,7 +10,10 @@ use App\Support\CredentialFlow\Participantes\Texto;
  *
  * Reglas que esta clase hace cumplir:
  *  - Un valor del Excel nunca se vuelve definitivo por sí solo si es ambiguo o puede estar desactualizado: el administrador lo confirma o lo corrige.
- *  - La elegibilidad de cada persona es «pendiente» hasta que el administrador la decida (ni «Completo» ni «Cupos» la presumen).
+ *  - El Excel trae a las personas que se van a certificar: cada persona válida nace ELEGIBLE. La asistencia del archivo («Completo», «Cupos»…) es solo
+ *    informativa y nunca la deja pendiente. Solo si el propio archivo DECLARA otra cosa en su columna de elegibilidad («No elegible», «Pendiente» o un
+ *    estado que no se entiende) queda «pendiente» con una advertencia, y el administrador la decide antes de crear la base (nadie queda fuera en silencio).
+ *  - Si el Excel trae modalidad por persona, a quien no la tenga clara se le pide revisarla: nunca se rellena con la modalidad general.
  *  - El tipo de documento solo se toma del Excel cuando se detectó sin dudas; si no, queda por confirmar. Nunca se supone C.C.
  *  - La columna Diploma es solo informativa.
  *
@@ -346,6 +349,9 @@ final class Borrador
     {
         $corr = array_replace_recursive(self::vacias(), $corr);
         $salida = [];
+        // El Excel trae modalidad POR PERSONA si al menos una persona la tiene clara (columna «Modalidad» u «Observaciones» inequívoca).
+        $modalidadPorPersona = collect($analisis['tabla']['participantes'] ?? [])
+            ->contains(fn ($p) => ($p['campos']['modalidad']['confianza'] ?? null) === 'confiable' && ($p['campos']['modalidad']['valor'] ?? null) !== null);
         foreach ($analisis['tabla']['participantes'] ?? [] as $p) {
             $fila = (int) $p['fila'];
             $c = $corr['participantes'][(string) $fila] ?? [];
@@ -361,12 +367,18 @@ final class Borrador
             $intensidadSegura = is_array($intensidadAnalizada) && ($intensidadAnalizada['confianza'] ?? null) === 'confiable' ? ($intensidadAnalizada['valor'] ?? null) : null;
 
             $corregidos = array_values(array_intersect(array_keys($c), ['nombre_completo', 'documento', 'tipo_documento', 'correo', 'modalidad']));   // la asistencia (sesión, casillas) no se corrige aquí: se decide con la elegibilidad
+            $modalidadAnalizada = $campo('modalidad');
+            $modalidadPorRevisar = $modalidadPorPersona && ! array_key_exists('modalidad', $c) && is_array($modalidadAnalizada)
+                && in_array($modalidadAnalizada['confianza'] ?? null, ['ambiguo', 'faltante'], true);
             $dudosos = [];
             $desactualizados = [];
             foreach (['nombre_completo', 'documento', 'correo', 'tipo_documento', 'modalidad', 'sesion', 'certificado_completo', 'seleccion_cupo'] as $k) {
                 $v = $campo($k);
                 if (! is_array($v) || in_array($k, $corregidos, true) || ($v['confianza'] ?? null) === 'faltante') {
                     continue;
+                }
+                if ($k === 'modalidad' && $modalidadPorRevisar) {
+                    continue;     // una modalidad sin aclarar tiene su propio aviso y debe escribirse (no basta con «revisé los dudosos»)
                 }
                 if ($k === 'tipo_documento' && ($v['confianza'] ?? null) === 'ambiguo') {
                     continue;     // un tipo dudoso no se usa: queda por confirmar (se avisa aparte)
@@ -401,6 +413,14 @@ final class Borrador
             if (($p['posible_qa'] ?? null) !== null) {
                 $avisos[] = 'posible_contacto_qa';
             }
+            if ($modalidadPorRevisar) {
+                $avisos[] = 'modalidad_por_revisar';
+            }
+            [$elegibilidad, $origenElegibilidad] = self::elegibilidadInicial($c, $campo('elegibilidad'));
+            if ($elegibilidad === 'pendiente' && $origenElegibilidad !== 'correccion') {
+                $avisos[] = 'elegibilidad_por_decidir';
+                $avisos[] = 'excel_declara_'.(self::declarada($campo('elegibilidad')) ?? 'estado_dudoso');
+            }
 
             $salida[] = [
                 'fila' => $fila,
@@ -409,10 +429,13 @@ final class Borrador
                 'tipo_documento' => $tipo,
                 'tipo_documento_propuesto' => $tipo === null && is_array($tipoAnalizado) ? ($tipoAnalizado['valor'] ?? null) : null,
                 'correo' => $c['correo'] ?? $correoBase,
-                'elegibilidad' => $c['elegibilidad'] ?? 'pendiente',
+                'elegibilidad' => $elegibilidad,
+                // correccion = la decidió el administrador · excel = la declara el archivo · automatica = regla «el Excel trae a quienes se certifican».
+                'elegibilidad_origen' => $origenElegibilidad,
                 'intensidad_horaria' => $c['intensidad_horaria'] ?? $intensidadSegura,
                 // Modalidad de ESTA persona, literal como viene en el Excel (o la que escribió el administrador). Null = usará la general de la base.
                 'modalidad' => $c['modalidad'] ?? $valor('modalidad'),
+                'modalidad_por_revisar' => $modalidadPorRevisar,
                 'excluir' => ($c['excluir'] ?? false) === true,
                 'senal' => $p['senal'],
                 'diploma_marcado' => $p['diploma'] ?? null,          // solo informativo: nunca autoriza ni impide emitir
@@ -435,5 +458,37 @@ final class Borrador
         }
 
         return $salida;
+    }
+
+    /**
+     * Elegibilidad con la que nace una persona y de dónde sale. Regla de negocio: el Excel trae a las personas destinadas a certificarse, así que toda persona
+     * válida nace ELEGIBLE. La asistencia del archivo («Completo», «Cupos», contradictoria…) NO cuenta. Solo si el archivo DECLARA en su columna de elegibilidad
+     * algo distinto de «Elegible» («No elegible», «Pendiente» o un estado que no se entiende) queda «pendiente» con advertencia hasta que el administrador
+     * decida a propósito. Lo que ya decidió el administrador manda siempre.
+     *
+     * @param  array<string,mixed>  $c  correcciones de la fila
+     * @param  array<string,mixed>|null  $declarada  columna de elegibilidad del Excel (si la hay)
+     * @return array{0:string,1:string}
+     */
+    private static function elegibilidadInicial(array $c, ?array $declarada): array
+    {
+        if (array_key_exists('elegibilidad', $c)) {
+            return [(string) $c['elegibilidad'], 'correccion'];
+        }
+        $valor = self::declarada($declarada);
+        $dudosa = is_array($declarada) && ($declarada['confianza'] ?? null) === 'ambiguo';
+        if ($valor === null && ! $dudosa) {
+            return ['elegible', 'automatica'];
+        }
+
+        return $valor === 'elegible' ? ['elegible', 'excel'] : ['pendiente', 'excel'];
+    }
+
+    /** Lo que declara la columna de elegibilidad del Excel («elegible», «no_elegible», «pendiente»), o null si no hay columna, está vacía o no se entiende. */
+    private static function declarada(?array $declarada): ?string
+    {
+        $v = is_array($declarada) && ($declarada['confianza'] ?? null) === 'confiable' ? ($declarada['valor'] ?? null) : null;
+
+        return in_array($v, self::ELEGIBILIDADES, true) ? $v : null;
     }
 }
