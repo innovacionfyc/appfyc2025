@@ -74,16 +74,17 @@ class ImportacionFilaOrigenTest extends EmisionesTestCase
         return $this->actingAs($this->admin())->putJson(route('credential-flow.importaciones.correcciones', $id), ['version' => Importacion::findOrFail($id)->version] + $cuerpo)->assertOk()->json('borrador');
     }
 
-    /** Deja el borrador listo para crear la base, con los «Completo» (todas menos la persona «Cupos») marcados como elegibles por el administrador. */
+    /**
+     * Deja el borrador listo para crear la base. Todas nacen elegibles (el Excel trae a quienes se certifican); el administrador confirma el tipo de
+     * documento (el Excel no lo trae) y, a propósito, decide que la persona «Cupos» no se certifica (para comprobar que su decisión llega a SU fila).
+     */
     private function prepararBorrador(?string $bytes = null, array $extra = []): int
     {
         $id = $this->analizar($bytes);
         $b = $this->actingAs($this->admin())->getJson(route('credential-flow.importaciones.show', $id))->json('borrador');
         $completos = [];
         foreach ($b['participantes'] as $p) {
-            if ($p['senal'] === 'completo') {
-                $completos[(string) $p['fila']] = ['elegibilidad' => 'elegible'];
-            }
+            $completos[(string) $p['fila']] = ['tipo_documento' => 'C.C.'] + ($p['senal'] === 'cupo' ? ['elegibilidad' => 'no_elegible'] : []);
         }
         $this->corregir($id, array_replace_recursive([
             'plantilla_id' => $this->plantilla->id, 'evento' => ['decision' => 'asociar', 'evento_id' => 631],
@@ -130,9 +131,9 @@ class ImportacionFilaOrigenTest extends EmisionesTestCase
         $this->assertSame(31, (int) $reales['PERSONA 17 PRUEBA']->fila_origen);
 
         // Todo lo demás queda como estaba.
-        $this->assertSame(Participante::PENDIENTE, $reales['PERSONA 16 PRUEBA']->elegibilidad);
+        $this->assertSame(Participante::NO_ELEGIBLE, $reales['PERSONA 16 PRUEBA']->elegibilidad, 'la decisión del administrador sobre «Cupos» llega a SU fila');
         $this->assertSame(16, collect($reales)->where('elegibilidad', Participante::ELEGIBLE)->count());
-        $this->assertSame(0, collect($reales)->where('tipo_documento_confirmado', true)->count(), 'los 17 tipos siguen por confirmar');
+        $this->assertSame(17, collect($reales)->where('tipo_documento_confirmado', true)->count(), 'el tipo de documento se confirmó antes de crear la base');
         $qa = $lote->participantes()->where('es_control_qa', true)->get();
         $this->assertCount(3, $qa);
         $this->assertSame([null, null, null], $qa->pluck('fila_origen')->all(), 'los QA no tienen fila de origen');

@@ -126,7 +126,7 @@ class AnalizadorExcelTest extends TestCase
         $e = $a->evento;
         $this->assertSame('Módulo de actualización en violencias para funcionarios públicos — Ley 0000 de 2026', $e['evento']->valor);
         $this->assertSame(ValorDetectado::CONFIABLE, $e['evento']->confianza);
-        $this->assertSame('16 DE OCTUBRE DE 2026', $e['fecha']->valor);
+        $this->assertSame('16 de octubre de 2026', $e['fecha']->valor);
         $this->assertSame('2026-10-16', $e['fecha']->extra['iso']);
         $this->assertSame('5 HORAS', $e['intensidad_horaria']->valor);
         $this->assertSame('Virtual-Sincrónico y Remoto', $e['modalidad']->valor);   // literal
@@ -200,7 +200,7 @@ class AnalizadorExcelTest extends TestCase
         $a = $this->una($c);
 
         $this->assertCount(5, $a->participantes());
-        $this->assertSame('16 DE OCTUBRE DE 2026', $a->evento['fecha']->valor);
+        $this->assertSame('16 de octubre de 2026', $a->evento['fecha']->valor);
         $this->assertSame('Presencial', $a->evento['modalidad']->valor);
         $this->assertSame('10 HORAS', $a->evento['intensidad_horaria']->valor);
     }
@@ -436,7 +436,7 @@ class AnalizadorExcelTest extends TestCase
             $this->assertSame($texto, $f->original, $texto);
         }
         $dos = $this->una(['A1' => 'Fecha del evento', 'B1' => '16 y 17 de octubre de 2026']);
-        $this->assertSame('16 Y 17 DE OCTUBRE DE 2026', $dos->evento['fecha']->valor);
+        $this->assertSame('16 y 17 de octubre de 2026', $dos->evento['fecha']->valor);
         $this->assertSame(['2026-10-16', '2026-10-17'], $dos->evento['fecha']->extra['isos']);
     }
 

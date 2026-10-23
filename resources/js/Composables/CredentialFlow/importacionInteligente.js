@@ -17,7 +17,7 @@ export const PASOS = [
 ];
 
 // Códigos de bloqueo del servidor que se resuelven en la etapa de las personas.
-const BLOQUEOS_PERSONAS = ["valores_ambiguos_sin_revisar", "sin_participantes", "fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida", "modalidad_faltante", "modalidad_individual_invalida"];
+const BLOQUEOS_PERSONAS = ["valores_ambiguos_sin_revisar", "sin_participantes", "fila_invalida", "documento_de_contacto_qa", "intensidad_individual_invalida", "modalidad_faltante", "modalidad_individual_invalida", "modalidad_por_revisar", "elegibilidad_sin_decidir", "tipo_documento_sin_confirmar"];
 
 // «la fecha», «el texto de certificación»…: cómo se nombra cada dato en una frase (y el género para «correcta/correcto»).
 export const NOMBRES_DATOS = {
@@ -48,7 +48,7 @@ export const ASISTENCIA = {
 
 // Datos del certificado que se pueden revisar (el nombre del evento se decide en su propia tarjeta).
 export const DATOS = [
-  { campo: "fecha", etiqueta: "Fecha", ayuda: "Tal como se imprimirá, por ejemplo «16 DE OCTUBRE DE 2026».", requerido: true, largo: false },
+  { campo: "fecha", etiqueta: "Fecha", ayuda: "Tal como se imprimirá, por ejemplo «16 de octubre de 2026» o «22 y 23 de octubre de 2026».", requerido: true, largo: false },
   { campo: "intensidad_horaria", etiqueta: "Intensidad horaria", ayuda: "Por ejemplo «5 HORAS».", requerido: true, largo: false },
   { campo: "modalidad", etiqueta: "Modalidad", ayuda: "Se imprime exactamente como la escribas o la confirmes.", requerido: false, largo: false },
   { campo: "ciudad", etiqueta: "Ciudad", ayuda: "Solo si el evento la define. No se inventa.", requerido: false, largo: false },
@@ -78,6 +78,9 @@ export const BLOQUEOS = {
   intensidad_individual_invalida: { titulo: "Una intensidad individual no se puede imprimir", paso: "personas", ancla: "participantes" },
   modalidad_faltante: { titulo: "Hay personas sin modalidad", paso: "personas", ancla: "participantes" },
   modalidad_individual_invalida: { titulo: "Una modalidad no se puede imprimir", paso: "personas", ancla: "participantes" },
+  modalidad_por_revisar: { titulo: "Hay personas con la modalidad sin aclarar", paso: "personas", ancla: "participantes" },
+  elegibilidad_sin_decidir: { titulo: "Falta decidir si algunas personas se certifican", paso: "personas", ancla: "participantes" },
+  tipo_documento_sin_confirmar: { titulo: "Falta confirmar tipos de documento", paso: "personas", ancla: "participantes" },
   catalogo_qa_incompleto: { titulo: "Los contactos de control (QA) no están completos", paso: "confirmar" },
 };
 
@@ -86,11 +89,16 @@ export const AVISOS_FILA = {
   tipo_documento_propuesto_sin_confirmar: "El Excel sugiere un tipo de documento, pero no es seguro",
   valores_ambiguos: "Algún dato no se detectó con certeza",
   valores_posiblemente_desactualizados: "Viene de una hoja externa y puede estar desactualizado",
-  asistencia_cupo: "Asistencia «Cupos»: se decide a mano",
-  asistencia_conflicto: "La asistencia del Excel se contradice",
-  asistencia_desconocida: "Estado de asistencia desconocido",
+  asistencia_cupo: "El Excel marca «Cupos» (solo informativo)",
+  asistencia_conflicto: "La asistencia del Excel se contradice (solo informativo)",
+  asistencia_desconocida: "Estado de asistencia desconocido (solo informativo)",
   documento_llego_como_numero: "El documento llegó como número (si empezaba por cero, ya se había perdido)",
   posible_contacto_qa: "Se parece a un contacto de control (QA)",
+  modalidad_por_revisar: "La modalidad del Excel no está clara: escríbela",
+  elegibilidad_por_decidir: "Falta decidir si se certifica",
+  excel_declara_no_elegible: "El Excel la declara «No elegible»: decide si se certifica",
+  excel_declara_pendiente: "El Excel la declara «Pendiente»: decide si se certifica",
+  excel_declara_estado_dudoso: "El Excel trae un estado de elegibilidad que no se entiende: decide",
 };
 
 // Avisos que se resumen UNA sola vez (con la cantidad) en vez de repetirse en cada participante. El detalle de cada persona queda dentro de «Detalles» de su fila.
@@ -99,18 +107,18 @@ export const RESUMEN_AVISOS = {
   documento_llego_como_numero: (n) => `${n} ${n === 1 ? "documento llegó" : "documentos llegaron"} como número. Si alguno empezaba por cero, el Excel ya lo había perdido: compáralos con la fuente.`,
   valores_ambiguos: (n) => `${n} ${n === 1 ? "persona tiene" : "personas tienen"} datos que no se detectaron con certeza.`,
   tipo_documento_propuesto_sin_confirmar: (n) => `En ${n} ${n === 1 ? "fila" : "filas"} el Excel sugiere un tipo de documento, pero no es seguro: tú decides.`,
-  asistencia_cupo: (n) => `${n} ${n === 1 ? "persona figura" : "personas figuran"} con asistencia «Cupos»: su elegibilidad se decide a mano.`,
+  asistencia_cupo: (n) => `${n} ${n === 1 ? "persona figura" : "personas figuran"} con «Cupos» en el Excel: es solo informativo, quedan elegibles igual.`,
   asistencia_conflicto: (n) => `${n} ${n === 1 ? "persona tiene" : "personas tienen"} datos de asistencia que se contradicen.`,
   asistencia_desconocida: (n) => `${n} ${n === 1 ? "persona tiene" : "personas tienen"} un estado de asistencia desconocido.`,
   posible_contacto_qa: (n) => `${n} ${n === 1 ? "persona se parece" : "personas se parecen"} a un contacto de control (QA): revísalo.`,
+  modalidad_por_revisar: (n) => `${n} ${n === 1 ? "persona no tiene" : "personas no tienen"} una modalidad clara en el Excel: escríbela en cada una (no se usa la general).`,
+  elegibilidad_por_decidir: (n) => `El Excel declara que ${n} ${n === 1 ? "persona no es" : "personas no son"} «Elegible»: decide a propósito si se certifican antes de crear la base.`,
 };
 
 // F5 · Acciones sobre la selección. Por qué una persona NO se toca en una acción masiva (lo decide el servidor; la pantalla solo lo explica).
 export const MOTIVOS_OMISION = {
   excluida: "Está marcada para no importarse",
   posible_qa: "Se parece a un contacto de control (QA): no se toca",
-  cupos: "Asistencia «Cupos»: se decide persona por persona",
-  asistencia_sin_aclarar: "Su asistencia en el Excel no está clara: se decide persona por persona",
 };
 
 export const ACCIONES_MASIVAS = {
@@ -126,6 +134,9 @@ function nuevoId() {
   const h = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
   return `${h()}${h()}-${h()}-4${h().slice(1)}-a${h().slice(1)}-${h()}${h()}${h()}`;
 }
+
+// Bloqueos de varias personas → la entrada de la fila que hay que completar.
+const CAMPO_DE_BLOQUEO = { elegibilidad_sin_decidir: "elegibilidad", tipo_documento_sin_confirmar: "tipo_documento" };
 
 // Campo del servidor (columna del importador) → atributo `data-campo-fila` de la entrada de la tabla.
 const CAMPO_FILA = { nombre_completo: "nombre_completo", documento: "documento", tipo_documento: "tipo_documento", correo: "correo", elegibilidad: "elegibilidad", intensidad_horaria: "intensidad_horaria", modalidad: "modalidad" };
@@ -478,7 +489,8 @@ export function crearAsistente(props) {
       total: sel.length,
       completos: sel.filter((p) => p.senal === "completo").length,
       cupos: sel.filter((p) => p.senal === "cupo").length,
-      otros: sel.filter((p) => !["completo", "cupo"].includes(p.senal)).length,
+      // «Sin asistencia clara» = el Excel la trae pero se contradice o no se entiende. Un Excel SIN columna de asistencia no es «poco claro».
+      otros: sel.filter((p) => ["conflicto", "desconocida"].includes(p.senal)).length,
       elegibles: sel.filter((p) => p.elegibilidad === "elegible").length,
       pendientes: sel.filter((p) => p.elegibilidad === "pendiente").length,
       noElegibles: sel.filter((p) => p.elegibilidad === "no_elegible").length,
@@ -859,7 +871,7 @@ export function crearAsistente(props) {
     } else if (b.fila != null || (Array.isArray(b.filas) && b.filas.length > 0)) {
       // Un bloqueo de varias personas (por ejemplo, sin modalidad) lleva a la primera de ellas.
       listaAbierta.value = true;
-      foco.value = { tipo: "fila", fila: Number(b.fila ?? b.filas[0]), campo: CAMPO_FILA[b.campo] ?? (String(b.codigo).startsWith("modalidad_") ? "modalidad" : null) };
+      foco.value = { tipo: "fila", fila: Number(b.fila ?? b.filas[0]), campo: CAMPO_FILA[b.campo] ?? CAMPO_DE_BLOQUEO[b.codigo] ?? (String(b.codigo).startsWith("modalidad_") ? "modalidad" : null) };
 
       return true; // la tabla lo atiende
     } else if (b.codigo === "valores_ambiguos_sin_revisar") {

@@ -124,7 +124,7 @@ watch(
       <div>
         <h3 id="titulo-participantes" class="text-base font-extrabold text-slate-900">Participantes ({{ a.resumenParticipantes.value.incluidos }} de {{ a.resumenParticipantes.value.total }} se importarán)</h3>
         <p class="text-[13px] font-semibold text-slate-500">
-          {{ a.resumenParticipantes.value.completos }} con asistencia «Completo» · {{ a.resumenParticipantes.value.cupos }} «Cupos» · ninguno es elegible hasta que tú lo decidas.
+          {{ a.resumenParticipantes.value.elegibles }} {{ a.resumenParticipantes.value.elegibles === 1 ? "elegible" : "elegibles" }}<template v-if="a.resumenParticipantes.value.elegibilidadPendiente"> · {{ a.resumenParticipantes.value.elegibilidadPendiente }} por decidir</template><template v-if="a.resumenParticipantes.value.completos || a.resumenParticipantes.value.cupos"> · {{ a.resumenParticipantes.value.completos }} con asistencia «Completo» · {{ a.resumenParticipantes.value.cupos }} «Cupos»</template>.
         </p>
         <p v-if="porModalidad.length" class="text-[13px] font-extrabold text-slate-700" data-resumen-modalidades>
           Modalidad de cada persona: <span v-for="([m, n], i) in porModalidad" :key="m">{{ i ? " · " : "" }}{{ n }} {{ m }}</span>
@@ -171,7 +171,7 @@ watch(
 
     <p v-if="a.borrador.value?.avisos_generales?.observaciones_no_se_conservan" class="flex items-start gap-2 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-600" data-aviso-observaciones>
       <TriangleAlert class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
-      <span>Las observaciones que trae el Excel se pueden ver aquí (en «Detalles»), pero <strong>no se guardarán</strong> en la base: todavía no hay dónde conservarlas.</span>
+      <span>Las observaciones del Excel se pueden ver aquí (en «Detalles»). Si dicen exactamente PRESENCIAL o VIRTUAL, se usan como la modalidad de cada persona; el resto del texto <strong>no se guardará</strong> en la base: todavía no hay dónde conservarlo.</span>
     </p>
 
     <AccionesMasivas parte="barra" :lista="lista" :visibles="visibles" :filtro-nombre="nombreFiltro" :hay-filtro="filtro !== 'todos' || !!busqueda" @ver-seleccionadas="filtro = 'seleccionadas'" />

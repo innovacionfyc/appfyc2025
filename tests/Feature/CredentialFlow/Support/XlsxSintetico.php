@@ -47,6 +47,10 @@ final class XlsxSintetico
         foreach ($extra as $nombre => $contenido) {
             $zip->addFromString($nombre, $contenido);
         }
+        // Fecha fija en cada entrada: el mismo contenido da SIEMPRE los mismos bytes (y la misma huella), aunque se genere en otro segundo.
+        for ($k = 0; $k < $zip->numFiles; $k++) {
+            $zip->setMtimeIndex($k, 1767225600);
+        }
         $zip->close();
         $bytes = (string) file_get_contents($ruta);
         @unlink($ruta);

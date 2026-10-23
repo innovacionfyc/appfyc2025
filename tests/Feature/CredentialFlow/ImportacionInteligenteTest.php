@@ -8,8 +8,6 @@ use App\Models\CredentialFlow\Importacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
-use App\Support\CredentialFlow\Emisiones\EmisionException;
-use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Importacion\ServicioImportaciones;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\Texto;
@@ -113,10 +111,31 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         ], $extra);
     }
 
+    /**
+     * Lo que la regla de negocio exige resolver ANTES de crear la base: el tipo de documento (el Excel de prueba no lo trae) y la decisión sobre quien
+     * figura «Cupos» (los demás ya nacen elegibles). @return array<string,array<string,string>>
+     */
+    private function resolverPersonas(array $participantes, string $cupos = 'elegible'): array
+    {
+        $c = [];
+        foreach ($participantes as $p) {
+            if ($p['tipo_documento'] === null) {
+                $c[(string) $p['fila']]['tipo_documento'] = 'C.C.';
+            }
+            if ($p['elegibilidad'] === 'pendiente') {
+                $c[(string) $p['fila']]['elegibilidad'] = $cupos;
+            }
+        }
+
+        return $c;
+    }
+
     /** Crea el borrador y deja las decisiones tomadas. @return array{0:int,1:int} id y versión */
     private function borradorListo(?string $bytes = null, array $extra = []): array
     {
-        $id = $this->analizar($bytes)->assertSuccessful()->json('borrador.id');
+        $r = $this->analizar($bytes)->assertSuccessful();
+        $id = $r->json('borrador.id');
+        $extra['participantes'] = array_replace_recursive($this->resolverPersonas($r->json('borrador.participantes')), $extra['participantes'] ?? []);
         $v = $this->corregir($id, 1, $this->decisiones($extra))->assertOk()->json('borrador.version');
 
         return [$id, $v];
@@ -304,7 +323,7 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $this->assertSame(['elegible', 'C.C.', '3 HORAS'], [$p[15]['elegibilidad'], $p[15]['tipo_documento'], $p[15]['intensidad_horaria']]);
         $this->assertSame(['elegible', null, null], [$p[20]['elegibilidad'], $p[20]['tipo_documento'], $p[20]['intensidad_horaria']]);
         $this->assertSame('3 HORAS', $p[16]['intensidad_horaria']);
-        $this->assertSame('pendiente', $p[30]['elegibilidad'], 'Cupos no se vuelve elegible por una corrección sobre los «Completo»');
+        $this->assertSame(['elegible', 'automatica'], [$p[30]['elegibilidad'], $p[30]['elegibilidad_origen']], 'una corrección sobre otras filas no toca la 30 («Cupos» es solo informativo)');
         $this->assertTrue($p[17]['excluir']);
         $this->assertSame('NOMBRE CORREGIDO', $p[17]['nombre_completo']);
         $this->assertContains('nombre_completo', $p[17]['corregidos']);
@@ -332,7 +351,7 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $this->assertFalse($modalidad['confirmado']);
         $this->assertTrue($modalidad['requiere_confirmacion']);
         $this->assertSame('G8', $modalidad['referencia']);
-        $this->assertSame('16 DE OCTUBRE DE 2026', $b['datos_comunes']['fecha']['valor']);
+        $this->assertSame('16 de octubre de 2026', $b['datos_comunes']['fecha']['valor'], 'mes en minúscula');
         $this->assertSame('5 HORAS', $b['datos_comunes']['intensidad_horaria']['valor']);
         $this->assertNull($b['datos_comunes']['ciudad']['valor'], 'la ciudad no se inventa');
 
@@ -341,7 +360,8 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $this->assertSame(31, $p->keys()->last());
         foreach ($p as $fila) {
             $this->assertNull($fila['tipo_documento'], 'ningún tipo de documento se supone');
-            $this->assertSame('pendiente', $fila['elegibilidad'], 'ni Completo ni Cupos presumen elegibilidad');
+            // Regla de negocio: el Excel trae a quienes se certifican. «Completo» y «Cupos» nacen elegibles: la asistencia es solo informativa.
+            $this->assertSame(['elegible', 'automatica'], [$fila['elegibilidad'], $fila['elegibilidad_origen']]);
             $this->assertFalse($fila['excluir']);
             $this->assertContains('tipo_documento_por_confirmar', $fila['avisos']);
             $this->assertContains('valores_posiblemente_desactualizados', $fila['avisos']);
@@ -457,14 +477,14 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $this->assertSame(X::EVENTO_631, $this->evento->fresh()->nombre, 'el evento existente no se modificó');
         $reales = $lote->participantes()->where('es_control_qa', false)->orderBy('fila_origen')->get();
         $this->assertCount(17, $reales);
-        $this->assertSame(['PERSONA 01 PRUEBA', '1000001'], [$reales[0]->nombre_completo, $reales[0]->documento]);
+        $this->assertSame(['PERSONA 01 PRUEBA', 'C.C. 1000001'], [$reales[0]->nombre_completo, $reales[0]->documento]);
         foreach ($reales as $p) {
-            $this->assertFalse((bool) $p->tipo_documento_confirmado, 'los 17 siguen con el tipo de documento por confirmar');
-            $this->assertSame(Participante::PENDIENTE, $p->elegibilidad, 'ninguno es elegible sin decisión');
+            $this->assertTrue((bool) $p->tipo_documento_confirmado, 'el tipo de documento se confirmó antes de crear la base');
+            $this->assertSame(Participante::ELEGIBLE, $p->elegibilidad, 'quien está en el Excel queda listo para certificarse');
         }
         $this->assertSame('VIRTUAL-SINCRÓNICO Y REMOTO', mb_strtoupper(X::MODALIDAD));
         $this->assertSame(X::MODALIDAD, $lote->datos_comunes['modalidad'], 'modalidad literal');
-        $this->assertSame(['16 DE OCTUBRE DE 2026', '5 HORAS'], [$lote->datos_comunes['fecha'], $lote->datos_comunes['intensidad_horaria']]);
+        $this->assertSame(['16 de octubre de 2026', '5 HORAS'], [$lote->datos_comunes['fecha'], $lote->datos_comunes['intensidad_horaria']]);
         $this->assertArrayNotHasKey('ciudad', $lote->datos_comunes);
         $this->assertSame(hash('sha256', $bytes), $lote->archivo_hash, 'la base recuerda el Excel ORIGINAL');
         $this->assertSame('solicitud.xlsx', $lote->archivo_nombre);
@@ -476,30 +496,34 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $this->assertNull($imp->clave_activa);
     }
 
-    public function test_cupos_y_completo_no_se_vuelven_elegibles_solos_y_nada_se_emite(): void
+    public function test_las_17_del_excel_vbg_quedan_elegibles_sin_aprobacion_y_nada_se_emite(): void
     {
         Mail::fake();
         Queue::fake();
         Notification::fake();
-        // Los «Completo» (todas las filas menos la 30, que es «Cupos») los marca el administrador, persona por persona o con la acción masiva de F5.
-        $completos = [];
-        foreach (array_merge(range(15, 29), [31]) as $f) {
-            $completos[(string) $f] = ['elegibilidad' => 'elegible'];
-        }
-        [$id, $v] = $this->borradorListo(null, ['participantes' => $completos]);
+        // Regla de negocio: el Excel trae a quienes se certifican. Las 16 «Completo» y la persona «Cupos» (fila 30) nacen elegibles: la asistencia es informativa.
+        $r = $this->analizar()->assertCreated();
+        $id = $r->json('borrador.id');
+        $porFila = collect($r->json('borrador.participantes'))->keyBy('fila');
+        $this->assertSame(17, $porFila->where('elegibilidad', 'elegible')->where('elegibilidad_origen', 'automatica')->count());
+        $this->assertSame('cupo', $porFila[30]['senal']);
+        $this->assertContains('asistencia_cupo', $porFila[30]['avisos'], 'se avisa, sin frenarla');
+        $this->assertNotContains('elegibilidad_por_decidir', $porFila[30]['avisos']);
 
+        // Sin el tipo de documento no se crea la base (sin él no se podría emitir); la elegibilidad ya no frena nada.
+        $v = $this->corregir($id, 1, $this->decisiones())->assertOk()->json('borrador.version');
+        $codigos = array_column($this->validarBorrador($id)->json('bloqueos'), 'codigo');
+        $this->assertSame(['tipo_documento_sin_confirmar'], $codigos);
+        $this->confirmar($id, $v)->assertStatus(422);
+        $this->assertSame(0, Lote::count());
+
+        $v = $this->corregir($id, $v, ['participantes' => $this->resolverPersonas($r->json('borrador.participantes'))])->assertOk()->json('borrador.version');
         $lote = Lote::findOrFail($this->confirmar($id, $v)->assertCreated()->json('lote_id'));
 
         $porEstado = $lote->participantes()->where('es_control_qa', false)->pluck('elegibilidad', 'fila_origen');
-        $this->assertSame(16, $porEstado->filter(fn ($e) => $e === Participante::ELEGIBLE)->count(), 'solo los que el administrador marcó');
-        $this->assertSame(Participante::PENDIENTE, $porEstado[30], 'Cupos queda pendiente');   // fila 30 del Excel (la base guarda la fila REAL, no la línea del CSV intermedio)
-        // Aunque sean elegibles, sin tipo de documento confirmado no hay nada para emitir.
-        try {
-            app(EmisorLote::class)->emitirPendientes($lote, null);
-            $this->fail('No debe haber nada que emitir.');
-        } catch (EmisionException $e) {
-            $this->assertSame(EmisionException::SIN_PENDIENTES, $e->codigo);
-        }
+        $this->assertSame(17, $porEstado->filter(fn ($e) => $e === Participante::ELEGIBLE)->count(), 'las 17, sin aprobarlas una por una');
+        $this->assertSame(Participante::ELEGIBLE, $porEstado[30], '«Cupos» también');   // fila 30 del Excel (la base guarda la fila REAL)
+        // Crear la base no emite nada ni avisa a nadie.
         $this->assertSame(0, Emision::count());
         Mail::assertNothingSent();
         Mail::assertNothingQueued();
@@ -559,8 +583,9 @@ class ImportacionInteligenteTest extends EmisionesTestCase
 
     public function test_los_datos_dudosos_del_excel_exigen_confirmacion_antes_de_importar(): void
     {
-        $id = $this->analizar()->assertCreated()->json('borrador.id');
-        $v = $this->corregir($id, 1, $this->decisiones(['confirmados' => ['datos_comunes' => [], 'valores_desactualizados' => false]]))->assertOk()->json('borrador.version');
+        $r = $this->analizar()->assertCreated();
+        $id = $r->json('borrador.id');
+        $v = $this->corregir($id, 1, $this->decisiones(['confirmados' => ['datos_comunes' => [], 'valores_desactualizados' => false], 'participantes' => $this->resolverPersonas($r->json('borrador.participantes'))]))->assertOk()->json('borrador.version');
 
         $bloqueos = collect($this->validarBorrador($id)->json('bloqueos'));
         $this->assertEqualsCanonicalizing(['fecha', 'intensidad_horaria', 'modalidad'], $bloqueos->where('codigo', 'dato_comun_sin_confirmar')->pluck('campo')->all());
@@ -576,10 +601,11 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         // Plantilla que imprime la modalidad (F2).
         $els = array_map(fn ($c, $i) => $this->elemento(['field' => $c, 'y' => 20 + $i * 40, 'height' => 30, 'fontSize' => 12]), ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria', 'modalidad'], range(0, 5));
         $conModalidad = $this->plantillaLista($els);
-        $id = $this->analizar()->assertCreated()->json('borrador.id');
+        $r = $this->analizar()->assertCreated();
+        $id = $r->json('borrador.id');
 
         // Sin la modalidad confirmada ni escrita: bloqueada por el diseño NO; sí por la confirmación.
-        $v = $this->corregir($id, 1, $this->decisiones(['plantilla_id' => $conModalidad->id, 'confirmados' => ['datos_comunes' => ['fecha', 'intensidad_horaria'], 'valores_desactualizados' => true]]))->assertOk()->json('borrador.version');
+        $v = $this->corregir($id, 1, $this->decisiones(['plantilla_id' => $conModalidad->id, 'confirmados' => ['datos_comunes' => ['fecha', 'intensidad_horaria'], 'valores_desactualizados' => true], 'participantes' => $this->resolverPersonas($r->json('borrador.participantes'))]))->assertOk()->json('borrador.version');
         $this->assertContains('dato_comun_sin_confirmar', array_column($this->validarBorrador($id)->json('bloqueos'), 'codigo'));
 
         $v = $this->corregir($id, $v, ['confirmados' => ['datos_comunes' => ['fecha', 'intensidad_horaria', 'modalidad']]])->assertOk()->json('borrador.version');
@@ -623,13 +649,14 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $lote = Lote::findOrFail($this->confirmar($id, $v)->assertCreated()->json('lote_id'));
 
         $docs = $lote->participantes()->where('es_control_qa', false)->orderBy('fila_origen')->pluck('documento')->all();
-        $this->assertSame(['0012345678', '5000002', '5000003'], $docs);
+        $this->assertSame(['C.C. 0012345678', 'C.C. 5000002', 'C.C. 5000003'], $docs, 'los ceros iniciales se conservan (el tipo se antepone, el número no se toca)');
     }
 
     public function test_los_errores_del_importador_se_muestran_con_la_fila_del_excel_y_bloquean(): void
     {
-        $id = $this->analizar(X::bytes(4, ['documentos' => [1 => '7700001', 2 => '7700001']]))->assertCreated()->json('borrador.id');
-        $this->corregir($id, 1, $this->decisiones())->assertOk();
+        $r = $this->analizar(X::bytes(4, ['documentos' => [1 => '7700001', 2 => '7700001']]))->assertCreated();
+        $id = $r->json('borrador.id');
+        $this->corregir($id, 1, $this->decisiones(['participantes' => $this->resolverPersonas($r->json('borrador.participantes'))]))->assertOk();
 
         $bloqueo = collect($this->validarBorrador($id)->json('bloqueos'))->firstWhere('codigo', 'fila_invalida');
 

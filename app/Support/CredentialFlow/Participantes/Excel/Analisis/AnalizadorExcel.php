@@ -272,6 +272,8 @@ final class AnalizadorExcel
             $fin = $f;
         }
 
+        $participantes = $this->modalidadDesdeObservaciones($hoja, $participantes, $columnas);
+
         $criticas = array_filter($columnas, fn (ColumnaDetectada $c) => in_array($c->campo, ['nombre_completo', 'documento'], true));
         $confianza = (count($criticas) === 2 && ! in_array(ValorDetectado::AMBIGUO, array_map(fn ($c) => $c->confianza, $criticas), true)) ? ValorDetectado::CONFIABLE : ValorDetectado::AMBIGUO;
         if ($participantes === []) {
@@ -279,6 +281,50 @@ final class AnalizadorExcel
         }
 
         return new TablaDetectada($hoja->nombre, $filaEnc, $columnas, $participantes, $omitidas, $truncada, $confianza, $enc['ignorados'], $fin);
+    }
+
+    /**
+     * Modalidad POR PERSONA escrita en «Observaciones» (el formato oficial de solicitud de diplomas la pone ahí: «PRESENCIAL» / «VIRTUAL»).
+     *
+     *  - Solo se usa si al menos una observación es EXACTAMENTE una modalidad: si todas son notas libres, la columna no dice la modalidad y no se toca nada.
+     *  - Una observación inequívoca da la modalidad de esa persona («Presencial» / «Virtual»). La columna «Modalidad», si existe, manda; si las dos se
+     *    contradicen, la modalidad queda en duda (sin valor) para que el administrador decida.
+     *  - Una observación con otro texto, o vacía, NO se rellena con la modalidad general: queda en duda o faltante y se pide revisarla.
+     *
+     * @param  list<ParticipanteDetectado>  $participantes
+     * @param  array<string, ColumnaDetectada>  $columnas
+     * @return list<ParticipanteDetectado>
+     */
+    private function modalidadDesdeObservaciones(HojaLeida $hoja, array $participantes, array $columnas): array
+    {
+        if (! isset($columnas['observaciones'])) {
+            return $participantes;
+        }
+        $columna = $columnas['observaciones'];
+        $desdeObservacion = fn (ParticipanteDetectado $p) => Normalizadores::modalidadCanonica(Normalizadores::textoDe($hoja->celda($p->fila, $columna->indice)));
+        if (! collect($participantes)->contains(fn (ParticipanteDetectado $p) => $desdeObservacion($p) !== null)) {
+            return $participantes;
+        }
+
+        return array_map(function (ParticipanteDetectado $p) use ($hoja, $columna, $desdeObservacion) {
+            $celda = $hoja->celda($p->fila, $columna->indice);
+            $observada = $desdeObservacion($p);
+            $deColumna = $p->campo('modalidad');
+            $conColumna = $deColumna !== null && $deColumna->confianza !== ValorDetectado::FALTANTE;
+            $canonicaColumna = $conColumna ? Normalizadores::modalidadCanonica((string) $deColumna->valor) : null;
+            $texto = Normalizadores::textoDe($celda);
+
+            $modalidad = match (true) {
+                $observada !== null && $canonicaColumna !== null && $observada !== $canonicaColumna => Normalizadores::valor('modalidad', null, $celda, $hoja->nombre, ValorDetectado::AMBIGUO,
+                    ['modalidad_contradictoria'], null, ['en_columna_modalidad' => $deColumna->valor, 'en_observaciones' => $observada], $columna->encabezado),
+                $conColumna => $deColumna,
+                $observada !== null => Normalizadores::valor('modalidad', $observada, $celda, $hoja->nombre, ValorDetectado::CONFIABLE, [], 'modalidad_desde_observaciones', [], $columna->encabezado),
+                $texto !== null && $texto !== '' => Normalizadores::valor('modalidad', null, $celda, $hoja->nombre, ValorDetectado::AMBIGUO, ['observacion_sin_modalidad_clara'], null, [], $columna->encabezado),
+                default => Normalizadores::faltante('modalidad', $celda, $hoja->nombre, $columna->encabezado, 'modalidad_vacia_en_observaciones'),
+            };
+
+            return new ParticipanteDetectado($p->fila, [...$p->campos, 'modalidad' => $modalidad], $p->senal, $p->diploma, $p->posibleQa);
+        }, $participantes);
     }
 
     /** Una fila con tres o más encabezados EXACTOS es el comienzo de otra tabla. */

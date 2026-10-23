@@ -24,6 +24,12 @@ use Tests\Feature\CredentialFlow\Support\ExcelSolicitud as X;
  */
 class ImportacionMasivaTest extends EmisionesTestCase
 {
+    /**
+     * F5 revisa la elegibilidad EN BLOQUE. Desde la regla «el Excel trae a quienes se certifican», una persona nace elegible salvo que el archivo diga otra
+     * cosa: estos Excel DECLARAN «Pendiente» en su columna de elegibilidad para que el administrador decida con las acciones masivas.
+     */
+    private const DECLARA = ['elegibilidad' => 'Pendiente'];
+
     private const CONTACTOS = [['QA UNO PRUEBA', 'C.C. 8.000.001', 'qa.uno@example.test'], ['QA DOS PRUEBA', 'C.C. 8.000.002', 'qa.dos@example.test'], ['QA TRES PRUEBA', 'C.C. 8.000.003', 'qa.tres@example.test']];
 
     private Plantilla $plantilla;
@@ -65,7 +71,7 @@ class ImportacionMasivaTest extends EmisionesTestCase
 
     private function analizar(?string $bytes = null): int
     {
-        return $this->actingAs($this->admin())->post(route('credential-flow.importaciones.analizar'), ['archivo' => UploadedFile::fake()->createWithContent('solicitud.xlsx', $bytes ?? X::bytes())], ['Accept' => 'application/json'])
+        return $this->actingAs($this->admin())->post(route('credential-flow.importaciones.analizar'), ['archivo' => UploadedFile::fake()->createWithContent('solicitud.xlsx', $bytes ?? X::bytes(17, self::DECLARA))], ['Accept' => 'application/json'])
             ->assertSuccessful()->json('borrador.id');
     }
 
@@ -76,6 +82,16 @@ class ImportacionMasivaTest extends EmisionesTestCase
             'plantilla_id' => $this->plantilla->id, 'evento' => ['decision' => 'asociar', 'evento_id' => 631],
             'confirmados' => ['datos_comunes' => ['fecha', 'intensidad_horaria', 'modalidad'], 'valores_desactualizados' => true],
         ], $extra))->assertOk()->json('borrador');
+    }
+
+    /** Resuelve, persona por persona, lo que impide crear la base: tipo de documento por confirmar y elegibilidad «Pendiente» (aquí, «elegible»). */
+    private function resolverPersonas(int $id, string $elegibilidad = 'elegible'): void
+    {
+        $c = [];
+        foreach ($this->personas($id) as $fila => $p) {
+            $c[(string) $fila] = ($p['tipo_documento'] === null ? ['tipo_documento' => 'C.C.'] : []) + ($p['elegibilidad'] === 'pendiente' ? ['elegibilidad' => $elegibilidad] : []);
+        }
+        $this->corregir($id, ['participantes' => array_filter($c)])->assertOk();
     }
 
     private function corregir(int $id, array $cuerpo): TestResponse
@@ -175,17 +191,20 @@ class ImportacionMasivaTest extends EmisionesTestCase
         $this->assertTrue($r->json('borrador.historial.0.deshacible'));
         $this->assertSame($antes, $this->conteos(), 'aplicar al borrador no crea nada');
 
-        // Los pendientes para emitir quedan separados de lo que impide crear la base.
-        $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
+        // Antes de crear la base: el tipo de documento de las 17 y la decisión sobre «Cupos» (persona por persona: no se certifica).
         $this->decidir($id);
+        $codigos = array_column($this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json('bloqueos'), 'codigo');
+        $this->assertEqualsCanonicalizing(['tipo_documento_sin_confirmar', 'elegibilidad_sin_decidir'], $codigos);
+        $this->aplicar($id, 'tipo_documento', 'C.C.', array_keys($this->personas($id)))->assertOk();
+        $this->corregir($id, ['participantes' => [(string) $cupos[0] => ['elegibilidad' => 'no_elegible']]])->assertOk();
         $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
         $this->assertTrue($e['listo']);
-        $this->assertSame(['tipo_documento' => 17, 'elegibilidad' => 1, 'no_elegibles' => 0, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
+        $this->assertSame(['tipo_documento' => 0, 'elegibilidad' => 0, 'no_elegibles' => 1, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
 
-        // Crear la base después de las revisiones: 16 elegibles + «Cupos» pendiente + QA, y no se emite nada.
+        // Crear la base después de las revisiones: 16 elegibles + «Cupos» no elegible + QA, y no se emite nada.
         $lote = Lote::findOrFail($this->confirmar($id)->assertCreated()->json('lote_id'));
         $reales = $lote->participantes()->where('es_control_qa', false)->get();
-        $this->assertSame([17, 16, 1, 0], [$reales->count(), $reales->where('elegibilidad', Participante::ELEGIBLE)->count(), $reales->where('elegibilidad', Participante::PENDIENTE)->count(), $reales->where('tipo_documento_confirmado', true)->count()]);
+        $this->assertSame([17, 16, 1, 17], [$reales->count(), $reales->where('elegibilidad', Participante::ELEGIBLE)->count(), $reales->where('elegibilidad', Participante::NO_ELEGIBLE)->count(), $reales->where('tipo_documento_confirmado', true)->count()]);
         $this->assertSame(3, $lote->participantes()->where('es_control_qa', true)->count());
         $this->assertSame(0, Emision::count());
         Mail::assertNothingSent();
@@ -199,11 +218,12 @@ class ImportacionMasivaTest extends EmisionesTestCase
         // Base de referencia: sin ninguna acción masiva.
         $a = $this->analizar();
         $this->decidir($a);
+        $this->resolverPersonas($a);
         $baseA = Lote::findOrFail($this->confirmar($a)->assertCreated()->json('lote_id'));
         $qaA = $baseA->participantes()->where('es_control_qa', true)->orderBy('documento_clave')->pluck('elegibilidad', 'documento_clave')->all();
 
         // Otra base con acciones masivas sobre TODAS las personas del borrador.
-        $b = $this->analizar(X::bytes(17, ['documento_base' => 2000000]));
+        $b = $this->analizar(X::bytes(17, self::DECLARA + ['documento_base' => 2000000]));
         $this->decidir($b);
         $this->aplicar($b, 'elegibilidad', 'no_elegible', array_keys($this->personas($b)))->assertOk();
         $this->aplicar($b, 'tipo_documento', 'C.C.', array_keys($this->personas($b)))->assertOk();
@@ -217,33 +237,30 @@ class ImportacionMasivaTest extends EmisionesTestCase
 
     // ── Cupos y la asistencia que no está clara ──────────────────────────────
 
-    public function test_cupos_no_se_vuelve_elegible_en_bloque_ni_junto_con_los_completo(): void
+    public function test_la_asistencia_cupos_es_informativa_y_no_frena_la_decision_en_bloque(): void
     {
-        $id = $this->analizar();
+        // Regla de negocio: el Excel trae a quienes se certifican; «Cupos» no es motivo para dejar a nadie fuera ni para omitirlo de una decisión en bloque.
+        $id = $this->analizar();   // este Excel DECLARA «Pendiente» para todos: el administrador decide en bloque
         $todos = array_keys($this->personas($id));
         $cupo = $this->filasPorSenal($id, 'cupo')[0];
 
-        // Aunque se seleccione a todos, «Cupos» se omite y se informa; los demás sí cambian.
         $p = $this->previa($id, 'elegibilidad', 'elegible', $todos)->assertOk()->json('vista_previa');
-        $this->assertSame([17, 16, 1], [$p['seleccionados'], $p['se_modifican'], $p['omitidos_total']]);
-        $this->assertSame([['fila' => $cupo, 'motivo' => 'cupos']], array_map(fn ($o) => ['fila' => $o['fila'], 'motivo' => $o['motivo']], $p['omitidos']));
-        $this->assertSame(['cupos' => 1], $p['omitidos_por_motivo']);
-
+        $this->assertSame([17, 17, 0], [$p['seleccionados'], $p['se_modifican'], $p['omitidos_total']]);
+        $this->assertTrue($p['requiere_verificacion'], 'marcar «elegible» en bloque sigue pidiendo confirmar que se verificó');
         $this->aplicar($id, 'elegibilidad', 'elegible', $todos, ['verificado' => true])->assertOk();
-        $this->assertSame('pendiente', $this->personas($id)[$cupo]['elegibilidad']);
+        $this->assertSame('elegible', $this->personas($id)[$cupo]['elegibilidad']);
+        $this->assertContains('asistencia_cupo', $this->personas($id)[$cupo]['avisos'], 'el aviso informativo se conserva');
 
-        // Seleccionar solo «Cupos» no cambia nada: no hay nada que aplicar.
-        $id2 = $this->analizar(X::bytes(17, ['documento_base' => 3000000]));
-        $cupo2 = $this->filasPorSenal($id2, 'cupo');
-        $this->previa($id2, 'elegibilidad', 'elegible', $cupo2)->assertOk()->assertJsonPath('vista_previa.se_modifican', 0);
-        $this->aplicar($id2, 'elegibilidad', 'elegible', $cupo2, ['verificado' => true])->assertStatus(422)->assertJsonPath('error.code', 'ACCION_MASIVA_SIN_CAMBIOS');
+        // Seleccionar a quien ya está así no cambia nada: no hay nada que aplicar.
+        $this->previa($id, 'elegibilidad', 'elegible', [$cupo])->assertOk()->assertJsonPath('vista_previa.se_modifican', 0);
+        $this->aplicar($id, 'elegibilidad', 'elegible', [$cupo], ['verificado' => true])->assertStatus(422)->assertJsonPath('error.code', 'ACCION_MASIVA_SIN_CAMBIOS');
 
-        // Dejarlo en «pendiente» o «no elegible» sí se permite (no es aprobarlo).
-        $this->aplicar($id2, 'elegibilidad', 'no_elegible', $cupo2)->assertOk();
-        $this->assertSame('no_elegible', $this->personas($id2)[$cupo2[0]]['elegibilidad']);
+        // Decidir a propósito que no se certifica también se permite, y reemplazar esa decisión exige confirmarlo.
+        $this->aplicar($id, 'elegibilidad', 'no_elegible', [$cupo], ['confirmar_sobrescritura' => true])->assertOk();
+        $this->assertSame('no_elegible', $this->personas($id)[$cupo]['elegibilidad']);
     }
 
-    public function test_la_asistencia_contradictoria_o_desconocida_tampoco_se_aprueba_en_bloque(): void
+    public function test_la_asistencia_contradictoria_o_desconocida_tampoco_frena_la_decision_en_bloque(): void
     {
         $id = $this->analizar();
         // Se fuerza en el borrador cifrado una persona con señal «conflicto» y otra «desconocida» (como las que produce el analizador).
@@ -256,8 +273,42 @@ class ImportacionMasivaTest extends EmisionesTestCase
 
         $p = $this->previa($id, 'elegibilidad', 'elegible', $filas)->assertOk()->json('vista_previa');
 
-        $this->assertSame(1, $p['se_modifican']);
-        $this->assertSame(['asistencia_sin_aclarar' => 2], $p['omitidos_por_motivo']);
+        $this->assertSame([3, 0], [$p['se_modifican'], $p['omitidos_total']], 'la asistencia del Excel es solo informativa');
+        $this->assertContains('asistencia_conflicto', $this->personas($id)[$filas[0]]['avisos']);
+        $this->assertContains('asistencia_desconocida', $this->personas($id)[$filas[1]]['avisos']);
+    }
+
+    public function test_el_excel_vbg_deja_a_las_17_elegibles_y_el_tipo_de_documento_se_asigna_en_bloque(): void
+    {
+        Mail::fake();
+        $this->sembrarQa();
+        // Excel VBG sintético SIN columna de elegibilidad: 16 «Completo» + 1 «Cupos», ningún tipo de documento.
+        $id = $this->analizar(X::bytes());
+        $personas = $this->personas($id);
+        $this->assertSame(17, collect($personas)->where('elegibilidad', 'elegible')->where('elegibilidad_origen', 'automatica')->count(), 'nadie se aprueba a mano');
+        $this->decidir($id);
+        $bloqueos = collect($this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json('bloqueos'));
+        $this->assertSame(['tipo_documento_sin_confirmar'], $bloqueos->pluck('codigo')->all(), 'lo único que falta es el tipo de documento');
+        $this->assertCount(17, $bloqueos->first()['filas']);
+
+        // Asignación en bloque: vista previa → aplicar → deshacer → aplicar de nuevo.
+        $todos = array_keys($personas);
+        $p = $this->previa($id, 'tipo_documento', 'C.C.', $todos)->assertOk()->json('vista_previa');
+        $this->assertSame([17, 0, 0], [$p['se_modifican'], $p['omitidos_total'], $p['sobrescriben']]);
+        $operacion = (string) Str::uuid();
+        $this->aplicar($id, 'tipo_documento', 'C.C.', $todos, [], $operacion)->assertOk();
+        $this->assertSame(17, collect($this->personas($id))->where('tipo_documento', 'C.C.')->count());
+        $this->deshacer($id, $operacion)->assertOk();
+        $this->assertSame(17, collect($this->personas($id))->whereNull('tipo_documento')->count(), 'deshacer devuelve el borrador a como estaba');
+        $this->aplicar($id, 'tipo_documento', 'C.C.', $todos)->assertOk();
+        $this->assertTrue($this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json('listo'));
+
+        $lote = Lote::findOrFail($this->confirmar($id)->assertCreated()->json('lote_id'));
+        $reales = $lote->participantes()->where('es_control_qa', false)->get();
+        $this->assertSame([17, 17, 17], [$reales->count(), $reales->where('elegibilidad', Participante::ELEGIBLE)->count(), $reales->where('tipo_documento_confirmado', true)->count()]);
+        $this->assertSame(3, $lote->participantes()->where('es_control_qa', true)->count(), 'los QA, aparte');
+        $this->assertSame(0, Emision::count());
+        Mail::assertNothingSent();
     }
 
     // ── Exclusiones: QA, excluidos y lo que no se toca ───────────────────────
@@ -265,7 +316,7 @@ class ImportacionMasivaTest extends EmisionesTestCase
     public function test_los_excluidos_y_las_personas_parecidas_a_un_contacto_qa_no_se_tocan(): void
     {
         $this->sembrarQa();
-        $id = $this->analizar(X::bytes(17, ['correos' => [5 => 'qa.uno@example.test']]));   // fila 19 con el correo de un contacto QA
+        $id = $this->analizar(X::bytes(17, self::DECLARA + ['correos' => [5 => 'qa.uno@example.test']]));   // fila 19 con el correo de un contacto QA
         $personas = $this->personas($id);
         $this->assertSame('correo', $personas[19]['posible_qa']);
         $this->corregir($id, ['participantes' => ['20' => ['excluir' => true]]])->assertOk();
@@ -305,7 +356,7 @@ class ImportacionMasivaTest extends EmisionesTestCase
 
     public function test_los_documentos_originales_no_se_alteran_y_los_ceros_iniciales_se_conservan(): void
     {
-        $id = $this->analizar(X::bytes(17, ['documentos' => [1 => '0012345678', 2 => '00987']]));
+        $id = $this->analizar(X::bytes(17, self::DECLARA + ['documentos' => [1 => '0012345678', 2 => '00987']]));
         $antes = $this->personas($id);
         $this->assertSame('0012345678', $antes[15]['documento']);
 
@@ -588,7 +639,7 @@ class ImportacionMasivaTest extends EmisionesTestCase
 
     public function test_120_personas_con_filtros_paginas_y_acciones_sucesivas(): void
     {
-        $id = $this->analizar(X::bytes(120));
+        $id = $this->analizar(X::bytes(120, self::DECLARA));
         $personas = $this->personas($id);
         $completos = $this->filasPorSenal($id, 'completo');
         $this->assertCount(120, $personas);
@@ -619,7 +670,7 @@ class ImportacionMasivaTest extends EmisionesTestCase
     {
         Mail::fake();
         $this->sembrarQa();
-        $id = $this->analizar(X::bytes(300));
+        $id = $this->analizar(X::bytes(300, self::DECLARA));
         $this->decidir($id);
         $completos = $this->filasPorSenal($id, 'completo');
         $this->assertCount(299, $completos);
@@ -629,8 +680,9 @@ class ImportacionMasivaTest extends EmisionesTestCase
         $this->aplicar($id, 'elegibilidad', 'elegible', $completos, ['verificado' => true])->assertOk();
         $this->aplicar($id, 'tipo_documento', 'C.C.', array_keys($this->personas($id)))->assertOk();
 
+        $this->resolverPersonas($id, 'no_elegible');   // la persona «Cupos» se decide sola, persona por persona
         $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
-        $this->assertSame(['tipo_documento' => 0, 'elegibilidad' => 1, 'no_elegibles' => 0, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
+        $this->assertSame(['tipo_documento' => 0, 'elegibilidad' => 0, 'no_elegibles' => 1, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
 
         $lote = Lote::findOrFail($this->confirmar($id)->assertCreated()->json('lote_id'));
         $reales = $lote->participantes()->where('es_control_qa', false);
@@ -660,11 +712,12 @@ class ImportacionMasivaTest extends EmisionesTestCase
     {
         $id = $this->analizar();
         $this->decidir($id);
+        $this->resolverPersonas($id);
         $this->confirmar($id)->assertCreated();
 
         $this->previa($id, 'tipo_documento', 'C.C.', [15])->assertStatus(409)->assertJsonPath('error.code', 'BORRADOR_YA_CONFIRMADO');
 
-        $id2 = $this->analizar(X::bytes(17, ['documento_base' => 4000000]));
+        $id2 = $this->analizar(X::bytes(17, self::DECLARA + ['documento_base' => 4000000]));
         Importacion::findOrFail($id2)->update(['expira_at' => now()->subMinute()]);
         $this->previa($id2, 'tipo_documento', 'C.C.', [15])->assertStatus(410);
     }

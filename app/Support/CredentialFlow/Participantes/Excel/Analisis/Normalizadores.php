@@ -29,7 +29,11 @@ final class Normalizadores
         'noviembre' => 11, 'nov' => 11, 'diciembre' => 12, 'dic' => 12,
     ];
 
-    private const MESES_TEXTO = [1 => 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+    // Los meses se escriben en minúscula, como en español: «16 de octubre de 2026».
+    private const MESES_TEXTO = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    /** Modalidades que se reconocen por persona aunque cambien mayúsculas, tildes, espacios o un punto final: «VIRTUAL», « presencial. ». */
+    private const MODALIDADES_CANONICAS = ['presencial' => 'Presencial', 'virtual' => 'Virtual'];
 
     private const ORIGINAL_MAX = 300;
 
@@ -299,12 +303,18 @@ final class Normalizadores
             count($lineas) > 1 ? 'lineas_unidas_con_raya' : ($texto === $bruto ? null : 'espacios_normalizados'), [], $etiqueta);
     }
 
-    /** Modalidad: siempre LITERAL (solo se normalizan los espacios); no se traduce a ningún catálogo. */
+    /**
+     * Modalidad: LITERAL (solo se normalizan los espacios) y sin traducir a ningún catálogo, salvo «Presencial» y «Virtual», que se escriben siempre igual
+     * aunque el Excel cambie mayúsculas, tildes o espacios («PRESENCIAL» → «Presencial»).
+     */
     public static function modalidad(CeldaLeida $c, string $hoja, string $etiqueta): ValorDetectado
     {
         $t = self::textoDe($c);
         if ($t === null || $t === '') {
             return self::faltante('modalidad', $c, $hoja, $etiqueta);
+        }
+        if (($canonica = self::modalidadCanonica($t)) !== null) {
+            return self::valor('modalidad', $canonica, $c, $hoja, ValorDetectado::CONFIABLE, [], $canonica === (string) $c->valor ? null : 'modalidad_normalizada', [], $etiqueta);
         }
         $motivos = [];
         if (mb_strlen($t) > 120) {
@@ -312,6 +322,20 @@ final class Normalizadores
         }
 
         return self::valor('modalidad', $t, $c, $hoja, $motivos === [] ? ValorDetectado::CONFIABLE : ValorDetectado::AMBIGUO, $motivos, $t === (string) $c->valor ? null : 'espacios_normalizados', [], $etiqueta);
+    }
+
+    /** «Presencial» o «Virtual» si el texto es EXACTAMENTE una de las dos (sin importar mayúsculas, tildes, espacios ni un punto final); si no, null. */
+    public static function modalidadCanonica(?string $texto): ?string
+    {
+        if ($texto === null) {
+            return null;
+        }
+        $t = mb_strtolower(Texto::limpiar($texto), 'UTF-8');
+        $d = \Normalizer::normalize($t, \Normalizer::FORM_D);
+        $t = preg_replace('/\p{Mn}+/u', '', $d === false ? $t : $d) ?? $t;
+        $t = preg_replace('/\.$/', '', trim($t)) ?? $t;   // «Virtual.» sí; «Virtual?», «Semi-presencial» o «Virtual y presencial» no
+
+        return self::MODALIDADES_CANONICAS[$t] ?? null;
     }
 
     /** Intensidad en horas: «Módulo 5 Horas» → «5 HORAS». Dos cifras distintas o una cifra sin unidad es ambiguo. */
@@ -469,19 +493,19 @@ final class Normalizadores
     private static function textoFecha(array $fechas): string
     {
         usort($fechas, fn ($x, $y) => $x <=> $y);
-        $partes = array_map(fn ($f) => $f[2].' DE '.self::MESES_TEXTO[$f[1]].' DE '.$f[0], $fechas);
+        $partes = array_map(fn ($f) => $f[2].' de '.self::MESES_TEXTO[$f[1]].' de '.$f[0], $fechas);
         if (count($partes) === 1) {
             return $partes[0];
         }
-        // Mismo mes y año: «16 Y 17 DE OCTUBRE DE 2026».
+        // Mismo mes y año: «16 y 17 de octubre de 2026».
         $mismoMes = count(array_unique(array_map(fn ($f) => $f[0].'-'.$f[1], $fechas))) === 1;
         if ($mismoMes) {
             $dias = array_map(fn ($f) => (string) $f[2], $fechas);
             $ultimo = array_pop($dias);
 
-            return implode(', ', $dias).' Y '.$ultimo.' DE '.self::MESES_TEXTO[$fechas[0][1]].' DE '.$fechas[0][0];
+            return implode(', ', $dias).' y '.$ultimo.' de '.self::MESES_TEXTO[$fechas[0][1]].' de '.$fechas[0][0];
         }
 
-        return implode(' Y ', $partes);
+        return implode(' y ', $partes);
     }
 }

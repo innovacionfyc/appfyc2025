@@ -120,19 +120,18 @@ class ImportacionGuiadaTest extends EmisionesTestCase
     {
         $id = $this->analizar();
 
-        // Qué falta al empezar: evento → 3 datos del certificado → los datos de las personas que vienen de otra hoja → plantilla. NADA de tipo de documento ni elegibilidad.
+        // Qué falta al empezar: evento → 3 datos del certificado → los datos de las personas que vienen de otra hoja → lo que impide certificar a las personas
+        // (el tipo de documento) → plantilla. Las 17 (16 «Completo» y 1 «Cupos») ya nacen elegibles: no se aprueban una por una.
         $inicio = $this->bloqueos($id);
-        $esperados = ['evento_sin_decision', 'dato_comun_sin_confirmar', 'dato_comun_sin_confirmar', 'dato_comun_sin_confirmar', 'valores_desactualizados_sin_revisar', 'plantilla_faltante'];
+        $esperados = ['evento_sin_decision', 'dato_comun_sin_confirmar', 'dato_comun_sin_confirmar', 'dato_comun_sin_confirmar', 'valores_desactualizados_sin_revisar', 'tipo_documento_sin_confirmar', 'plantilla_faltante'];
         sort($inicio);
         sort($esperados);
         $this->assertSame($esperados, $inicio, 'el orden lo pone la guía; el servidor solo informa qué falta');
-        $this->assertNotContains('tipo_documento_por_confirmar', $inicio);
-        $this->assertNotContains('elegibilidad_pendiente', $inicio);
 
         // Etapa 2 · evento.
         $this->corregir($id, ['evento' => ['decision' => 'asociar', 'evento_id' => 631]]);
         $this->assertNotContains('evento_sin_decision', $this->bloqueos($id));
-        $this->assertCount(5, $this->bloqueos($id));
+        $this->assertCount(6, $this->bloqueos($id));
 
         // Etapa 3 · una tarea por vez: fecha, intensidad, modalidad, datos de otra hoja.
         $this->corregir($id, ['confirmados' => ['datos_comunes' => ['fecha']]]);
@@ -143,19 +142,25 @@ class ImportacionGuiadaTest extends EmisionesTestCase
         $this->assertContains('valores_desactualizados_sin_revisar', $this->bloqueos($id));
         $this->corregir($id, ['confirmados' => ['valores_desactualizados' => true]]);
 
-        // Etapa 4 · las personas: no hay nada que impida crear la base; todo lo demás es opcional.
+        // Etapa 4 · las personas: solo el tipo de documento de las 17.
+        $this->assertEqualsCanonicalizing(['tipo_documento_sin_confirmar', 'plantilla_faltante'], $this->bloqueos($id));
+        $personas = [];
+        foreach ($this->actingAs($this->admin())->getJson(route('credential-flow.importaciones.show', $id))->json('borrador.participantes') as $p) {
+            $personas[(string) $p['fila']] = ['tipo_documento' => 'C.C.'];
+        }
+        $this->corregir($id, ['participantes' => $personas]);
         $this->assertSame(['plantilla_faltante'], $this->bloqueos($id));
 
         // Etapa 5 · la plantilla.
         $this->corregir($id, ['plantilla_id' => $this->plantilla->id]);
         $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
-        $this->assertTrue($e['listo'], 'se puede crear la base sin confirmar los 17 tipos de documento ni la elegibilidad');
+        $this->assertTrue($e['listo']);
         $this->assertSame([], $e['bloqueos']);
-        $this->assertSame(['tipo_documento' => 17, 'elegibilidad' => 17, 'no_elegibles' => 0, 'asistencia_cupo' => 1], $e['pendientes_para_emitir']);
+        $this->assertSame(['tipo_documento' => 0, 'elegibilidad' => 0, 'no_elegibles' => 0, 'asistencia_cupo' => 1], $e['pendientes_para_emitir'], 'nadie queda sin poder certificarse');
 
         // Etapa 6 · crear la base: no emite nada.
         $lote = Lote::findOrFail($this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => Importacion::findOrFail($id)->version, 'confirmar' => true])->assertCreated()->json('lote_id'));
-        $this->assertSame(17, $lote->participantes()->where('es_control_qa', false)->count());
+        $this->assertSame(17, $lote->participantes()->where('es_control_qa', false)->where('elegibilidad', 'elegible')->where('tipo_documento_confirmado', true)->count());
         $this->assertSame(0, Emision::count());
     }
 

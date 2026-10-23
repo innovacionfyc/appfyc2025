@@ -300,7 +300,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $id = $this->analizar($this->excel($modalidades));
         $this->decidir($id);
 
-        $bloqueo = collect($this->validar($id)->json('bloqueos'))->firstWhere('codigo', 'modalidad_faltante');
+        $bloqueo = collect($this->validar($id)->json('bloqueos'))->firstWhere('codigo', 'modalidad_por_revisar');
         $this->assertNotNull($bloqueo, 'la persona sin modalidad bloquea crear la base');
         $this->assertSame([11], $bloqueo['filas']);
         $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => Importacion::findOrFail($id)->version, 'confirmar' => true])->assertStatus(422);
@@ -313,22 +313,37 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $this->assertSame('Presencial', $lote->participantes()->where('fila_origen', 11)->value('modalidad'));
     }
 
-    public function test_la_modalidad_general_de_la_base_respalda_a_quien_no_tiene_la_suya(): void
+    public function test_en_una_base_ya_creada_la_general_respalda_a_quien_no_tiene_la_suya_y_la_propia_gana(): void
+    {
+        // Bases existentes (creadas antes o a mano): la modalidad general sigue siendo el respaldo de quien no tiene la suya, y la propia manda.
+        $lote = $this->base([['Ana Uno', 'C.C. 1.111', 'Virtual'], ['Beto Dos', 'C.C. 2.222', null]], $this->evento->id, ['modalidad' => 'Presencial']);
+        config(['credential_flow.emision.exige_vista_previa' => false]);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 2);
+
+        $porNombre = fn (string $n) => Emision::where('participante_id', $lote->participantes()->where('nombre_completo', $n)->value('id'))->firstOrFail()->datos_snapshot['modalidad'];
+        $this->assertSame('Virtual', $porNombre('ANA UNO'), 'la propia gana a la general');
+        $this->assertSame('Presencial', $porNombre('BETO DOS'), 'sin la suya, la general de la base');
+    }
+
+    public function test_en_el_asistente_la_modalidad_general_no_rellena_a_quien_le_falta_la_suya(): void
     {
         $modalidades = $this->ochoYDos();
-        $modalidades[4] = null;
+        $modalidades[4] = null;   // fila 11: celda de modalidad vacía en un Excel con modalidad por persona
         $id = $this->analizar($this->excel($modalidades));
         $this->decidir($id);
         $this->corregir($id, ['datos_comunes' => ['modalidad' => 'Presencial']])->assertOk();
+
+        // Con una modalidad general escrita, la persona sin la suya SIGUE por revisar: no se supone que sea la general.
+        $bloqueos = collect($this->validar($id)->json('bloqueos'));
+        $this->assertSame([11], $bloqueos->firstWhere('codigo', 'modalidad_por_revisar')['filas']);
+        $this->assertNull($bloqueos->firstWhere('codigo', 'modalidad_faltante'), 'un solo aviso por persona');
+
+        $this->corregir($id, ['participantes' => ['11' => ['modalidad' => 'Virtual']]])->assertOk();
         $this->assertTrue($this->validar($id)->json('listo'));
         $lote = $this->confirmar($id);
-
-        $sinPropia = $lote->participantes()->where('fila_origen', 11)->firstOrFail();
-        $this->assertNull($sinPropia->modalidad);
+        $this->assertSame('Virtual', $lote->participantes()->where('fila_origen', 11)->value('modalidad'));
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 10);
-        $this->assertSame('Presencial', Emision::where('participante_id', $sinPropia->id)->firstOrFail()->datos_snapshot['modalidad']);
-        $virtual = $lote->participantes()->where('modalidad', 'Virtual')->firstOrFail();
-        $this->assertSame('Virtual', Emision::where('participante_id', $virtual->id)->firstOrFail()->datos_snapshot['modalidad'], 'la propia gana a la general');
+        $this->assertSame(['Presencial' => 7, 'Virtual' => 3], Emision::query()->get()->filter(fn ($e) => ! Participante::find($e->participante_id)->es_control_qa)->countBy(fn ($e) => $e->datos_snapshot['modalidad'])->sortKeys()->all());
     }
 
     public function test_en_una_base_mixta_sin_modalidad_general_no_se_emite_a_quien_le_falta(): void
