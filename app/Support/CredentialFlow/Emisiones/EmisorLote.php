@@ -3,7 +3,6 @@
 namespace App\Support\CredentialFlow\Emisiones;
 
 use App\Models\CredentialFlow\Emision;
-use App\Models\CredentialFlow\EmisionProgramada;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
@@ -14,6 +13,7 @@ use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
 use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
+use App\Support\CredentialFlow\Programacion\EjecucionAutorizada;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -99,10 +99,10 @@ final class EmisorLote
      *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function emitirTodo(Lote $lote, ?int $usuarioId, ?EmisionProgramada $programacion = null): array
+    public function emitirTodo(Lote $lote, ?int $usuarioId, ?EjecucionAutorizada $ejecucion = null): array
     {
-        // Con una emisión programada pendiente no se emite a mano (solo la programación que el ejecutor está corriendo).
-        CandadoProgramacion::exigirLibre($lote->id, $programacion);
+        // Con una emisión programada activa no se emite a mano: solo el ejecutor automático con el boleto de la programación que reservó.
+        CandadoProgramacion::exigirLibre($lote->id, $ejecucion);
 
         $pendientes = fn (bool $qa) => $lote->participantes()->where('es_control_qa', $qa)->where('elegibilidad', Participante::ELEGIBLE)
             ->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->exists();
@@ -120,11 +120,11 @@ final class EmisorLote
 
         $r = ['oficiales' => null, 'qa' => null, 'qa_error' => null];
         if ($hayOficiales) {
-            $r['oficiales'] = $this->emitirPendientes($lote, $usuarioId, false, $programacion);
+            $r['oficiales'] = $this->emitirPendientes($lote, $usuarioId, false, $ejecucion);
         }
         if ($hayQa) {
             try {
-                $r['qa'] = $this->emitirPendientes($lote->fresh(), $usuarioId, true, $programacion);
+                $r['qa'] = $this->emitirPendientes($lote->fresh(), $usuarioId, true, $ejecucion);
             } catch (EmisionException|GeneracionCredencialException $e) {
                 if ($r['oficiales'] === null) {
                     throw $e;   // no se emitió nada: es un error, no un resultado parcial
@@ -197,9 +197,9 @@ final class EmisorLote
      *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function emitirPendientes(Lote $lote, ?int $usuarioId, bool $pruebasInternas = false, ?EmisionProgramada $programacion = null): array
+    public function emitirPendientes(Lote $lote, ?int $usuarioId, bool $pruebasInternas = false, ?EjecucionAutorizada $ejecucion = null): array
     {
-        CandadoProgramacion::exigirLibre($lote->id, $programacion);
+        CandadoProgramacion::exigirLibre($lote->id, $ejecucion);
 
         $plantilla = $pruebasInternas ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
@@ -256,7 +256,7 @@ final class EmisorLote
             }
 
             // 4–5: fase crítica.
-            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pendientes, $snapshots, $generados, $operacion, $usuarioId, $programacion, &$movidos) {
+            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pendientes, $snapshots, $generados, $operacion, $usuarioId, $ejecucion, &$movidos) {
                 $loteActual = Lote::lockForUpdate()->find($lote->id);
                 $plantillaActual = Plantilla::find($plantilla->id);
                 $ids = $pendientes->pluck('id')->all();
@@ -266,7 +266,7 @@ final class EmisorLote
                     throw $this->cambiaron();
                 }
                 // Definitivo: con la base bloqueada (programar también la bloquea), una programación creada mientras se generaban los PDF gana y aquí no se emite.
-                CandadoProgramacion::exigirLibre($loteActual->id, $programacion);
+                CandadoProgramacion::exigirLibre($loteActual->id, $ejecucion);
                 if (Emision::whereIn('participante_id', $ids)->exists()) {
                     throw new EmisionException(EmisionException::EMISION_YA_VIGENTE, 'Alguno de los participantes ya fue emitido por otra operación. No se emitió nada: vuelve a intentarlo.', 409);
                 }

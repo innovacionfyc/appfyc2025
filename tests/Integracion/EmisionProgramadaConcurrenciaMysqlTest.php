@@ -4,7 +4,9 @@ namespace Tests\Integracion;
 
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
+use App\Models\Usuario;
 use App\Support\CredentialFlow\Participantes\Texto;
+use App\Support\CredentialFlow\Programacion\ServicioProgramacion;
 use Database\Seeders\AreaFormacionSeeder;
 use Database\Seeders\EquipoSeeder;
 use Database\Seeders\EstadosSeeder;
@@ -63,7 +65,7 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
         foreach (['storage/app/private', 'storage/framework/cache/data', 'storage/framework/views', 'storage/framework/sessions', 'storage/logs'] as $d) {
             mkdir($this->dir.DIRECTORY_SEPARATOR.$d, 0777, true);
         }
-        config(['filesystems.disks.local.root' => $this->dir.'/storage/app/private', 'credential_flow.emision.exige_vista_previa' => false]);
+        config(['filesystems.disks.local.root' => $this->dir.'/storage/app/private', 'credential_flow.emision.exige_vista_previa' => false, 'credential_flow.programacion.activa' => true]);
         Storage::forgetDisk('local');
     }
 
@@ -87,6 +89,8 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
                 'width' => 600, 'height' => 40, 'fontFamily' => 'outfit', 'fontSize' => 22, 'fontWeight' => 700, 'color' => '#000000', 'align' => 'center'];
         }
         $p->update(['archivo_pdf' => $p->rutaPdfEsperada(), 'diseno' => ['page' => ['width' => 792, 'height' => 612], 'elements' => $elementos], 'schema_version' => 1]);
+        // La emisión programada exige siempre la variante de pruebas internas de la plantilla.
+        $this->assertSame(0, Artisan::call('credential-flow:plantilla-variante-qa', ['origen' => $p->id, '--ejecutar' => true]), Artisan::output());
 
         $lote = Lote::create(['plantilla_id' => $p->id, 'nombre' => 'Base concurrencia '.uniqid(),
             'datos_comunes' => ['evento' => 'TALLER DE CONCURRENCIA', 'fecha' => '17 de septiembre de 2026', 'intensidad_horaria' => '8 horas']]);
@@ -116,12 +120,16 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
             if (\$modo === 'programar') {
                 \$p = app(App\\Support\\CredentialFlow\\Programacion\\ServicioProgramacion::class)->programar(\$lote, \$fecha, \$admin);
                 echo json_encode(['ok' => true, 'id' => \$p->id]);
+            } elseif (\$modo === 'ejecutor') {
+                echo json_encode(['ok' => true, 'lineas' => app(App\\Support\\CredentialFlow\\Programacion\\EjecutorProgramado::class)->ejecutar()], JSON_THROW_ON_ERROR);
             } else {
                 \$r = app(App\\Support\\CredentialFlow\\Emisiones\\EmisorLote::class)->emitirTodo(\$lote, \$admin->id);
                 echo json_encode(['ok' => true, 'emitidos' => \$r['oficiales']['total'] ?? 0]);
             }
         } catch (App\\Support\\CredentialFlow\\Programacion\\ProgramacionException|App\\Support\\CredentialFlow\\Emisiones\\EmisionException \$e) {
             echo json_encode(['ok' => false, 'codigo' => \$e->codigo]);
+        } catch (Throwable \$e) {
+            echo json_encode(['ok' => false, 'codigo' => 'EXCEPCION', 'clase' => get_class(\$e), 'mensaje' => substr(\$e->getMessage(), 0, 400)], JSON_INVALID_UTF8_SUBSTITUTE);
         }
         PHP;
         $ruta = $this->dir.DIRECTORY_SEPARATOR.'trabajador.php';
@@ -159,9 +167,9 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
             $error = stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
-            proc_close($p);
+            $codigo = proc_close($p);
             $json = json_decode((string) $salida, true);
-            $this->assertIsArray($json, 'salida inesperada de un trabajador: '.substr($salida.' '.$error, 0, 600));
+            $this->assertIsArray($json, "salida inesperada de un trabajador (código de salida {$codigo}): ".substr($salida.' | '.$error, 0, 1500));
             $salidas[] = $json;
         }
 
@@ -185,6 +193,24 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
         }
         $this->assertSame(1, DB::table('cf_emisiones_programadas')->where('lote_id', $lote->id)->count());
         $this->assertSame($ganadores[0]['id'], DB::table('cf_emisiones_programadas')->where('lote_activa', $lote->id)->value('id'));
+    }
+
+    public function test_tres_ejecutores_a_la_vez_sobre_la_misma_programacion_vencida_emiten_una_sola_vez(): void
+    {
+        $lote = $this->baseLista(12);
+        $p = app(ServicioProgramacion::class)->programar($lote, $this->fecha(0), Usuario::where('correo_principal', 'erik@fycconsultores.com')->firstOrFail());
+        // Ya es la hora (dentro de la tolerancia).
+        DB::table('cf_emisiones_programadas')->where('id', $p->id)->update(['programada_para' => now('America/Bogota')->subMinute()->format('Y-m-d H:i:s')]);
+
+        $salidas = $this->enParalelo(array_fill(0, 3, ['ejecutor', (string) $lote->id, '', '0']));
+
+        $this->assertSame([true, true, true], array_column($salidas, 'ok'), json_encode($salidas, JSON_UNESCAPED_UNICODE));
+        $lineas = array_merge(...array_map(fn ($s) => $s['lineas'], $salidas));
+        $this->assertCount(1, array_filter($lineas, fn ($l) => str_contains($l, "#{$p->id}: completada")), json_encode($lineas, JSON_UNESCAPED_UNICODE));
+        $this->assertSame('completada', DB::table('cf_emisiones_programadas')->where('id', $p->id)->value('estado'));
+        $this->assertSame(1, (int) DB::table('cf_emisiones_programadas')->where('id', $p->id)->value('intentos'), 'un solo proceso la reservó');
+        $this->assertSame(12, DB::table('cf_emisiones')->where('lote_id', $lote->id)->count());
+        $this->assertSame(12, DB::table('cf_emisiones')->where('lote_id', $lote->id)->distinct()->count('participante_id'), 'nadie recibió dos certificados');
     }
 
     public function test_programar_y_emitir_ahora_a_la_vez_nunca_dejan_una_programacion_pendiente_con_emisiones_manuales(): void

@@ -11,11 +11,12 @@ use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Participantes\Texto;
+use App\Support\CredentialFlow\Programacion\EjecucionAutorizada;
+use App\Support\CredentialFlow\Programacion\EjecutorProgramado;
 use App\Support\CredentialFlow\Programacion\HuellaProgramacion;
 use App\Support\CredentialFlow\Programacion\ProgramacionException;
 use App\Support\CredentialFlow\Programacion\ServicioProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -23,85 +24,8 @@ use Illuminate\Support\Facades\DB;
  * Emisión programada — P1 (modelo y servicio; sin ejecutor, sin interfaz y sin cron). Reloj simulado: «ahora» es el martes 27 de octubre de 2026, 10:00 de
  * Colombia. Datos 100 % ficticios. Nada de esto emite certificados salvo las pruebas de compatibilidad, que emiten en la base de pruebas en memoria.
  */
-class EmisionProgramadaTest extends EmisionesTestCase
+class EmisionProgramadaTest extends ProgramacionTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-        // Las mismas tablas que usan las pruebas de la emisión con QA (Fase3FechasQaTest): eventos, correos, históricos y el catálogo QA.
-        $this->artisan('migrate', ['--path' => [
-            'database/migrations/2026_10_06_100000_cf_eventos_table.php',
-            'database/migrations/2026_10_06_100100_add_evento_id_to_cf_lotes_table.php',
-            'database/migrations/2026_10_06_100200_add_correo_columns_to_cf_participantes_table.php',
-            'database/migrations/2026_10_06_100300_cf_plantillas_legado_table.php',
-            'database/migrations/2026_10_06_100400_cf_certificados_legado_table.php',
-            'database/migrations/2026_10_06_100500_cf_descargas_table.php',
-            'database/migrations/2026_10_06_100600_cf_correos_table.php',
-            'database/migrations/2026_10_06_100700_add_plantilla_legado_to_cf_eventos_table.php',
-            'database/migrations/2026_10_08_100000_cf_migraciones_corridas_table.php',
-            'database/migrations/2026_10_08_100100_add_corrida_id_to_tablas_historicas.php',
-            'database/migrations/2026_10_21_100000_cf_contactos_qa_y_plantilla_qa.php',
-        ], '--force' => true])->assertExitCode(0);
-        for ($i = 1; $i <= 2; $i++) {
-            $doc = (string) (72000000 + $i);
-            DB::table('cf_contactos_qa')->insert(['nombre_completo' => "QA PROGRAMADA {$i}", 'documento' => $doc, 'documento_clave' => Texto::claveDocumento($doc),
-                'correo' => "qa.programada{$i}@example.test", 'correo_normalizado' => "qa.programada{$i}@example.test", 'activo' => true, 'created_at' => now(), 'updated_at' => now()]);
-        }
-        config(['credential_flow.programacion.activa' => true, 'credential_flow.qa.contactos_esperados' => 2]);
-        $this->travelTo(CarbonImmutable::create(2026, 10, 27, 10, 0, 0, 'America/Bogota'));
-    }
-
-    protected function tearDown(): void
-    {
-        ServicioProgramacion::$antesDeBloquear = null;
-        parent::tearDown();
-    }
-
-    // ── Utilidades ────────────────────────────────────────────────────────────
-
-    private function servicio(): ServicioProgramacion
-    {
-        return app(ServicioProgramacion::class);
-    }
-
-    private function variante(Plantilla $p): Plantilla
-    {
-        $this->artisan('credential-flow:plantilla-variante-qa', ['origen' => $p->id, '--ejecutar' => true])->assertExitCode(0);
-
-        return Plantilla::query()->findOrFail($p->fresh()->variante_qa_id);
-    }
-
-    /** Base lista para emitir: N reales, sus 2 contactos QA y la variante de prueba de su plantilla. */
-    private function base(int $reales = 3, bool $conVariante = true, bool $conQa = true): Lote
-    {
-        $p = $this->plantillaLista();
-        if ($conVariante) {
-            $this->variante($p);
-        }
-        $lote = $this->loteCon($reales, $p);
-        if ($conQa) {
-            app(ServicioQa::class)->incorporar($lote->fresh());
-        }
-
-        return $lote->fresh();
-    }
-
-    private function programar(Lote $lote, string $cuando = '2026-10-28 08:00', $usuario = null): EmisionProgramada
-    {
-        return $this->servicio()->programar($lote, $cuando, $usuario ?? $this->admin());
-    }
-
-    /** Ejecuta y devuelve el código del error esperado (ProgramacionException o EmisionException). */
-    private function codigo(\Closure $f): string
-    {
-        try {
-            $f();
-        } catch (ProgramacionException|EmisionException $e) {
-            return $e->codigo;
-        }
-        $this->fail('Se esperaba un error y no hubo ninguno.');
-    }
-
     // ── Programación normal ───────────────────────────────────────────────────
 
     public function test_programar_guarda_la_hora_de_colombia_quien_lo_hizo_lo_esperado_y_la_huella_sin_datos_personales(): void
@@ -371,10 +295,13 @@ class EmisionProgramadaTest extends EmisionesTestCase
 
     // ── Validaciones de la base al programar ──────────────────────────────────
 
-    public function test_sin_variante_qa_con_pruebas_pendientes_no_se_programa(): void
+    public function test_sin_variante_qa_no_se_programa_aunque_no_haya_pruebas_pendientes(): void
     {
         $lote = $this->base(2, conVariante: false);
         $this->assertSame(EmisionException::VARIANTE_QA_FALTANTE, $this->codigo(fn () => $this->programar($lote)));
+        // Decisión aprobada: la emisión programada exige SIEMPRE la variante QA válida, también en una base sin contactos QA.
+        $sinQa = $this->base(2, conVariante: false, conQa: false);
+        $this->assertSame(EmisionException::VARIANTE_QA_FALTANTE, $this->codigo(fn () => $this->programar($sinQa)));
         $this->assertSame(0, EmisionProgramada::count());
     }
 
@@ -427,8 +354,8 @@ class EmisionProgramadaTest extends EmisionesTestCase
         // Ni llamando a los servicios directamente.
         $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirTodo($lote, null)));
         $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirPendientes($lote, null, true)));
-        // Ni con una programación que no es la activa, ni con la activa mientras está solo pendiente (el ejecutor la pasa a «ejecutando»).
-        $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirTodo($lote, null, $p)));
+        // Ni inventando un boleto para la programación (sin reservarla, o con un boleto que no es el suyo).
+        $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirTodo($lote, null, EjecucionAutorizada::nueva($p->id))));
         $this->assertSame(0, Emision::count());
 
         // Al cancelar, la emisión manual vuelve a funcionar igual que siempre.
@@ -445,10 +372,14 @@ class EmisionProgramadaTest extends EmisionesTestCase
         // Otra base sin programación emite normalmente.
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $otra))->assertCreated();
 
-        // El ejecutor (P2) la marcará «ejecutando»: solo entonces, y solo ella, pasa el candado. Aquí se simula ese estado.
-        $p->update(['estado' => EmisionProgramada::EJECUTANDO]);
+        // Solo el ejecutor que la RESERVÓ, con SU boleto, pasa el candado; un boleto inventado para la misma programación, no.
+        $boleto = app(EjecutorProgramado::class)->reservar($p);
+        $this->assertNotNull($boleto);
+        $this->assertSame(EmisionProgramada::EJECUTANDO, $p->fresh()->estado);
         $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirTodo($lote, null)), 'la emisión manual sigue bloqueada');
-        $r = app(EmisorLote::class)->emitirTodo($lote, $p->programada_por, $p->fresh());
+        $this->assertSame(EmisionException::EMISION_PROGRAMADA_PENDIENTE, $this->codigo(fn () => app(EmisorLote::class)->emitirTodo($lote, null, EjecucionAutorizada::nueva($p->id))), 'boleto falso');
+        $this->assertNull(app(EjecutorProgramado::class)->reservar($p), 'nadie más la reserva');
+        $r = app(EmisorLote::class)->emitirTodo($lote, $p->programada_por, $boleto);
         $this->assertSame([2, 2], [$r['oficiales']['total'], $r['qa']['total']]);
         $this->assertSame([$this->admin()->id], Emision::where('lote_id', $lote->id)->distinct()->pluck('emitido_por')->all(), 'queda registrado quien programó');
     }

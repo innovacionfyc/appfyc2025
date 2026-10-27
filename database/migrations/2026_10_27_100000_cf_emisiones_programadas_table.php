@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Emisiones programadas de una base. Migración ADITIVA: solo crea una tabla nueva; no toca ninguna existente (cf_emisiones incluida).
  *
- *  - `lote_activa` vale el `lote_id` mientras la programación está pendiente o ejecutándose y NULL en cualquier estado final: su índice ÚNICO garantiza en MySQL
+ *  - Estados: pendiente → ejecutando → completada | fallida; requiere_confirmacion (algo cambió o el permiso ya no vale: no emite sola); cancelada.
+ *  - `lote_activa` vale el `lote_id` mientras la programación está pendiente, ejecutándose o esperando confirmación, y NULL en cualquier estado final: su índice ÚNICO garantiza en MySQL
  *    una sola programación activa por base, también ante dos administradores programando a la vez (mismo patrón que `participante_vigente`).
  *  - `programada_para` es la hora de Colombia (DATETIME, sin conversión de zona) y `zona_horaria` deja constancia de cómo se interpretó.
  *  - `huella` y `huella_detalle` son SOLO hashes de lo que se aprobó (base, participantes, plantilla, variante QA y vista previa): ningún dato personal.
@@ -48,7 +49,13 @@ return new class extends Migration
             $table->unsignedBigInteger('cancelada_por')->nullable();
             $table->string('motivo_cancelacion', 255)->nullable();
 
+            // Ejecutor (P2): `reclamo_hash` es el SHA-256 del boleto privado del proceso que reservó la programación (el boleto solo existe en la memoria de ese
+            // proceso: ninguna petición web lo tiene). `proximo_intento_at` espacia los reintentos de errores transitorios. `con_avisos`: oficiales emitidos y
+            // pruebas QA pendientes.
             $table->unsignedSmallInteger('intentos')->default(0);
+            $table->char('reclamo_hash', 64)->nullable();
+            $table->dateTime('proximo_intento_at')->nullable();
+            $table->boolean('con_avisos')->default(false);
             $table->timestamp('iniciada_at')->nullable();
             $table->timestamp('latido_at')->nullable();
             $table->timestamp('terminada_at')->nullable();

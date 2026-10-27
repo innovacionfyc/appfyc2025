@@ -2,6 +2,8 @@
 
 namespace App\Support\CredentialFlow\Programacion;
 
+use App\Models\CredentialFlow\Emision;
+use App\Models\CredentialFlow\EmisionProgramada;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
@@ -14,7 +16,8 @@ use App\Support\CredentialFlow\Qa\ServicioQa;
  *
  *  - base: nombre, plantilla, evento, datos comunes (evento, fecha, intensidad, modalidad…) y estado operativo.
  *  - participantes: TODOS los que aún no tienen emisión (reales y QA, de cualquier elegibilidad), con lo que se imprime o decide la emisión. Los ya emitidos no
- *    cuentan: no forman parte de esta emisión.
+ *    cuentan: no forman parte de esta emisión. Durante la ejecución, quienes solo tienen emisiones de las OPERACIONES PROPIAS de la programación (las que hizo el
+ *    ejecutor) siguen contando como al aprobarla: así la huella no «cambia» por el trabajo del propio ejecutor, pero sí por cualquier otra cosa.
  *  - plantilla: la plantilla oficial (diseño, versión de esquema y hash del PDF base).
  *  - variante_qa: la variante de pruebas internas que se usaría (o su ausencia).
  *  - vista_previa: la confirmación de la vista previa (quién la ató a qué plantilla y diseño, y cuándo).
@@ -23,13 +26,19 @@ final class HuellaProgramacion
 {
     public const PARTES = ['base', 'participantes', 'plantilla', 'variante_qa', 'vista_previa'];
 
-    /** @return array{huella:string, detalle:array<string,string>} */
-    public static function calcular(Lote $lote): array
+    /**
+     * @param  list<string>  $operacionesPropias  operaciones de emisión hechas por la propia programación (vacío al programar)
+     * @return array{huella:string, detalle:array<string,string>}
+     */
+    public static function calcular(Lote $lote, array $operacionesPropias = []): array
     {
         $plantilla = $lote->plantilla_id === null ? null : Plantilla::query()->find($lote->plantilla_id);
         $variante = app(ServicioQa::class)->plantillaPara($lote);
 
-        $participantes = Participante::query()->where('lote_id', $lote->id)->whereDoesntHave('emisiones')->orderBy('id')
+        // Sin emisiones, o solo con emisiones de las operaciones propias (una emisión individual no tiene operación: cuenta siempre como ajena).
+        $participantes = Participante::query()->where('lote_id', $lote->id)
+            ->whereDoesntHave('emisiones', fn ($q) => $operacionesPropias === [] ? $q : $q->where(fn ($w) => $w->whereNull('operacion')->orWhereNotIn('operacion', $operacionesPropias)))
+            ->orderBy('id')
             ->get(['id', 'nombre_completo', 'documento', 'documento_clave', 'tipo_documento_confirmado', 'elegibilidad', 'es_control_qa', 'intensidad_horaria', 'modalidad'])
             ->map(fn (Participante $p) => [
                 'id' => $p->id, 'nombre_completo' => $p->nombre_completo, 'documento' => $p->documento, 'documento_clave' => $p->documento_clave,
@@ -48,6 +57,26 @@ final class HuellaProgramacion
         ];
 
         return ['huella' => self::hash($detalle), 'detalle' => $detalle];
+    }
+
+    /**
+     * Operaciones de emisión hechas por esta programación en su ejecución ACTUAL: las anotadas en su resultado y, tras una caída entre el commit de una operación
+     * y su anotación, las primeras emisiones de la base posteriores al inicio (con la base reservada nadie más puede hacer una primera emisión en ella: el
+     * candado lo impide). Al reprogramar o reconfirmar empieza una ejecución nueva y esta lista vuelve a quedar vacía.
+     *
+     * @return list<string>
+     */
+    public static function operacionesPropias(EmisionProgramada $p): array
+    {
+        $fila = EmisionProgramada::query()->find($p->id) ?? $p;
+        $anotadas = array_values((array) ($fila->resultado['operaciones'] ?? []));
+        if ($fila->iniciada_at === null) {
+            return $anotadas;
+        }
+        $huerfanas = Emision::query()->where('lote_id', $fila->lote_id)->where('version', 1)->whereNull('reemplaza_id')->whereNotNull('operacion')
+            ->where('emitido_at', '>=', $fila->iniciada_at->format('Y-m-d H:i:s'))->whereNotIn('operacion', $anotadas)->distinct()->pluck('operacion')->all();
+
+        return array_values(array_unique([...$anotadas, ...$huerfanas]));
     }
 
     /**

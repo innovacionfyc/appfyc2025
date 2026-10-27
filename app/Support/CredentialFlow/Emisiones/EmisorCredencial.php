@@ -94,7 +94,8 @@ final class EmisorCredencial
                 tipo: 'actualizacion',
                 modulo: 'credential-flow',
                 descripcion: 'Se revocó una emisión de Credential Flow',
-                extra: ['emision_id' => $actual->id, 'lote_id' => $actual->lote_id],
+                // Revocar un certificado ya emitido se permite con una programación activa (no forma parte de ella), pero queda constancia.
+                extra: ['emision_id' => $actual->id, 'lote_id' => $actual->lote_id] + array_filter(['programacion_activa_id' => CandadoProgramacion::activaId((int) $actual->lote_id)]),
             );
 
             return $actual->refresh();
@@ -213,7 +214,8 @@ final class EmisorCredencial
                         tipo: 'registro',
                         modulo: 'credential-flow',
                         descripcion: 'Se reemitió una credencial de Credential Flow',
-                        extra: ['nueva_emision_id' => $emision->id, 'reemplaza_emision_id' => $anterior->id, 'lote_id' => $loteActual->id],
+                        extra: ['nueva_emision_id' => $emision->id, 'reemplaza_emision_id' => $anterior->id, 'lote_id' => $loteActual->id]
+                            + array_filter(['programacion_activa_id' => CandadoProgramacion::activaId($loteActual->id)]),
                     );
                 } else {
                     Movimiento::registrar(

@@ -9,6 +9,7 @@ use App\Models\Usuario;
 use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
+use App\Support\CredentialFlow\Qa\ServicioQa;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -21,7 +22,9 @@ use Illuminate\Support\Facades\DB;
  * Reglas:
  *  - Interruptor general apagado por defecto (`credential_flow.programacion.activa`). Apagado no se programa ni reprograma; cancelar se puede siempre.
  *  - Solo super-admin y admin (los mismos roles que pueden emitir). Nada de sesiones ni tokens: se guarda solo el id de quien programa.
- *  - La base debe existir y estar «activa», y la emisión debe pasar HOY todas sus validaciones (`EmisorLote::verificarEmitible`).
+ *  - La base debe existir y estar «activa», su plantilla debe tener SIEMPRE su variante de pruebas internas válida, y la emisión debe pasar HOY todas sus
+ *    validaciones (`EmisorLote::verificarEmitible`).
+ *  - «requiere_confirmacion» (lo deja el ejecutor si algo cambió o el permiso ya no vale) se resuelve igual que una pendiente: reprogramar, reconfirmar o cancelar.
  *  - Una sola programación activa por base: base bloqueada (lockForUpdate) + índice único `lote_activa` como barrera final ante dos administradores a la vez.
  *  - Se guarda la HUELLA de lo aprobado (base, participantes, plantilla, variante QA y vista previa). Si después cambia algo, la programación lo muestra
  *    (`cambios`) y exige reconfirmar: el ejecutor nunca emitirá en silencio con datos distintos.
@@ -42,6 +45,9 @@ use Illuminate\Support\Facades\DB;
 final class ServicioProgramacion
 {
     public const ROLES = ['super-admin', 'admin'];
+
+    /** `estados.id` de «Activo» (EstadosSeeder). */
+    public const USUARIO_ACTIVO = 1;
 
     public const MOTIVO_MIN = 5;
 
@@ -142,7 +148,7 @@ final class ServicioProgramacion
 
         return DB::transaction(function () use ($programacion, $usuario, $motivo, $versionEsperada) {
             Lote::withTrashed()->lockForUpdate()->find($programacion->lote_id);
-            $p = $this->bloquearPendiente($programacion, $versionEsperada);
+            $p = $this->bloquearModificable($programacion, $versionEsperada);
             $p->update([
                 'estado' => EmisionProgramada::CANCELADA, 'lote_activa' => null, 'version' => $p->version + 1,
                 'cancelada_at' => now(), 'cancelada_por' => $usuario->id, 'motivo_cancelacion' => $motivo,
@@ -165,7 +171,7 @@ final class ServicioProgramacion
             return ['base'];
         }
 
-        return HuellaProgramacion::diferencias((array) $programacion->huella_detalle, HuellaProgramacion::calcular($lote)['detalle']);
+        return HuellaProgramacion::diferencias((array) $programacion->huella_detalle, HuellaProgramacion::calcular($lote, HuellaProgramacion::operacionesPropias($programacion))['detalle']);
     }
 
     // ── Internos ──────────────────────────────────────────────────────────────
@@ -174,18 +180,22 @@ final class ServicioProgramacion
     private function reaprobar(EmisionProgramada $programacion, Usuario $usuario, ?int $versionEsperada, ?CarbonImmutable $fecha): EmisionProgramada
     {
         $actual = EmisionProgramada::query()->find($programacion->id);
-        if ($actual === null || $actual->estado !== EmisionProgramada::PENDIENTE) {
+        if ($actual === null || ! in_array($actual->estado, EmisionProgramada::MODIFICABLES, true)) {
             throw $this->noModificable();
         }
         [$verificacion, $huella] = $this->validarBase($actual->lote_id);
 
         return $this->bloqueandoBase($actual->lote_id, $huella, function () use ($programacion, $usuario, $versionEsperada, $fecha, $verificacion, $huella) {
-            $p = $this->bloquearPendiente($programacion, $versionEsperada);
+            $p = $this->bloquearModificable($programacion, $versionEsperada);
             $cambios = [
                 'huella' => $huella['huella'], 'huella_detalle' => $huella['detalle'],
                 'oficiales_esperados' => $verificacion['oficiales'], 'qa_esperados' => $verificacion['qa'],
                 'plantilla_id' => $verificacion['plantilla_id'], 'variante_qa_id' => $verificacion['variante_qa_id'],
                 'confirmada_at' => now(), 'confirmada_por' => $usuario->id, 'version' => $p->version + 1,
+                // Una nueva aprobación vuelve a empezar: si esperaba confirmación, queda pendiente y sin el error ni los reintentos anteriores.
+                'estado' => EmisionProgramada::PENDIENTE, 'intentos' => 0, 'proximo_intento_at' => null, 'error_codigo' => null, 'error_mensaje' => null,
+                // Una ejecución anterior (parcial) queda solo como historial: la nueva empieza limpia, con la huella de los pendientes de AHORA.
+                'iniciada_at' => null, 'latido_at' => null, 'con_avisos' => false, 'resultado' => $this->historial($p),
             ];
             if ($fecha !== null) {
                 $cambios += ['programada_para' => FechaProgramada::paraGuardar($fecha), 'reprogramaciones' => $p->reprogramaciones + 1];
@@ -209,6 +219,10 @@ final class ServicioProgramacion
         $lote = $this->exigirBaseActiva($loteId);
         $huella = HuellaProgramacion::calcular($lote);
         $verificacion = $this->emisor->verificarEmitible($lote);
+        // La emisión programada exige SIEMPRE la variante de pruebas internas de la plantilla (aunque hoy no haya pruebas QA pendientes).
+        if ($verificacion['variante_qa_id'] === null && app(ServicioQa::class)->plantillaPara($lote) === null) {
+            throw new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, 'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada: no se puede programar su emisión. Asóciala y vuelve a intentarlo.', 409);
+        }
 
         return [$verificacion, $huella];
     }
@@ -244,11 +258,24 @@ final class ServicioProgramacion
         });
     }
 
+    /** @return array<string,mixed>|null el resultado de las ejecuciones anteriores, guardado como historial (sin operaciones vigentes) */
+    private function historial(EmisionProgramada $p): ?array
+    {
+        $anterior = (array) ($p->resultado ?? []);
+        if ($anterior === []) {
+            return null;
+        }
+        $previas = (array) ($anterior['ejecuciones_anteriores'] ?? []);
+        unset($anterior['ejecuciones_anteriores']);
+
+        return ['ejecuciones_anteriores' => [...$previas, $anterior]];
+    }
+
     /** @throws ProgramacionException */
-    private function bloquearPendiente(EmisionProgramada $programacion, ?int $versionEsperada): EmisionProgramada
+    private function bloquearModificable(EmisionProgramada $programacion, ?int $versionEsperada): EmisionProgramada
     {
         $p = EmisionProgramada::query()->lockForUpdate()->find($programacion->id);
-        if ($p === null || $p->estado !== EmisionProgramada::PENDIENTE) {
+        if ($p === null || ! in_array($p->estado, EmisionProgramada::MODIFICABLES, true)) {
             throw $this->noModificable();
         }
         if ($versionEsperada !== null && $p->version !== $versionEsperada) {
@@ -280,11 +307,25 @@ final class ServicioProgramacion
         }
     }
 
+    /**
+     * ¿Puede este usuario aprobar (y, por tanto, que se emita en su nombre) una emisión programada? Rol super-admin o admin y cuenta ACTIVA. Lo usa también el
+     * ejecutor automático, que no tiene sesión web: revisa al usuario que aprobó la programación tal como está HOY en la base de datos.
+     */
+    public static function autorizado(?Usuario $usuario): bool
+    {
+        if ($usuario === null) {
+            return false;
+        }
+        $usuario->loadMissing('perfilOrganizador.rol');
+        $activo = $usuario->estado_id === null || (int) $usuario->estado_id === self::USUARIO_ACTIVO;
+
+        return $activo && in_array($usuario->perfilOrganizador?->rol?->slug, self::ROLES, true);
+    }
+
     /** @throws ProgramacionException */
     private function exigirPermiso(Usuario $usuario): void
     {
-        $usuario->loadMissing('perfilOrganizador.rol');
-        if (! in_array($usuario->perfilOrganizador?->rol?->slug, self::ROLES, true)) {
+        if (! self::autorizado($usuario)) {
             throw new ProgramacionException(ProgramacionException::SIN_PERMISO, 'No tienes permiso para programar emisiones.', 403);
         }
     }
