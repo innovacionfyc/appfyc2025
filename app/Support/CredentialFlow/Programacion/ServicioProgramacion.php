@@ -72,13 +72,14 @@ final class ServicioProgramacion
     /**
      * @throws ProgramacionException|EmisionException|GeneracionCredencialException
      */
-    public function programar(Lote $lote, mixed $fechaHora, Usuario $usuario): EmisionProgramada
+    public function programar(Lote $lote, mixed $fechaHora, Usuario $usuario, ?string $selloVisto = null): EmisionProgramada
     {
         $this->exigirHabilitada();
         $this->exigirPermiso($usuario);
         $fecha = FechaProgramada::interpretar($fechaHora);
         FechaProgramada::exigirRango($fecha);
         [$verificacion, $huella] = $this->validarBase($lote->id);
+        $this->exigirLoVisto($huella, $selloVisto);
 
         try {
             return $this->bloqueandoBase($lote->id, $huella, function () use ($lote, $fecha, $usuario, $verificacion, $huella) {
@@ -105,18 +106,38 @@ final class ServicioProgramacion
     }
 
     /**
+     * Lo que se programaría, SIN guardar nada: las mismas validaciones de `programar` (interruptor, permiso, fecha, base activa, variante QA y la emisión
+     * completa con su prevalidación de cada PDF). La interfaz lo usa para mostrar el resumen antes de que el administrador confirme. No revisa si ya hay una
+     * programación activa (eso lo decide `programar`, con la base bloqueada); así sirve también para reprogramar.
+     *
+     * @return array{fecha:CarbonImmutable, oficiales:int, qa:int, plantilla_id:?int, variante_qa_id:?int, sello:string}
+     *
+     * @throws ProgramacionException|EmisionException|GeneracionCredencialException
+     */
+    public function previsualizar(Lote $lote, mixed $fechaHora, Usuario $usuario): array
+    {
+        $this->exigirHabilitada();
+        $this->exigirPermiso($usuario);
+        $fecha = FechaProgramada::interpretar($fechaHora);
+        FechaProgramada::exigirRango($fecha);
+        [$verificacion, $huella] = $this->validarBase($lote->id);
+
+        return ['fecha' => $fecha, 'sello' => self::sello($huella['huella'])] + $verificacion;
+    }
+
+    /**
      * Cambia la hora de una programación PENDIENTE. Es también una nueva aprobación: vuelve a validar la base y guarda su huella actual.
      *
      * @throws ProgramacionException|EmisionException|GeneracionCredencialException
      */
-    public function reprogramar(EmisionProgramada $programacion, mixed $fechaHora, Usuario $usuario, ?int $versionEsperada = null): EmisionProgramada
+    public function reprogramar(EmisionProgramada $programacion, mixed $fechaHora, Usuario $usuario, ?int $versionEsperada = null, ?string $selloVisto = null): EmisionProgramada
     {
         $this->exigirHabilitada();
         $this->exigirPermiso($usuario);
         $fecha = FechaProgramada::interpretar($fechaHora);
         FechaProgramada::exigirRango($fecha);
 
-        return $this->reaprobar($programacion, $usuario, $versionEsperada, $fecha);
+        return $this->reaprobar($programacion, $usuario, $versionEsperada, $fecha, $selloVisto);
     }
 
     /**
@@ -124,13 +145,13 @@ final class ServicioProgramacion
      *
      * @throws ProgramacionException|EmisionException|GeneracionCredencialException
      */
-    public function reconfirmar(EmisionProgramada $programacion, Usuario $usuario, ?int $versionEsperada = null): EmisionProgramada
+    public function reconfirmar(EmisionProgramada $programacion, Usuario $usuario, ?int $versionEsperada = null, ?string $selloVisto = null): EmisionProgramada
     {
         $this->exigirHabilitada();
         $this->exigirPermiso($usuario);
         FechaProgramada::exigirRango(CarbonImmutable::parse($programacion->programada_para->format('Y-m-d H:i:s'), FechaProgramada::zona()));
 
-        return $this->reaprobar($programacion, $usuario, $versionEsperada, null);
+        return $this->reaprobar($programacion, $usuario, $versionEsperada, null, $selloVisto);
     }
 
     /**
@@ -177,13 +198,14 @@ final class ServicioProgramacion
     // ── Internos ──────────────────────────────────────────────────────────────
 
     /** @throws ProgramacionException|EmisionException|GeneracionCredencialException */
-    private function reaprobar(EmisionProgramada $programacion, Usuario $usuario, ?int $versionEsperada, ?CarbonImmutable $fecha): EmisionProgramada
+    private function reaprobar(EmisionProgramada $programacion, Usuario $usuario, ?int $versionEsperada, ?CarbonImmutable $fecha, ?string $selloVisto): EmisionProgramada
     {
         $actual = EmisionProgramada::query()->find($programacion->id);
         if ($actual === null || ! in_array($actual->estado, EmisionProgramada::MODIFICABLES, true)) {
             throw $this->noModificable();
         }
         [$verificacion, $huella] = $this->validarBase($actual->lote_id);
+        $this->exigirLoVisto($huella, $selloVisto);
 
         return $this->bloqueandoBase($actual->lote_id, $huella, function () use ($programacion, $usuario, $versionEsperada, $fecha, $verificacion, $huella) {
             $p = $this->bloquearModificable($programacion, $versionEsperada);
@@ -297,6 +319,27 @@ final class ServicioProgramacion
         }
 
         return $lote;
+    }
+
+    /** Sello de la huella de la base para la interfaz: identifica exactamente lo que el administrador vio en el resumen, sin exponer la huella ni sus partes. */
+    public static function sello(string $huella): string
+    {
+        return hash_hmac('sha256', 'programacion|'.$huella, (string) config('app.key'));
+    }
+
+    /**
+     * Si la petición trae el sello de lo que el administrador vio, la base de AHORA debe ser exactamente esa: nunca se aprueba algo distinto a lo revisado.
+     * (Después, `bloqueandoBase` vuelve a comparar la huella con la base ya bloqueada.)
+     *
+     * @param  array{huella:string}  $huella
+     *
+     * @throws ProgramacionException
+     */
+    private function exigirLoVisto(array $huella, ?string $selloVisto): void
+    {
+        if ($selloVisto !== null && ! hash_equals(self::sello($huella['huella']), $selloVisto)) {
+            throw new ProgramacionException(ProgramacionException::RESUMEN_DESACTUALIZADO, 'La base cambió desde que viste el resumen. No se guardó nada: revisa el resumen actualizado y vuelve a confirmar.', 409);
+        }
     }
 
     /** @throws ProgramacionException */

@@ -19,6 +19,7 @@ use App\Support\CredentialFlow\Participantes\ImportacionInvalidaException;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\LectorArchivo;
 use App\Support\CredentialFlow\Participantes\PlantillaExcelParticipantes;
+use App\Support\CredentialFlow\Programacion\PresentadorProgramacion;
 use App\Support\CredentialFlow\Qa\AdministradorContactosQa;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Http\JsonResponse;
@@ -255,6 +256,7 @@ class LoteController extends Controller
                 'evento_id' => $lote->evento_id,
                 'emision' => $resumen,
                 'flujo' => app(FlujoDeBase::class)->para($lote, $resumen),
+                'programacion' => app(PresentadorProgramacion::class)->para($lote),
             ],
             'participantes' => $participantes,
             'filtros' => ['q' => $busqueda],

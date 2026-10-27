@@ -2,6 +2,7 @@
 
 namespace Tests\Integracion;
 
+use App\Models\CredentialFlow\EmisionProgramada;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Usuario;
@@ -236,5 +237,26 @@ class EmisionProgramadaConcurrenciaMysqlTest extends TestCase
             }
         }
         $this->assertCount(4, $vistos);
+    }
+
+    public function test_todos_los_estados_caben_en_mysql_y_un_cambio_deja_requiere_confirmacion(): void
+    {
+        // SQLite no exige el largo de las columnas: «requiere_confirmacion» (21 caracteres) solo falla de verdad aquí si la columna es más corta.
+        $lote = $this->baseLista(2);
+        $admin = Usuario::where('correo_principal', 'erik@fycconsultores.com')->firstOrFail();
+        $p = app(ServicioProgramacion::class)->programar($lote, $this->fecha(0), $admin);
+        $lote->participantes()->first()->update(['nombre_completo' => 'PERSONA FICTICIA CORREGIDA']);
+        DB::table('cf_emisiones_programadas')->where('id', $p->id)->update(['programada_para' => now()->subMinute()->format('Y-m-d H:i:s')]);
+
+        $this->assertSame(0, Artisan::call('credential-flow:emisiones-programadas'), Artisan::output());
+        $fila = DB::table('cf_emisiones_programadas')->find($p->id);
+        $this->assertSame([EmisionProgramada::REQUIERE_CONFIRMACION, 'CAMBIOS_SIN_CONFIRMAR', $lote->id], [$fila->estado, $fila->error_codigo, (int) $fila->lote_activa]);
+        $this->assertSame(0, DB::table('cf_emisiones')->count());
+
+        foreach ([EmisionProgramada::PENDIENTE, EmisionProgramada::EJECUTANDO, EmisionProgramada::COMPLETADA, EmisionProgramada::FALLIDA, EmisionProgramada::CANCELADA,
+            EmisionProgramada::REQUIERE_CONFIRMACION] as $estado) {
+            DB::table('cf_emisiones_programadas')->where('id', $p->id)->update(['estado' => $estado]);
+            $this->assertSame($estado, DB::table('cf_emisiones_programadas')->where('id', $p->id)->value('estado'));
+        }
     }
 }

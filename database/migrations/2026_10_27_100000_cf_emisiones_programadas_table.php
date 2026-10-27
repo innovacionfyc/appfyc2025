@@ -27,7 +27,7 @@ return new class extends Migration
 
             $table->foreignId('lote_id')->constrained('cf_lotes');
             $table->unsignedBigInteger('lote_activa')->nullable()->unique();
-            $table->string('estado', 20)->default('pendiente');
+            $table->string('estado', 30)->default('pendiente');
             $table->unsignedInteger('version')->default(1);
 
             $table->dateTime('programada_para');

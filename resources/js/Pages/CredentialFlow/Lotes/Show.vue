@@ -9,6 +9,7 @@ import ParticipanteModal from "@/Components/CredentialFlow/Lotes/ParticipanteMod
 import LoteEditModal from "@/Components/CredentialFlow/Lotes/LoteEditModal.vue";
 import MotivoEmisionModal from "@/Components/CredentialFlow/Lotes/MotivoEmisionModal.vue";
 import HistorialEmisiones from "@/Components/CredentialFlow/Lotes/HistorialEmisiones.vue";
+import ProgramacionEmision from "@/Components/CredentialFlow/Lotes/ProgramacionEmision.vue";
 import EliminarDefinitivamenteModal from "@/Components/CredentialFlow/EliminarDefinitivamenteModal.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
 import { useDescargaPdf } from "@/Composables/CredentialFlow/useDescargaPdf";
@@ -182,6 +183,23 @@ const faltaVarianteQa = computed(() => qaPendientes.value > 0 && !resumen.value.
 const puedeEmitir = computed(() => !faltaVarianteQa.value && ((resumen.value.pendientes > 0 && vistaLista.value) || (resumen.value.pendientes === 0 && qaPendientes.value > 0)));
 const avisoQa = ref(null);
 
+// ── Emisión programada: mientras haya una activa, nada de esta pantalla emite a mano (el servidor también lo bloquea) ──
+const programacion = computed(() => props.lote.programacion ?? null);
+const programacionActiva = computed(() => programacion.value?.activa ?? null);
+const programacionOcupada = ref(false);
+const motivoBloqueoProgramado = "Hay una emisión programada para esta base. Para emitir ahora, cancélala primero.";
+const faltanParaProgramar = computed(() => {
+  const f = [];
+  if (resumen.value.pendientes === 0 && qaPendientes.value === 0) f.push("No hay certificados pendientes de emitir.");
+  if (resumen.value.pendientes > 0 && !vistaLista.value) f.push("Revisar la vista previa y confirmar la plantilla.");
+  if (resumen.value.qa && !resumen.value.qa.plantilla_lista) f.push("Asociar la variante de pruebas internas (QA) a la plantilla.");
+  return f;
+});
+const alCambiarProgramacion = (mensaje) => {
+  avisoExito.value = mensaje ?? avisoExito.value;
+  recargar();
+};
+
 const emitirPendientes = () => {
   const n = resumen.value.pendientes > 0 ? resumen.value.a_emitir : 0;
   const resto = resumen.value.pendientes - n;
@@ -321,20 +339,23 @@ const confirmarMotivo = async (motivo) => {
 
       <DashboardHeader :title="lote.nombre" :subtitle="lote.descripcion || 'Base de participantes'" :stats="headerStats">
         <template #actions>
-          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || !puedeEmitir" :title="faltaVarianteQa ? 'La plantilla de esta base no tiene su variante de pruebas internas (QA)' : resumen.pendientes > 0 && !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" data-accion="emitir-pendientes" @click="emitirPendientes">
-            <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
-            <BadgeCheck v-else class="w-4 h-4" />
-            Emitir certificados<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span><span v-if="qaPendientes > 0" class="opacity-80"> + {{ qaPendientes }} QA</span>
-          </button>
-          <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50" :disabled="generando !== null || resumen.vigentes === 0" data-accion="descargar-zip" @click="descargarZip">
-            <Loader2 v-if="generando === 'zip'" class="w-4 h-4 animate-spin" />
-            <Archive v-else class="w-4 h-4" />
-            {{ generando === "zip" ? "Preparando…" : "Descargar todos (ZIP)" }}
-          </button>
-          <Link :href="route('credential-flow.lotes.index')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
-            <ArrowLeft class="w-4 h-4" />
-            Volver a las bases
-          </Link>
+          <!-- El contenedor del encabezado no se ajusta solo: estos botones sí, para que a 375 px no haya scroll horizontal -->
+          <div class="flex flex-wrap items-center gap-3 min-w-0">
+            <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" :disabled="enCurso !== null || programacionOcupada || !!programacionActiva || !puedeEmitir" :title="programacionActiva ? motivoBloqueoProgramado : faltaVarianteQa ? 'La plantilla de esta base no tiene su variante de pruebas internas (QA)' : resumen.pendientes > 0 && !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" data-accion="emitir-pendientes" @click="emitirPendientes">
+              <Loader2 v-if="enCurso === 'emitir-lote'" class="w-4 h-4 animate-spin" />
+              <BadgeCheck v-else class="w-4 h-4" />
+              Emitir certificados<span v-if="resumen.pendientes > 0"> · {{ resumen.pendientes }}</span><span v-if="qaPendientes > 0" class="opacity-80"> + {{ qaPendientes }} QA</span>
+            </button>
+            <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50" :disabled="generando !== null || resumen.vigentes === 0" data-accion="descargar-zip" @click="descargarZip">
+              <Loader2 v-if="generando === 'zip'" class="w-4 h-4 animate-spin" />
+              <Archive v-else class="w-4 h-4" />
+              {{ generando === "zip" ? "Preparando…" : "Descargar todos (ZIP)" }}
+            </button>
+            <Link :href="route('credential-flow.lotes.index')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
+              <ArrowLeft class="w-4 h-4" />
+              Volver a las bases
+            </Link>
+          </div>
         </template>
       </DashboardHeader>
 
@@ -361,7 +382,7 @@ const confirmarMotivo = async (motivo) => {
               </select>
               <button type="button" :disabled="!plantillaElegida" class="px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold disabled:opacity-40" data-accion="siguiente-paso" @click="usarPlantilla">Usar esta plantilla</button>
             </template>
-            <button v-else type="button" :disabled="enCurso !== null || generando !== null" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" data-accion="siguiente-paso" @click="ejecutarSiguiente">{{ flujo.siguiente.titulo }}</button>
+            <button v-else type="button" :disabled="enCurso !== null || generando !== null || (flujo.siguiente.accion.tipo === 'emitir' && (!!programacionActiva || programacionOcupada))" :title="flujo.siguiente.accion.tipo === 'emitir' && programacionActiva ? motivoBloqueoProgramado : ''" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50" data-accion="siguiente-paso" @click="ejecutarSiguiente">{{ flujo.siguiente.titulo }}</button>
           </div>
         </div>
 
@@ -379,6 +400,9 @@ const confirmarMotivo = async (motivo) => {
           <button type="button" :disabled="!plantillaElegida" class="px-3 py-1 rounded-full bg-white border border-slate-200 text-[12px] font-bold text-slate-700 disabled:opacity-40" @click="usarPlantilla">Cambiar</button>
         </div>
       </section>
+
+      <!-- Emisión programada: estado, resultado y acciones -->
+      <ProgramacionEmision v-model:ocupada="programacionOcupada" :lote-id="lote.id" :programacion="programacion" :faltan="faltanParaProgramar" :bloqueado="enCurso !== null" @cambio="alCambiarProgramacion" />
 
       <!-- Datos de la base -->
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 sm:p-8" data-datos-lote>
@@ -501,7 +525,7 @@ const confirmarMotivo = async (motivo) => {
           <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-violet-200 text-[12px] font-bold text-violet-700 hover:bg-violet-100 transition-all" data-accion="agregar-qa" @click="agregarContactosQa">
             <UserPlus class="w-3.5 h-3.5" /> Agregar contactos QA
           </button>
-          <button v-if="resumen.qa" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-600 text-[12px] font-bold text-white hover:bg-violet-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || resumen.qa.pendientes === 0 || !resumen.qa.plantilla_lista" data-accion="emitir-qa" @click="emitirPruebasQa">
+          <button v-if="resumen.qa" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-600 text-[12px] font-bold text-white hover:bg-violet-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || programacionOcupada || !!programacionActiva || resumen.qa.pendientes === 0 || !resumen.qa.plantilla_lista" :title="programacionActiva ? motivoBloqueoProgramado : ''" data-accion="emitir-qa" @click="emitirPruebasQa">
             <Loader2 v-if="enCurso === 'emitir-qa'" class="w-3.5 h-3.5 animate-spin" />
             <BadgeCheck v-else class="w-3.5 h-3.5" />
             Emitir pruebas internas<span v-if="resumen.qa.pendientes > 0"> · {{ resumen.qa.pendientes }}</span>
@@ -567,12 +591,12 @@ const confirmarMotivo = async (motivo) => {
                       <FileDown v-else class="w-3.5 h-3.5" />
                       {{ generando === p.id ? "Generando…" : "Vista previa" }}
                     </button>
-                    <button v-if="p.estado_emision === 'sin_emitir'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || !vistaLista || p.tipo_documento_confirmado === false || (p.elegibilidad && p.elegibilidad !== 'elegible')" :title="p.tipo_documento_confirmado === false ? 'Confirma primero el tipo de documento' : p.elegibilidad && p.elegibilidad !== 'elegible' ? 'No se emite hasta que la persona sea elegible' : !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" :aria-label="`Emitir certificado de ${p.nombre_completo}`" data-accion="emitir" @click="emitir(p)">
+                    <button v-if="p.estado_emision === 'sin_emitir'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || programacionOcupada || !!programacionActiva || !vistaLista || p.tipo_documento_confirmado === false || (p.elegibilidad && p.elegibilidad !== 'elegible')" :title="programacionActiva ? motivoBloqueoProgramado : p.tipo_documento_confirmado === false ? 'Confirma primero el tipo de documento' : p.elegibilidad && p.elegibilidad !== 'elegible' ? 'No se emite hasta que la persona sea elegible' : !vistaLista ? 'Antes de emitir, revisa la vista previa y confirma la plantilla' : ''" :aria-label="`Emitir certificado de ${p.nombre_completo}`" data-accion="emitir" @click="emitir(p)">
                       <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
                       <BadgeCheck v-else class="w-3.5 h-3.5" />
                       {{ p.es_control_qa ? "Emitir prueba (QA)" : "Emitir certificado" }}
                     </button>
-                    <button v-if="p.estado_emision === 'revocada'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Volver a emitir el certificado de ${p.nombre_completo}`" data-accion="volver-a-emitir" @click="volverAEmitir(p)">
+                    <button v-if="p.estado_emision === 'revocada'" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-600 text-[12px] font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50" :disabled="enCurso !== null || programacionOcupada || !!programacionActiva" :title="programacionActiva ? motivoBloqueoProgramado : ''" :aria-label="`Volver a emitir el certificado de ${p.nombre_completo}`" data-accion="volver-a-emitir" @click="volverAEmitir(p)">
                       <Loader2 v-if="enCurso === `emitir-${p.id}`" class="w-3.5 h-3.5 animate-spin" />
                       <RefreshCw v-else class="w-3.5 h-3.5" />
                       Volver a emitir

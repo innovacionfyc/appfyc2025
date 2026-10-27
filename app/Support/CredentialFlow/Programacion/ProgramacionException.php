@@ -40,6 +40,9 @@ final class ProgramacionException extends RuntimeException
     /** Otra persona la cambió mientras tanto (versión distinta). */
     public const CAMBIO_CONCURRENTE = 'CAMBIO_CONCURRENTE';
 
+    /** La base cambió desde que el administrador vio el resumen que confirma (o falta ese resumen): no se aprueba lo que no vio. */
+    public const RESUMEN_DESACTUALIZADO = 'RESUMEN_DESACTUALIZADO';
+
     /** La base cambió mientras se programaba (entre la validación y el bloqueo). */
     public const BASE_CAMBIO = 'BASE_CAMBIO_DURANTE_PROGRAMACION';
 

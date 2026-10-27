@@ -20,6 +20,7 @@ use App\Http\Controllers\CredentialFlow\LoteController;
 use App\Http\Controllers\CredentialFlow\ParticipanteController;
 use App\Http\Controllers\CredentialFlow\PlantillaController;
 use App\Http\Controllers\CredentialFlow\PlantillaEditorController;
+use App\Http\Controllers\CredentialFlow\ProgramacionController;
 use App\Http\Controllers\CredentialFlow\QaContactosController;
 use App\Http\Controllers\CredentialFlow\QaController;
 use App\Http\Controllers\CredentialFlow\ReemplazoController;
@@ -70,6 +71,12 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/lotes/{lote}/participantes/{participante}/emitir', [EmisionController::class, 'emitir'])->middleware('throttle:30,1')->name('participantes.emitir');
     Route::get('/lotes/{lote}/emision/resumen', [EmisionController::class, 'resumen'])->name('lotes.emision.resumen');
     Route::post('/lotes/{lote}/emitir', [EmisionController::class, 'emitirLote'])->middleware('throttle:6,1')->name('lotes.emitir');
+    // Emisión programada: resumen previo, programar, reprogramar, reconfirmar y cancelar. Las reglas viven en ServicioProgramacion.
+    Route::post('/lotes/{lote}/programacion/previa', [ProgramacionController::class, 'previa'])->middleware('throttle:30,1,cf-programacion-previa')->name('lotes.programacion.previa');
+    Route::post('/lotes/{lote}/programacion', [ProgramacionController::class, 'store'])->middleware('throttle:10,1,cf-programacion')->name('lotes.programacion.store');
+    Route::post('/lotes/{lote}/programacion/{programacion}/reprogramar', [ProgramacionController::class, 'reprogramar'])->middleware('throttle:10,1,cf-programacion')->name('lotes.programacion.reprogramar');
+    Route::post('/lotes/{lote}/programacion/{programacion}/reconfirmar', [ProgramacionController::class, 'reconfirmar'])->middleware('throttle:10,1,cf-programacion')->name('lotes.programacion.reconfirmar');
+    Route::post('/lotes/{lote}/programacion/{programacion}/cancelar', [ProgramacionController::class, 'cancelar'])->middleware('throttle:10,1,cf-programacion')->name('lotes.programacion.cancelar');
     Route::post('/lotes/{lote}/qa/incorporar', [QaController::class, 'incorporar'])->middleware('throttle:20,1')->name('lotes.qa.incorporar');
     Route::put('/plantillas/{plantilla}/qa', [QaController::class, 'plantilla'])->middleware('throttle:20,1')->name('plantillas.qa');
     Route::put('/plantillas/{plantilla}/variante-qa', [QaController::class, 'variante'])->middleware('throttle:20,1')->name('plantillas.variante-qa');
