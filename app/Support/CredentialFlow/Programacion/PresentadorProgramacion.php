@@ -118,24 +118,34 @@ final class PresentadorProgramacion
      * Estado del programador automático según su ÚLTIMO LATIDO real. Nunca dice «activo» si el interruptor está apagado o si nunca hubo un latido (la tarea
      * programada del servidor todavía no existe).
      *
-     * @return array{estado:string, texto:string}
+     * `etiqueta` es el estado en pocas palabras (para el indicador de la pantalla) y `detalle` lo explica; `texto` es la frase completa.
+     *
+     * @return array{estado:string, etiqueta:string, detalle:string, texto:string}
      */
     public function programador(): array
     {
         if (! ServicioProgramacion::habilitada()) {
-            return ['estado' => 'desactivado', 'texto' => 'La emisión programada está desactivada: las programaciones no se ejecutarán.'];
+            return ['estado' => 'desactivado', 'etiqueta' => 'Programación automática desactivada', 'detalle' => 'Las programaciones no se ejecutarán.',
+                'texto' => 'La emisión programada está desactivada: las programaciones no se ejecutarán.'];
         }
         $latido = Cache::get(EjecutorProgramado::LATIDO);
         if (! is_string($latido) || $latido === '') {
-            return ['estado' => 'sin_senal', 'texto' => 'El programador automático todavía no ha dado señales (falta activar su tarea en el servidor). Las emisiones programadas no se ejecutarán hasta entonces.'];
+            return ['estado' => 'sin_senal', 'etiqueta' => 'Programador sin señal reciente',
+                'detalle' => 'Todavía no ha dado señales (falta activar su tarea en el servidor): las emisiones programadas no se ejecutarán hasta entonces.',
+                'texto' => 'El programador automático todavía no ha dado señales (falta activar su tarea en el servidor). Las emisiones programadas no se ejecutarán hasta entonces.'];
         }
         $ultimo = CarbonImmutable::parse($latido)->setTimezone(FechaProgramada::zona());
         $minutos = (int) floor($ultimo->diffInSeconds(CarbonImmutable::now(FechaProgramada::zona()), true) / 60);
         if ($minutos <= self::LATIDO_VIGENTE_MINUTOS) {
-            return ['estado' => 'activo', 'texto' => 'Programador automático activo · última señal '.($minutos === 0 ? 'hace menos de un minuto' : "hace {$minutos} ".($minutos === 1 ? 'minuto' : 'minutos')).'.'];
+            $hace = $minutos === 0 ? 'hace menos de un minuto' : "hace {$minutos} ".($minutos === 1 ? 'minuto' : 'minutos');
+
+            return ['estado' => 'activo', 'etiqueta' => 'Programador automático activo', 'detalle' => "Última señal {$hace}.",
+                'texto' => "Programador automático activo · última señal {$hace}."];
         }
 
-        return ['estado' => 'detenido', 'texto' => 'El programador automático no da señales desde el '.self::fechaLegible($ultimo).'. Las emisiones programadas no se ejecutarán hasta que vuelva.'];
+        return ['estado' => 'detenido', 'etiqueta' => 'Programador sin señal reciente',
+            'detalle' => 'Sin señales desde el '.self::fechaLegible($ultimo).': las emisiones programadas no se ejecutarán hasta que vuelva.',
+            'texto' => 'El programador automático no da señales desde el '.self::fechaLegible($ultimo).'. Las emisiones programadas no se ejecutarán hasta que vuelva.'];
     }
 
     /** «viernes 30 de octubre de 2026 a las 8:00 a. m.» (hora de Colombia) */

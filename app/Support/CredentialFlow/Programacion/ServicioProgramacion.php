@@ -53,6 +53,8 @@ final class ServicioProgramacion
 
     public const MOTIVO_MAX = 255;
 
+    public const MENSAJE_SIN_VARIANTE_QA = 'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada. Asocia primero la variante para pruebas internas (QA) y después vuelve a revisar la programación.';
+
     /** Solo pruebas: se ejecuta justo antes de bloquear la base (para simular un cambio concurrente). */
     public static ?Closure $antesDeBloquear = null;
 
@@ -240,10 +242,17 @@ final class ServicioProgramacion
     {
         $lote = $this->exigirBaseActiva($loteId);
         $huella = HuellaProgramacion::calcular($lote);
-        $verificacion = $this->emisor->verificarEmitible($lote);
+        try {
+            $verificacion = $this->emisor->verificarEmitible($lote);
+        } catch (EmisionException $e) {
+            // El texto de la emisión manual habla de «volver a emitir»; aquí se está programando. Mismo código, estado y detalles; solo cambia el mensaje.
+            throw $e->codigo === EmisionException::VARIANTE_QA_FALTANTE
+                ? new EmisionException($e->codigo, self::MENSAJE_SIN_VARIANTE_QA, $e->estadoHttp, $e->detalles)
+                : $e;
+        }
         // La emisión programada exige SIEMPRE la variante de pruebas internas de la plantilla (aunque hoy no haya pruebas QA pendientes).
         if ($verificacion['variante_qa_id'] === null && app(ServicioQa::class)->plantillaPara($lote) === null) {
-            throw new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, 'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada: no se puede programar su emisión. Asóciala y vuelve a intentarlo.', 409);
+            throw new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, self::MENSAJE_SIN_VARIANTE_QA, 409);
         }
 
         return [$verificacion, $huella];

@@ -376,7 +376,7 @@ const confirmarMotivo = async (motivo) => {
           <div class="flex flex-wrap items-center gap-2">
             <Link v-if="flujo.siguiente.accion.tipo === 'enlace'" :href="route(flujo.siguiente.accion.ruta)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all" data-accion="siguiente-paso">{{ flujo.siguiente.titulo }}</Link>
             <template v-else-if="flujo.siguiente.accion.tipo === 'plantilla'">
-              <select v-model="plantillaElegida" class="rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 px-3 py-2" data-campo="plantilla-base">
+              <select v-model="plantillaElegida" class="max-w-full min-w-0 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 px-3 py-2" data-campo="plantilla-base">
                 <option value="">Elegir plantilla…</option>
                 <option v-for="p in flujo.plantillas_disponibles" :key="p.id" :value="p.id">{{ p.nombre }}</option>
               </select>
@@ -393,7 +393,8 @@ const confirmarMotivo = async (motivo) => {
 
         <div v-if="flujo.plantilla.puede_cambiar && flujo.siguiente.accion.tipo !== 'plantilla' && flujo.plantillas_disponibles.length > 1" class="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-slate-500" data-cambiar-plantilla>
           Plantilla actual: <span class="font-extrabold text-slate-700">{{ flujo.plantilla.nombre }}</span>. Puedes cambiarla mientras la base no tenga certificados emitidos:
-          <select v-model="plantillaElegida" class="rounded-xl border border-slate-200 bg-white text-[12px] font-semibold text-slate-700 px-2 py-1">
+          <!-- max-w-full: con nombres de plantilla muy largos el selector no ensancha la pantalla (375 px) -->
+          <select v-model="plantillaElegida" class="max-w-full min-w-0 rounded-xl border border-slate-200 bg-white text-[12px] font-semibold text-slate-700 px-2 py-1" data-campo="cambiar-plantilla">
             <option value="">Elegir otra…</option>
             <option v-for="p in flujo.plantillas_disponibles.filter((x) => x.id !== lote.plantilla?.id)" :key="p.id" :value="p.id">{{ p.nombre }}</option>
           </select>
