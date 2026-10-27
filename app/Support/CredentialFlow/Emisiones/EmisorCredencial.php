@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -109,6 +110,11 @@ final class EmisorCredencial
             throw new EmisionException(EmisionException::NO_ELEGIBLE, 'Este participante está '.(($participante->elegibilidad ?? '') === Participante::PENDIENTE ? 'pendiente de validación' : 'marcado como no elegible').' y no se puede certificar. Cambia su estado a «elegible» cuando se confirme.', 409);
         }
 
+        // Con una emisión programada pendiente, ninguna PRIMERA emisión de la base sale a mano (la reemisión de un certificado ya emitido sí).
+        if ($reemplaza === null) {
+            CandadoProgramacion::exigirLibre($lote->id);
+        }
+
         // Un participante de control (QA) NUNCA se emite con la plantilla académica de la base: solo con la de pruebas internas.
         $esQa = (bool) ($participante->es_control_qa ?? false);
 
@@ -140,7 +146,12 @@ final class EmisorCredencial
 
         try {
             return DB::transaction(function () use ($participante, $lote, $plantilla, $reemplaza, $motivo, $usuarioId, $operacion, $alCrear, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
-                // 3: bloqueo y comprobaciones con la base ya bloqueada.
+                // 3: bloqueo y comprobaciones con la base ya bloqueada. En una primera emisión se bloquea ANTES la base (mismo orden que la emisión masiva y que
+                // programar: base → participante, sin riesgo de interbloqueo) y se revisa el candado de la emisión programada de forma definitiva.
+                if ($reemplaza === null) {
+                    Lote::lockForUpdate()->find($lote->id);
+                    CandadoProgramacion::exigirLibre($lote->id);
+                }
                 $bloqueado = Participante::lockForUpdate()->find($participante->id);
                 $loteActual = Lote::find($lote->id);
                 $plantillaActual = Plantilla::find($plantilla->id);

@@ -3,6 +3,7 @@
 namespace App\Support\CredentialFlow\Emisiones;
 
 use App\Models\CredentialFlow\Emision;
+use App\Models\CredentialFlow\EmisionProgramada;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
@@ -12,6 +13,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -97,8 +99,11 @@ final class EmisorLote
      *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function emitirTodo(Lote $lote, ?int $usuarioId): array
+    public function emitirTodo(Lote $lote, ?int $usuarioId, ?EmisionProgramada $programacion = null): array
     {
+        // Con una emisión programada pendiente no se emite a mano (solo la programación que el ejecutor está corriendo).
+        CandadoProgramacion::exigirLibre($lote->id, $programacion);
+
         $pendientes = fn (bool $qa) => $lote->participantes()->where('es_control_qa', $qa)->where('elegibilidad', Participante::ELEGIBLE)
             ->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->exists();
         $hayOficiales = $pendientes(false);
@@ -115,11 +120,11 @@ final class EmisorLote
 
         $r = ['oficiales' => null, 'qa' => null, 'qa_error' => null];
         if ($hayOficiales) {
-            $r['oficiales'] = $this->emitirPendientes($lote, $usuarioId);
+            $r['oficiales'] = $this->emitirPendientes($lote, $usuarioId, false, $programacion);
         }
         if ($hayQa) {
             try {
-                $r['qa'] = $this->emitirPendientes($lote->fresh(), $usuarioId, true);
+                $r['qa'] = $this->emitirPendientes($lote->fresh(), $usuarioId, true, $programacion);
             } catch (EmisionException|GeneracionCredencialException $e) {
                 if ($r['oficiales'] === null) {
                     throw $e;   // no se emitió nada: es un error, no un resultado parcial
@@ -138,6 +143,53 @@ final class EmisorLote
     }
 
     /**
+     * Comprueba, SIN generar ni guardar nada, que «Emitir certificados» saldría bien con los datos de ahora: las mismas validaciones y la misma prevalidación de
+     * cada PDF que la emisión real (variante QA, datos que imprime el diseño, vista previa, duplicados en el evento y plan de texto y QR), sobre TODOS los
+     * pendientes y no solo los de la primera operación. La usa la emisión programada al programar, reprogramar y reconfirmar. Lanza los mismos errores.
+     *
+     * @return array{oficiales:int, qa:int, plantilla_id:?int, variante_qa_id:?int}
+     *
+     * @throws EmisionException|GeneracionCredencialException
+     */
+    public function verificarEmitible(Lote $lote): array
+    {
+        $todos = fn (bool $qa) => $lote->participantes()->where('es_control_qa', $qa)->where('elegibilidad', Participante::ELEGIBLE)
+            ->where('tipo_documento_confirmado', true)->whereDoesntHave('emisiones')->orderBy('id')->get();
+        $oficiales = $todos(false);
+        $qa = $todos(true);
+        if ($oficiales->isEmpty() && $qa->isEmpty()) {
+            throw new EmisionException(EmisionException::SIN_PENDIENTES, 'No hay certificados pendientes de emitir en esta base (ni oficiales ni pruebas internas).', 409);
+        }
+
+        $variante = null;
+        if ($qa->isNotEmpty()) {
+            $variante = app(ServicioQa::class)->plantillaPara($lote);
+            if ($variante === null) {
+                throw $this->sinVarianteQa();
+            }
+            DatosRequeridos::exigir($lote, $variante, $qa);
+            try {
+                $this->prevalidar($lote, $variante, $qa);
+            } catch (EmisionException $e) {
+                throw new EmisionException($e->codigo, 'Las pruebas internas (QA) de esta base no se pueden emitir: corrige los problemas antes de programar.', 422, $e->detalles);
+            }
+        }
+
+        $plantilla = $lote->plantilla;
+        if ($oficiales->isNotEmpty()) {
+            if (! $plantilla) {
+                throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
+            }
+            DatosRequeridos::exigir($lote, $plantilla, $oficiales);
+            app(ServicioVistaPrevia::class)->exigir($lote);
+            DuplicadosEnEvento::exigir($lote, $oficiales);
+            $this->prevalidar($lote, $plantilla, $oficiales);
+        }
+
+        return ['oficiales' => $oficiales->count(), 'qa' => $qa->count(), 'plantilla_id' => $plantilla?->id, 'variante_qa_id' => $variante?->id];
+    }
+
+    /**
      * @return array{operacion:string, total:int, emisiones:array<int,int>, restantes:int}
      *
      * Por defecto emite SOLO a los participantes REALES con la plantilla de la base. Con `$pruebasInternas` emite SOLO a los de control (QA) y SOLO con la
@@ -145,8 +197,10 @@ final class EmisorLote
      *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function emitirPendientes(Lote $lote, ?int $usuarioId, bool $pruebasInternas = false): array
+    public function emitirPendientes(Lote $lote, ?int $usuarioId, bool $pruebasInternas = false, ?EmisionProgramada $programacion = null): array
     {
+        CandadoProgramacion::exigirLibre($lote->id, $programacion);
+
         $plantilla = $pruebasInternas ? app(ServicioQa::class)->plantillaPara($lote) : $lote->plantilla;
         if (! $plantilla) {
             throw $pruebasInternas ? $this->sinVarianteQa() : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
@@ -202,7 +256,7 @@ final class EmisorLote
             }
 
             // 4–5: fase crítica.
-            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pendientes, $snapshots, $generados, $operacion, $usuarioId, &$movidos) {
+            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pendientes, $snapshots, $generados, $operacion, $usuarioId, $programacion, &$movidos) {
                 $loteActual = Lote::lockForUpdate()->find($lote->id);
                 $plantillaActual = Plantilla::find($plantilla->id);
                 $ids = $pendientes->pluck('id')->all();
@@ -211,6 +265,8 @@ final class EmisorLote
                 if (! $loteActual || ! $plantillaActual || $bloqueados->count() !== count($ids)) {
                     throw $this->cambiaron();
                 }
+                // Definitivo: con la base bloqueada (programar también la bloquea), una programación creada mientras se generaban los PDF gana y aquí no se emite.
+                CandadoProgramacion::exigirLibre($loteActual->id, $programacion);
                 if (Emision::whereIn('participante_id', $ids)->exists()) {
                     throw new EmisionException(EmisionException::EMISION_YA_VIGENTE, 'Alguno de los participantes ya fue emitido por otra operación. No se emitió nada: vuelve a intentarlo.', 409);
                 }
