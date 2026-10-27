@@ -11,6 +11,7 @@ use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Programacion\EjecutorProgramado;
 use App\Support\CredentialFlow\Programacion\PresentadorProgramacion;
+use App\Support\CredentialFlow\Programacion\ServicioProgramacion;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -468,6 +469,44 @@ class ProgramacionInterfazTest extends ProgramacionTestCase
         foreach (['PERSONA NÚMERO', '20.000.001', 'QA PROGRAMADA', '72000001', '@example.test', '@fycconsultores.com', 'huella'] as $dato) {
             $this->assertStringNotContainsString($dato, $texto, $dato);
         }
+    }
+
+    // ── Pulido final: indicador siempre visible y mensaje de la variante QA ────
+
+    public function test_el_indicador_trae_su_etiqueta_corta_segun_el_interruptor_y_el_latido_real(): void
+    {
+        $lote = $this->base(1);
+        $ver = fn () => $this->bloque($lote)['programador'];
+
+        $this->assertSame(['sin_senal', 'Programador sin señal reciente'], [$ver()['estado'], $ver()['etiqueta']]);
+        Cache::put(EjecutorProgramado::LATIDO, now()->subSeconds(20)->toIso8601String(), now()->addDay());
+        $this->assertSame(['activo', 'Programador automático activo', 'Última señal hace menos de un minuto.'], [$ver()['estado'], $ver()['etiqueta'], $ver()['detalle']]);
+        Cache::put(EjecutorProgramado::LATIDO, now()->subMinutes(30)->toIso8601String(), now()->addDay());
+        $this->assertSame(['detenido', 'Programador sin señal reciente'], [$ver()['estado'], $ver()['etiqueta']]);
+        $this->assertStringContainsString('martes 27 de octubre de 2026 a las 9:30 a. m.', $ver()['detalle']);
+
+        // Con el interruptor apagado nunca dice «activo», aunque haya un latido reciente; la pantalla recibe igual el bloque para mostrar el estado.
+        Cache::put(EjecutorProgramado::LATIDO, now()->toIso8601String(), now()->addDay());
+        config(['credential_flow.programacion.activa' => false]);
+        $b = $this->bloque($lote);
+        $this->assertSame([false, true, 'desactivado', 'Programación automática desactivada'], [$b['habilitada'], $b['puede_gestionar'], $b['programador']['estado'], $b['programador']['etiqueta']]);
+    }
+
+    public function test_sin_variante_qa_el_mensaje_al_programar_habla_de_programar_y_la_emision_manual_no_cambia(): void
+    {
+        // Con pruebas QA pendientes (el aviso viene de la emisión) y sin ellas (lo exige la programación): el mismo mensaje, propio de programar.
+        foreach ([$this->base(1, conVariante: false), $this->base(1, conVariante: false, conQa: false)] as $lote) {
+            $r = $this->previa($lote)->assertStatus(409)->assertJsonPath('error.code', EmisionException::VARIANTE_QA_FALTANTE);
+            $this->assertSame(ServicioProgramacion::MENSAJE_SIN_VARIANTE_QA, $r->json('error.message'));
+            $this->assertStringNotContainsString('vuelve a emitir', $r->json('error.message'));
+        }
+        $this->assertSame(0, EmisionProgramada::count());
+
+        // La emisión manual conserva su propio texto.
+        $manual = $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $this->base(1, conVariante: false)))
+            ->assertStatus(409)->assertJsonPath('error.code', EmisionException::VARIANTE_QA_FALTANTE);
+        $this->assertStringContainsString('vuelve a emitir', $manual->json('error.message'));
+        $this->assertSame(0, Emision::count());
     }
 
     public function test_sin_la_tabla_la_pantalla_sigue_funcionando_y_no_ofrece_programar(): void

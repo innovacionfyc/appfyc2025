@@ -52,8 +52,10 @@ const motivo = ref("");
 const campoFecha = ref(null);
 const campoMotivo = ref(null);
 const dialogo = ref(null);
+let abridor = null; // el botón que abrió el modal: al cerrarlo, el foco vuelve ahí
 
 const abrir = async (modo) => {
+  abridor = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   error.value = null;
   previa.value = null;
   confirmo.value = false;
@@ -64,13 +66,42 @@ const abrir = async (modo) => {
   const campo = modo === "cancelar" ? campoMotivo.value : modo === "reconfirmar" ? null : campoFecha.value;
   (campo ?? dialogo.value)?.focus();
 };
-const cerrar = () => {
+const cerrar = async () => {
   if (enCurso.value !== null) return;
   modal.value.abierto = false;
+  await nextTick();
+  if (abridor?.isConnected) abridor.focus();
 };
+// Escape y Tab se escuchan en el DOCUMENTO mientras el modal está abierto: así funcionan aunque el foco se haya perdido (por ejemplo, cuando el botón
+// pulsado se deshabilita mientras espera la respuesta). Tab no sale del modal.
+const ENFOCABLES = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 const alTeclear = (e) => {
-  if (e.key === "Escape") cerrar();
+  if (e.key === "Escape") {
+    e.preventDefault();
+    cerrar();
+    return;
+  }
+  if (e.key !== "Tab" || !dialogo.value) return;
+  const enfocables = [...dialogo.value.querySelectorAll(ENFOCABLES)];
+  if (enfocables.length === 0) return;
+  const primero = enfocables[0];
+  const ultimo = enfocables[enfocables.length - 1];
+  if (!dialogo.value.contains(document.activeElement)) {
+    e.preventDefault();
+    (e.shiftKey ? ultimo : primero).focus();
+  } else if (e.shiftKey && document.activeElement === primero) {
+    e.preventDefault();
+    ultimo.focus();
+  } else if (!e.shiftKey && document.activeElement === ultimo) {
+    e.preventDefault();
+    primero.focus();
+  }
 };
+watch(
+  () => modal.value.abierto,
+  (abierto) => (abierto ? document.addEventListener("keydown", alTeclear) : document.removeEventListener("keydown", alTeclear)),
+);
+onBeforeUnmount(() => document.removeEventListener("keydown", alTeclear));
 
 const fechaValida = computed(() => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fecha.value));
 const revisar = async () => {
@@ -85,6 +116,10 @@ const revisar = async () => {
     modal.value.paso = "resumen";
     await nextTick();
     dialogo.value?.focus();
+  } else {
+    // El botón se deshabilitó mientras esperaba: el foco vuelve al campo de la fecha para corregirla (o cerrar con Escape).
+    await nextTick();
+    campoFecha.value?.focus();
   }
 };
 const volverAFecha = async () => {
@@ -120,9 +155,13 @@ const confirmar = async () => {
       reconfirmar: nueva ? `Programación confirmada de nuevo: se emitirá el ${nueva.programada_para_texto} (hora de Colombia).` : null,
       cancelar: "La emisión programada se canceló. No se emitirá nada automáticamente.",
     }[modo]);
-  } else if (["CAMBIO_CONCURRENTE", "NO_MODIFICABLE", "YA_EXISTE_ACTIVA", "RESUMEN_DESACTUALIZADO"].includes(error.value?.code)) {
-    // Otra persona (o el programador) cambió la programación: se recarga para mostrar lo vigente; el error queda a la vista.
-    emit("cambio", null);
+  } else {
+    if (["CAMBIO_CONCURRENTE", "NO_MODIFICABLE", "YA_EXISTE_ACTIVA", "RESUMEN_DESACTUALIZADO"].includes(error.value?.code)) {
+      // Otra persona (o el programador) cambió la programación: se recarga para mostrar lo vigente; el error queda a la vista.
+      emit("cambio", null);
+    }
+    await nextTick();
+    dialogo.value?.focus();
   }
 };
 
@@ -150,17 +189,23 @@ onBeforeUnmount(() => clearInterval(temporizador));
 </script>
 
 <template>
-  <section v-if="!tarjeta && puedeProgramar" class="mt-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-3" data-programacion-ofrecer>
-    <div class="flex items-start gap-3 min-w-[min(100%,18rem)] flex-1">
-      <div class="w-10 h-10 shrink-0 rounded-2xl bg-primary-vinotinto/10 text-primary-vinotinto flex items-center justify-center"><CalendarClock class="w-5 h-5" /></div>
-      <div class="min-w-0">
-        <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Emisión programada</p>
-        <p class="text-[13px] font-semibold text-slate-600">¿Prefieres que se emitan solos? Elige el día y la hora (hora de Colombia) y los certificados pendientes se emitirán automáticamente.</p>
+  <section v-if="!tarjeta && puedeGestionar && programador" class="mt-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm px-5 py-4 sm:px-6 space-y-3" data-programacion-ofrecer>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-start gap-3 min-w-[min(100%,18rem)] flex-1">
+        <div class="w-10 h-10 shrink-0 rounded-2xl bg-primary-vinotinto/10 text-primary-vinotinto flex items-center justify-center"><CalendarClock class="w-5 h-5" /></div>
+        <div class="min-w-0">
+          <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Emisión programada</p>
+          <p v-if="habilitada" class="text-[13px] font-semibold text-slate-600">¿Prefieres que se emitan solos? Elige el día y la hora (hora de Colombia) y los certificados pendientes se emitirán automáticamente.</p>
+          <p v-else class="text-[13px] font-semibold text-slate-600">La programación automática está desactivada en este servidor. Para emitir, usa «Emitir certificados» como siempre.</p>
+        </div>
       </div>
+      <button v-if="puedeProgramar" type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-primary-vinotinto/30 text-sm font-bold text-primary-vinotinto hover:bg-primary-vinotinto/5 transition-all disabled:opacity-50" :disabled="bloqueado || enCurso !== null" data-accion="programar-emision" @click="abrir('programar')">
+        <CalendarClock class="w-4 h-4" /> Programar emisión
+      </button>
     </div>
-    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-primary-vinotinto/30 text-sm font-bold text-primary-vinotinto hover:bg-primary-vinotinto/5 transition-all disabled:opacity-50" :disabled="bloqueado || enCurso !== null" data-accion="programar-emision" @click="abrir('programar')">
-      <CalendarClock class="w-4 h-4" /> Programar emisión
-    </button>
+    <p class="inline-flex items-start gap-2 px-3 py-1.5 rounded-2xl border text-[12px] font-semibold max-w-full" :class="PROGRAMADOR[programador.estado]" data-programador :data-estado="programador.estado">
+      <Activity class="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" /><span class="break-words"><strong class="font-black">{{ programador.etiqueta ?? programador.texto }}</strong><template v-if="programador.etiqueta"> · {{ programador.detalle }}</template></span>
+    </p>
   </section>
 
   <section v-if="tarjeta" class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4" data-programacion :data-estado="tarjeta.estado" :data-activa="activa ? '' : undefined">
@@ -223,7 +268,7 @@ onBeforeUnmount(() => clearInterval(temporizador));
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p v-if="programador" class="inline-flex items-start gap-2 px-3 py-1.5 rounded-2xl border text-[12px] font-semibold max-w-full" :class="PROGRAMADOR[programador.estado]" data-programador :data-estado="programador.estado">
-        <Activity class="w-3.5 h-3.5 mt-0.5 shrink-0" /><span class="break-words">{{ programador.texto }}</span>
+        <Activity class="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" /><span class="break-words"><strong class="font-black">{{ programador.etiqueta ?? programador.texto }}</strong><template v-if="programador.etiqueta"> · {{ programador.detalle }}</template></span>
       </p>
       <div v-if="activa && puedeGestionar && activa.modificable" class="flex flex-wrap gap-2">
         <button v-if="activa.estado === 'requiere_confirmacion' || activa.cambios.length" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-primary-vinotinto text-white text-[13px] font-bold hover:opacity-90 disabled:opacity-50" :disabled="bloqueado || enCurso !== null || !habilitada || !activa.puede_reconfirmar" :title="!activa.puede_reconfirmar ? 'La hora programada ya pasó o está muy cerca: reprográmala' : ''" data-accion="reconfirmar-programacion" @click="abrir('reconfirmar')">
@@ -246,7 +291,7 @@ onBeforeUnmount(() => clearInterval(temporizador));
   </section>
 
   <Teleport to="body">
-    <div v-if="modal.abierto" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" @keydown="alTeclear">
+    <div v-if="modal.abierto" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div class="fixed inset-0 bg-slate-900/60" @click="cerrar" />
       <div ref="dialogo" role="dialog" aria-modal="true" aria-labelledby="cf-programacion-titulo" tabindex="-1" class="relative z-50 w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto bg-white rounded-[2rem] shadow-2xl p-5 sm:p-8 outline-none" data-modal-programacion :data-modo="modal.modo" :data-paso="modal.paso">
         <div class="flex items-start justify-between gap-4">
