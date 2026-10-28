@@ -23,6 +23,10 @@ use Illuminate\Support\Str;
  *    un grupo, o en ninguno, no hay OTP (respuesta pública idéntica; el caso queda para revisión manual).
  *  - Siempre debe haber al menos un certificado habilitante (`ok` / `duplicado_consolidado`) dentro del alcance.
  * La similitud difusa de nombres NO interviene jamás. Sin N+1: una consulta por documento (+ correos, eventos, canónicos y reemplazos).
+ *
+ * DOCUMENTO = NÚMERO (FamiliaDocumento): «1234567», «C.C. 1.234.567» y «CC1234567» se buscan juntos, porque el importador guarda el tipo delante cuando la base
+ * trae esa columna y la persona escribe solo su número. Las reglas de arriba se aplican igual sobre toda la familia; registros con tipos explícitos distintos
+ * (C.C./T.I./C.E.…) y el mismo nombre nunca se unen: los guardados con prefijo quedan fuera hasta que se resuelva la ambigüedad.
  */
 final class AccesoPortal
 {
@@ -31,11 +35,12 @@ final class AccesoPortal
 
     private const HABILITANTES = [CertificadoLegado::CONCILIACION_OK, CertificadoLegado::CONCILIACION_DUPLICADO_CONSOLIDADO];
 
+    /** Clave con la que se busca: la RAÍZ (el número sin prefijo de tipo) de lo digitado, o null si no es un documento válido. */
     public static function claveDocumento(string $documento): ?string
     {
         $clave = Texto::claveDocumento(trim($documento));
 
-        return $clave !== '' && mb_strlen($clave) >= self::MIN_DOCUMENTO && mb_strlen($clave) <= 40 ? $clave : null;
+        return $clave !== '' && mb_strlen($clave) >= self::MIN_DOCUMENTO && mb_strlen($clave) <= 40 ? FamiliaDocumento::raiz($clave) : null;
     }
 
     /** Correo comparable (trim + minúsculas) o null si no es una dirección válida. */
@@ -61,8 +66,38 @@ final class AccesoPortal
         // Filas del documento, históricas y modernas, con la MISMA forma: grupo de nombre conservador, correos válidos y si habilitan el acceso.
         // Sin filas modernas el resultado es idéntico al de siempre; con ellas, las mismas reglas (un solo grupo → documento completo; varios → el
         // correo debe identificar EXACTAMENTE uno) valen para ambos tipos y un correo nunca amplía el alcance a un grupo que no lo tiene.
-        $filas = $d['filas']->map(fn ($f) => ['grupo' => $d['grupos'][$f->id], 'correo' => isset($d['correos'][$f->id][$correoNormalizado]), 'habilita' => self::habilitaAcceso($f)])
-            ->concat($m->map(fn ($f) => ['grupo' => $f->grupo, 'correo' => isset($f->correos[$correoNormalizado]), 'habilita' => EmisionesModernas::habilita($f)]));
+        // `numero`: la fila está guardada con el número tal cual (sin prefijo de tipo), es decir, la que ya se encontraba antes de buscar por familia.
+        $raiz = FamiliaDocumento::raiz($clave);
+        $filas = $d['filas']->map(fn ($f) => ['grupo' => $d['grupos'][$f->id], 'correo' => isset($d['correos'][$f->id][$correoNormalizado]), 'habilita' => self::habilitaAcceso($f),
+            'numero' => Texto::claveDocumento((string) $f->documento_clave) === $raiz])
+            ->concat($m->map(fn ($f) => ['grupo' => $f->grupo, 'correo' => isset($f->correos[$correoNormalizado]), 'habilita' => EmisionesModernas::habilita($f),
+                'numero' => Texto::claveDocumento($f->documento_clave) === $raiz]));
+        $alcance = self::alcanceDe($filas);
+        if ($alcance !== null || $filas->every(fn ($f) => $f['numero'])) {
+            return $alcance;
+        }
+
+        // Respaldo: la familia volvió ambiguo un correo (también figura en una fila CON PREFIJO de otro grupo de nombre). Si entre las filas guardadas con el
+        // número tal cual ese correo identifica a su persona, se conserva EXACTAMENTE ese grupo (lo de siempre), nunca el documento completo: lo del otro grupo
+        // queda fuera hasta que se resuelva la identidad (vínculo). Nada se amplía respecto de lo que el correo ya alcanzaba.
+        $numero = $filas->filter(fn ($f) => $f['numero'])->values();
+        $respaldo = self::alcanceDe($numero);
+        if ($respaldo === null) {
+            return null;
+        }
+
+        return ['grupo' => $respaldo['grupo'] ?? $numero->first()['grupo']];
+    }
+
+    /**
+     * Reglas de identidad sobre un conjunto de filas: un solo grupo → documento completo; varios → el correo debe identificar EXACTAMENTE uno; y dentro del
+     * alcance debe haber algo que habilite el acceso.
+     *
+     * @param  Collection<int,array{grupo:string,correo:bool,habilita:bool}>  $filas
+     * @return array{grupo: ?string}|null
+     */
+    private static function alcanceDe(Collection $filas): ?array
+    {
         $conCorreo = $filas->filter(fn ($f) => $f['correo']);
         if ($conCorreo->isEmpty()) {
             return null;
@@ -105,11 +140,11 @@ final class AccesoPortal
      *
      * @return list<array<string,mixed>>
      */
-    public function tarjetas(string $clave, string|array|null $grupo = null): array
+    public function tarjetas(string $clave, string|array|null $grupo = null, ?int $desde = null): array
     {
-        $d = $this->cargar($clave);
+        $d = $this->cargar($clave, $desde);
         $lista = self::lista($grupo);
-        if ($lista === []) {
+        if ($lista === [] || ($lista === null && ! self::historicoCompletoSeguro($d, $clave, $desde))) {
             return [];   // un scope vacío NUNCA es «documento completo»
         }
         $filas = $lista === null ? $d['filas'] : $d['filas']->filter(fn ($f) => in_array($d['grupos'][$f->id], $lista, true));
@@ -219,6 +254,23 @@ final class AccesoPortal
         return collect($historicos)->concat($modernas->pluck('grupo'))->unique()->count() <= 1;
     }
 
+    /**
+     * Lo mismo para los HISTÓRICOS de una sesión de «documento completo»: nació cuando las filas históricas del número eran de UN solo grupo (son fijas). Si la
+     * familia trae filas históricas de otro grupo (una clave con prefijo, p. ej.), falla cerrado hasta que la persona vuelva a identificarse con su correo.
+     *
+     * @param  array{grupos: array<int,string>}  $d  resultado de `cargar()`
+     */
+    private static function historicoCompletoSeguro(array $d, string $clave, ?int $desde): bool
+    {
+        $raiz = FamiliaDocumento::raiz($clave);
+        if ($d['filas']->every(fn ($f) => Texto::claveDocumento((string) $f->documento_clave) === $raiz)) {
+            return true;   // las mismas filas fijas con las que nació la sesión: nada nuevo que comprobar
+        }
+        $mapa = VinculosIdentidadModerna::mapa($clave, $desde);
+
+        return collect($d['grupos'])->map(fn ($g) => $mapa[$g] ?? $g)->unique()->count() <= 1;
+    }
+
     private static function anioDe(mixed $fecha, mixed $emitidoAt): ?int
     {
         if (is_string($fecha) && preg_match('/(20\d{2}|19\d{2})/', $fecha, $m) === 1) {
@@ -256,7 +308,7 @@ final class AccesoPortal
      */
     public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
-        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
+        $todas = [...$this->tarjetas($clave, $grupo, $desde), ...$this->tarjetasModernas($clave, $grupo, $desde)];
         $anios = array_values(array_unique(array_map('intval', array_filter(array_column($todas, 'anio'), fn ($a) => $a !== null))));
         rsort($anios);
         $haySinAnio = count(array_filter($todas, fn ($t) => $t['anio'] === null)) > 0;
@@ -495,25 +547,31 @@ final class AccesoPortal
     /**
      * Punto ÚNICO de autorización por certificado: documento + grupos del alcance. `$grupos`: null = documento completo (solo cuando el flujo histórico lo
      * autoriza); un string = ese grupo (compatibilidad con sesiones históricas); una lista = cualquiera de esos grupos; una lista VACÍA = denegar (jamás «todo»).
-     * La descarga nunca se autoriza solo por id.
+     * La descarga nunca se autoriza solo por id. El documento es la FAMILIA del número (con o sin prefijo de tipo), sin las filas excluidas por ambigüedad.
      */
-    public static function perteneceA(CertificadoLegado $c, string $clave, string|array|null $grupos = null): bool
+    public static function perteneceA(CertificadoLegado $c, string $clave, string|array|null $grupos = null, ?int $desde = null): bool
     {
-        if (! hash_equals($c->documento_clave, $clave)) {
+        $raiz = FamiliaDocumento::raiz($clave);
+        $propia = Texto::claveDocumento((string) $c->documento_clave);
+        if (! hash_equals($raiz, FamiliaDocumento::raiz($propia))) {
+            return false;
+        }
+        // Una fila guardada con prefijo cuya unidad es ambigua no se entrega a nadie.
+        if (! hash_equals($raiz, $propia) && isset(FamiliaDocumento::excluidos($raiz, $desde)['historicos'][(int) $c->id])) {
             return false;
         }
         $lista = self::lista($grupos);
         if ($lista === null) {
-            return true;
+            return self::historicoCompletoSeguro((new self)->cargar($raiz, $desde), $raiz, $desde);
         }
 
         return $lista !== [] && in_array(NombreConservador::grupoDe($c), $lista, true);
     }
 
     /** ¿Está el certificado (p. ej. el canónico al que resuelve) dentro del alcance? */
-    public static function enAlcance(?CertificadoLegado $c, string $clave, string|array|null $grupos): bool
+    public static function enAlcance(?CertificadoLegado $c, string $clave, string|array|null $grupos, ?int $desde = null): bool
     {
-        return $c !== null && self::perteneceA($c, $clave, $grupos);
+        return $c !== null && self::perteneceA($c, $clave, $grupos, $desde);
     }
 
     /** @return list<string>|null null = documento completo; lista (posiblemente vacía) = esos grupos */
@@ -535,7 +593,7 @@ final class AccesoPortal
      */
     public function cargarConVinculos(string $clave, ?int $desde = null): array
     {
-        $d = $this->cargar($clave);
+        $d = $this->cargar($clave, $desde);
         $mapa = VinculosIdentidadModerna::mapa($clave, $desde);
         if ($mapa !== []) {
             foreach ($d['grupos'] as $id => $g) {
@@ -547,13 +605,20 @@ final class AccesoPortal
     }
 
     /**
-     * Filas del documento + correos válidos + grupo de nombre de cada fila, en pocas consultas.
+     * Filas del documento (toda la familia del número, sin las excluidas por ambigüedad de tipo) + correos válidos + grupo de nombre de cada fila, en pocas
+     * consultas. `$desde` solo afecta a los vínculos con los que se decide la ambigüedad.
      *
      * @return array{filas: Collection<int,CertificadoLegado>, correos: array<int,array<string,bool>>, grupos: array<int,string>}
      */
-    public function cargar(string $clave): array
+    public function cargar(string $clave, ?int $desde = null): array
     {
-        $filas = CertificadoLegado::query()->where('documento_clave', $clave)->get();
+        $raiz = FamiliaDocumento::raiz($clave);
+        $filas = CertificadoLegado::query()->whereIn('documento_clave', FamiliaDocumento::claves($raiz))->orderBy('id')->get();
+        // Solo una fila guardada con prefijo puede quedar excluida por ambigüedad: sin ninguna, no hay nada que calcular.
+        if ($filas->contains(fn ($f) => Texto::claveDocumento((string) $f->documento_clave) !== $raiz)) {
+            $excluidos = FamiliaDocumento::excluidos($raiz, $desde)['historicos'];
+            $filas = $filas->reject(fn ($f) => isset($excluidos[$f->id]))->values();
+        }
         $correos = [];
         if ($filas->isNotEmpty()) {
             foreach (DB::table('cf_correos')->whereIn('certificado_legado_id', $filas->pluck('id'))->where('estado', Correo::ESTADO_VALIDO)->get(['certificado_legado_id', 'correo_normalizado']) as $r) {
