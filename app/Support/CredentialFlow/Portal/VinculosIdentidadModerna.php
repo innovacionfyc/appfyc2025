@@ -32,9 +32,10 @@ final class VinculosIdentidadModerna
         return Schema::hasTable(self::TABLA);
     }
 
+    /** Por la RAÍZ del número (FamiliaDocumento): el vínculo vale para el número con o sin prefijo de tipo. */
     public static function hashDocumento(string $clave): string
     {
-        return Hmac::de('vinculo_documento', $clave);
+        return Hmac::de('vinculo_documento', FamiliaDocumento::raiz($clave));
     }
 
     public static function hashCorreo(string $correoNormalizado): string

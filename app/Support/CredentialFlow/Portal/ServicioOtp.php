@@ -33,9 +33,10 @@ class ServicioOtp
         return str_pad((string) random_int(0, 999_999), 6, '0', STR_PAD_LEFT);
     }
 
+    /** Por la RAÍZ del número: escribir «1234567» o «C.C. 1234567» es el mismo desafío y comparte los mismos límites (no los multiplica). */
     public static function hashDocumento(string $clave): string
     {
-        return Hmac::de('documento', $clave);
+        return Hmac::de('documento', FamiliaDocumento::raiz($clave));
     }
 
     public static function hashCorreo(string $correoNormalizado): string
