@@ -7,10 +7,12 @@
     // Pantallas de la recreación del portal: SOLO datos ficticios (nunca de un participante real).
     $logo = '/images/logo-fyc.png';
     $vigencia = (int) config('credential_flow.portal.otp_vigencia_minutos');
+    // La dirección se parte solo después de cada «/», nunca a mitad del dominio («fycconsultores.com/» + «certificados»).
+    $direccionPartida = collect(explode('/', $direccion))->map(fn ($s) => '<span class="nw">'.e($s).'</span>')->implode('/<wbr>');
     $pasos = [1 => 'Entra a la página', 'Escribe tus datos', 'Revisa tu correo', 'Escribe el código', 'Busca tu certificado', 'Descárgalo'];
     $repetir = '<button class="btn-repetir solo-js" type="button" data-repetir><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Ver la animación otra vez</button>';
     $info = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>';
-    $toque = '<span class="toque"><span class="toque-anillo"></span><span class="toque-punto"></span><span class="toque-burbuja">Toca aquí</span></span>';
+    $toque = '<span class="toque"><span class="toque-anillo"></span><span class="toque-punto"></span><span class="toque-burbuja"><span class="tactil">Toca aquí</span><span class="raton">Haz clic aquí</span></span></span>';
 @endphp
 @push('estilos')
     <style nonce="{{ $nonce }}">
@@ -20,6 +22,11 @@
         .guia button:focus-visible, .guia a:focus-visible, .g-ayuda:focus-visible { outline: 3px solid var(--rosa); outline-offset: 3px; }
         .guia [tabindex="-1"]:focus { outline: 0; }
         .solo-lector { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
+        /* El deslizamiento entre pasos nunca crea desplazamiento lateral (clip no convierte a <main> en contenedor de desplazamiento: lo pegajoso sigue funcionando). */
+        main { overflow-x: clip; }
+        /* Instrucciones según el dispositivo: «Toca» en pantallas táctiles y «Haz clic» con ratón. */
+        .raton { display: none; }
+        @media (hover: hover) and (pointer: fine) { .tactil { display: none; } .raton { display: inline; } }
         /* Sin JavaScript los pasos se leen uno debajo del otro; con JavaScript se ve una pantalla a la vez. */
         .solo-js { display: none; }
         .con-js .btn-copiar.solo-js, .con-js .btn-repetir.solo-js { display: inline-flex; }
@@ -107,14 +114,19 @@
         .nota { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 14px 16px; border: 1px solid #fde3c9; border-radius: 18px; background: var(--tinte2); color: #7c2d12; font-size: 16px; }
         .nota svg { flex: none; width: 22px; height: 22px; margin-top: 1px; color: #c2410c; }
         .guia .nota p { margin: 0; }
-        .url-caja { display: flex; align-items: center; gap: 10px; margin: 16px 0 6px; padding: 8px 8px 8px 14px; border: 2px solid var(--pri); border-radius: 18px; background: #fff; box-shadow: 0 10px 24px -18px rgba(15, 23, 42, .5); }
+        .url-caja { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 16px 0 6px; padding: 8px 8px 8px 14px; border: 2px solid var(--pri); border-radius: 18px; background: #fff; box-shadow: 0 10px 24px -18px rgba(15, 23, 42, .5); }
         .url-ico { display: grid; color: var(--pri); }
         .url-ico svg { width: 22px; height: 22px; }
-        .url-txt { flex: 1; min-width: 0; font-size: 18px; font-weight: 800; line-height: 1.3; color: var(--texto); overflow-wrap: anywhere; }
-        .btn-copiar { flex: none; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--tinte); color: var(--pri); font-size: 15px; font-weight: 800; cursor: pointer; }
+        /* La dirección solo se parte después de «/» (<wbr>): nunca a mitad del dominio. Si no cabe junto a «Copiar», el botón baja a su propia línea. */
+        .url-linea { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; }
+        .url-txt { font-size: 18px; font-weight: 800; line-height: 1.3; color: var(--texto); }
+        .nw { white-space: nowrap; }
+        .btn-copiar { flex: none; margin-left: auto; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--tinte); color: var(--pri); font-size: 15px; font-weight: 800; cursor: pointer; }
         .btn-copiar svg { width: 18px; height: 18px; }
         .guia .url-aviso { margin: 0; font-size: 15px; color: #64748b; }
-        .guia .ya-aqui { margin: 14px 0 0; font-size: 16px; color: #475569; }
+        .ir-portal { margin-top: 16px; }
+        .btn-portal { width: 100%; min-height: 52px; padding: 0 16px; font-size: 16px; }
+        .guia .ir-portal-nota { margin: 8px 0 0; font-size: 15px; color: #475569; }
         .guia .asunto { margin: 14px 0 0; padding: 12px 16px; border: 1.5px dashed #cbd5e1; border-radius: 16px; background: var(--fondo); }
         .asunto-e { display: block; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #64748b; }
         .asunto-t { display: block; font-size: 17px; font-weight: 800; line-height: 1.35; color: var(--texto); }
@@ -132,38 +144,49 @@
         .nav-in .btn { padding: 0 14px; }
 
         /* Recreación del celular con el portal real (datos ficticios) */
-        .m-disp { position: relative; z-index: 1; width: min(300px, 100%); padding: 10px; border-radius: 42px; background: #0f172a; box-shadow: 0 30px 60px -30px rgba(15, 23, 42, .6), 0 0 0 1px rgba(15, 23, 42, .08); animation: sube .6s cubic-bezier(.2, .7, .2, 1) both; }
-        .m-pant { position: relative; height: 430px; border-radius: 32px; background: #fff; overflow: hidden; font-size: 12px; line-height: 1.4; color: #0f172a; }
+        .m-disp { position: relative; z-index: 1; width: min(320px, 100%); padding: 10px; border-radius: 42px; background: #0f172a; box-shadow: 0 30px 60px -30px rgba(15, 23, 42, .6), 0 0 0 1px rgba(15, 23, 42, .08); animation: sube .6s cubic-bezier(.2, .7, .2, 1) both; }
+        .m-pant { position: relative; height: 510px; border-radius: 32px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.4; color: #0f172a; }
         .m-pant p { margin: 0; }
         .m-isla { position: absolute; z-index: 6; top: 9px; left: 50%; width: 74px; height: 20px; margin-left: -37px; border-radius: 999px; background: #0f172a; }
         .m-arriba { height: 34px; }
         .m-nav { padding: 34px 10px 8px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
-        .m-url { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 2px solid #e2e8f0; border-radius: 999px; background: #fff; font-size: 11.5px; font-weight: 700; color: #334155; animation: foco 2.2s ease .3s both; }
+        .m-url { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 2px solid #e2e8f0; border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 700; color: #334155; animation: foco 2.2s ease .3s both; }
         .m-url svg { width: 12px; height: 12px; flex: none; color: #16a34a; }
         .m-url-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; clip-path: inset(0 0 0 0); animation: teclea 1.6s steps(24, end) .6s both; }
         .m-carga { height: 3px; background: #d32f57; transform-origin: left; opacity: 0; animation: carga 1s ease 2.3s both; }
         .m-sitio { animation: aparece .5s ease 3s both; }
         .m-cab { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #eef0f3; }
         .m-logo { display: block; height: 24px; width: auto; }
-        .m-cab-tit { padding-left: 8px; border-left: 1px solid #e2e8f0; font-size: 8.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #64748b; }
-        .m-salir { margin-left: auto; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 8.5px; font-weight: 800; color: #334155; }
+        .m-cab-tit { padding-left: 8px; border-left: 1px solid #e2e8f0; font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #64748b; }
+        .m-salir { margin-left: auto; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 9.5px; font-weight: 800; color: #334155; }
         .m-card { margin: 12px; padding: 14px 13px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 14px 28px -20px rgba(15, 23, 42, .35); }
         .m-segs { display: flex; gap: 4px; margin: 0 0 8px; }
         .m-segs span { flex: 1; height: 3px; border-radius: 9px; background: #e2e8f0; }
         .m-segs span.on { background: linear-gradient(90deg, #d32f57, #942934); }
-        .m-pant .m-paso { margin: 0 0 3px; font-size: 8.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #942934; }
-        .m-pant .m-h { margin: 0 0 4px; font-size: 15.5px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
-        .m-p { font-size: 9.5px; color: #64748b; }
-        .m-pant .m-label { margin: 10px 0 4px; padding: 0 3px; font-size: 9.5px; font-weight: 700; color: #94a3b8; }
-        .m-caja { position: relative; display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 10px; border: 2px solid #e2e8f0; border-radius: 11px; background: #f8fafc; font-size: 11.5px; font-weight: 700; color: #334155; }
+        .m-pant .m-paso { margin: 0 0 3px; font-size: 9.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #942934; }
+        .m-pant .m-h { margin: 0 0 4px; font-size: 17px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+        .m-p { font-size: 11px; color: #475569; }
+        .m-pant .m-label { margin: 10px 0 4px; padding: 0 3px; font-size: 11px; font-weight: 700; color: #64748b; }
+        .m-caja { position: relative; display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 10px; border: 2px solid #e2e8f0; border-radius: 11px; background: #f8fafc; font-size: 13px; font-weight: 700; color: #334155; }
         .m-caja svg { width: 13px; height: 13px; flex: none; color: #cbd5e1; }
         .a-foco { animation: foco 2s ease both; animation-delay: var(--t, 0s); }
         .tecleo { white-space: nowrap; overflow: hidden; clip-path: inset(0 0 0 0); animation: teclea 1.1s steps(20, end) both; animation-delay: calc(var(--t, 0s) + .2s); }
-        .m-boton { position: relative; display: flex; align-items: center; justify-content: center; height: 36px; margin-top: 12px; border-radius: 12px; background: linear-gradient(135deg, #e96510, #ea580c); color: #fff; font-size: 11.5px; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, .25); }
-        .m-boton.chico { display: inline-flex; height: 28px; margin: 0; padding: 0 11px; border-radius: 9px; font-size: 10px; }
+        .m-boton { position: relative; display: flex; align-items: center; justify-content: center; height: 40px; margin-top: 12px; border-radius: 12px; background: linear-gradient(135deg, #e96510, #ea580c); color: #fff; font-size: 13px; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, .25); }
+        .m-boton.chico { display: inline-flex; height: 32px; margin: 0; padding: 0 12px; border-radius: 9px; font-size: 11.5px; }
+        /* Espacio libre encima del botón señalado: allí aparece «Toca aquí» sin tapar ningún texto. */
+        .m-boton.con-toque { margin-top: 44px; }
+        .m-acc.con-toque { margin-top: 36px; }
         .a-presiona { animation: presiona .4s ease both; animation-delay: calc(var(--t, 0s) + .15s); }
-        .m-enlaces { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; font-weight: 800; color: #942934; }
-        .m-codigo { justify-content: center; gap: 5px; height: 44px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 20px; font-weight: 700; }
+        .m-enlaces { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11.5px; font-weight: 800; color: #942934; }
+        .m-codigo { justify-content: center; gap: 6px; height: 48px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 22px; font-weight: 700; }
+        /* Paso 4: teclado del celular con el código sugerido, como lo ofrecen algunos teléfonos. */
+        .m-teclado { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: 8px 6px 12px; background: #e2e8f0; animation: tecladoSube .5s cubic-bezier(.2, .8, .2, 1) .3s both; }
+        .m-sugerencias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
+        .m-sug { height: 28px; border-radius: 7px; background: #f1f5f9; }
+        .m-sug.on { display: grid; place-items: center; background: #fff; color: #0f172a; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; font-weight: 700; letter-spacing: .08em; box-shadow: 0 1px 2px rgba(15, 23, 42, .15); }
+        .m-teclas { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-top: 5px; }
+        .m-teclas.r2 { grid-template-columns: repeat(9, minmax(0, 1fr)); padding: 0 12px; }
+        .m-teclas span { height: 20px; border-radius: 5px; background: #fff; box-shadow: 0 1px 0 rgba(15, 23, 42, .12); }
         .dig { display: inline-block; animation: digito .35s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(1s + var(--i) * .3s); }
         .posrel { position: relative; }
         .t05 { --t: .5s; } .t06 { --t: .6s; } .t07 { --t: .7s; } .t09 { --t: .9s; } .t10 { --t: 1s; } .t12 { --t: 1.2s; } .t15 { --t: 1.5s; } .t22 { --t: 2.2s; } .t23 { --t: 2.3s; }
@@ -171,30 +194,34 @@
         .i0 { --i: 0; } .i1 { --i: 1; } .i2 { --i: 2; } .i3 { --i: 3; } .i4 { --i: 4; } .i5 { --i: 5; }
 
         /* Señales de la guía (no son parte del portal) */
-        .marca { position: absolute; z-index: 5; left: -11px; top: -10px; width: 22px; height: 22px; border-radius: 50%; background: var(--pri); color: #fff; font-size: 11.5px; font-weight: 800; line-height: 1; display: grid; place-items: center; box-shadow: 0 0 0 3px #fff, 0 4px 10px -2px rgba(15, 23, 42, .35); animation: pop .4s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: var(--t, 0s); }
-        .marca.der { left: auto; right: -11px; }
-        .toque { position: absolute; z-index: 6; top: 50%; right: 24%; width: 0; height: 0; pointer-events: none; }
-        .m-acc .toque { right: 30%; }
+        /* Números de la guía: por defecto en el margen izquierdo del elemento (nunca sobre su texto); «esquina» para bloques
+           cuya esquina superior derecha está libre; «linea» junto al texto, para elementos pequeños o pegados al borde. */
+        .marca { position: absolute; z-index: 5; left: -23px; top: 50%; margin-top: -10px; width: 20px; height: 20px; border-radius: 50%; background: var(--pri); color: #fff; font-size: 11px; font-weight: 800; line-height: 1; display: grid; place-items: center; box-shadow: 0 0 0 2px #fff, 0 3px 8px -2px rgba(15, 23, 42, .35); animation: pop .4s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: var(--t, 0s); }
+        .marca.esquina { left: auto; right: -9px; top: -9px; margin-top: 0; }
+        .marca.linea { position: relative; left: auto; top: auto; margin: 0; display: inline-grid; flex: none; vertical-align: middle; }
+        .toque { position: absolute; z-index: 6; top: 50%; right: 16px; width: 0; height: 0; pointer-events: none; }
         .toque-punto { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: rgba(15, 23, 42, .74); box-shadow: 0 0 0 3px rgba(255, 255, 255, .95), 0 6px 14px rgba(15, 23, 42, .35); animation: pop .4s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: var(--t, 0s); }
         .toque-anillo { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border: 3px solid rgba(15, 23, 42, .5); border-radius: 50%; opacity: 0; animation: anillo 1s ease-out 2 both; animation-delay: calc(var(--t, 0s) + .25s); }
-        .toque-burbuja { position: absolute; left: 12px; top: -46px; padding: 5px 10px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; box-shadow: 0 8px 18px -8px rgba(15, 23, 42, .6); transform-origin: left bottom; animation: pop .4s ease both; animation-delay: calc(var(--t, 0s) + .1s); }
-        .guia-nota { position: absolute; z-index: 5; right: 18px; top: -12px; padding: 5px 10px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 10.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 8px 18px -8px rgba(15, 23, 42, .6); animation: pop .4s ease both; animation-delay: var(--t, 0s); }
+        .toque-burbuja { position: absolute; right: -14px; top: -48px; padding: 5px 10px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 11.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 8px 18px -8px rgba(15, 23, 42, .6); transform-origin: right bottom; animation: pop .4s ease both; animation-delay: calc(var(--t, 0s) + .1s); }
+        .guia-nota { flex: none; padding: 4px 9px; border-radius: 9px; background: #0f172a; color: #fff; font-size: 10.5px; font-weight: 800; white-space: nowrap; animation: pop .4s ease both; animation-delay: var(--t, 0s); }
 
         /* Paso 3: sobre y bandeja */
-        .sobre-zona { height: 190px; padding-top: 76px; }
+        /* La carta sube hasta 64 px sobre el sobre: con 104 px arriba nunca llega a la ranura de la cámara del celular. */
+        .sobre-zona { height: 220px; padding-top: 104px; }
         .sobre { position: relative; width: 176px; height: 110px; margin: 0 auto; animation: sobreCae .7s cubic-bezier(.3, 1.4, .5, 1) .2s both; }
         .sobre-fondo { position: absolute; inset: 0; border-radius: 12px; background: var(--pri2); }
         .carta { position: absolute; z-index: 1; left: 12px; right: 12px; bottom: 12px; height: 120px; padding: 12px 8px; border-radius: 10px; background: #fff; text-align: center; box-shadow: 0 6px 18px -8px rgba(15, 23, 42, .35); transform: translateY(-50px); animation: cartaSube .8s cubic-bezier(.2, .8, .2, 1) 1s both; }
-        .m-pant .carta-tit { font-size: 8.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--pri); }
-        .m-pant .carta-cod { margin: 5px 0 2px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 21px; font-weight: 700; letter-spacing: .16em; }
-        .carta-nota { font-size: 8.5px; font-weight: 700; color: #64748b; }
+        .m-pant .carta-tit { font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--pri); }
+        .m-pant .carta-cod { margin: 5px 0 2px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 22px; font-weight: 700; letter-spacing: .14em; }
+        .carta-nota { font-size: 9.5px; font-weight: 700; color: #64748b; }
         .sobre-frente { position: absolute; z-index: 2; left: 0; bottom: 0; width: 100%; height: 100%; display: block; }
-        .sobre-badge { position: absolute; z-index: 3; right: -9px; top: -9px; width: 28px; height: 28px; border-radius: 50%; background: #e11d48; color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; animation: pop .45s cubic-bezier(.3, 1.6, .5, 1) .8s both; }
+        .sobre-badge { position: absolute; z-index: 3; right: -10px; top: -10px; width: 30px; height: 30px; border-radius: 50%; background: #e11d48; color: #fff; display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; animation: pop .45s cubic-bezier(.3, 1.6, .5, 1) .8s both; }
+        .sobre-badge svg { width: 16px; height: 16px; transform-origin: 50% 10%; animation: campana .9s ease-in-out 1.3s both; }
         .m-bandeja { margin: 6px 10px 0; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
-        .m-bandeja-cab { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eef0f3; font-size: 11px; font-weight: 800; }
+        .m-bandeja-cab { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eef0f3; font-size: 12px; font-weight: 800; }
         .m-bandeja-cab svg { width: 13px; height: 13px; color: #64748b; }
-        .m-carpetas { display: flex; gap: 5px; padding: 7px 10px; border-bottom: 1px solid #eef0f3; }
-        .m-carpeta { position: relative; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 9.5px; font-weight: 700; }
+        .m-carpetas { display: flex; align-items: center; gap: 5px; padding: 7px 10px; border-bottom: 1px solid #eef0f3; }
+        .m-carpeta { position: relative; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10.5px; font-weight: 700; }
         .m-carpeta.on { background: #0f172a; color: #fff; }
         .m-msg { position: relative; display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border-bottom: 1px solid #f1f5f9; }
         .m-msg:last-child { border-bottom: 0; }
@@ -202,83 +229,85 @@
         .m-av { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--pri); color: #fff; font-size: 8.5px; font-weight: 800; display: grid; place-items: center; }
         .m-av.gris { background: #e2e8f0; }
         .m-msg-txt { flex: 1; min-width: 0; }
-        .m-de { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; font-weight: 800; }
-        .m-hora { font-size: 9px; font-weight: 700; color: #64748b; }
-        .m-asunto { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .m-de { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; }
+        .m-de .m-hora { margin-left: auto; }
+        .m-hora { font-size: 10px; font-weight: 700; color: #64748b; }
+        .m-asunto { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .m-esq { height: 7px; margin: 4px 0; border-radius: 9px; background: #eef0f3; }
         .w40 { width: 40%; } .w55 { width: 55%; } .w75 { width: 75%; } .w85 { width: 85%; }
 
         /* Paso 5: lista de certificados */
         .m-panel { padding: 10px 12px 0; }
         .m-resumen { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0; }
-        .m-resumen span { padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 8.5px; font-weight: 700; }
+        .m-resumen span { padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 9.5px; font-weight: 700; }
         .m-resumen span.ok { background: #dcfce7; color: #14532d; }
         .m-buscar { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 3px 3px 3px 10px; border: 2px solid #e2e8f0; border-radius: 13px; background: #fff; animation: foco 2.2s ease both; animation-delay: var(--t, 0s); }
         .m-buscar svg { width: 13px; height: 13px; flex: none; color: #94a3b8; }
-        .m-buscar-txt { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: #334155; }
+        .m-buscar-txt { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #334155; }
         .m-buscar .tecleo { display: inline-block; }
         .m-filtros { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
-        .m-etq { display: block; margin: 0 0 2px 3px; font-size: 7.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #94a3b8; }
-        .m-select { position: relative; display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 8px; border: 2px solid #e2e8f0; border-radius: 9px; font-size: 10px; font-weight: 700; color: #334155; }
+        .m-etq { display: flex; align-items: center; gap: 4px; min-height: 20px; margin: 0 0 2px 3px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+        .m-select { position: relative; display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 8px; border: 2px solid #e2e8f0; border-radius: 9px; font-size: 11px; font-weight: 700; color: #334155; }
         .m-select svg { width: 11px; height: 11px; color: #94a3b8; }
-        .m-pant .m-rango { margin: 8px 3px 5px; font-size: 9px; color: #64748b; }
+        .m-rango { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 3px 6px; font-size: 10px; color: #64748b; }
         .m-lista { position: relative; margin: 0 12px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
         .m-lista.sep { margin-top: 10px; }
         .m-cert { position: relative; padding: 10px 11px; border-bottom: 1px solid #eef0f3; }
         .m-cert:last-child { border-bottom: 0; }
-        .m-cert.top { border-radius: 13px 13px 0 0; background: #fffbfb; box-shadow: inset 0 0 0 2px var(--pri); animation: resalta 1s ease both; animation-delay: var(--t, 0s); }
-        .m-cert-h { font-size: 11px; font-weight: 800; line-height: 1.3; }
-        .m-pant .m-fecha { margin: 3px 0 0; font-size: 9px; font-weight: 700; color: #334155; }
+        .m-cert.top { padding-right: 20px; border-radius: 13px 13px 0 0; background: #fffbfb; box-shadow: inset 0 0 0 2px var(--pri); animation: resalta 1s ease both; animation-delay: var(--t, 0s); }
+        .m-cert-h { font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+        .m-pant .m-fecha { margin: 3px 0 0; font-size: 10.5px; font-weight: 700; color: #334155; }
         .m-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
-        .m-insignia { padding: 1px 6px; border-radius: 999px; background: #dcfce7; color: #14532d; font-size: 7.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+        .m-insignia { padding: 1px 7px; border-radius: 999px; background: #dcfce7; color: #14532d; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
         .m-acc { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
         .m-acc .m-boton { flex: 1; }
-        .m-verif { font-size: 9.5px; font-weight: 800; color: #942934; }
+        .m-verif { font-size: 11px; font-weight: 800; color: #942934; }
         .m-desvanece { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: 70px; background: linear-gradient(rgba(255, 255, 255, 0), #fff); pointer-events: none; }
 
         /* Paso 6: descarga */
         .m-descargas { position: relative; margin: 12px; padding: 10px 11px; border-radius: 14px; background: #0f172a; color: #fff; animation: sube .4s ease 1.3s both; }
-        .m-pant .m-desc-t { margin: 0 0 7px; font-size: 8.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #cbd5e1; }
+        .m-pant .m-desc-t { margin: 0 0 7px; font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #cbd5e1; }
         .m-desc-fila { display: flex; align-items: center; gap: 9px; }
         .pdf { flex: none; display: block; width: 26px; height: 31px; animation: vuela .8s cubic-bezier(.3, .9, .4, 1) 1.1s both; }
         .m-desc-info { flex: 1; min-width: 0; }
-        .m-desc-nombre { font-size: 10.5px; font-weight: 800; }
+        .m-desc-nombre { font-size: 12px; font-weight: 800; }
         .m-prog { height: 5px; margin-top: 5px; border-radius: 9px; background: rgba(255, 255, 255, .18); overflow: hidden; }
         .m-prog span { display: block; height: 100%; border-radius: 9px; background: #4ade80; transform-origin: left; animation: llena 1.3s ease-in-out 1.8s both; }
-        .m-desc-estado { display: grid; margin-top: 4px; font-size: 9px; font-weight: 700; }
+        .m-desc-estado { display: grid; margin-top: 4px; font-size: 10.5px; font-weight: 700; }
         .m-desc-estado span { grid-area: 1 / 1; }
         .m-desc-estado .uno { color: #cbd5e1; opacity: 0; animation: sale .2s ease 3.1s both reverse; }
         .m-desc-estado .dos { display: inline-flex; align-items: center; gap: 4px; color: #86efac; animation: pop .4s ease 3.2s both; }
         .m-desc-estado svg { width: 11px; height: 11px; }
         .m-invita { position: relative; margin: 0 12px; padding: 9px 10px; border: 1px solid #fed7aa; border-radius: 12px; background: #fff7ed; animation: sube .4s ease 3.8s both; }
-        .m-invita strong { display: block; font-size: 10.5px; }
-        .m-pant .m-invita p { margin: 1px 0 6px; font-size: 8.5px; color: #64748b; }
+        .m-invita strong { display: block; font-size: 12px; }
+        .m-pant .m-invita p { margin: 1px 0 6px; font-size: 10px; color: #475569; }
         .m-invita-acc { display: flex; align-items: center; gap: 10px; }
-        .m-mt { font-size: 9.5px; font-weight: 800; color: #942934; }
+        .m-mt { font-size: 11px; font-weight: 800; color: #942934; }
 
         /* Final */
         .final { position: relative; max-width: 900px; margin: 0 auto; padding: 8px 0 24px; text-align: center; }
         .final-cab { position: relative; animation: sube .5s ease both; }
-        .final-cab > * { position: relative; }
-        .final-cab > .confeti { position: absolute; }
-        .confeti { left: 0; right: 0; top: 0; height: 280px; overflow: hidden; pointer-events: none; }
+        .final-cab > * { position: relative; z-index: 1; }
+        .final-cab > .confeti { position: absolute; z-index: 0; }
+        /* El confeti cae solo en la franja de la ilustración (arriba del título) y queda debajo de todo el texto. */
+        .confeti { left: 0; right: 0; top: 0; height: 172px; overflow: hidden; pointer-events: none; }
         .cf { position: absolute; top: 0; width: 10px; height: 16px; border-radius: 3px; animation: cae 1.9s cubic-bezier(.2, .6, .4, 1) both; }
-        .cf:nth-child(1) { left: 6%; top: 40px; background: var(--pri); transform: rotate(25deg); animation-delay: .1s; }
-        .cf:nth-child(2) { left: 13%; top: 150px; background: var(--oro); transform: rotate(-30deg); animation-delay: .35s; border-radius: 50%; width: 12px; height: 12px; }
-        .cf:nth-child(3) { left: 20%; top: 70px; background: #e96510; transform: rotate(60deg); animation-delay: .2s; }
-        .cf:nth-child(4) { left: 27%; top: 200px; background: var(--rosa); transform: rotate(-15deg); animation-delay: .5s; }
-        .cf:nth-child(5) { left: 33%; top: 20px; background: var(--oliva); transform: rotate(40deg); animation-delay: .05s; width: 8px; height: 14px; }
-        .cf:nth-child(6) { left: 40%; top: 120px; background: var(--oro); transform: rotate(75deg); animation-delay: .4s; }
-        .cf:nth-child(7) { left: 46%; top: 230px; background: var(--pri); transform: rotate(-50deg); animation-delay: .6s; border-radius: 50%; width: 10px; height: 10px; }
-        .cf:nth-child(8) { left: 54%; top: 30px; background: var(--rosa); transform: rotate(20deg); animation-delay: .15s; }
-        .cf:nth-child(9) { left: 60%; top: 170px; background: #e96510; transform: rotate(-70deg); animation-delay: .45s; }
-        .cf:nth-child(10) { left: 66%; top: 80px; background: var(--oliva); transform: rotate(35deg); animation-delay: .25s; border-radius: 50%; width: 12px; height: 12px; }
-        .cf:nth-child(11) { left: 72%; top: 220px; background: var(--oro); transform: rotate(-25deg); animation-delay: .55s; }
-        .cf:nth-child(12) { left: 78%; top: 50px; background: var(--pri); transform: rotate(55deg); animation-delay: .1s; }
-        .cf:nth-child(13) { left: 84%; top: 140px; background: var(--rosa); transform: rotate(-40deg); animation-delay: .35s; width: 8px; height: 14px; }
-        .cf:nth-child(14) { left: 90%; top: 20px; background: #e96510; transform: rotate(15deg); animation-delay: .2s; }
-        .cf:nth-child(15) { left: 95%; top: 190px; background: var(--oro); transform: rotate(-60deg); animation-delay: .5s; border-radius: 50%; width: 10px; height: 10px; }
-        .cf:nth-child(16) { left: 2%; top: 240px; background: var(--oliva); transform: rotate(30deg); animation-delay: .65s; }
+        .cf:nth-child(1) { left: 4%; top: 30px; background: var(--pri); transform: rotate(25deg); animation-delay: .1s; }
+        .cf:nth-child(2) { left: 11%; top: 112px; background: var(--oro); transform: rotate(-30deg); animation-delay: .35s; border-radius: 50%; width: 12px; height: 12px; }
+        .cf:nth-child(3) { left: 18%; top: 52px; background: #e96510; transform: rotate(60deg); animation-delay: .2s; }
+        .cf:nth-child(4) { left: 25%; top: 128px; background: var(--rosa); transform: rotate(-15deg); animation-delay: .5s; }
+        .cf:nth-child(5) { left: 31%; top: 15px; background: var(--oliva); transform: rotate(40deg); animation-delay: .05s; width: 8px; height: 14px; }
+        .cf:nth-child(6) { left: 40%; top: 6px; background: var(--oro); transform: rotate(75deg); animation-delay: .4s; }
+        .cf:nth-child(7) { left: 47%; top: 146px; background: var(--pri); transform: rotate(-50deg); animation-delay: .6s; border-radius: 50%; width: 10px; height: 10px; }
+        .cf:nth-child(8) { left: 55%; top: 10px; background: var(--rosa); transform: rotate(20deg); animation-delay: .15s; }
+        .cf:nth-child(9) { left: 62%; top: 138px; background: #e96510; transform: rotate(-70deg); animation-delay: .45s; }
+        .cf:nth-child(10) { left: 68%; top: 60px; background: var(--oliva); transform: rotate(35deg); animation-delay: .25s; border-radius: 50%; width: 12px; height: 12px; }
+        .cf:nth-child(11) { left: 74%; top: 124px; background: var(--oro); transform: rotate(-25deg); animation-delay: .55s; }
+        .cf:nth-child(12) { left: 80%; top: 38px; background: var(--pri); transform: rotate(55deg); animation-delay: .1s; }
+        .cf:nth-child(13) { left: 86%; top: 105px; background: var(--rosa); transform: rotate(-40deg); animation-delay: .35s; width: 8px; height: 14px; }
+        .cf:nth-child(14) { left: 92%; top: 15px; background: #e96510; transform: rotate(15deg); animation-delay: .2s; }
+        .cf:nth-child(15) { left: 95%; top: 118px; background: var(--oro); transform: rotate(-60deg); animation-delay: .5s; border-radius: 50%; width: 10px; height: 10px; }
+        .cf:nth-child(16) { left: 2%; top: 142px; background: var(--oliva); transform: rotate(30deg); animation-delay: .65s; }
         .final-arte { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 24px auto 10px; }
         .final-ovi { width: 128px; height: auto; transform-origin: 50% 96%; animation: oviEntra .8s cubic-bezier(.3, 1.4, .5, 1) .5s both, saluda 3.2s ease-in-out 1.5s infinite; }
         .medalla { flex: none; width: 140px; height: 140px; margin: 0 0 4px; animation: pop .7s cubic-bezier(.3, 1.5, .5, 1) .3s both; }
@@ -336,12 +365,15 @@
         @keyframes hojaSube { from { transform: translateY(100%); } }
         @keyframes oviEntra { from { opacity: 0; transform: translateY(30px) scale(.85); } }
         @keyframes saluda { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(2.5deg); } }
+        @keyframes campana { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-16deg); } 40% { transform: rotate(14deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(5deg); } }
+        @keyframes tecladoSube { from { transform: translateY(100%); } }
 
         @media (min-width: 560px) { .g-ancho { display: inline; } .g-corto { display: none; } }
         @media (min-width: 640px) {
             .ay-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .ay-contacto { grid-column: 1 / -1; }
             .bv-cta { width: auto; min-width: 280px; }
+            .btn-portal { width: auto; }
             .navbar { margin-left: -1.5rem; margin-right: -1.5rem; }
             .nav-in { display: flex; justify-content: flex-end; padding-left: 1.5rem; padding-right: 1.5rem; }
             .nav-in .btn { min-width: 200px; padding: 0 24px; }
@@ -355,8 +387,9 @@
             .escena { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); grid-template-rows: auto 1fr; grid-template-areas: "demo texto" "demo tips"; column-gap: 56px; row-gap: 20px; align-items: start; }
             .demo { position: sticky; top: 96px; }
             .demo-panel { min-height: 600px; padding-top: 40px; }
-            .m-disp { width: 320px; }
-            .m-pant { height: 470px; }
+            .m-disp { width: 340px; }
+            .m-pant { height: 540px; }
+            .confeti { height: 236px; }
             .guia .esc-h { font-size: 40px; }
             .guia .final-h { font-size: 46px; }
             .final-ovi { width: 160px; }
@@ -455,24 +488,29 @@
         <h2 id="t-p1" class="esc-h" tabindex="-1">¡Vamos por tu certificado!</h2>
         <p class="lead">Abre el navegador de tu celular o computador y escribe esta dirección en la barra de arriba:</p>
         <div class="url-caja">
-            <span class="url-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
-            <span class="url-txt" data-direccion>{{ $direccion }}</span>
+            <span class="url-linea">
+                <span class="url-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
+                <span class="url-txt" data-direccion>{!! $direccionPartida !!}</span>
+            </span>
             <button class="btn-copiar solo-js" type="button" data-copiar="{{ route('portal.inicio') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><span data-copiar-txt>Copiar</span></button>
         </div>
         <p class="url-aviso">Escríbela tal cual, sin espacios.</p>
-        <p class="ya-aqui">¿Ya estás aquí? <a class="enlace-texto" href="{{ route('portal.inicio') }}">Ir a consultar mis certificados</a></p>
+        <div class="ir-portal">
+            <a class="btn btn-sec btn-portal" href="{{ route('portal.inicio') }}" target="_blank" rel="noopener">Ir a consultar mis certificados<span class="solo-lector"> (se abre en una pestaña nueva)</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
+            <p class="ir-portal-nota">Se abre en una pestaña nueva. Esta guía sigue aquí: usa «Siguiente» para continuar.</p>
+        </div>
     </div>
     <div class="demo">
         <div class="demo-panel">
             <div class="m-disp" aria-hidden="true">
                 <div class="m-pant">
                     <span class="m-isla"></span>
-                    <div class="m-nav"><div class="m-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span class="m-url-txt">{{ $direccion }}</span></div></div>
+                    <div class="m-nav"><div class="m-url"><span class="marca linea t05">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span class="m-url-txt">{{ $direccion }}</span></div></div>
                     <div class="m-carga"></div>
                     <div class="m-sitio">
                         <div class="m-cab"><img class="m-logo" src="{{ $logo }}" alt=""><span class="m-cab-tit">Certificados</span></div>
                         <div class="m-card posrel">
-                            <span class="marca der t35">3</span>
+                            <span class="marca esquina t35">3</span>
                             <div class="m-segs"><span class="on"></span><span></span><span></span></div>
                             <p class="m-paso">Paso 1 de 3</p>
                             <p class="m-h">Consulta de certificados</p>
@@ -492,7 +530,7 @@
     <div class="tips">
         <ol class="tips-lista">
             <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Abre tu navegador</p><p class="tip-d">Es el programa con el que entras a internet: Chrome, Safari, Edge o Firefox.</p></div></li>
-            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Escribe la dirección arriba</p><p class="tip-d">Toca la barra superior, escribe la dirección y presiona «Ir» o «Enter».</p></div></li>
+            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Escribe la dirección arriba</p><p class="tip-d"><span class="tactil">Toca la barra de arriba, escribe la dirección y presiona «Ir».</span><span class="raton">Haz clic en la barra de direcciones, escribe la dirección y presiona la tecla «Enter».</span></p></div></li>
             <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">Confirma que llegaste</p><p class="tip-d">Verás el logo de F&amp;C Consultores y el título «Consulta de certificados».</p></div></li>
         </ol>
     </div>
@@ -529,7 +567,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
                             <span class="tecleo">ana.ejemplo@correo.com</span>
                         </div>
-                        <div class="m-boton a-presiona t42">
+                        <div class="m-boton con-toque a-presiona t42">
                             <span class="marca t41">3</span>
                             Continuar
                             {!! $toque !!}
@@ -544,7 +582,7 @@
         <ol class="tips-lista">
             <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Número de documento</p><p class="tip-d">Escríbelo completo y revisa que no falte ningún número.</p></div></li>
             <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Correo electrónico</p><p class="tip-d">Revisa la arroba (@) y que no le falte ninguna letra.</p></div></li>
-            <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">Toca «Continuar»</p><p class="tip-d">Es el botón naranja. Si tus datos coinciden con nuestros registros, te enviaremos un código a ese correo.</p></div></li>
+            <li class="tip"><span class="tip-num">3</span><div><p class="tip-t"><span class="tactil">Toca</span><span class="raton">Haz clic en</span> «Continuar»</p><p class="tip-d">Es el botón naranja. Si tus datos coinciden con nuestros registros, te enviaremos un código a ese correo.</p></div></li>
         </ol>
         <div class="nota">{!! $info !!}<p>La página tiene solo 3 pantallas. En esta verás «Paso 1 de 3».</p></div>
     </div>
@@ -568,16 +606,15 @@
                             <div class="sobre-fondo"></div>
                             <div class="carta"><p class="carta-tit">Código de acceso</p><p class="carta-cod">274619</p><p class="carta-nota">Código de ejemplo</p></div>
                             <svg class="sobre-frente" viewBox="0 0 176 110" preserveAspectRatio="none"><path d="M0 30 L88 76 L176 30 V98 Q176 110 164 110 H12 Q0 110 0 98 Z" class="f-pri"/><path d="M0 98 L64 62 M176 98 L112 62" stroke="#fff" stroke-opacity=".22" stroke-width="2"/></svg>
-                            <span class="sobre-badge">1</span>
+                            <span class="sobre-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
                         </div>
                     </div>
                     <div class="m-bandeja">
                         <div class="m-bandeja-cab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5 5h14l1 8v6H4v-6z"/></svg>Bandeja de entrada</div>
-                        <div class="m-carpetas"><span class="m-carpeta on">Principal</span><span class="m-carpeta">Promociones</span><span class="m-carpeta posrel">Spam<span class="marca der t30">2</span></span></div>
+                        <div class="m-carpetas"><span class="m-carpeta on">Principal</span><span class="m-carpeta">Promociones</span><span class="m-carpeta">Spam</span><span class="marca linea t30">2</span></div>
                         <div class="m-msg nuevo">
-                            <span class="marca t22">1</span>
                             <span class="m-av">F&amp;C</span>
-                            <div class="m-msg-txt"><div class="m-de"><span>F&amp;C Consultores</span><span class="m-hora">Ahora</span></div><div class="m-asunto">Código de acceso para consultar certificados</div></div>
+                            <div class="m-msg-txt"><div class="m-de"><span class="marca linea t22">1</span><span>F&amp;C Consultores</span><span class="m-hora">Ahora</span></div><div class="m-asunto">Código de acceso para consultar certificados</div></div>
                         </div>
                         <div class="m-msg"><span class="m-av gris"></span><div class="m-msg-txt"><div class="m-esq w55"></div><div class="m-esq w85"></div></div></div>
                         <div class="m-msg"><span class="m-av gris"></span><div class="m-msg-txt"><div class="m-esq w40"></div><div class="m-esq w75"></div></div></div>
@@ -601,7 +638,7 @@
     <div class="texto">
         <p class="ceja">Paso 4 · {{ $pasos[4] }}</p>
         <h2 id="t-p4" class="esc-h" tabindex="-1">¡Ya casi estamos!</h2>
-        <p class="lead">Regresa a la página de certificados y escribe los 6 números en la casilla «Código de acceso». Luego toca «Entrar».</p>
+        <p class="lead">Regresa a la página de certificados y escribe los 6 números en la casilla «Código de acceso». Luego <span class="tactil">toca</span><span class="raton">haz clic en</span> «Entrar».</p>
     </div>
     <div class="demo">
         <div class="demo-panel">
@@ -620,12 +657,17 @@
                             <span class="marca t06">1</span>
                             <span class="dig i0">2</span><span class="dig i1">7</span><span class="dig i2">4</span><span class="dig i3">6</span><span class="dig i4">1</span><span class="dig i5">9</span>
                         </div>
-                        <div class="m-boton a-presiona t32">
+                        <div class="m-boton con-toque a-presiona t32">
                             <span class="marca t31">2</span>
                             Entrar
                             {!! $toque !!}
                         </div>
                         <div class="m-enlaces posrel"><span class="marca t44">3</span><span>Enviar otro código</span><span>Usar otros datos</span></div>
+                    </div>
+                    <div class="m-teclado">
+                        <div class="m-sugerencias"><span class="m-sug on">274619</span><span class="m-sug"></span><span class="m-sug"></span></div>
+                        <div class="m-teclas">@for ($k = 0; $k < 10; $k++)<span></span>@endfor</div>
+                        <div class="m-teclas r2">@for ($k = 0; $k < 9; $k++)<span></span>@endfor</div>
                     </div>
                 </div>
             </div>
@@ -635,7 +677,7 @@
     <div class="tips">
         <ol class="tips-lista">
             <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Escribe el código</p><p class="tip-d">Los 6 números que llegaron a tu correo.</p></div></li>
-            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Toca «Entrar»</p><p class="tip-d">Si el código es correcto, verás tus certificados enseguida.</p></div></li>
+            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t"><span class="tactil">Toca</span><span class="raton">Haz clic en</span> «Entrar»</p><p class="tip-d">Si el código es correcto, verás tus certificados enseguida.</p></div></li>
             <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">¿Algo salió mal?</p><p class="tip-d">«Enviar otro código» te manda uno nuevo. «Usar otros datos» te deja corregir tu documento o tu correo.</p></div></li>
         </ol>
         <div class="nota">{!! $info !!}<p>En algunos celulares el código aparece sobre el teclado: tócalo y se escribe solo.</p></div>
@@ -661,21 +703,20 @@
                         <p class="m-h">Certificados disponibles</p>
                         <div class="m-resumen"><span>3 certificados</span><span class="ok">3 disponibles para descargar</span></div>
                         <div class="m-buscar t24">
-                            <span class="marca t23">1</span>
+                            <span class="marca linea t23">1</span>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                             <span class="m-buscar-txt"><span class="tecleo">Tributaria</span></span>
                             <span class="m-boton chico">Buscar</span>
                         </div>
                         <div class="m-filtros">
-                            <div class="posrel"><span class="marca t38">2</span><span class="m-etq">Ordenar</span><div class="m-select">Más recientes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div></div>
+                            <div><span class="m-etq">Ordenar <span class="marca linea t38">2</span></span><div class="m-select">Más recientes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div></div>
                             <div><span class="m-etq">Publicado en</span><div class="m-select">Cualquier fecha<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div></div>
                         </div>
-                        <p class="m-rango">Mostrando 1–3 de 3</p>
+                        <div class="m-rango"><span>Mostrando 1–3 de 3</span><span class="guia-nota t12">El más reciente, primero</span></div>
                     </div>
                     <div class="m-lista">
                         <div class="m-cert top t09">
-                            <span class="marca der t10">3</span>
-                            <span class="guia-nota t12">El más reciente, primero</span>
+                            <span class="marca esquina t10">3</span>
                             <p class="m-cert-h">Seminario de Actualización Tributaria 2026</p>
                             <p class="m-fecha">Publicado el 20 de octubre de 2026</p>
                             <div class="m-meta"><span class="m-insignia">Disponible</span></div>
@@ -696,8 +737,8 @@
     </div>
     <div class="tips">
         <ol class="tips-lista">
-            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Busca por nombre</p><p class="tip-d">Escribe una palabra de la capacitación en «Buscar capacitación» y toca «Buscar».</p></div></li>
-            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Ordena o filtra</p><p class="tip-d">En «Ordenar» elige Más recientes, Más antiguos o Nombre (A–Z). También puedes filtrar por «Publicado en» y «Año del evento».</p></div></li>
+            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Busca por nombre</p><p class="tip-d">Escribe una palabra de la capacitación en «Buscar capacitación» y <span class="tactil">toca</span><span class="raton">haz clic en</span> «Buscar».</p></div></li>
+            <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Ordena o filtra</p><p class="tip-d">En «Ordenar» elige Más recientes, Más antiguos o <span class="nw">Nombre (A–Z)</span>. También puedes filtrar por «Publicado en» y «Año del evento».</p></div></li>
             <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">Reconoce el tuyo</p><p class="tip-d">Cada certificado muestra el nombre de la capacitación, la fecha en que se publicó y la etiqueta verde «Disponible».</p></div></li>
         </ol>
         <div class="nota">{!! $info !!}<p>La búsqueda y los filtros aparecen cuando tienes 2 o más certificados. Los certificados históricos sin fecha de publicación salen al final, en un grupo aparte.</p></div>
@@ -709,7 +750,7 @@
     <div class="texto">
         <p class="ceja">Paso 6 · {{ $pasos[6] }}</p>
         <h2 id="t-p6" class="esc-h" tabindex="-1">¡Listo! Tu certificado te espera</h2>
-        <p class="lead">Toca el botón naranja «Descargar PDF» al lado de tu certificado. El archivo se guarda en tu celular o computador.</p>
+        <p class="lead"><span class="tactil">Toca</span><span class="raton">Haz clic en</span> el botón naranja «Descargar PDF» al lado de tu certificado. El archivo se guarda en tu celular o computador.</p>
     </div>
     <div class="demo">
         <div class="demo-panel">
@@ -724,14 +765,14 @@
                             <p class="m-cert-h">Seminario de Actualización Tributaria 2026</p>
                             <p class="m-fecha">Publicado el 20 de octubre de 2026</p>
                             <div class="m-meta"><span class="m-insignia">Disponible</span></div>
-                            <div class="m-acc">
-                                <span class="m-boton chico a-presiona posrel t07"><span class="marca t05">1</span>Descargar PDF{!! $toque !!}</span>
+                            <div class="m-acc con-toque">
+                                <span class="m-boton chico a-presiona t07"><span class="marca t05">1</span>Descargar PDF{!! $toque !!}</span>
                                 <span class="m-verif">Verificar</span>
                             </div>
                         </div>
                     </div>
                     <div class="m-descargas">
-                        <span class="marca t15">2</span>
+                        <span class="marca esquina t15">2</span>
                         <p class="m-desc-t">Descargas</p>
                         <div class="m-desc-fila">
                             <svg class="pdf" viewBox="0 0 30 36"><path d="M4 2h15l9 9v21a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/><path d="M19 2v9h9" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/><rect x="0" y="17" width="22" height="11" rx="2.5" fill="#dc2626"/><text x="11" y="25.2" text-anchor="middle" font-size="7.5" font-weight="800" fill="#fff" font-family="Arial, sans-serif">PDF</text></svg>
@@ -743,7 +784,7 @@
                         </div>
                     </div>
                     <div class="m-invita">
-                        <span class="marca der t39">3</span>
+                        <span class="marca esquina t39">3</span>
                         <strong>Evaluación del evento</strong>
                         <p>La opinión recibida contribuye a mejorar continuamente nuestros eventos.</p>
                         <div class="m-invita-acc"><span class="m-boton chico">Responder encuesta</span><span class="m-mt">Más tarde</span></div>
@@ -755,9 +796,9 @@
     </div>
     <div class="tips">
         <ol class="tips-lista">
-            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Toca «Descargar PDF»</p><p class="tip-d">Si tu certificado fue actualizado, el botón dice «Descargar certificado».</p></div></li>
+            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t"><span class="tactil">Toca</span><span class="raton">Haz clic en</span> «Descargar PDF»</p><p class="tip-d">Si tu certificado fue actualizado, el botón dice «Descargar certificado».</p></div></li>
             <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Espera unos segundos</p><p class="tip-d">Tu navegador te avisará cuando la descarga termine.</p></div></li>
-            <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">Encuesta opcional</p><p class="tip-d">Puede aparecer una invitación para evaluar el evento. Respóndela si quieres o toca «Más tarde»: tu descarga no depende de ella.</p></div></li>
+            <li class="tip"><span class="tip-num">3</span><div><p class="tip-t">Encuesta opcional</p><p class="tip-d">Puede aparecer una invitación para evaluar el evento. Respóndela si quieres o <span class="tactil">toca</span><span class="raton">haz clic en</span> «Más tarde»: tu descarga no depende de ella.</p></div></li>
         </ol>
         <div class="donde">
             <h3 class="donde-t">¿Dónde quedó mi certificado?</h3>

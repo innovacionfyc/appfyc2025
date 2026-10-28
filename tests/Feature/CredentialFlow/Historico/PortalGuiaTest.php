@@ -65,7 +65,7 @@ class PortalGuiaTest extends PortalTestCase
         $direccion = preg_replace('#^https?://#i', '', route('portal.inicio'));
 
         $this->guia()->assertOk()
-            ->assertSee('<span class="url-txt" data-direccion>'.e($direccion).'</span>', false)
+            ->assertSee('<span class="url-txt" data-direccion>'.collect(explode('/', $direccion))->map(fn ($s) => '<span class="nw">'.e($s).'</span>')->implode('/<wbr>').'</span>', false)
             ->assertSee('data-copiar="'.route('portal.inicio').'"', false)
             ->assertSee('href="'.route('portal.inicio').'"', false);
     }
