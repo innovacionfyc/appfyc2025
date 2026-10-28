@@ -80,6 +80,21 @@ class PortalGuiaTest extends PortalTestCase
             ->assertDontSee('Cerrar sesión</button>', false);
     }
 
+    public function test_la_guia_pide_escribir_solo_el_numero_de_documento(): void
+    {
+        // Regla del portal: el titular escribe únicamente su número; el sistema reconoce internamente los formatos importados (C.C., puntos…).
+        $html = $this->guia()->assertOk()
+            ->assertSee('Escribe solo tu número de documento, sin puntos, espacios ni letras')
+            ->assertSee('Solo los números, completos y seguidos (por ejemplo, 1023456789). No hace falta escribir C.C., T.I. ni otras siglas.')
+            ->assertSee('Escribe solo los números, sin puntos, espacios ni letras.')
+            ->getContent();
+        // El documento que se teclea en la animación es solo dígitos (nunca «C.C. 1.023…»).
+        preg_match_all('#<span class="tecleo">([^<]+)</span>#', $html, $m);
+        $this->assertContains('1023456789', $m[1]);
+        $this->assertSame([], array_values(array_filter($m[1], fn ($v) => preg_match('/^[\d.\s]*\d[\d.\s]*$/', $v) === 1 && preg_match('/^\d+$/', $v) !== 1)));
+        $this->assertDoesNotMatchRegularExpression('/C\.C\.\s*\d|CC\s*\d|\d{1,3}\.\d{3}\.\d{3}/', $html);
+    }
+
     public function test_el_contacto_por_whatsapp_aparece_solo_si_esta_configurado(): void
     {
         config(['credential_flow.portal.contacto_url' => null]);

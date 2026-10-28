@@ -541,7 +541,7 @@
     <div class="texto">
         <p class="ceja">Paso 2 · {{ $pasos[2] }}</p>
         <h2 id="t-p2" class="esc-h" tabindex="-1">Cuéntanos quién eres</h2>
-        <p class="lead">Escribe tu número de documento y tu correo electrónico. Usa los mismos datos que registraste al inscribirte en la capacitación.</p>
+        <p class="lead">Escribe solo tu número de documento, sin puntos, espacios ni letras, y tu correo electrónico. Usa los mismos datos que registraste al inscribirte en la capacitación.</p>
     </div>
     <div class="demo">
         <div class="demo-panel">
@@ -580,7 +580,7 @@
     </div>
     <div class="tips">
         <ol class="tips-lista">
-            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Número de documento</p><p class="tip-d">Escríbelo completo y revisa que no falte ningún número.</p></div></li>
+            <li class="tip"><span class="tip-num">1</span><div><p class="tip-t">Número de documento</p><p class="tip-d">Solo los números, completos y seguidos (por ejemplo, 1023456789). No hace falta escribir C.C., T.I. ni otras siglas.</p></div></li>
             <li class="tip"><span class="tip-num">2</span><div><p class="tip-t">Correo electrónico</p><p class="tip-d">Revisa la arroba (@) y que no le falte ninguna letra.</p></div></li>
             <li class="tip"><span class="tip-num">3</span><div><p class="tip-t"><span class="tactil">Toca</span><span class="raton">Haz clic en</span> «Continuar»</p><p class="tip-d">Es el botón naranja. Si tus datos coinciden con nuestros registros, te enviaremos un código a ese correo.</p></div></li>
         </ol>

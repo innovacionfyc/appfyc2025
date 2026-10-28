@@ -2,7 +2,7 @@
 <div class="ay-grid">
     <div class="ay-card">
         <span class="ay-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h4M7 14h6M15 10h2"/></svg></span>
-        <div><p class="ay-t">Revisa tu número de documento</p><p class="ay-d">Escríbelo completo y sin errores. Debe ser el mismo número con el que te inscribiste en la capacitación.</p></div>
+        <div><p class="ay-t">Revisa tu número de documento</p><p class="ay-d">Escribe solo los números, sin puntos, espacios ni letras. Debe ser el mismo número con el que te inscribiste en la capacitación.</p></div>
     </div>
     <div class="ay-card">
         <span class="ay-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
