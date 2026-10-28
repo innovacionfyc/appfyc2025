@@ -6,9 +6,16 @@
 @php
     $l = $listado ?? null;
     $consulta = fn (array $extra = []) => array_filter(
-        array_merge(['q' => $l['q'] ?? '', 'anio' => $l['anio'] ?? null, 'orden' => ($l['orden'] ?? 'recientes') === 'recientes' ? null : $l['orden']], $extra),
+        array_merge(['q' => $l['q'] ?? '', 'anio' => $l['anio'] ?? null, 'orden' => ($l['orden'] ?? 'recientes') === 'recientes' ? null : $l['orden'],
+            'publicado' => $l['publicado'] ?? null, 'desde' => $l['dia_desde'] ?? null, 'hasta' => $l['dia_hasta'] ?? null], $extra),
         fn ($v) => $v !== null && $v !== '' && $v !== 1
     );
+    // Fechas en palabras («23 de octubre de 2026»), sin depender del idioma del servidor.
+    $meses = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    $fecha = fn (string $f) => (int) substr($f, 8, 2).' de '.$meses[(int) substr($f, 5, 2)].' de '.substr($f, 0, 4);
+    $mesDe = fn (string $periodo) => ucfirst($meses[(int) substr($periodo, 5, 2)]).' de '.substr($periodo, 0, 4);
+    // La fecha del evento tal como se imprimió; si ya trae su redacción («Realizado los días…») no se le antepone otra.
+    $realizado = fn (?string $r) => $r === null ? null : (preg_match('/^\s*realizad/iu', $r) === 1 ? mb_strtoupper(mb_substr(trim($r), 0, 1)).mb_substr(trim($r), 1) : 'Fecha del evento: '.$r);
     $etiqueta = fn (string $tipo) => match ($tipo) { 'disponible' => 'Disponible', 'actualizado' => 'Certificado actualizado', 'revocado' => 'Revocado', 'reemplazado' => 'Versión posterior', default => 'En revisión' };
     $clase = fn (string $tipo) => match ($tipo) { 'disponible', 'actualizado' => 'ok', 'revocado' => 'mal', 'reemplazado' => 'neutra', default => '' };
 @endphp
@@ -30,9 +37,19 @@
         .buscador input::placeholder { color: #94a3b8; font-weight: 500; }
         .buscador .boton { margin-top: 0; padding: .6rem 1.1rem; font-size: .88rem; border-radius: .85rem; }
         .filtros { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .6rem; }
-        .filtros .caja { padding: 0 .85rem; border-radius: .8rem; background: #fff; }
-        .filtros .caja select { padding: .55rem 0; font-size: .9rem; }
-        .filtros .limpiar { grid-column: 1 / -1; text-align: right; font-size: .85rem; }
+        .filtros .campo:last-child { grid-column: 1 / -1; }
+        .filtros .caja, .dias .caja { padding: 0 .85rem; border-radius: .8rem; background: #fff; }
+        .filtros .caja select, .dias .caja input { width: 100%; padding: .55rem 0; font-size: .9rem; }
+        .etq-filtro { display: block; margin: 0 0 .2rem .2rem; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--tenue); }
+        .dias { margin-top: .6rem; }
+        .dias summary { cursor: pointer; width: fit-content; font-size: .85rem; font-weight: 700; color: var(--vino); }
+        .dias-campos { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; align-items: end; margin-top: .5rem; }
+        .dias-campos .boton { grid-column: 1 / -1; margin-top: 0; }
+        .limpiar { margin: .5rem 0 0; text-align: right; font-size: .85rem; }
+        .nota { margin: 0 .25rem .6rem; font-size: .82rem; }
+        .separador { margin: 0; padding: .55rem 1.1rem; background: #f8fafc; border-bottom: 1px solid #eef2f6; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--tenue); }
+        .cert-fechas { display: flex; flex-wrap: wrap; gap: .15rem .75rem; margin: .3rem 0 0; font-size: .82rem; }
+        .cert-fechas .publicado { font-weight: 700; color: #334155; }
         .solo-lector { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
         .rango { margin: 0 .25rem .5rem; font-size: .82rem; min-height: 1.1rem; }
 
@@ -67,8 +84,10 @@
         @media (min-width: 640px) {
             .encabezado { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
             .encabezado h1 { margin-bottom: 0; }
-            .filtros { grid-template-columns: 11rem 12rem 1fr; align-items: center; }
-            .filtros .limpiar { grid-column: auto; }
+            .filtros { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; }
+            .filtros .campo:last-child { grid-column: auto; }
+            .dias-campos { grid-template-columns: 12rem 12rem auto; }
+            .dias-campos .boton { grid-column: auto; }
             .cert { grid-template-columns: 1fr auto; padding: .8rem 1.2rem; gap: 1.25rem; }
             .cert-acciones .boton { flex: none; }
         }
@@ -93,13 +112,37 @@
             <form class="busqueda" method="GET" action="{{ route('portal.panel') }}" role="search" data-controles>
                 <div class="buscador">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <label class="solo-lector" for="q">Buscar por nombre del evento</label>
-                    <input id="q" name="q" type="search" maxlength="80" value="{{ $l['q'] }}" placeholder="Buscar evento">
+                    <label class="solo-lector" for="q">Buscar por nombre de la capacitación</label>
+                    <input id="q" name="q" type="search" maxlength="80" value="{{ $l['q'] }}" placeholder="Buscar capacitación">
                     <button class="boton chico" type="submit">Buscar</button>
                 </div>
                 <div class="filtros">
                     <div class="campo">
-                        <label class="solo-lector" for="anio">Año</label>
+                        <label class="etq-filtro" for="orden">Ordenar</label>
+                        <div class="caja">
+                            <select id="orden" name="orden">
+                                <option value="recientes" @selected($l['orden'] === 'recientes')>Más recientes</option>
+                                <option value="antiguos" @selected($l['orden'] === 'antiguos')>Más antiguos</option>
+                                <option value="nombre" @selected($l['orden'] === 'nombre')>Nombre (A–Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="campo">
+                        <label class="etq-filtro" for="publicado">Publicado en</label>
+                        <div class="caja">
+                            <select id="publicado" name="publicado" @disabled($l['periodos'] === [])>
+                                <option value="">Cualquier fecha</option>
+                                @foreach ($l['periodos'] as $anioPub => $mesesPub)
+                                    <optgroup label="{{ $anioPub }}">
+                                        <option value="{{ $anioPub }}" @selected($l['publicado'] === (string) $anioPub)>Todo {{ $anioPub }}</option>
+                                        @foreach ($mesesPub as $periodo)<option value="{{ $periodo }}" @selected($l['publicado'] === $periodo)>{{ $mesDe($periodo) }}</option>@endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="campo">
+                        <label class="etq-filtro" for="anio">Año del evento</label>
                         <div class="caja">
                             <select id="anio" name="anio">
                                 <option value="">Todos los años</option>
@@ -108,18 +151,21 @@
                             </select>
                         </div>
                     </div>
-                    <div class="campo">
-                        <label class="solo-lector" for="orden">Orden</label>
-                        <div class="caja">
-                            <select id="orden" name="orden">
-                                <option value="recientes" @selected($l['orden'] === 'recientes')>Más recientes</option>
-                                <option value="antiguos" @selected($l['orden'] === 'antiguos')>Más antiguos</option>
-                            </select>
-                        </div>
-                    </div>
-                    @if ($l['filtrado'])<a class="enlace limpiar" href="{{ route('portal.panel') }}">Limpiar filtros</a>@endif
                 </div>
+                <details class="dias" @if ($l['dia_desde'] !== null || $l['dia_hasta'] !== null) open @endif data-dias>
+                    <summary>Buscar por días de publicación</summary>
+                    <div class="dias-campos">
+                        <div class="campo"><label class="etq-filtro" for="desde">Desde</label><div class="caja"><input id="desde" name="desde" type="date" value="{{ $l['dia_desde'] }}"></div></div>
+                        <div class="campo"><label class="etq-filtro" for="hasta">Hasta</label><div class="caja"><input id="hasta" name="hasta" type="date" value="{{ $l['dia_hasta'] }}"></div></div>
+                        <button class="boton sec chico" type="submit">Aplicar</button>
+                    </div>
+                </details>
+                @if ($l['filtrado'])<p class="limpiar"><a class="enlace" href="{{ route('portal.panel') }}">Limpiar filtros</a></p>@endif
             </form>
+
+            @if ($l['sin_fecha_ocultos'] > 0)
+                <p class="suave nota" data-nota-historicos>{{ $l['sin_fecha_ocultos'] === 1 ? 'Un certificado histórico no tiene' : $l['sin_fecha_ocultos'].' certificados históricos no tienen' }} fecha de publicación registrada y no {{ $l['sin_fecha_ocultos'] === 1 ? 'aparece' : 'aparecen' }} con este filtro de fechas.</p>
+            @endif
 
             <p class="suave rango" data-rango>
                 @if ($l['total'] > 0)
@@ -129,13 +175,28 @@
         @endif
 
         <div class="lista" data-lista>
+            @php $grupoAnterior = null; @endphp
             @forelse ($tarjetas as $t)
-                @php $enc = empty($t['moderno']) ? ($encuestas[$t['id']] ?? null) : null; @endphp
-                <article class="cert" data-certificado="{{ $t['tipo'] }}"@if (! empty($t['moderno'])) data-moderno @endif>
+                @php
+                    $enc = empty($t['moderno']) ? ($encuestas[$t['id']] ?? null) : null;
+                    $sinFecha = $t['publicado_at'] === null;
+                    $real = $realizado($t['realizado'] ?? null);
+                @endphp
+                {{-- Los históricos sin fecha registrada van SIEMPRE en su propio bloque, al final y claramente separado (sea cual sea el orden elegido). --}}
+                @if ($sinFecha && $grupoAnterior !== true)
+                    <p class="separador" data-separador="historicos">Certificados históricos · sin fecha de publicación registrada</p>
+                @endif
+                @php $grupoAnterior = $sinFecha; @endphp
+                <article class="cert" data-certificado="{{ $t['tipo'] }}"@if (! empty($t['moderno'])) data-moderno @endif @if (! $sinFecha) data-publicado="{{ substr($t['publicado_at'], 0, 10) }}" @endif>
                     <div class="cert-info">
                         <h2>{{ $t['evento'] }}</h2>
+                        <p class="cert-fechas">
+                            @if (! $sinFecha)<span class="publicado" data-fecha-publicacion>{{ $t['tipo'] === 'actualizado' ? 'Actualizado' : 'Publicado' }} el {{ $fecha($t['publicado_at']) }}</span>
+                            @else<span class="suave" data-sin-fecha>Certificado histórico</span>@endif
+                            @if ($real !== null)<span class="suave" data-fecha-evento>{{ $real }}</span>
+                            @elseif ($t['anio'] !== null)<span class="suave" data-fecha-evento>Evento de {{ $t['anio'] }}</span>@endif
+                        </p>
                         <div class="cert-meta">
-                            @if ($t['anio'] !== null)<span class="suave">Año {{ $t['anio'] }}</span>@endif
                             <span class="insignia {{ $clase($t['tipo']) }}">{{ $etiqueta($t['tipo']) }}</span>
                             @if ($enc === 'respondida')<span class="insignia neutra" data-encuesta="respondida">Encuesta respondida</span>@endif
                             @if ($t['codigo'] !== null)<span class="suave">Código del certificado: {{ $t['codigo'] }}</span>@endif
@@ -173,7 +234,11 @@
                 </article>
             @empty
                 <div class="tarjeta centrado vacio">
-                    @if ($l !== null && $l['total_sin_filtros'] > 0)
+                    @if ($l !== null && ($l['filtro_invalido'] ?? null) !== null)
+                        <h2 data-filtro-invalido>{{ $l['filtro_invalido'] }}</h2>
+                        <p class="suave">Revisar el filtro o quitarlo para ver los certificados.</p>
+                        <a class="boton sec" href="{{ route('portal.panel') }}">Limpiar filtros</a>
+                    @elseif ($l !== null && $l['total_sin_filtros'] > 0)
                         <h2>No se encontraron resultados para la búsqueda</h2>
                         <p class="suave">Probar con otras palabras o quitar los filtros.</p>
                         <a class="boton sec" href="{{ route('portal.panel') }}">Limpiar filtros</a>

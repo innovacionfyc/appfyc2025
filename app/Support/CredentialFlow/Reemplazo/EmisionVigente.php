@@ -37,7 +37,7 @@ final class EmisionVigente
     public const ANOMALIA_CORRUPTA = 'cadena_corrupta';
 
     /** Columnas mínimas de los eslabones (el PDF y el snapshot no se cargan para resolver una cadena). */
-    private const COLUMNAS = ['id', 'codigo', 'estado', 'version', 'participante_id', 'reemplaza_id'];
+    private const COLUMNAS = ['id', 'codigo', 'estado', 'version', 'participante_id', 'reemplaza_id', 'emitido_at'];
 
     /**
      * @return array{ultima:?Emision,vigente:?Emision,cadena:list<int>,anomalia:?string,estado:string}

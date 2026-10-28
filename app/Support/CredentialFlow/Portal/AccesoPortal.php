@@ -23,6 +23,10 @@ use Illuminate\Support\Str;
  *    un grupo, o en ninguno, no hay OTP (respuesta pública idéntica; el caso queda para revisión manual).
  *  - Siempre debe haber al menos un certificado habilitante (`ok` / `duplicado_consolidado`) dentro del alcance.
  * La similitud difusa de nombres NO interviene jamás. Sin N+1: una consulta por documento (+ correos, eventos, canónicos y reemplazos).
+ *
+ * DOCUMENTO = NÚMERO (FamiliaDocumento): «1234567», «C.C. 1.234.567» y «CC1234567» se buscan juntos, porque el importador guarda el tipo delante cuando la base
+ * trae esa columna y la persona escribe solo su número. Las reglas de arriba se aplican igual sobre toda la familia; registros con tipos explícitos distintos
+ * (C.C./T.I./C.E.…) y el mismo nombre nunca se unen: los guardados con prefijo quedan fuera hasta que se resuelva la ambigüedad.
  */
 final class AccesoPortal
 {
@@ -31,11 +35,12 @@ final class AccesoPortal
 
     private const HABILITANTES = [CertificadoLegado::CONCILIACION_OK, CertificadoLegado::CONCILIACION_DUPLICADO_CONSOLIDADO];
 
+    /** Clave con la que se busca: la RAÍZ (el número sin prefijo de tipo) de lo digitado, o null si no es un documento válido. */
     public static function claveDocumento(string $documento): ?string
     {
         $clave = Texto::claveDocumento(trim($documento));
 
-        return $clave !== '' && mb_strlen($clave) >= self::MIN_DOCUMENTO && mb_strlen($clave) <= 40 ? $clave : null;
+        return $clave !== '' && mb_strlen($clave) >= self::MIN_DOCUMENTO && mb_strlen($clave) <= 40 ? FamiliaDocumento::raiz($clave) : null;
     }
 
     /** Correo comparable (trim + minúsculas) o null si no es una dirección válida. */
@@ -61,8 +66,38 @@ final class AccesoPortal
         // Filas del documento, históricas y modernas, con la MISMA forma: grupo de nombre conservador, correos válidos y si habilitan el acceso.
         // Sin filas modernas el resultado es idéntico al de siempre; con ellas, las mismas reglas (un solo grupo → documento completo; varios → el
         // correo debe identificar EXACTAMENTE uno) valen para ambos tipos y un correo nunca amplía el alcance a un grupo que no lo tiene.
-        $filas = $d['filas']->map(fn ($f) => ['grupo' => $d['grupos'][$f->id], 'correo' => isset($d['correos'][$f->id][$correoNormalizado]), 'habilita' => self::habilitaAcceso($f)])
-            ->concat($m->map(fn ($f) => ['grupo' => $f->grupo, 'correo' => isset($f->correos[$correoNormalizado]), 'habilita' => EmisionesModernas::habilita($f)]));
+        // `numero`: la fila está guardada con el número tal cual (sin prefijo de tipo), es decir, la que ya se encontraba antes de buscar por familia.
+        $raiz = FamiliaDocumento::raiz($clave);
+        $filas = $d['filas']->map(fn ($f) => ['grupo' => $d['grupos'][$f->id], 'correo' => isset($d['correos'][$f->id][$correoNormalizado]), 'habilita' => self::habilitaAcceso($f),
+            'numero' => Texto::claveDocumento((string) $f->documento_clave) === $raiz])
+            ->concat($m->map(fn ($f) => ['grupo' => $f->grupo, 'correo' => isset($f->correos[$correoNormalizado]), 'habilita' => EmisionesModernas::habilita($f),
+                'numero' => Texto::claveDocumento($f->documento_clave) === $raiz]));
+        $alcance = self::alcanceDe($filas);
+        if ($alcance !== null || $filas->every(fn ($f) => $f['numero'])) {
+            return $alcance;
+        }
+
+        // Respaldo: la familia volvió ambiguo un correo (también figura en una fila CON PREFIJO de otro grupo de nombre). Si entre las filas guardadas con el
+        // número tal cual ese correo identifica a su persona, se conserva EXACTAMENTE ese grupo (lo de siempre), nunca el documento completo: lo del otro grupo
+        // queda fuera hasta que se resuelva la identidad (vínculo). Nada se amplía respecto de lo que el correo ya alcanzaba.
+        $numero = $filas->filter(fn ($f) => $f['numero'])->values();
+        $respaldo = self::alcanceDe($numero);
+        if ($respaldo === null) {
+            return null;
+        }
+
+        return ['grupo' => $respaldo['grupo'] ?? $numero->first()['grupo']];
+    }
+
+    /**
+     * Reglas de identidad sobre un conjunto de filas: un solo grupo → documento completo; varios → el correo debe identificar EXACTAMENTE uno; y dentro del
+     * alcance debe haber algo que habilite el acceso.
+     *
+     * @param  Collection<int,array{grupo:string,correo:bool,habilita:bool}>  $filas
+     * @return array{grupo: ?string}|null
+     */
+    private static function alcanceDe(Collection $filas): ?array
+    {
         $conCorreo = $filas->filter(fn ($f) => $f['correo']);
         if ($conCorreo->isEmpty()) {
             return null;
@@ -105,17 +140,17 @@ final class AccesoPortal
      *
      * @return list<array<string,mixed>>
      */
-    public function tarjetas(string $clave, string|array|null $grupo = null): array
+    public function tarjetas(string $clave, string|array|null $grupo = null, ?int $desde = null): array
     {
-        $d = $this->cargar($clave);
+        $d = $this->cargar($clave, $desde);
         $lista = self::lista($grupo);
-        if ($lista === []) {
+        if ($lista === [] || ($lista === null && ! self::historicoCompletoSeguro($d, $clave, $desde))) {
             return [];   // un scope vacío NUNCA es «documento completo»
         }
         $filas = $lista === null ? $d['filas'] : $d['filas']->filter(fn ($f) => in_array($d['grupos'][$f->id], $lista, true));
         $ids = $filas->pluck('id')->flip();
 
-        $eventos = DB::table('cf_eventos')->whereIn('id', $filas->pluck('evento_id')->unique())->get(['id', 'nombre', 'anio'])->keyBy('id');
+        $eventos = DB::table('cf_eventos')->whereIn('id', $filas->pluck('evento_id')->unique())->get(['id', 'nombre', 'anio', 'fecha_texto'])->keyBy('id');
         // Las cadenas de reemplazo de TODOS los históricos reemplazados del documento, en lote (una consulta por nivel, nunca una por tarjeta). Se incluyen
         // los de fuera del alcance solo para resolver el canónico de una copia; la tarjeta solo usa lo que está dentro del alcance autorizado.
         $cadenas = collect(EmisionVigente::resolverLote($d['filas']->pluck('reemplazado_por_emision_id')->filter()->unique()->values()->all()));
@@ -140,7 +175,9 @@ final class AccesoPortal
             $f = collect($grupoFilas)->first(fn ($x) => $x->reemplazado_por_emision_id !== null)
                 ?? collect($grupoFilas)->first(fn ($x) => $x->conciliacion_estado === CertificadoLegado::CONCILIACION_OK) ?? $grupoFilas[0];
             $e = $eventos->get($f->evento_id);
-            $base = ['id' => (int) $f->id, 'evento' => (string) ($e->nombre ?? ''), 'anio' => $e?->anio === null ? null : (int) $e->anio, 'codigo' => $codigos[$f->id] ?? null, 'descargable' => false, 'enlace_moderno' => null];
+            // Un histórico NO tiene fecha de publicación fiable (su `created_at` es la fecha de la migración): `publicado_at` queda null y nunca se inventa.
+            $base = ['id' => (int) $f->id, 'evento' => (string) ($e->nombre ?? ''), 'anio' => $e?->anio === null ? null : (int) $e->anio, 'codigo' => $codigos[$f->id] ?? null, 'descargable' => false, 'enlace_moderno' => null,
+                'publicado_at' => null, 'realizado' => ($e->fecha_texto ?? null) ?: null];
             $tarjetas[] = $this->tarjeta($f, $base, $todas, $ids, $canonicos, $cadenas);
         }
         usort($tarjetas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
@@ -173,6 +210,8 @@ final class AccesoPortal
             $tarjetas[] = [
                 'id' => $f->emision_id, 'moderno' => true, 'evento' => (string) ($f->datos['evento'] ?? ''), 'anio' => $anio, 'codigo' => $f->codigo, 'descargable' => $vigente, 'enlace_moderno' => null,
                 'tipo' => $vigente ? 'disponible' : 'revocado', 'mensaje' => $vigente ? 'Disponible para descargar.' : 'Certificado revocado.',
+                // Fecha REAL de publicación (emisión) y fecha del evento tal como se imprimió: son cosas distintas.
+                'publicado_at' => self::fechaHora($f->emitido_at ?? null), 'realizado' => is_string($f->datos['fecha'] ?? null) && $f->datos['fecha'] !== '' ? $f->datos['fecha'] : null,
             ];
         }
 
@@ -215,6 +254,23 @@ final class AccesoPortal
         return collect($historicos)->concat($modernas->pluck('grupo'))->unique()->count() <= 1;
     }
 
+    /**
+     * Lo mismo para los HISTÓRICOS de una sesión de «documento completo»: nació cuando las filas históricas del número eran de UN solo grupo (son fijas). Si la
+     * familia trae filas históricas de otro grupo (una clave con prefijo, p. ej.), falla cerrado hasta que la persona vuelva a identificarse con su correo.
+     *
+     * @param  array{grupos: array<int,string>}  $d  resultado de `cargar()`
+     */
+    private static function historicoCompletoSeguro(array $d, string $clave, ?int $desde): bool
+    {
+        $raiz = FamiliaDocumento::raiz($clave);
+        if ($d['filas']->every(fn ($f) => Texto::claveDocumento((string) $f->documento_clave) === $raiz)) {
+            return true;   // las mismas filas fijas con las que nació la sesión: nada nuevo que comprobar
+        }
+        $mapa = VinculosIdentidadModerna::mapa($clave, $desde);
+
+        return collect($d['grupos'])->map(fn ($g) => $mapa[$g] ?? $g)->unique()->count() <= 1;
+    }
+
     private static function anioDe(mixed $fecha, mixed $emitidoAt): ?int
     {
         if (is_string($fecha) && preg_match('/(20\d{2}|19\d{2})/', $fecha, $m) === 1) {
@@ -224,75 +280,208 @@ final class AccesoPortal
         return $emitidoAt === null ? null : (int) substr((string) $emitidoAt, 0, 4);
     }
 
-    /** Tarjetas por página del panel y umbral a partir del cual aparecen buscador, filtros y paginador. */
+    /** Tarjetas por página del panel y mínimo de certificados a partir del cual aparecen buscador y filtros (con uno solo, la vista sigue siendo simple). */
     public const POR_PAGINA = 20;
 
-    public const UMBRAL_CONTROLES = 12;
+    public const MINIMO_CONTROLES = 2;
 
-    public const ORDENES = ['recientes', 'antiguos'];
+    public const ORDENES = ['recientes', 'antiguos', 'nombre'];
 
     /**
-     * Listado del panel con búsqueda, filtro por año, orden y paginación en el servidor. Usa EXACTAMENTE las mismas tarjetas que `tarjetas()` (mismas reglas de
-     * alcance, duplicados, canónicos y reemplazos): solo filtra, ordena y corta DESPUÉS, de modo que nada de la autorización cambia y el HTML solo lleva una página.
+     * Listado del panel con búsqueda, filtros, orden y paginación en el servidor. Usa EXACTAMENTE las mismas tarjetas que `tarjetas()` y `tarjetasModernas()`
+     * (mismas reglas de alcance, duplicados, canónicos y reemplazos): solo filtra, ordena y corta DESPUÉS, de modo que nada de la autorización cambia y el HTML
+     * solo lleva una página. El listado es el de UNA persona (su documento): se ordena en memoria sin consultas adicionales.
      *
-     * @param  array{q?:?string,anio?:int|string|null,orden?:?string,page?:int|string|null}  $filtros
-     * @return array{items:list<array<string,mixed>>,total:int,total_sin_filtros:int,descargables:int,anios:list<int>,hay_sin_anio:bool,q:string,anio:?string,orden:string,pagina:int,paginas:int,por_pagina:int,desde:int,hasta:int,con_controles:bool,filtrado:bool}
+     * Orden por la fecha REAL de publicación (`publicado_at`: la emisión), no por la del evento. Los históricos (sin fecha de publicación registrada) van
+     * SIEMPRE en su propio bloque, después de lo publicado, con un orden estable (año del evento, nombre, id): como no se sabe cuándo se publicaron, nunca se
+     * colocan antes ni después de nada por fecha.
+     *  - «recientes» (predeterminado): lo publicado, del más reciente al más antiguo.
+     *  - «antiguos»: lo publicado, del más antiguo al más reciente.
+     *  - «nombre»: por nombre de la capacitación (dentro de cada bloque).
+     *
+     * Un parámetro inválido NUNCA se ignora ni amplía el resultado: devuelve un listado vacío con un aviso. Vale para un tipo inesperado (p. ej. un arreglo
+     * `anio[]=…` en lugar de un valor) en cualquiera de los parámetros, y para un año, mes, día, rango, orden o página mal formados, también con un solo
+     * certificado. Un valor válido que no tiene certificados devuelve un listado vacío sin aviso; una página válida más allá del final muestra la última.
+     *
+     * @param  array<string,mixed>  $filtros  q, anio, orden, publicado, desde, hasta y page tal como llegan (solo se aceptan textos o enteros)
+     * @return array<string,mixed>
      */
     public function tarjetasPaginadas(string $clave, string|array|null $grupo, array $filtros = [], ?int $desde = null): array
     {
-        $todas = [...$this->tarjetas($clave, $grupo), ...$this->tarjetasModernas($clave, $grupo, $desde)];
-        usort($todas, fn ($a, $b) => [$b['anio'] ?? 0, $a['evento']] <=> [$a['anio'] ?? 0, $b['evento']]);
-        $q = mb_substr(trim((string) ($filtros['q'] ?? '')), 0, 80);
-        $orden = in_array($filtros['orden'] ?? null, self::ORDENES, true) ? (string) $filtros['orden'] : 'recientes';
+        $todas = [...$this->tarjetas($clave, $grupo, $desde), ...$this->tarjetasModernas($clave, $grupo, $desde)];
         $anios = array_values(array_unique(array_map('intval', array_filter(array_column($todas, 'anio'), fn ($a) => $a !== null))));
         rsort($anios);
         $haySinAnio = count(array_filter($todas, fn ($t) => $t['anio'] === null)) > 0;
 
-        $anioRaw = $filtros['anio'] ?? null;
-        $anio = null;   // null = todos · 'sin' = sin año · 'AAAA'
-        if ($anioRaw === 'sin' && $haySinAnio) {
-            $anio = 'sin';
-        } elseif (is_numeric($anioRaw) && in_array((int) $anioRaw, $anios, true)) {
-            $anio = (string) (int) $anioRaw;
+        // Periodos de publicación que existen en el listado («2026» y «2026-10»): son los que se ofrecen en el filtro.
+        $periodos = [];
+        foreach ($todas as $t) {
+            if ($t['publicado_at'] !== null) {
+                $periodos[substr($t['publicado_at'], 0, 4)][substr($t['publicado_at'], 0, 7)] = true;
+            }
+        }
+        krsort($periodos);
+        $periodos = array_map(function ($meses) {
+            $m = array_keys($meses);
+            rsort($m);
+
+            return $m;
+        }, $periodos);
+
+        // Validación de los filtros: un valor presente pero inválido se informa y deja el listado vacío; nunca se ignora para mostrar más.
+        $invalido = null;
+        // Solo se aceptan textos o enteros; cualquier otro tipo (un arreglo `anio[]=…`, un objeto…) es un filtro inválido, no un filtro ausente.
+        $texto = function (string $k) use ($filtros, &$invalido): ?string {
+            $v = $filtros[$k] ?? null;
+            if ($v === null || is_string($v) || is_int($v)) {
+                return $v === null ? null : trim((string) $v);
+            }
+            $invalido ??= 'Los filtros indicados no son válidos.';
+
+            return null;
+        };
+        $q = mb_substr($texto('q') ?? '', 0, 80);
+        $ordenRaw = $texto('orden');
+        $orden = 'recientes';
+        if ($ordenRaw !== null && $ordenRaw !== '') {
+            if (in_array($ordenRaw, self::ORDENES, true)) {
+                $orden = $ordenRaw;
+            } else {
+                $invalido ??= 'El orden indicado no es válido.';
+            }
+        }
+        $paginaRaw = $texto('page');
+        $paginaPedida = 1;
+        if ($paginaRaw !== null && $paginaRaw !== '') {
+            if (preg_match('/^[1-9]\d{0,5}$/', $paginaRaw) === 1) {
+                $paginaPedida = (int) $paginaRaw;
+            } else {
+                $invalido ??= 'La página indicada no es válida.';
+            }
+        }
+        $anioRaw = $texto('anio');
+        $anio = null;   // null = todos · 'sin' = sin año · 'AAAA' (año del EVENTO)
+        if ($anioRaw !== null && $anioRaw !== '') {
+            if ($anioRaw === 'sin' || preg_match('/^(19|20)\d{2}$/', $anioRaw) === 1) {
+                $anio = $anioRaw;
+            } else {
+                $invalido = 'El año del evento no es válido.';
+            }
+        }
+        $publicadoRaw = $texto('publicado');
+        $publicado = null;
+        if ($publicadoRaw !== null && $publicadoRaw !== '') {
+            if (preg_match('/^(19|20)\d{2}(-(0[1-9]|1[0-2]))?$/', $publicadoRaw) === 1) {
+                $publicado = $publicadoRaw;
+            } else {
+                $invalido ??= 'El año o mes de publicación no es válido.';
+            }
+        }
+        $diaDesde = null;
+        $diaHasta = null;
+        foreach (['desde', 'hasta'] as $k) {
+            $v = $texto($k);
+            if ($v === null || $v === '') {
+                continue;
+            }
+            $d = self::dia($v);
+            if ($d === null) {
+                $invalido ??= 'La fecha «'.($k === 'desde' ? 'Desde' : 'Hasta').'» no es válida.';
+            } elseif ($k === 'desde') {
+                $diaDesde = $d;
+            } else {
+                $diaHasta = $d;
+            }
+        }
+        if ($diaDesde !== null && $diaHasta !== null && $diaDesde > $diaHasta) {
+            $invalido ??= 'La fecha «Desde» es posterior a la fecha «Hasta».';
         }
 
         $totalSin = count($todas);
-        $conControles = $totalSin > self::UMBRAL_CONTROLES;
-        if (! $conControles) {
-            // Con pocos certificados no hay controles: se ignora cualquier filtro y se muestra el listado simple completo.
-            $q = '';
-            $anio = null;
-            $orden = 'recientes';
-        }
+        // Con un solo certificado no se ofrecen controles (vista simple), pero un parámetro escrito a mano se aplica igual: nunca se ignora en silencio.
+        $conControles = $totalSin >= self::MINIMO_CONTROLES;
+        $porFecha = $publicado !== null || $diaDesde !== null || $diaHasta !== null;
 
         $norm = fn (string $s) => mb_strtolower(Str::ascii($s));
         $buscar = $norm($q);
-        $lista = array_values(array_filter($todas, function ($t) use ($buscar, $anio, $norm) {
+        $sinFechaOcultos = 0;
+        $lista = $invalido !== null ? [] : array_values(array_filter($todas, function ($t) use ($buscar, $anio, $norm, $publicado, $diaDesde, $diaHasta, $porFecha, &$sinFechaOcultos) {
             if ($anio === 'sin' && $t['anio'] !== null) {
                 return false;
             }
             if ($anio !== null && $anio !== 'sin' && (string) $t['anio'] !== $anio) {
                 return false;
             }
+            if ($buscar !== '' && ! str_contains($norm((string) $t['evento']), $buscar)) {
+                return false;
+            }
+            if ($porFecha) {
+                if ($t['publicado_at'] === null) {
+                    $sinFechaOcultos++;
 
-            return $buscar === '' || str_contains($norm((string) $t['evento']), $buscar);
+                    return false;
+                }
+                $dia = substr($t['publicado_at'], 0, 10);
+                if (($publicado !== null && ! str_starts_with($t['publicado_at'], $publicado)) || ($diaDesde !== null && $dia < $diaDesde) || ($diaHasta !== null && $dia > $diaHasta)) {
+                    return false;
+                }
+            }
+
+            return true;
         }));
-        if ($orden === 'antiguos') {
-            usort($lista, fn ($a, $b) => [$a['anio'] === null ? 1 : 0, $a['anio'] ?? 0, $a['evento']] <=> [$b['anio'] === null ? 1 : 0, $b['anio'] ?? 0, $b['evento']]);
-        }
+        usort($lista, self::comparador($orden));
 
         $total = count($lista);
-        $porPagina = $conControles ? self::POR_PAGINA : max(1, $totalSin);
+        $porPagina = self::POR_PAGINA;
         $paginas = max(1, (int) ceil($total / $porPagina));
-        $pagina = max(1, min($paginas, (int) ($filtros['page'] ?? 1)));
+        $pagina = min($paginas, $paginaPedida);
         $items = array_slice($lista, ($pagina - 1) * $porPagina, $porPagina);
 
         return [
             'items' => $items, 'total' => $total, 'total_sin_filtros' => $totalSin, 'descargables' => count(array_filter($todas, fn ($t) => $t['descargable'])),
             'anios' => $anios, 'hay_sin_anio' => $haySinAnio, 'q' => $q, 'anio' => $anio, 'orden' => $orden, 'pagina' => $pagina, 'paginas' => $paginas,
             'por_pagina' => $porPagina, 'desde' => $total === 0 ? 0 : ($pagina - 1) * $porPagina + 1, 'hasta' => ($pagina - 1) * $porPagina + count($items),
-            'con_controles' => $conControles, 'filtrado' => $buscar !== '' || $anio !== null || $orden !== 'recientes',
+            'con_controles' => $conControles, 'filtrado' => $buscar !== '' || $anio !== null || $orden !== 'recientes' || $porFecha || $invalido !== null,
+            'periodos' => $periodos, 'publicado' => $publicado, 'dia_desde' => $diaDesde, 'dia_hasta' => $diaHasta, 'sin_fecha_ocultos' => $sinFechaOcultos,
+            'hay_sin_fecha' => count(array_filter($todas, fn ($t) => $t['publicado_at'] === null)) > 0, 'filtro_invalido' => $invalido,
         ];
+    }
+
+    /** Orden estable de las tarjetas (nunca depende del orden en que llegaron). Los históricos sin fecha de publicación van SIEMPRE en su bloque, al final. */
+    private static function comparador(string $orden): \Closure
+    {
+        $sinFecha = fn (array $t) => $t['publicado_at'] === null ? 1 : 0;
+        // Con fecha: la publicación más reciente primero (a igual hora, el id mayor).
+        $recientes = fn (array $a, array $b) => [$b['publicado_at'], $b['id']] <=> [$a['publicado_at'], $a['id']];
+        // Históricos: año del evento (más reciente primero; sin año al final), nombre e id. No depende del orden elegido: no hay fecha que ordenar.
+        $historicos = fn (array $a, array $b) => [$a['anio'] === null ? 1 : 0, -($a['anio'] ?? 0), $a['evento'], $a['id']] <=> [$b['anio'] === null ? 1 : 0, -($b['anio'] ?? 0), $b['evento'], $b['id']];
+        $nombre = fn (array $t) => mb_strtolower(Str::ascii($t['evento']));
+
+        return match ($orden) {
+            'antiguos' => fn (array $a, array $b) => ($sinFecha($a) <=> $sinFecha($b)) ?: ($sinFecha($a) ? $historicos($a, $b) : $recientes($b, $a)),
+            'nombre' => fn (array $a, array $b) => ($sinFecha($a) <=> $sinFecha($b)) ?: (($nombre($a) <=> $nombre($b)) ?: ($sinFecha($a) ? $historicos($a, $b) : $recientes($a, $b))),
+            default => fn (array $a, array $b) => ($sinFecha($a) <=> $sinFecha($b)) ?: ($sinFecha($a) ? $historicos($a, $b) : $recientes($a, $b)),
+        };
+    }
+
+    /** «AAAA-MM-DD HH:MM:SS» de una fecha y hora guardada (en la zona horaria de la aplicación), o null. */
+    private static function fechaHora(mixed $valor): ?string
+    {
+        if ($valor instanceof \DateTimeInterface) {
+            return $valor->format('Y-m-d H:i:s');
+        }
+
+        return is_string($valor) && preg_match('/^\d{4}-\d{2}-\d{2}/', $valor) === 1 ? substr($valor, 0, 19) : null;
+    }
+
+    /** Día «AAAA-MM-DD» válido de un filtro, o null. */
+    private static function dia(mixed $valor): ?string
+    {
+        if (! is_string($valor) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $valor, $m) !== 1 || ! checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return null;
+        }
+
+        return $valor;
     }
 
     private function tarjeta(CertificadoLegado $f, array $base, Collection $todas, Collection $enAlcance, Collection $canonicos, Collection $cadenas): array
@@ -330,7 +519,9 @@ final class AccesoPortal
             return $base + ['tipo' => 'revocado', 'mensaje' => 'Certificado revocado.'];
         }
 
-        return array_merge($base, ['tipo' => 'actualizado', 'mensaje' => 'Certificado actualizado. Disponible para descargar.', 'codigo' => $r['vigente']->codigo, 'estado_emision' => 'Vigente', 'descargable' => true]);
+        // La versión actualizada SÍ tiene una fecha real: cuándo se publicó su emisión vigente.
+        return array_merge($base, ['tipo' => 'actualizado', 'mensaje' => 'Certificado actualizado. Disponible para descargar.', 'codigo' => $r['vigente']->codigo, 'estado_emision' => 'Vigente', 'descargable' => true,
+            'publicado_at' => self::fechaHora($r['vigente']->emitido_at ?? null)]);
     }
 
     /**
@@ -356,25 +547,31 @@ final class AccesoPortal
     /**
      * Punto ÚNICO de autorización por certificado: documento + grupos del alcance. `$grupos`: null = documento completo (solo cuando el flujo histórico lo
      * autoriza); un string = ese grupo (compatibilidad con sesiones históricas); una lista = cualquiera de esos grupos; una lista VACÍA = denegar (jamás «todo»).
-     * La descarga nunca se autoriza solo por id.
+     * La descarga nunca se autoriza solo por id. El documento es la FAMILIA del número (con o sin prefijo de tipo), sin las filas excluidas por ambigüedad.
      */
-    public static function perteneceA(CertificadoLegado $c, string $clave, string|array|null $grupos = null): bool
+    public static function perteneceA(CertificadoLegado $c, string $clave, string|array|null $grupos = null, ?int $desde = null): bool
     {
-        if (! hash_equals($c->documento_clave, $clave)) {
+        $raiz = FamiliaDocumento::raiz($clave);
+        $propia = Texto::claveDocumento((string) $c->documento_clave);
+        if (! hash_equals($raiz, FamiliaDocumento::raiz($propia))) {
+            return false;
+        }
+        // Una fila guardada con prefijo cuya unidad es ambigua no se entrega a nadie.
+        if (! hash_equals($raiz, $propia) && isset(FamiliaDocumento::excluidos($raiz, $desde)['historicos'][(int) $c->id])) {
             return false;
         }
         $lista = self::lista($grupos);
         if ($lista === null) {
-            return true;
+            return self::historicoCompletoSeguro((new self)->cargar($raiz, $desde), $raiz, $desde);
         }
 
         return $lista !== [] && in_array(NombreConservador::grupoDe($c), $lista, true);
     }
 
     /** ¿Está el certificado (p. ej. el canónico al que resuelve) dentro del alcance? */
-    public static function enAlcance(?CertificadoLegado $c, string $clave, string|array|null $grupos): bool
+    public static function enAlcance(?CertificadoLegado $c, string $clave, string|array|null $grupos, ?int $desde = null): bool
     {
-        return $c !== null && self::perteneceA($c, $clave, $grupos);
+        return $c !== null && self::perteneceA($c, $clave, $grupos, $desde);
     }
 
     /** @return list<string>|null null = documento completo; lista (posiblemente vacía) = esos grupos */
@@ -396,7 +593,7 @@ final class AccesoPortal
      */
     public function cargarConVinculos(string $clave, ?int $desde = null): array
     {
-        $d = $this->cargar($clave);
+        $d = $this->cargar($clave, $desde);
         $mapa = VinculosIdentidadModerna::mapa($clave, $desde);
         if ($mapa !== []) {
             foreach ($d['grupos'] as $id => $g) {
@@ -408,13 +605,20 @@ final class AccesoPortal
     }
 
     /**
-     * Filas del documento + correos válidos + grupo de nombre de cada fila, en pocas consultas.
+     * Filas del documento (toda la familia del número, sin las excluidas por ambigüedad de tipo) + correos válidos + grupo de nombre de cada fila, en pocas
+     * consultas. `$desde` solo afecta a los vínculos con los que se decide la ambigüedad.
      *
      * @return array{filas: Collection<int,CertificadoLegado>, correos: array<int,array<string,bool>>, grupos: array<int,string>}
      */
-    public function cargar(string $clave): array
+    public function cargar(string $clave, ?int $desde = null): array
     {
-        $filas = CertificadoLegado::query()->where('documento_clave', $clave)->get();
+        $raiz = FamiliaDocumento::raiz($clave);
+        $filas = CertificadoLegado::query()->whereIn('documento_clave', FamiliaDocumento::claves($raiz))->orderBy('id')->get();
+        // Solo una fila guardada con prefijo puede quedar excluida por ambigüedad: sin ninguna, no hay nada que calcular.
+        if ($filas->contains(fn ($f) => Texto::claveDocumento((string) $f->documento_clave) !== $raiz)) {
+            $excluidos = FamiliaDocumento::excluidos($raiz, $desde)['historicos'];
+            $filas = $filas->reject(fn ($f) => isset($excluidos[$f->id]))->values();
+        }
         $correos = [];
         if ($filas->isNotEmpty()) {
             foreach (DB::table('cf_correos')->whereIn('certificado_legado_id', $filas->pluck('id'))->where('estado', Correo::ESTADO_VALIDO)->get(['certificado_legado_id', 'correo_normalizado']) as $r) {

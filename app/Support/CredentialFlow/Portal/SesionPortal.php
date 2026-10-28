@@ -34,7 +34,7 @@ final class SesionPortal
 
     public static function iniciar(Session $s, string $clave, ?string $grupo = null): void
     {
-        self::guardar($s, ['documento' => $clave, 'grupo' => $grupo]);
+        self::guardar($s, ['documento' => FamiliaDocumento::raiz($clave), 'grupo' => $grupo]);
     }
 
     /**
@@ -57,7 +57,7 @@ final class SesionPortal
             return false;
         }
         self::guardar($s, [
-            'documento' => $clave, 'grupo' => $scope->scopeHash, 'grupos' => $norm['grupos'], 'scope_hash' => $scope->scopeHash,
+            'documento' => FamiliaDocumento::raiz($clave), 'grupo' => $scope->scopeHash, 'grupos' => $norm['grupos'], 'scope_hash' => $scope->scopeHash,
             'decisiones' => $norm['decisiones'], 'decisiones_claves' => $claves, 'aprobaciones' => $aprobaciones,
         ]);
 
@@ -91,6 +91,15 @@ final class SesionPortal
         $ahora = Carbon::now()->getTimestamp();
         if ($ahora > (int) $c['absolute_expires_at'] || $ahora - (int) $c['last_activity'] > (int) config('credential_flow.portal.sesion_inactividad_minutos') * 60) {
             self::cerrar($s);
+
+            return null;
+        }
+
+        // Una sesión abierta antes de buscar por número (con el tipo delante, p. ej. `CC1234567`) se autorizó con otras reglas: se pide entrar de nuevo.
+        if (FamiliaDocumento::raiz((string) $c['documento']) !== (string) $c['documento']) {
+            Log::notice('Credential Flow: sesión del portal con un documento anterior a la búsqueda por número; se pide entrar de nuevo.');
+            self::cerrar($s);
+            $s->flash('aviso', self::MENSAJE_EXPIRADO);
 
             return null;
         }

@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 /**
  * Fase 12E: el panel pagina, busca, filtra por año y ordena EN EL SERVIDOR, con las mismas tarjetas (y la misma autorización) que el listado completo.
- * Con pocos certificados no hay controles. Datos sintéticos.
+ * Desde 2 certificados hay buscador y filtros; con uno solo, la vista sigue siendo simple. Datos sintéticos.
  */
 class PortalPanelPaginadoTest extends PortalTestCase
 {
@@ -53,12 +53,17 @@ class PortalPanelPaginadoTest extends PortalTestCase
         return array_map(fn ($t) => html_entity_decode(trim($t)), $m[1]);
     }
 
-    public function test_con_pocos_certificados_no_hay_controles_ni_paginador(): void
+    public function test_con_pocos_certificados_hay_buscador_y_filtros_pero_no_paginador(): void
     {
-        $r = $this->panel(['q' => 'algo', 'anio' => '2024', 'page' => 3, 'orden' => 'antiguos']);
+        // Ana tiene pocos certificados (entre 2 y 12): ya puede buscar y filtrar; no hace falta paginar.
+        $r = $this->panel();
+        $r->assertSee('data-controles', false)->assertDontSee('data-paginador', false)->assertSee('data-resumen', false);
+        $total = substr_count($r->getContent(), 'data-certificado=');
+        $this->assertGreaterThanOrEqual(2, $total);
+        $this->assertLessThanOrEqual(12, $total);
 
-        $r->assertDontSee('data-controles', false)->assertDontSee('data-paginador', false)->assertSee('data-resumen', false);
-        $this->assertGreaterThanOrEqual(1, substr_count($r->getContent(), 'data-certificado='));
+        $filtrado = $this->get(route('portal.panel', ['q' => 'alfa']))->assertOk()->getContent();
+        $this->assertSame(['Curso Alfa 2024'], $this->eventosEn($filtrado));
     }
 
     public function test_con_mas_de_12_aparecen_controles_y_solo_20_por_pagina(): void
@@ -109,10 +114,15 @@ class PortalPanelPaginadoTest extends PortalTestCase
             $this->assertSame(2022, $t['anio']);
         }
 
-        $nuevos = $acceso->tarjetasPaginadas($clave, null, ['orden' => 'recientes'])['items'][0]['anio'];
-        $viejos = $acceso->tarjetasPaginadas($clave, null, ['orden' => 'antiguos'])['items'][0]['anio'];
-        $this->assertGreaterThan($viejos, $nuevos);
-        $this->assertSame([1, 2, 3], array_slice(range(1, 3), 0, 3));   // sanidad del arnés
+        // Todos son históricos (sin fecha de publicación registrada): su orden estable (año del evento desc, nombre) no cambia con «más recientes» ni
+        // «más antiguos», porque no hay ninguna fecha de publicación con la que ordenarlos.
+        $nuevos = array_column($acceso->tarjetasPaginadas($clave, null, ['orden' => 'recientes'])['items'], 'id');
+        $viejos = array_column($acceso->tarjetasPaginadas($clave, null, ['orden' => 'antiguos'])['items'], 'id');
+        $this->assertSame($nuevos, $viejos);
+        $anios = array_column($acceso->tarjetasPaginadas($clave, null, ['orden' => 'antiguos'])['items'], 'anio');
+        $desc = $anios;
+        usort($desc, fn ($a, $b) => [$a === null ? 1 : 0, -($a ?? 0)] <=> [$b === null ? 1 : 0, -($b ?? 0)]);
+        $this->assertSame($desc, $anios, 'año del evento, del más reciente al más antiguo');
     }
 
     public function test_los_enlaces_del_paginador_conservan_los_filtros(): void
@@ -135,10 +145,18 @@ class PortalPanelPaginadoTest extends PortalTestCase
         $this->agregar(30);
         $this->entrar();
 
-        foreach (['?q[]=x&anio[]=1&orden[]=y&page[]=2', '?anio=abc&orden=zzz&page=-4', '?page=999', '?q='.str_repeat('a', 500), '?anio=1900'] as $qs) {
-            $r = $this->get(route('portal.panel').$qs);
-            $r->assertOk();
-            $this->assertLessThanOrEqual(20, substr_count($r->getContent(), 'data-certificado='), $qs);
+        // Malformados (arreglos, textos raros): aviso y ninguna tarjeta; nunca se ignoran para mostrar el listado completo.
+        foreach (['?q[]=x&anio[]=1&orden[]=y&page[]=2', '?anio=abc&orden=zzz&page=-4', '?anio[]=2022', '?page[]=2', '?orden=zzz'] as $qs) {
+            $r = $this->get(route('portal.panel').$qs)->assertOk();
+            $this->assertSame(0, substr_count($r->getContent(), 'data-certificado='), $qs);
+            $r->assertSee('data-filtro-invalido', false);
+        }
+        // Válidos aunque no habituales: página más allá del final (la última), búsqueda larga (se recorta) y un año sin certificados.
+        foreach (['?page=999' => true, '?q='.str_repeat('a', 500) => false, '?anio=1900' => false] as $qs => $conTarjetas) {
+            $r = $this->get(route('portal.panel').$qs)->assertOk();
+            $n = substr_count($r->getContent(), 'data-certificado=');
+            $this->assertTrue($conTarjetas ? $n > 0 && $n <= 20 : $n === 0, $qs);
+            $r->assertDontSee('data-filtro-invalido', false);
         }
     }
 

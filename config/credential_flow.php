@@ -94,6 +94,17 @@ return [
         'exige_vista_previa' => (bool) env('CREDENTIAL_FLOW_EXIGE_VISTA_PREVIA', true),
     ],
 
+    // Emisión programada. INTERRUPTOR GENERAL APAGADO por defecto y si la variable no existe: apagado no se puede programar ni reprogramar (cancelar sí, siempre)
+    // y el ejecutor automático no hace nada. La hora se interpreta SIEMPRE en `zona` (Colombia no tiene horario de verano: no hay horas ambiguas ni inexistentes).
+    // `tolerancia_horas` es cuánto puede atrasarse una ejecución (servidor apagado) antes de quedar «vencida sin ejecutar» en lugar de emitir sola.
+    'programacion' => [
+        'activa' => (bool) env('CREDENTIAL_FLOW_PROGRAMACION_ACTIVA', false),
+        'zona' => 'America/Bogota',
+        'minimo_minutos' => 5,
+        'maximo_dias' => 90,
+        'tolerancia_horas' => 6,
+    ],
+
     // Importación inteligente de certificados desde el Excel original (F3). APAGADA por defecto: con el interruptor en false las rutas nuevas responden 404 y el
     // procedimiento de siempre (Nueva base) no cambia. Los borradores guardan datos personales CIFRADOS y se borran al confirmar, rechazar o vencer:
     // `retencion_dias` es la vigencia de un borrador sin confirmar y `conservar_metadatos_dias` cuánto se conserva la fila (sin datos personales) de los terminados.

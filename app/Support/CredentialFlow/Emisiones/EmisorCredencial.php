@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -93,7 +94,8 @@ final class EmisorCredencial
                 tipo: 'actualizacion',
                 modulo: 'credential-flow',
                 descripcion: 'Se revocó una emisión de Credential Flow',
-                extra: ['emision_id' => $actual->id, 'lote_id' => $actual->lote_id],
+                // Revocar un certificado ya emitido se permite con una programación activa (no forma parte de ella), pero queda constancia.
+                extra: ['emision_id' => $actual->id, 'lote_id' => $actual->lote_id] + array_filter(['programacion_activa_id' => CandadoProgramacion::activaId((int) $actual->lote_id)]),
             );
 
             return $actual->refresh();
@@ -107,6 +109,11 @@ final class EmisorCredencial
         // Solo un participante ELEGIBLE se certifica; uno pendiente de validación o no elegible se habilita primero (nunca se emite por defecto).
         if (($participante->elegibilidad ?? Participante::ELEGIBLE) !== Participante::ELEGIBLE) {
             throw new EmisionException(EmisionException::NO_ELEGIBLE, 'Este participante está '.(($participante->elegibilidad ?? '') === Participante::PENDIENTE ? 'pendiente de validación' : 'marcado como no elegible').' y no se puede certificar. Cambia su estado a «elegible» cuando se confirme.', 409);
+        }
+
+        // Con una emisión programada pendiente, ninguna PRIMERA emisión de la base sale a mano (la reemisión de un certificado ya emitido sí).
+        if ($reemplaza === null) {
+            CandadoProgramacion::exigirLibre($lote->id);
         }
 
         // Un participante de control (QA) NUNCA se emite con la plantilla académica de la base: solo con la de pruebas internas.
@@ -140,7 +147,12 @@ final class EmisorCredencial
 
         try {
             return DB::transaction(function () use ($participante, $lote, $plantilla, $reemplaza, $motivo, $usuarioId, $operacion, $alCrear, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
-                // 3: bloqueo y comprobaciones con la base ya bloqueada.
+                // 3: bloqueo y comprobaciones con la base ya bloqueada. En una primera emisión se bloquea ANTES la base (mismo orden que la emisión masiva y que
+                // programar: base → participante, sin riesgo de interbloqueo) y se revisa el candado de la emisión programada de forma definitiva.
+                if ($reemplaza === null) {
+                    Lote::lockForUpdate()->find($lote->id);
+                    CandadoProgramacion::exigirLibre($lote->id);
+                }
                 $bloqueado = Participante::lockForUpdate()->find($participante->id);
                 $loteActual = Lote::find($lote->id);
                 $plantillaActual = Plantilla::find($plantilla->id);
@@ -202,7 +214,8 @@ final class EmisorCredencial
                         tipo: 'registro',
                         modulo: 'credential-flow',
                         descripcion: 'Se reemitió una credencial de Credential Flow',
-                        extra: ['nueva_emision_id' => $emision->id, 'reemplaza_emision_id' => $anterior->id, 'lote_id' => $loteActual->id],
+                        extra: ['nueva_emision_id' => $emision->id, 'reemplaza_emision_id' => $anterior->id, 'lote_id' => $loteActual->id]
+                            + array_filter(['programacion_activa_id' => CandadoProgramacion::activaId($loteActual->id)]),
                     );
                 } else {
                     Movimiento::registrar(

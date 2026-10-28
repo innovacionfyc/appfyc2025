@@ -51,6 +51,9 @@ final class EmisionException extends RuntimeException
     /** La plantilla de la base no tiene su variante de pruebas internas: sus QA no se emiten con el diseño de otra capacitación (ver ServicioQa::plantillaPara). */
     public const VARIANTE_QA_FALTANTE = 'VARIANTE_QA_FALTANTE';
 
+    /** La base tiene una emisión programada pendiente (o ejecutándose): no se emite a mano hasta cancelarla o reprogramarla (ver Programacion\CandadoProgramacion). */
+    public const EMISION_PROGRAMADA_PENDIENTE = 'EMISION_PROGRAMADA_PENDIENTE';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

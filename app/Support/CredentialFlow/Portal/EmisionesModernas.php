@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Portal;
 use App\Models\CredentialFlow\Correo;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Participante;
+use App\Support\CredentialFlow\Participantes\Texto;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,22 +24,32 @@ use Illuminate\Support\Facades\Schema;
  *  - los participantes eliminados (soft delete): sin participante no hay identidad contra la que autenticar.
  *
  * La emisión moderna NUNCA se alcanza por su id ni por su código: solo a través del documento y del grupo de la sesión.
+ *
+ * El documento es la FAMILIA del número (FamiliaDocumento): un participante importado como «C.C. 1.234.567» (clave `CC1234567`) es del número `1234567`,
+ * salvo que su unidad (número + nombre) sea ambigua por tipos explícitos distintos; entonces queda fuera.
  */
 final class EmisionesModernas
 {
     /**
-     * @return Collection<int,object{participante_id:int,emision_id:int,codigo:string,estado:string,nombre:string,grupo:string,correos:array<string,bool>,datos:array<string,mixed>,emitido_at:?string}>
+     * @return Collection<int,object{participante_id:int,documento_clave:string,emision_id:int,codigo:string,estado:string,nombre:string,grupo:string,correos:array<string,bool>,datos:array<string,mixed>,emitido_at:?string}>
      */
     public static function filas(string $clave, ?int $desde = null): Collection
     {
+        $raiz = FamiliaDocumento::raiz($clave);
         $participantes = DB::table('cf_participantes as p')
-            ->where('p.documento_clave', $clave)
+            ->whereIn('p.documento_clave', FamiliaDocumento::claves($raiz))
             ->whereNull('p.deleted_at')
             // Corrección de correo: una sesión abierta antes del cambio (`$desde`) no hereda el certificado de ese participante; debe entrar de nuevo con el correo vigente.
             ->when($desde !== null && Schema::hasColumn('cf_participantes', 'correo_actualizado_at'), fn ($q) => $q->where(fn ($w) => $w->whereNull('p.correo_actualizado_at')->orWhere('p.correo_actualizado_at', '<=', Carbon::createFromTimestamp($desde, config('app.timezone'))->toDateTimeString())))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('cf_emisiones as e')->whereColumn('e.participante_id', 'p.id'))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('cf_emisiones as e2')->join('cf_certificados_legado as c', 'c.reemplazado_por_emision_id', '=', 'e2.id')->whereColumn('e2.participante_id', 'p.id'))
-            ->get(['p.id', 'p.nombre_completo', 'p.correo_normalizado', 'p.correo_estado']);
+            ->orderBy('p.id')
+            ->get(['p.id', 'p.documento_clave', 'p.nombre_completo', 'p.correo_normalizado', 'p.correo_estado']);
+        // Solo un participante guardado con prefijo puede quedar excluido por ambigüedad: sin ninguno, no hay nada que calcular.
+        if ($participantes->contains(fn ($p) => Texto::claveDocumento((string) $p->documento_clave) !== $raiz)) {
+            $excluidos = FamiliaDocumento::excluidos($raiz, $desde)['participantes'];
+            $participantes = $participantes->reject(fn ($p) => isset($excluidos[$p->id]))->values();
+        }
         if ($participantes->isEmpty()) {
             return collect();
         }
@@ -70,6 +81,7 @@ final class EmisionesModernas
 
             return (object) [
                 'participante_id' => (int) $p->id,
+                'documento_clave' => (string) $p->documento_clave,
                 'emision_id' => (int) $e->id,
                 'codigo' => (string) $e->codigo,
                 'estado' => (string) $e->estado,

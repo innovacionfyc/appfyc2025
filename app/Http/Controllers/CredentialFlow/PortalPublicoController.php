@@ -131,16 +131,16 @@ class PortalPublicoController extends Controller
 
     public function panel(Request $request): Response
     {
-        // Los parámetros de listado (q, anio, orden, page) solo filtran dentro del alcance ya autorizado; cualquier valor raro se ignora sin error.
+        // Los parámetros de listado (q, anio, orden, publicado, desde, hasta, page) solo filtran dentro del alcance ya autorizado. Se pasan TAL COMO LLEGAN:
+        // `tarjetasPaginadas` los valida y un valor inválido o de tipo inesperado (p. ej. `anio[]=…`) deja el listado vacío con un aviso; nunca se ignora ni lo amplía.
+        $filtros = [];
+        foreach (['q', 'anio', 'orden', 'publicado', 'desde', 'hasta', 'page'] as $k) {
+            $filtros[$k] = $request->query($k);
+        }
         $listado = $this->acceso->tarjetasPaginadas(
             (string) $request->attributes->get('cf_portal_documento'),
             $request->attributes->get('cf_portal_grupos'),
-            [
-                'q' => is_string($request->query('q')) ? $request->query('q') : '',
-                'anio' => is_scalar($request->query('anio')) ? (string) $request->query('anio') : null,
-                'orden' => is_string($request->query('orden')) ? $request->query('orden') : null,
-                'page' => is_scalar($request->query('page')) ? (int) $request->query('page') : 1,
-            ],
+            $filtros,
             $request->attributes->get('cf_portal_desde')
         );
 
@@ -152,14 +152,15 @@ class PortalPublicoController extends Controller
     {
         $clave = (string) $request->attributes->get('cf_portal_documento');
         $grupo = $request->attributes->get('cf_portal_grupos');   // null = documento completo (histórico) · lista = scope; nunca una lista vacía
+        $desde = $request->attributes->get('cf_portal_desde');
         $c = CertificadoLegado::query()->find($certificado);
         // Nunca por id solo: debe pertenecer al documento Y al grupo de la sesión. Cualquier otro caso es un 404 igual al de «no existe».
-        if ($c === null || ! AccesoPortal::perteneceA($c, $clave, $grupo)) {
+        if ($c === null || ! AccesoPortal::perteneceA($c, $clave, $grupo, $desde)) {
             abort(404);
         }
         $canonico = ElegibilidadLegado::canonico($c);
         // Si resolver al canónico sacara del alcance, no se hace en silencio: se trata como no disponible.
-        if (! AccesoPortal::enAlcance($canonico, $clave, $grupo)) {
+        if (! AccesoPortal::enAlcance($canonico, $clave, $grupo, $desde)) {
             return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
         }
         // Certificado lógico (10B-2B-2C.1): si OTRA fila de su grupo de duplicados lleva el reemplazo, ese es el certificado que se entrega (una sola emisión
@@ -168,7 +169,7 @@ class PortalPublicoController extends Controller
             $logica = CertificadoLogico::reemplazada((int) $canonico->id);
             if ($logica !== null) {
                 $canonico = CertificadoLegado::query()->find($logica->id);
-                if (! AccesoPortal::enAlcance($canonico, $clave, $grupo)) {
+                if (! AccesoPortal::enAlcance($canonico, $clave, $grupo, $desde)) {
                     return redirect()->route('portal.panel')->with('error', 'Este certificado no está disponible para descargar. Contactar a soporte para recibir ayuda.');
                 }
             }
