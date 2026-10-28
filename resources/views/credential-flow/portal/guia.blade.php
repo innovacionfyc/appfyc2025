@@ -614,7 +614,7 @@
                         <div class="m-carpetas"><span class="m-carpeta on">Principal</span><span class="m-carpeta">Promociones</span><span class="m-carpeta">Spam</span><span class="marca linea t30">2</span></div>
                         <div class="m-msg nuevo">
                             <span class="m-av">F&amp;C</span>
-                            <div class="m-msg-txt"><div class="m-de"><span class="marca linea t22">1</span><span>F&amp;C Consultores</span><span class="m-hora">Ahora</span></div><div class="m-asunto">Código de acceso para consultar certificados</div></div>
+                            <div class="m-msg-txt"><div class="m-de"><span class="marca linea t22">1</span><span>F&amp;C Consultores - Certificados</span><span class="m-hora">Ahora</span></div><div class="m-asunto">Código de acceso para consultar certificados</div></div>
                         </div>
                         <div class="m-msg"><span class="m-av gris"></span><div class="m-msg-txt"><div class="m-esq w55"></div><div class="m-esq w85"></div></div></div>
                         <div class="m-msg"><span class="m-av gris"></span><div class="m-msg-txt"><div class="m-esq w40"></div><div class="m-esq w75"></div></div></div>

@@ -95,6 +95,14 @@ class PortalGuiaTest extends PortalTestCase
         $this->assertDoesNotMatchRegularExpression('/C\.C\.\s*\d|CC\s*\d|\d{1,3}\.\d{3}\.\d{3}/', $html);
     }
 
+    public function test_el_correo_simulado_muestra_el_remitente_y_el_asunto_reales(): void
+    {
+        // Nombre del remitente confirmado en producción (MAIL_FROM_NAME) y asunto de CodigoAccesoMail.
+        $this->guia()->assertOk()
+            ->assertSee('<span>F&amp;C Consultores - Certificados</span>', false)
+            ->assertSee('Código de acceso para consultar certificados');
+    }
+
     public function test_el_contacto_por_whatsapp_aparece_solo_si_esta_configurado(): void
     {
         config(['credential_flow.portal.contacto_url' => null]);
