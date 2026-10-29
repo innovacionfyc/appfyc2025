@@ -41,9 +41,11 @@ final class FlujoDeBase
         $conEvento = Schema::hasColumn('cf_lotes', 'evento_id') && $lote->evento_id !== null;
         $plantillaOk = ServicioVistaPrevia::plantillaValida($lote->plantilla);
         $yaEmitio = $this->vistaPrevia->yaEmitio($lote);
+        // Tras un cambio autorizado de plantilla en una base ya emitida, la plantilla nueva vuelve a exigir su vista previa (ver ServicioVistaPrevia).
+        $exenta = $this->vistaPrevia->exentaPorEmisiones($lote, $yaEmitio);
         $confirmada = $plantillaOk && $this->vistaPrevia->confirmada($lote);
         $generada = $plantillaOk && $this->vistaPrevia->generada($lote);
-        $vistaOk = $plantillaOk && (! ServicioVistaPrevia::exigida() || $yaEmitio || $confirmada);
+        $vistaOk = $plantillaOk && (! ServicioVistaPrevia::exigida() || $exenta || $confirmada);
 
         $hecho = [
             'evento' => $conEvento,
@@ -121,7 +123,7 @@ final class FlujoDeBase
             'siguiente' => $this->describir($siguiente, $listos, $tipoPendiente + $enValidacion, $generada),
             'faltan' => $faltan,
             'plantilla' => ['nombre' => $lote->plantilla?->nombre, 'valida' => $plantillaOk, 'puede_cambiar' => ! $yaEmitio],
-            'vista_previa' => ['exigida' => ServicioVistaPrevia::exigida(), 'generada' => $generada, 'confirmada' => $confirmada, 'exenta_por_emisiones' => $yaEmitio],
+            'vista_previa' => ['exigida' => ServicioVistaPrevia::exigida(), 'generada' => $generada, 'confirmada' => $confirmada, 'exenta_por_emisiones' => $exenta],
             'plantillas_disponibles' => $yaEmitio ? [] : $this->plantillasDisponibles(),
         ];
     }
