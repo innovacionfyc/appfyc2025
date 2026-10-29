@@ -94,6 +94,14 @@ return [
         'exige_vista_previa' => (bool) env('CREDENTIAL_FLOW_EXIGE_VISTA_PREVIA', true),
     ],
 
+    // Doble certificación por modalidad (Participantes\DobleModalidad). DESACTIVADA por defecto y si la variable no existe: solo en los eventos (ids de `cf_eventos`)
+    // listados, una misma persona puede tener una participación por modalidad en la misma base. No se listan personas ni documentos. Se guarda el TEXTO tal cual
+    // (también en la caché de configuración) y lo valida DobleModalidad::interpretar: ids decimales separados SOLO por comas, sin espacios; si algo no es válido,
+    // ningún evento queda autorizado.
+    'doble_modalidad' => [
+        'eventos' => env('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'),
+    ],
+
     // Emisión programada. INTERRUPTOR GENERAL APAGADO por defecto y si la variable no existe: apagado no se puede programar ni reprogramar (cancelar sí, siempre)
     // y el ejecutor automático no hace nada. La hora se interpreta SIEMPRE en `zona` (Colombia no tiene horario de verano: no hay horas ambiguas ni inexistentes).
     // `tolerancia_horas` es cuánto puede atrasarse una ejecución (servidor apagado) antes de quedar «vencida sin ejecutar» en lugar de emitir sola.

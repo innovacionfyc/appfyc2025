@@ -50,7 +50,12 @@ final class ImportadorParticipantes
 
     public function __construct(private readonly LectorArchivo $lector) {}
 
-    public function validar(UploadedFile $archivo, ?Plantilla $plantilla = null, array $datosComunes = []): ResultadoImportacion
+    /**
+     * @param  array<int,string>|null  $dobleModalidad  solo en eventos autorizados (DobleModalidad): modalidad EFECTIVA normalizada de cada persona, indexada por
+     *                                                  su número de FILA en el archivo (el mismo `fila` que se guarda como origen; nunca por posición). Una fila sin
+     *                                                  modalidad cuenta como vacía y no puede repetir documento. null = la regla de siempre (un documento por base).
+     */
+    public function validar(UploadedFile $archivo, ?Plantilla $plantilla = null, array $datosComunes = [], ?array $dobleModalidad = null): ResultadoImportacion
     {
         try {
             $lectura = $this->lector->leer($archivo);
@@ -58,10 +63,11 @@ final class ImportadorParticipantes
             return ResultadoImportacion::deArchivo($e->comoError());
         }
 
-        return $this->validarLectura($lectura, $plantilla, $datosComunes);
+        return $this->validarLectura($lectura, $plantilla, $datosComunes, $dobleModalidad);
     }
 
-    public function validarLectura(LecturaArchivo $lectura, ?Plantilla $plantilla = null, array $datosComunes = []): ResultadoImportacion
+    /** @param  array<int,string>|null  $dobleModalidad  ver `validar` */
+    public function validarLectura(LecturaArchivo $lectura, ?Plantilla $plantilla = null, array $datosComunes = [], ?array $dobleModalidad = null): ResultadoImportacion
     {
         if ($lectura->filas === []) {
             return ResultadoImportacion::deArchivo(ErrorFila::error(ErrorFila::SIN_FILAS, 'El archivo no tiene filas.'));
@@ -132,6 +138,7 @@ final class ImportadorParticipantes
         $preview = [];
         $conError = 0;
         $vistas = []; // documento_clave => fila
+        $participaciones = []; // solo con doble modalidad: documento_clave => list<{fila, nombre, modalidad}>
         $sinCaja = $this->elementosVariables($plantilla);
 
         foreach ($datos as $fila) {
@@ -155,11 +162,21 @@ final class ImportadorParticipantes
             $errFila = [...$errFila, ...$elegibilidad['errores'], ...$tipo['errores']];
             $avisos = [...$avisos, ...$elegibilidad['avisos'], ...$tipo['avisos']];
 
-            if ($r->clave !== null) {
+            if ($r->clave !== null && $dobleModalidad === null) {
                 if (isset($vistas[$r->clave])) {
                     $errFila[] = ErrorFila::error(ErrorFila::DOCUMENTO_DUPLICADO, "Documento duplicado: ya aparece en la fila {$vistas[$r->clave]}.", $fila['fila'], 'documento', $r->documento);
                 } else {
                     $vistas[$r->clave] = $fila['fila'];
+                }
+            } elseif ($r->clave !== null) {
+                // Evento autorizado: el mismo documento puede repetirse solo con otra modalidad y el mismo nombre (misma regla que el formulario).
+                $modalidad = (string) ($dobleModalidad[$fila['fila']] ?? '');
+                $otras = $participaciones[$r->clave] ?? [];
+                $motivo = $otras === [] ? null : DobleModalidad::conflicto((string) $r->nombre, $modalidad, $otras);
+                if ($motivo !== null) {
+                    $errFila[] = ErrorFila::error(ErrorFila::DOCUMENTO_DUPLICADO, "Documento duplicado: ya aparece en la fila {$otras[0]['fila']} (".DobleModalidad::mensaje($motivo).').', $fila['fila'], 'documento', $r->documento);
+                } else {
+                    $participaciones[$r->clave][] = ['fila' => $fila['fila'], 'nombre' => (string) $r->nombre, 'modalidad' => $modalidad];
                 }
             }
 
@@ -185,12 +202,13 @@ final class ImportadorParticipantes
      * Valida de nuevo y, si todo es válido, crea el lote y los participantes en una transacción.
      *
      * @param  array<string,string>  $datosComunes  ya validados (ValidadorDatosComunes)
+     * @param  array<int,string>|null  $dobleModalidad  ver `validar`
      *
      * @throws ImportacionInvalidaException
      */
-    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null, ?string $hashOriginal = null, ?string $nombreOriginal = null): Lote
+    public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null, ?string $hashOriginal = null, ?string $nombreOriginal = null, ?array $dobleModalidad = null): Lote
     {
-        $resultado = $this->validar($archivo, $plantilla, $datosComunes);
+        $resultado = $this->validar($archivo, $plantilla, $datosComunes, $dobleModalidad);
         if (! $resultado->valido()) {
             throw new ImportacionInvalidaException($resultado);
         }

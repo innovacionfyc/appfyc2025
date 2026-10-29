@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Participantes\CorreosDeParticipante;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
+use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Portal\ServicioOtp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,7 @@ class ParticipanteController extends Controller
             tipo: 'registro',
             modulo: 'credential-flow',
             descripcion: 'Se agregó manualmente un participante a un lote de Credential Flow',
-            extra: ['lote_id' => $lote->id, 'participante_id' => $participante->id],
+            extra: ['lote_id' => $lote->id, 'participante_id' => $participante->id] + $this->dobleModalidad($lote, $participante),
         );
 
         return back()->with('success', 'El participante se agregó correctamente.'.$this->avisos($request));
@@ -68,7 +69,7 @@ class ParticipanteController extends Controller
             tipo: 'actualizacion',
             modulo: 'credential-flow',
             descripcion: 'Se editó un participante de un lote de Credential Flow',
-            extra: ['lote_id' => $lote->id, 'participante_id' => $participante->id],
+            extra: ['lote_id' => $lote->id, 'participante_id' => $participante->id] + $this->dobleModalidad($lote, $participante),
         );
 
         $mensaje = 'El participante se actualizó correctamente.';
@@ -127,6 +128,18 @@ class ParticipanteController extends Controller
     private function avisos(ParticipanteRequest $request): string
     {
         return $request->avisosCorreo() === [] ? '' : ' Aviso: '.implode(' ', $request->avisosCorreo());
+    }
+
+    /** Auditoría de la excepción (DobleModalidad): se marca cuando este participante comparte documento con otro de la base. Sin datos personales. */
+    private function dobleModalidad(Lote $lote, Participante $participante): array
+    {
+        if ($participante->es_control_qa || ! DobleModalidad::autorizado($lote->evento_id === null ? null : (int) $lote->evento_id)) {
+            return [];
+        }
+        $comparte = Participante::query()->where('lote_id', $lote->id)->where('documento_clave', $participante->documento_clave)
+            ->where('id', '!=', $participante->id)->where('es_control_qa', false)->exists();
+
+        return $comparte ? ['doble_modalidad' => ['evento_id' => (int) $lote->evento_id]] : [];
     }
 
     /** El participante de la URL debe pertenecer al lote de la URL. */
