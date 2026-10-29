@@ -5,17 +5,19 @@ namespace App\Http\Requests\CredentialFlow;
 use App\Models\CredentialFlow\Participante;
 use App\Support\CredentialFlow\Participantes\CeldaCruda;
 use App\Support\CredentialFlow\Participantes\CorreosDeParticipante;
+use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Participantes\ResultadoFila;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorParticipante;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Alta y edición manual de un participante. Usa EXACTAMENTE el mismo validador que la importación
  * (ValidadorParticipante) y la misma regla de duplicados (documento_clave dentro del lote, sin contar
- * los eliminados).
+ * los eliminados; en un evento autorizado para la doble certificación por modalidad, la de DobleModalidad).
  */
 class ParticipanteRequest extends FormRequest
 {
@@ -72,16 +74,17 @@ class ParticipanteRequest extends FormRequest
 
             if ($r->clave !== null && $validator->errors()->isEmpty()) {
                 $propio = $this->route('participante')?->id;
-                $duplicado = Participante::query()
+                $otros = Participante::query()
                     ->where('lote_id', $this->route('lote')->id)
                     ->where('documento_clave', $r->clave)
                     ->when($propio, fn ($q) => $q->where('id', '!=', $propio))
                     // Un contacto QA aparece una vez por modalidad de la base: sus otras filas QA no son un duplicado.
                     ->when($this->route('participante')?->es_control_qa, fn ($q) => $q->where('es_control_qa', false))
-                    ->exists();
+                    ->get(['nombre_completo', 'modalidad', 'es_control_qa']);
 
-                if ($duplicado) {
-                    $validator->errors()->add('documento', 'Ya existe un participante con ese documento en esta base.');
+                $motivo = $otros->isEmpty() ? null : $this->motivoDuplicado((string) $r->nombre, $otros);
+                if ($motivo !== null) {
+                    $validator->errors()->add('documento', 'Ya existe un participante con ese documento en esta base'.($motivo === '' ? '.' : ' ('.DobleModalidad::mensaje($motivo).').'));
                 }
             }
 
@@ -99,6 +102,27 @@ class ParticipanteRequest extends FormRequest
                 $this->avisosCorreo = $e['avisos'];
             }
         }];
+    }
+
+    /**
+     * Por qué el documento no puede repetirse en la base: '' = la regla de siempre (un documento por base); otro valor = motivo de DobleModalidad; null = puede.
+     * La excepción solo vale en un evento autorizado, entre participantes reales (nunca con un contacto QA) y con la MISMA regla que el importador.
+     *
+     * @param  Collection<int,Participante>  $otros
+     */
+    private function motivoDuplicado(string $nombre, Collection $otros): ?string
+    {
+        $lote = $this->route('lote');
+        $participante = $this->route('participante');
+        if (! DobleModalidad::autorizado($lote->evento_id === null ? null : (int) $lote->evento_id) || $participante?->es_control_qa || $otros->contains('es_control_qa', true)) {
+            return '';
+        }
+        $general = $lote->datos_comunes['modalidad'] ?? null;
+        // Sin el campo en el formulario, la modalidad no cambia: cuenta la que ya tiene.
+        $propia = $this->has('modalidad') ? (string) $this->input('modalidad') : $participante?->modalidad;
+
+        return DobleModalidad::conflicto($nombre, DobleModalidad::efectiva($propia, $general),
+            $otros->map(fn (Participante $o) => ['nombre' => (string) $o->nombre_completo, 'modalidad' => DobleModalidad::efectiva($o->modalidad, $general)])->all());
     }
 
     /** @return list<string>|null correos validados (vacío = sin correo); null = no se envió el campo */

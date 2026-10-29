@@ -16,6 +16,7 @@ use App\Support\CredentialFlow\Eventos\AsociacionAmbiguaException;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Participantes\ErrorArchivoException;
 use App\Support\CredentialFlow\Participantes\ErrorFila;
 use App\Support\CredentialFlow\Participantes\Excel\Analisis\AnalizadorExcel;
@@ -420,10 +421,11 @@ final class ServicioImportaciones
 
         // ── Validación con el importador de siempre ──────────────────────────
         $resultado = null;
+        $dobleModalidad = $this->dobleModalidad($evento, $incluidos, $finales);
         if ($incluidos !== []) {
             $archivo = ArchivoRevisado::crear($incluidos);
             try {
-                $resultado = $this->importador->validar($archivo, $plantilla, $finales);
+                $resultado = $this->importador->validar($archivo, $plantilla, $finales, $dobleModalidad);
             } finally {
                 @unlink($archivo->getRealPath());
             }
@@ -455,6 +457,9 @@ final class ServicioImportaciones
             foreach (collect($resultado->avisos)->groupBy('codigo') as $codigo => $lista) {
                 $avisos[] = ['codigo' => 'importador_'.strtolower((string) $codigo), 'mensaje' => $lista->first()->mensaje, 'cantidad' => $lista->count()];
             }
+            if ($dobleModalidad !== null && ($n = self::documentosConDobleModalidad($resultado->participantes)) > 0) {
+                $avisos[] = ['codigo' => 'doble_modalidad_autorizada', 'mensaje' => ($n === 1 ? 'Una persona tendrá' : "{$n} personas tendrán").' dos participaciones (una por modalidad): el evento está autorizado para la doble certificación por modalidad.', 'cantidad' => $n];
+            }
         }
 
         $porElegibilidad = array_count_values(array_map(fn ($p) => $p['elegibilidad'], $incluidos));
@@ -479,6 +484,39 @@ final class ServicioImportaciones
             'variante_qa' => $plantilla === null ? null : ['nombre' => $this->qa->varianteDe($plantilla)?->nombre],
             'plan' => ['plantilla' => $plantilla, 'evento' => $evento, 'decision' => $decision, 'nombre_evento' => $nombreEvento, 'comunes' => $finales, 'incluidos' => $incluidos, 'propuesta_evento' => $propuesta],
         ];
+    }
+
+    /**
+     * Doble certificación por modalidad: solo si la base se ASOCIA a un evento autorizado (DobleModalidad). Devuelve la modalidad efectiva de cada persona
+     * indexada por su línea en el CSV revisado (posición + 2, la misma correspondencia que comprueba FilasDeOrigen), o null = la regla de siempre. Un evento
+     * que se crea al confirmar nunca está autorizado todavía.
+     *
+     * @param  list<array<string,mixed>>  $incluidos
+     * @param  array<string,mixed>  $comunes
+     * @return array<int,string>|null
+     */
+    private function dobleModalidad(?EventoCertificacion $evento, array $incluidos, array $comunes): ?array
+    {
+        if (! DobleModalidad::autorizado($evento?->id)) {
+            return null;
+        }
+        $porLinea = [];
+        foreach (array_values($incluidos) as $i => $p) {
+            $porLinea[$i + FilasDeOrigen::PRIMERA_LINEA] = DobleModalidad::efectiva($p['modalidad'] ?? null, $comunes['modalidad'] ?? null);
+        }
+
+        return $porLinea;
+    }
+
+    /** @param  iterable<array<string,mixed>>  $participantes  cada uno con `documento_clave` */
+    private static function documentosConDobleModalidad(iterable $participantes): int
+    {
+        $porDocumento = [];
+        foreach ($participantes as $p) {
+            $porDocumento[(string) $p['documento_clave']] = ($porDocumento[(string) $p['documento_clave']] ?? 0) + 1;
+        }
+
+        return count(array_filter($porDocumento, fn (int $n) => $n > 1));
     }
 
     /** Vista completa del borrador para el administrador (con sus correcciones aplicadas y la evaluación actual). @return array<string,mixed> */
@@ -576,7 +614,8 @@ final class ServicioImportaciones
 
                 $archivo = ArchivoRevisado::crear($plan['incluidos']);
                 $nombreBase = $corr['nombre_base'] ?? Texto::limpiar(mb_substr(($plan['comunes']['evento'] ?? 'Base').' — '.($plan['comunes']['fecha'] ?? ''), 0, 200));
-                $lote = $this->importador->importar($archivo, $plan['plantilla'], $nombreBase, null, $plan['comunes'], $evento?->id, $actual->archivo_hash, $actual->archivo_nombre);
+                $dobleModalidad = $this->dobleModalidad($plan['evento'], $plan['incluidos'], $plan['comunes']);
+                $lote = $this->importador->importar($archivo, $plan['plantilla'], $nombreBase, null, $plan['comunes'], $evento?->id, $actual->archivo_hash, $actual->archivo_nombre, $dobleModalidad);
 
                 // Trazabilidad: `fila_origen` pasa de la línea del CSV intermedio a la fila REAL del Excel (correspondencia comprobada; si no cuadra, se deshace todo).
                 // Va ANTES de incorporar los QA, que no tienen fila de origen.
@@ -595,7 +634,10 @@ final class ServicioImportaciones
                     'estado' => Importacion::CONFIRMADO, 'lote_id' => $lote->id, 'clave_activa' => null, 'confirmado_at' => now(), 'confirmado_por' => $usuarioId,
                     'analisis' => null, 'correcciones' => null, 'version' => $actual->version + 1,
                 ]);
-                Movimiento::registrar(tipo: 'registro', modulo: 'credential-flow', descripcion: 'Se confirmó una importación inteligente y se creó una base (sin emitir certificados)', extra: ['importacion_id' => $actual->id, 'lote_id' => $lote->id]);
+                // Auditoría de la excepción: cuántos documentos quedaron con dos participaciones (sin datos personales).
+                $dobles = $dobleModalidad === null ? null : self::documentosConDobleModalidad(Participante::query()->where('lote_id', $lote->id)->where('es_control_qa', false)->get(['documento_clave'])->toArray());
+                Movimiento::registrar(tipo: 'registro', modulo: 'credential-flow', descripcion: 'Se confirmó una importación inteligente y se creó una base (sin emitir certificados)', extra: ['importacion_id' => $actual->id, 'lote_id' => $lote->id]
+                    + ($dobles === null ? [] : ['doble_modalidad' => ['evento_id' => $evento?->id, 'documentos' => $dobles]]));
 
                 return $lote;
             });
