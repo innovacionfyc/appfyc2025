@@ -54,6 +54,21 @@ final class EmisionException extends RuntimeException
     /** La base tiene una emisión programada pendiente (o ejecutándose): no se emite a mano hasta cancelarla o reprogramarla (ver Programacion\CandadoProgramacion). */
     public const EMISION_PROGRAMADA_PENDIENTE = 'EMISION_PROGRAMADA_PENDIENTE';
 
+    /** La corrección de certificados ya emitidos solo la autoriza un administrador de Credential Flow (ver AdministradorAutorizado). */
+    public const NO_AUTORIZADO = 'NO_AUTORIZADO';
+
+    /** Otra corrección (cambio de plantilla o reemisión masiva) de la MISMA base está en curso. */
+    public const OPERACION_EN_CURSO = 'OPERACION_EN_CURSO';
+
+    /** Algo cambió desde la simulación: la huella del plan ya no coincide y hay que volver a simular. */
+    public const PLAN_DESACTUALIZADO = 'PLAN_DESACTUALIZADO';
+
+    /** El cambio autorizado de plantilla no se puede hacer (plantilla de prueba, sin diseño, sin variante QA, igual a la actual…). */
+    public const CAMBIO_PLANTILLA_INVALIDO = 'CAMBIO_PLANTILLA_INVALIDO';
+
+    /** No hay certificados vigentes desactualizados que reemitir (repetir una reemisión ya hecha no duplica nada). */
+    public const SIN_DESACTUALIZADAS = 'SIN_DESACTUALIZADAS';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

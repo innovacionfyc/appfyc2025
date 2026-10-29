@@ -2,7 +2,9 @@
 
 namespace App\Support\CredentialFlow\Emisiones;
 
+use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Lote;
+use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use InvalidArgumentException;
@@ -13,7 +15,8 @@ use InvalidArgumentException;
  *  - Una base solo emite oficialmente con una plantilla VÁLIDA (existe y tiene diseño guardado) y con la VISTA PREVIA revisada y confirmada por una persona.
  *  - La confirmación queda atada a la plantilla y a una huella de su diseño: si se cambia la plantilla o se edita su diseño después, hay que revisar de nuevo.
  *  - La plantilla de una base solo se puede cambiar mientras la base no tenga ninguna emisión (nada emitido se reescribe). Las plantillas de pruebas internas (QA) no sirven para esto.
- *  - Compatibilidad: una base que YA tiene emisiones sigue emitiendo como antes (ya pasó por este control en el flujo anterior).
+ *  - Compatibilidad: una base que YA tiene emisiones sigue emitiendo como antes (ya pasó por este control en el flujo anterior), SALVO que su plantilla se haya
+ *    cambiado después de emitir (cambio autorizado, `CambioPlantillaEmitida`): entonces la plantilla nueva exige su propia vista previa confirmada.
  * Las emisiones de pruebas internas (QA) usan su propia plantilla marcada y no dependen de esta confirmación.
  */
 final class ServicioVistaPrevia
@@ -37,6 +40,26 @@ final class ServicioVistaPrevia
     public function yaEmitio(Lote $lote): bool
     {
         return $lote->emisiones()->exists();
+    }
+
+    /**
+     * ¿La base emitió certificados OFICIALES con una plantilla distinta de la que tiene ahora? Solo pasa tras un cambio autorizado de plantilla: las emisiones de
+     * pruebas internas (QA) usan su variante y no cuentan.
+     */
+    public function plantillaCambiadaTrasEmitir(Lote $lote): bool
+    {
+        return Emision::query()->where('lote_id', $lote->id)->where('plantilla_id', '<>', (int) $lote->plantilla_id)
+            ->whereIn('participante_id', Participante::withTrashed()->where('lote_id', $lote->id)->where('es_control_qa', false)->select('id'))
+            ->exists();
+    }
+
+    /**
+     * La base no necesita confirmar la vista previa: ya emitió con esta misma plantilla (compatibilidad con el flujo anterior).
+     * `$yaEmitio` evita repetir la consulta cuando quien llama ya la hizo.
+     */
+    public function exentaPorEmisiones(Lote $lote, ?bool $yaEmitio = null): bool
+    {
+        return ($yaEmitio ?? $this->yaEmitio($lote)) && ! $this->plantillaCambiadaTrasEmitir($lote);
     }
 
     /** ¿La vista previa confirmada sigue vigente para la plantilla actual de la base? */
@@ -122,7 +145,7 @@ final class ServicioVistaPrevia
         if (! self::plantillaValida($p)) {
             throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La base no tiene una plantilla válida con diseño guardado. Elige una plantilla antes de emitir.', 409);
         }
-        if (self::exigida() && ! $this->yaEmitio($lote) && ! $this->confirmada($lote)) {
+        if (self::exigida() && ! $this->exentaPorEmisiones($lote) && ! $this->confirmada($lote)) {
             throw new EmisionException(EmisionException::VISTA_PREVIA_PENDIENTE, 'Antes de emitir, revisa la vista previa y confirma la plantilla de esta base.', 409);
         }
     }
