@@ -95,9 +95,11 @@ return [
     ],
 
     // Doble certificación por modalidad (Participantes\DobleModalidad). DESACTIVADA por defecto y si la variable no existe: solo en los eventos (ids de `cf_eventos`)
-    // listados aquí, separados por comas, una misma persona puede tener una participación por modalidad en la misma base. No se listan personas ni documentos.
+    // listados, una misma persona puede tener una participación por modalidad en la misma base. No se listan personas ni documentos. Se guarda el TEXTO tal cual
+    // (también en la caché de configuración) y lo valida DobleModalidad::interpretar: ids decimales separados SOLO por comas, sin espacios; si algo no es válido,
+    // ningún evento queda autorizado.
     'doble_modalidad' => [
-        'eventos' => array_values(array_filter(array_map('intval', explode(',', (string) env('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS', ''))), fn (int $id) => $id > 0)),
+        'eventos' => env('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'),
     ],
 
     // Emisión programada. INTERRUPTOR GENERAL APAGADO por defecto y si la variable no existe: apagado no se puede programar ni reprogramar (cancelar sí, siempre)

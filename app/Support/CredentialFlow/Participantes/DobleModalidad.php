@@ -23,6 +23,9 @@ final class DobleModalidad
 
     public const OTRO_NOMBRE = 'otro_nombre';
 
+    /** Un id de evento: entero positivo decimal, sin ceros a la izquierda ni signo, de hasta 18 cifras (siempre cabe exacto en un entero de PHP). */
+    private const ID = '/^[1-9][0-9]{0,17}$/D';
+
     /** ¿El evento está autorizado expresamente? Sin evento, nunca. */
     public static function autorizado(?int $eventoId): bool
     {
@@ -30,7 +33,36 @@ final class DobleModalidad
             return false;
         }
 
-        return in_array($eventoId, array_map('intval', (array) config('credential_flow.doble_modalidad.eventos', [])), true);
+        return in_array($eventoId, self::eventosAutorizados(), true);
+    }
+
+    /** @return list<int> los eventos autorizados por la configuración (vacío = ninguno) */
+    public static function eventosAutorizados(): array
+    {
+        return self::interpretar(config('credential_flow.doble_modalidad.eventos'));
+    }
+
+    /**
+     * Lectura ESTRICTA de `CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS`: ids separados solo por comas («636» o «636,637»). No se recortan ni se toleran espacios,
+     * signos, ceros a la izquierda, decimales, notación científica, sufijos, otros separadores, elementos vacíos, repetidos ni ids de más de 18 cifras: si
+     * CUALQUIER elemento no es válido, no se autoriza NINGÚN evento (fallo cerrado). Cada elemento se valida como texto antes de convertirlo a número.
+     *
+     * @return list<int>
+     */
+    public static function interpretar(mixed $valor): array
+    {
+        if (! is_string($valor) || $valor === '') {
+            return [];
+        }
+        $ids = [];
+        foreach (explode(',', $valor) as $parte) {
+            if (preg_match(self::ID, $parte) !== 1 || in_array($parte, $ids, true)) {
+                return [];
+            }
+            $ids[] = $parte;
+        }
+
+        return array_map('intval', $ids);
     }
 
     /** Modalidad efectiva normalizada (minúsculas, espacios colapsados): la propia de la persona o, si no tiene, la general de la base. Vacía si ninguna. */
