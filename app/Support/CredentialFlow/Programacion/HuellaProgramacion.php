@@ -94,8 +94,11 @@ final class HuellaProgramacion
     /** @return array<string,mixed>|null */
     private static function plantilla(?Plantilla $p): ?array
     {
+        // El archivo solo entra en la huella cuando la plantilla ESTÁ archivada: así la huella de las plantillas vigentes no cambia con esta versión (las
+        // programaciones ya confirmadas siguen valiendo) y archivar una plantilla detiene la programación (pide confirmar de nuevo).
         return $p === null ? null : ['id' => $p->id, 'nombre' => $p->nombre, 'diseno' => $p->diseno, 'schema_version' => (int) $p->schema_version,
-            'hash' => $p->hash_sha256, 'es_plantilla_qa' => (bool) $p->es_plantilla_qa, 'variante_qa_id' => $p->variante_qa_id];
+            'hash' => $p->hash_sha256, 'es_plantilla_qa' => (bool) $p->es_plantilla_qa, 'variante_qa_id' => $p->variante_qa_id]
+            + ($p->estaArchivada() ? ['archivada_at' => $p->archivada_at?->toIso8601String()] : []);
     }
 
     private static function hash(mixed $datos): string

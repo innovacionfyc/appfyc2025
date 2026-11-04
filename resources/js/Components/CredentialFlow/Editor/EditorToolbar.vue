@@ -12,6 +12,8 @@ defineProps({
   deshabilitado: { type: Boolean, default: false },
   // Hay un campo desconocido o una fuente sin cargar: no se puede guardar hasta corregirlo.
   guardarBloqueado: { type: Boolean, default: false },
+  // Por qué no se puede guardar (plantilla archivada o protegida); sin él, el bloqueo es por errores del diseño.
+  motivoNoGuardar: { type: String, default: "" },
   // PDF de prueba: se genera siempre desde el diseño GUARDADO. `motivoNoGenerar` explica por qué el
   // botón está deshabilitado (null = disponible).
   generando: { type: Boolean, default: false },
@@ -129,7 +131,7 @@ const boton =
         process="Guardando..."
         :class="['sm:w-auto', !guardando && (deshabilitado || guardarBloqueado || !sinGuardar) ? 'opacity-50 pointer-events-none' : '']"
         :aria-disabled="!guardando && (deshabilitado || guardarBloqueado || !sinGuardar)"
-        :title="guardarBloqueado ? 'Corrige lo marcado en rojo para poder guardar' : undefined"
+        :title="guardarBloqueado ? motivoNoGuardar || 'Corrige lo marcado en rojo para poder guardar' : undefined"
         @click="$emit('guardar')"
       />
     </div>

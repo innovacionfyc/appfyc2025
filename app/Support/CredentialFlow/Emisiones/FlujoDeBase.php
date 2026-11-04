@@ -4,6 +4,7 @@ namespace App\Support\CredentialFlow\Emisiones;
 
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -40,6 +41,8 @@ final class FlujoDeBase
 
         $conEvento = Schema::hasColumn('cf_lotes', 'evento_id') && $lote->evento_id !== null;
         $plantillaOk = ServicioVistaPrevia::plantillaValida($lote->plantilla);
+        // Plantilla archivada: la base conserva su historial, pero no emite ni reemite hasta pasar a una plantilla vigente (solo bloquea si queda algo por emitir).
+        $archivada = (bool) $lote->plantilla?->estaArchivada();
         $yaEmitio = $this->vistaPrevia->yaEmitio($lote);
         // Tras un cambio autorizado de plantilla en una base ya emitida, la plantilla nueva vuelve a exigir su vista previa (ver ServicioVistaPrevia).
         $exenta = $this->vistaPrevia->exentaPorEmisiones($lote, $yaEmitio);
@@ -51,7 +54,7 @@ final class FlujoDeBase
             'evento' => $conEvento,
             'importar' => $reales > 0,
             'revisar' => $reales > 0 && $tipoPendiente === 0 && $enValidacion === 0,
-            'plantilla' => $plantillaOk,
+            'plantilla' => $plantillaOk && ! ($archivada && $listos > 0),
             'vista_previa' => $vistaOk,
             'emitir' => $vigentes > 0 && $listos === 0,
             'descargar' => false,
@@ -81,6 +84,9 @@ final class FlujoDeBase
         }
         if ($reales === 0) {
             $faltan[] = 'Importar o agregar participantes.';
+        }
+        if ($archivada) {
+            $faltan[] = 'Cambiar la plantilla archivada por una plantilla vigente (procedimiento oficial de cambio de plantilla) antes de emitir o reemitir.';
         }
         if (! $plantillaOk) {
             $faltan[] = 'Elegir una plantilla con diseño guardado.';
@@ -120,17 +126,22 @@ final class FlujoDeBase
 
         return [
             'pasos' => $pasos,
-            'siguiente' => $this->describir($siguiente, $listos, $tipoPendiente + $enValidacion, $generada),
+            'siguiente' => $this->describir($siguiente, $listos, $tipoPendiente + $enValidacion, $generada, $archivada),
             'faltan' => $faltan,
-            'plantilla' => ['nombre' => $lote->plantilla?->nombre, 'valida' => $plantillaOk, 'puede_cambiar' => ! $yaEmitio],
+            'plantilla' => ['nombre' => $lote->plantilla?->nombre, 'valida' => $plantillaOk, 'puede_cambiar' => ! $yaEmitio, 'archivada' => $archivada],
+            'aviso_archivo' => ArchivoPlantillas::avisoBase($lote),
             'vista_previa' => ['exigida' => ServicioVistaPrevia::exigida(), 'generada' => $generada, 'confirmada' => $confirmada, 'exenta_por_emisiones' => $exenta],
             'plantillas_disponibles' => $yaEmitio ? [] : $this->plantillasDisponibles(),
         ];
     }
 
     /** @return array{clave:string,titulo:string,detalle:string,accion:array<string,mixed>} */
-    private function describir(string $clave, int $listos, int $porResolver, bool $generada): array
+    private function describir(string $clave, int $listos, int $porResolver, bool $generada, bool $archivada = false): array
     {
+        if ($clave === 'plantilla' && $archivada) {
+            return ['clave' => $clave, 'titulo' => 'Cambiar la plantilla archivada', 'detalle' => 'La plantilla de esta base está archivada: elige una plantilla vigente con el procedimiento oficial antes de emitir o reemitir.', 'accion' => ['tipo' => 'plantilla']];
+        }
+
         return match ($clave) {
             'evento' => ['clave' => $clave, 'titulo' => 'Asociar la base a un evento', 'detalle' => 'Crea o elige el evento en «Eventos» y asocia esta base (evita eventos duplicados).', 'accion' => ['tipo' => 'enlace', 'ruta' => 'credential-flow.eventos.index']],
             'importar' => ['clave' => $clave, 'titulo' => 'Importar participantes', 'detalle' => 'Esta base no tiene participantes: importa el Excel o agrega uno a uno.', 'accion' => ['tipo' => 'agregar']],
@@ -147,7 +158,7 @@ final class FlujoDeBase
     /** @return list<array{id:int,nombre:string}> */
     private function plantillasDisponibles(): array
     {
-        return Plantilla::query()->whereNotNull('diseno')
+        return Plantilla::query()->vigentes()->whereNotNull('diseno')
             ->when(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa'), fn ($q) => $q->where('es_plantilla_qa', false))
             ->latest()->get(['id', 'nombre', 'diseno'])
             ->filter(fn (Plantilla $p) => ServicioVistaPrevia::plantillaValida($p))

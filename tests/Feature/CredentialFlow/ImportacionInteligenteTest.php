@@ -11,6 +11,7 @@ use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\Importacion\ServicioImportaciones;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\Texto;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -861,5 +862,21 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         config(['credential_flow.importacion_inteligente.activa' => false]);
         $this->assertFalse(ServicioImportaciones::activa());
         $this->assertSame(0, Importacion::count());
+    }
+
+    // ── C2: plantilla archivada ───────────────────────────────────────────────
+
+    public function test_una_plantilla_archivada_despues_de_elegirla_bloquea_la_confirmacion_y_el_asistente_ya_no_la_ofrece(): void
+    {
+        [$id, $v] = $this->borradorListo();
+        app(ArchivoPlantillas::class)->archivar($this->plantilla, $this->superAdmin(), 'Fondo ficticio retirado para la prueba');
+
+        $r = $this->confirmar($id, $v)->assertStatus(422);
+        $this->assertSame('BORRADOR_NO_ESTA_LISTO', $r->json('error.code'));
+        $this->assertContains('plantilla_archivada', array_column($r->json('error.detalles'), 'codigo'));
+        $this->assertSame(0, Lote::count());
+
+        $props = $this->actingAs($this->admin())->get(route('credential-flow.importaciones.asistente'))->assertOk()->viewData('page')['props'];
+        $this->assertNotContains($this->plantilla->id, array_column($props['plantillas'], 'id'));
     }
 }

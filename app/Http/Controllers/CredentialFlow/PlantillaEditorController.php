@@ -10,8 +10,12 @@ use App\Models\Movimiento;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Plantillas\ProteccionDiseno;
 use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,7 +34,11 @@ class PlantillaEditorController extends Controller
                 'nombre' => $plantilla->nombre,
                 'descripcion' => $plantilla->descripcion,
                 'nombre_archivo_original' => $plantilla->nombre_archivo_original,
+                // Archivada: el editor se abre solo para consulta (el guardado está bloqueado en el servidor).
+                'archivada' => $plantilla->estaArchivada(),
             ],
+            // En uso (emisiones de cualquier estado o más de una base): el diseño se consulta, pero los cambios se hacen en una copia. El servidor lo exige al guardar.
+            'proteccion' => ProteccionDiseno::estado($plantilla),
             'diseno' => $plantilla->diseno,
             'pdfUrl' => route('credential-flow.plantillas.pdf', $plantilla, false),
             'schema' => DisenoSchema::paraEditor(),
@@ -78,17 +86,33 @@ class PlantillaEditorController extends Controller
     public function update(UpdateDisenoRequest $request, Plantilla $plantilla)
     {
         $diseno = $request->diseno();
-        // Versión MÍNIMA que necesita el diseño: 2 solo si lleva QR; las plantillas de solo texto siguen en 1.
-        $plantilla->update([
-            'diseno' => $diseno,
-            'schema_version' => DisenoSchema::versionPara($diseno),
-        ]);
+        // Archivada o con dependencias (emisiones vigentes o revocadas, o más de una base): el original no se modifica; se duplica y se edita la copia.
+        // La comprobación y la escritura van juntas con la plantilla bloqueada en exclusiva (las emisiones y las bases nuevas toman el bloqueo compartido
+        // de la misma fila; ver ProteccionDiseno), así que nada puede crear una dependencia entre ambas.
+        try {
+            $bloqueo = ProteccionDiseno::guardarSiEditable($plantilla->id, function (Plantilla $bloqueada) use ($diseno) {
+                // Versión MÍNIMA que necesita el diseño: 2 solo si lleva QR; las plantillas de solo texto siguen en 1.
+                $bloqueada->update([
+                    'diseno' => $diseno,
+                    'schema_version' => DisenoSchema::versionPara($diseno),
+                ]);
 
-        Movimiento::registrar(
-            tipo: 'actualizacion',
-            modulo: 'credential-flow',
-            descripcion: "Se actualizó el diseño de la plantilla de Credential Flow: {$plantilla->nombre}"
-        );
+                Movimiento::registrar(
+                    tipo: 'actualizacion',
+                    modulo: 'credential-flow',
+                    descripcion: "Se actualizó el diseño de la plantilla de Credential Flow: {$bloqueada->nombre}"
+                );
+            });
+        } catch (QueryException $e) {
+            // Espera de bloqueo agotada o interbloqueo (una emisión muy larga con esta plantilla): no se guardó nada.
+            Log::warning('Credential Flow: el diseño no se guardó por un bloqueo de la base de datos', ['plantilla' => $plantilla->id, 'error' => LogSeguro::resumen($e)]);
+
+            return to_route('credential-flow.plantillas.editor', $plantilla)
+                ->with('error', 'La plantilla se está usando en este momento (por ejemplo, en una emisión). No se guardó nada: inténtalo de nuevo en unos segundos.');
+        }
+        if ($bloqueo !== null) {
+            return to_route('credential-flow.plantillas.editor', $plantilla)->with('error', $bloqueo);
+        }
 
         return to_route('credential-flow.plantillas.editor', $plantilla)
             ->with('success', 'Diseño guardado correctamente.');

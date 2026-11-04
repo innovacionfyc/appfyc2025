@@ -17,6 +17,8 @@ final class DuplicacionException extends RuntimeException
 
     public const ORIGEN_ES_QA = 'ORIGEN_ES_QA';
 
+    public const ORIGEN_ARCHIVADA = 'ORIGEN_ARCHIVADA';
+
     public const ORIGEN_SIN_DISENO = 'ORIGEN_SIN_DISENO';
 
     public const ORIGEN_SIN_PDF = 'ORIGEN_SIN_PDF';

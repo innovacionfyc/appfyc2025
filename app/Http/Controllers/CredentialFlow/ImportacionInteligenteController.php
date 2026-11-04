@@ -41,7 +41,7 @@ class ImportacionInteligenteController extends Controller
     public function asistente(Request $request): InertiaResponse
     {
         $this->servicio->limpiar();
-        $plantillas = Plantilla::query()->whereNotNull('diseno')
+        $plantillas = Plantilla::query()->vigentes()->whereNotNull('diseno')
             ->when(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa'), fn ($q) => $q->where('es_plantilla_qa', false))
             ->latest()->get()
             ->filter(fn (Plantilla $p) => ServicioVistaPrevia::plantillaValida($p))

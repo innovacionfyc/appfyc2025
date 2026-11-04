@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\Eloquent\Collection;
@@ -162,7 +163,8 @@ final class ReemisorBase
             // 4–5: fase crítica. Orden de bloqueo: base → participantes → emisiones (el mismo de emitir, reemitir y revocar).
             $reemplazos = DB::transaction(function () use ($lote, $grupo, $plantilla, $anteriores, $snapshots, $generados, $operacion, $motivo, $usuarioId, $plan, &$movidos) {
                 $loteActual = Lote::lockForUpdate()->find($lote->id);
-                $plantillaActual = Plantilla::find($plantilla->id);
+                // Bloqueo COMPARTIDO de la plantilla hasta el commit: el guardado del diseño (exclusivo) no puede colarse entre esta huella y el insert.
+                $plantillaActual = Plantilla::query()->sharedLock()->find($plantilla->id);
                 $ids = $anteriores->pluck('participante_id')->all();
                 $bloqueados = Participante::query()->whereIn('id', $ids)->lockForUpdate()->get()->keyBy('id');
                 $vigentes = Emision::query()->whereIn('id', $anteriores->pluck('id'))->lockForUpdate()->get()->keyBy('id');
@@ -170,6 +172,7 @@ final class ReemisorBase
                     throw $this->cambiaron();
                 }
                 CandadoProgramacion::exigirLibre($loteActual->id);
+                ArchivoPlantillas::exigirVigente($plantillaActual, $grupo === self::QA);
                 if ($grupo === self::OFICIALES) {
                     $this->vistaPrevia->exigir($loteActual);
                 }
@@ -327,6 +330,7 @@ final class ReemisorBase
                 ? new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, 'La plantilla de esta base no tiene su variante de pruebas internas (QA): las pruebas no se reemiten con el diseño de otra capacitación.', 409)
                 : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
+        ArchivoPlantillas::exigirVigente($plantilla, $grupo === self::QA);
         if ($grupo === self::OFICIALES) {
             $this->vistaPrevia->exigir($lote);
         }

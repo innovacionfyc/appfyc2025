@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -132,6 +133,8 @@ final class EmisorCredencial
                 ? new EmisionException(EmisionException::VARIANTE_QA_FALTANTE, 'La plantilla de esta base no tiene su variante de pruebas internas (QA) asociada: la prueba no se emite con el diseño de otra capacitación.', 409)
                 : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
+        // Una plantilla (o variante QA) archivada conserva el historial, pero no genera ninguna emisión nueva ni reemisión.
+        ArchivoPlantillas::exigirVigente($plantilla, $esQa);
 
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).
         [$base, $hashPlantilla] = SnapshotCredencial::cargarPlantilla($plantilla);
@@ -146,7 +149,7 @@ final class EmisorCredencial
         $escrito = false;
 
         try {
-            return DB::transaction(function () use ($participante, $lote, $plantilla, $reemplaza, $motivo, $usuarioId, $operacion, $alCrear, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
+            return DB::transaction(function () use ($participante, $lote, $plantilla, $esQa, $reemplaza, $motivo, $usuarioId, $operacion, $alCrear, $snapshot, $bytes, $hash, $tamano, $rutaFinal, &$escrito) {
                 // 3: bloqueo y comprobaciones con la base ya bloqueada. En una primera emisión se bloquea ANTES la base (mismo orden que la emisión masiva y que
                 // programar: base → participante, sin riesgo de interbloqueo) y se revisa el candado de la emisión programada de forma definitiva.
                 if ($reemplaza === null) {
@@ -155,10 +158,12 @@ final class EmisorCredencial
                 }
                 $bloqueado = Participante::lockForUpdate()->find($participante->id);
                 $loteActual = Lote::find($lote->id);
-                $plantillaActual = Plantilla::find($plantilla->id);
+                // Bloqueo COMPARTIDO de la plantilla hasta el commit: el guardado del diseño (exclusivo) no puede colarse entre esta huella y el insert.
+                $plantillaActual = Plantilla::query()->sharedLock()->find($plantilla->id);
                 if (! $bloqueado || ! $loteActual || ! $plantillaActual) {
                     throw new EmisionException(EmisionException::DATOS_CAMBIARON_DURANTE_EMISION, 'Los datos cambiaron mientras se emitía el certificado. No se emitió nada: inténtalo de nuevo.', 409);
                 }
+                ArchivoPlantillas::exigirVigente($plantillaActual, $esQa);
 
                 $anterior = null;
                 if ($reemplaza) {

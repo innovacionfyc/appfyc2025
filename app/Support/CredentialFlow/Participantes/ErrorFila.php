@@ -29,6 +29,10 @@ final readonly class ErrorFila
 
     public const SIN_FILAS = 'SIN_FILAS';
 
+    public const PLANTILLA_ARCHIVADA = 'PLANTILLA_ARCHIVADA';
+
+    public const PLANTILLA_QA = 'PLANTILLA_QA';
+
     public const DEMASIADAS_FILAS = 'DEMASIADAS_FILAS';
 
     public const DEMASIADAS_COLUMNAS = 'DEMASIADAS_COLUMNAS';

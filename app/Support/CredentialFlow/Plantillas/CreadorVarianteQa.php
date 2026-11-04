@@ -123,6 +123,9 @@ final class CreadorVarianteQa
         if ($p === null) {
             throw new DuplicacionException(DuplicacionException::ORIGEN_NO_EXISTE, "La plantilla #{$id} no existe.");
         }
+        if ($p->estaArchivada()) {
+            throw new DuplicacionException(DuplicacionException::ORIGEN_ARCHIVADA, "La plantilla #{$id} está archivada: no se le crea variante de prueba.");
+        }
         if ($p->variante_qa_id !== null && Plantilla::query()->whereKey($p->variante_qa_id)->exists()) {
             throw new DuplicacionException(DuplicacionException::COPIA_IDENTICA_EXISTE, "La plantilla #{$id} ya tiene su variante de prueba (#{$p->variante_qa_id}): no se crea otra.");
         }

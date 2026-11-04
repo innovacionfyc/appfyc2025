@@ -290,6 +290,9 @@ final class ServicioImportaciones
         } elseif (($plantilla->es_plantilla_qa ?? false) || ! ServicioVistaPrevia::plantillaValida($plantilla)) {
             $bloquear('plantilla_invalida', 'La plantilla elegida no sirve para certificados oficiales (sin diseño guardado o de pruebas internas).');
             $plantilla = null;
+        } elseif ($plantilla->estaArchivada()) {
+            $bloquear('plantilla_archivada', 'La plantilla elegida está archivada: elige una plantilla vigente.');
+            $plantilla = null;
         }
 
         // ── Evento ───────────────────────────────────────────────────────────

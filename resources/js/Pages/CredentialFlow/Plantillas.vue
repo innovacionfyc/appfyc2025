@@ -8,12 +8,15 @@ import BtnUniversal from "@/Components/BtnUniversal.vue";
 import ConfirmacionesPop from "@/Components/Modales/Confirmaciones/ConfirmacionesPop.vue";
 import PlantillaModal from "@/Components/CredentialFlow/PlantillaModal.vue";
 import EliminarDefinitivamenteModal from "@/Components/CredentialFlow/EliminarDefinitivamenteModal.vue";
+import ArchivarPlantillaModal from "@/Components/CredentialFlow/ArchivarPlantillaModal.vue";
 import { useConfirmationModal } from "@/Composables/useConfirmationModal";
-import { LayoutTemplate, FileText, Trash2, Search, CalendarDays, SquarePen, Type } from "lucide-vue-next";
+import { LayoutTemplate, FileText, Trash2, Search, CalendarDays, SquarePen, Type, Archive, ArchiveRestore } from "lucide-vue-next";
 
 const props = defineProps({
   plantillas: { type: Array, default: () => [] },
   eliminadas: { type: Array, default: () => [] }, // plantillas eliminadas antes (ocultas)
+  archivadas: { type: Array, default: () => [] }, // plantillas archivadas: se conservan, pero no se ofrecen ni emiten
+  puede_archivar: { type: Boolean, default: false }, // solo super-admin
   stats: { type: Object, default: () => ({}) },
 });
 
@@ -25,6 +28,7 @@ const { confirmationState, openConfirmationModal, closeConfirmationModal, handle
 // ── Modal de creación ─────────────────────────────────────────────────────────
 const isModalOpen = ref(false);
 const aLiberar = ref(null); // plantilla para «Eliminar definitivamente»
+const archivo = ref(null); // { modo: "archivar" | "restaurar", plantilla }
 
 // ── Búsqueda local ────────────────────────────────────────────────────────────
 const searchQuery = ref("");
@@ -226,18 +230,32 @@ const eliminar = (plantilla) => {
             class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto/10 text-sm font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all"
           >
             <SquarePen class="w-4 h-4" />
-            Editar diseño
+            {{ p.diseno_protegido ? "Ver diseño (protegido)" : "Editar diseño" }}
           </Link>
-          <label v-if="p.apta_qa || p.es_plantilla_qa" class="flex items-center gap-2 text-[12px] font-bold text-violet-700" data-plantilla-qa>
+          <button
+            v-if="puede_archivar"
+            type="button"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border border-amber-200 bg-amber-50 text-[13px] font-bold text-amber-800 hover:bg-amber-100 transition-all"
+            data-accion="archivar"
+            @click="archivo = { modo: 'archivar', plantilla: p }"
+          >
+            <Archive class="w-4 h-4" />
+            Archivar
+          </button>
+          <p v-if="p.uso_oficial && !p.es_plantilla_qa && p.apta_qa" class="text-[11px] font-semibold text-slate-400" data-plantilla-qa-oficial>
+            Es la plantilla oficial de alguna base: no puede designarse para pruebas internas. Crea una variante QA a partir de ella.
+          </p>
+          <label v-else-if="p.apta_qa || p.es_plantilla_qa" class="flex items-center gap-2 text-[12px] font-bold text-violet-700" data-plantilla-qa>
             <input type="checkbox" class="rounded border-violet-300" :checked="p.es_plantilla_qa" @change="router.put(route('credential-flow.plantillas.qa', p.id), { es_plantilla_qa: $event.target.checked }, { preserveScroll: true })" />
             Usar para las pruebas internas (QA)
           </label>
           <p v-else-if="!p.es_plantilla_qa" class="text-[11px] font-semibold text-slate-400" data-plantilla-qa-ayuda>
             Para una variante de pruebas: copia este diseño y agrega el texto «PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA». Luego podrás designarla.
           </p>
-          <label v-if="!p.es_plantilla_qa && opcionesQa.length" class="flex items-center gap-2 text-[12px] font-semibold text-slate-500" data-variante-qa>
+          <label v-if="!p.es_plantilla_qa && opcionesQa.length" class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-[12px] font-semibold text-slate-500" data-variante-qa>
             Variante de pruebas:
-            <select class="rounded-lg border border-slate-200 text-[12px] py-1" :value="p.variante_qa_id ?? ''" @change="router.put(route('credential-flow.plantillas.variante-qa', p.id), { variante_qa_id: $event.target.value || null }, { preserveScroll: true })">
+            <!-- min-w-0 + max-w-full: un nombre de variante largo no ensancha la tarjeta ni provoca desplazamiento horizontal en el móvil. -->
+            <select class="min-w-0 max-w-full flex-1 truncate rounded-lg border border-slate-200 text-[12px] py-1" :value="p.variante_qa_id ?? ''" @change="router.put(route('credential-flow.plantillas.variante-qa', p.id), { variante_qa_id: $event.target.value || null }, { preserveScroll: true })">
               <option value="">La general de pruebas</option>
               <option v-for="o in opcionesQa.filter((x) => x.id !== p.id)" :key="o.id" :value="o.id">{{ o.nombre }}</option>
             </select>
@@ -250,6 +268,29 @@ const eliminar = (plantilla) => {
           </div>
         </article>
       </div>
+
+      <details v-if="archivadas.length" class="mt-10 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-plantillas-archivadas>
+        <summary class="cursor-pointer text-sm font-extrabold text-slate-700">Plantillas archivadas ({{ archivadas.length }})</summary>
+        <p class="mt-2 text-[13px] font-medium text-slate-500">Se conservan con su diseño, su fondo, sus bases y sus certificados, pero no se ofrecen para bases nuevas ni generan certificados nuevos.</p>
+        <ul class="mt-4 divide-y divide-slate-100">
+          <li v-for="a in archivadas" :key="a.id" class="flex flex-wrap items-center justify-between gap-3 py-3" :data-archivada="a.id">
+            <div class="min-w-0">
+              <p class="font-extrabold text-slate-800 break-words">#{{ a.id }} · {{ a.nombre }}<span v-if="a.es_plantilla_qa" class="ml-2 text-[11px] font-bold text-violet-700">(pruebas internas)</span></p>
+              <p class="text-[12px] font-semibold text-slate-400">
+                Archivada el {{ formatFecha(a.archivada_at) }} · {{ a.bases }} base{{ a.bases === 1 ? "" : "s" }} · {{ a.emisiones }} certificado{{ a.emisiones === 1 ? "" : "s" }}
+                <template v-if="a.sucesora"> · reemplazada por #{{ a.sucesora.id }} {{ a.sucesora.nombre }}</template>
+              </p>
+              <p v-if="a.motivo" class="text-[12px] font-medium text-slate-500 break-words">Motivo: {{ a.motivo }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <Link :href="route('credential-flow.plantillas.editor', a.id)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-[12px] font-bold text-slate-600 hover:bg-slate-200 transition-all">Ver diseño</Link>
+              <button v-if="puede_archivar" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-[12px] font-bold text-amber-800 hover:bg-amber-100 transition-all" data-accion="restaurar" @click="archivo = { modo: 'restaurar', plantilla: a }">
+                <ArchiveRestore class="w-3.5 h-3.5" /> Restaurar
+              </button>
+            </div>
+          </li>
+        </ul>
+      </details>
 
       <details v-if="eliminadas.length" class="mt-10 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-plantillas-eliminadas>
         <summary class="cursor-pointer text-sm font-extrabold text-slate-700">Plantillas eliminadas anteriormente ({{ eliminadas.length }})</summary>
@@ -270,6 +311,8 @@ const eliminar = (plantilla) => {
   </AuthenticatedLayout>
 
   <EliminarDefinitivamenteModal :show="aLiberar !== null" tipo="plantilla" :nombre="aLiberar?.nombre ?? ''" :resumen-url="aLiberar ? route('credential-flow.plantillas.eliminacion.resumen', aLiberar.id) : ''" :eliminar-url="aLiberar ? route('credential-flow.plantillas.destroy-definitivo', aLiberar.id) : ''" @close="aLiberar = null" />
+
+  <ArchivarPlantillaModal :show="archivo !== null" :modo="archivo?.modo ?? 'archivar'" :plantilla="archivo?.plantilla ?? null" @close="archivo = null" />
 
   <PlantillaModal :show="isModalOpen" @close="isModalOpen = false" @success="isModalOpen = false" />
 

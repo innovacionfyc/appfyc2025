@@ -361,6 +361,13 @@ const confirmarMotivo = async (motivo) => {
 
       <!-- Recorrido de la base: siguiente paso y lo que falta -->
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4" data-siguiente-paso :data-paso="flujo.siguiente.clave">
+        <div v-if="flujo.aviso_archivo" class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] font-semibold" role="status" data-aviso="plantilla-archivada">
+          <div class="min-w-0">
+            <p class="font-extrabold">Plantilla archivada: {{ flujo.aviso_archivo.nombre }}</p>
+            <p class="mt-0.5 font-medium">{{ flujo.aviso_archivo.mensaje }}</p>
+            <p v-if="flujo.aviso_archivo.sucesora" class="mt-0.5 font-medium">Plantilla vigente sugerida: #{{ flujo.aviso_archivo.sucesora.id }} {{ flujo.aviso_archivo.sucesora.nombre }}.</p>
+          </div>
+        </div>
         <ol class="flex flex-wrap items-center gap-2" aria-label="Pasos para certificar esta base">
           <li v-for="(paso, i) in flujo.pasos" :key="paso.clave" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[12px] font-bold" :class="ESTADO_PASO[paso.estado]" :data-paso-estado="paso.estado" :data-paso-clave="paso.clave">
             <span class="opacity-70">{{ i + 1 }}</span> {{ paso.rotulo }}
@@ -375,6 +382,9 @@ const confirmarMotivo = async (motivo) => {
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <Link v-if="flujo.siguiente.accion.tipo === 'enlace'" :href="route(flujo.siguiente.accion.ruta)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all" data-accion="siguiente-paso">{{ flujo.siguiente.titulo }}</Link>
+            <span v-else-if="flujo.siguiente.accion.tipo === 'plantilla' && !flujo.plantilla.puede_cambiar" class="text-[12px] font-semibold text-slate-500" data-cambio-oficial>
+              Esta base ya tiene certificados: el cambio de plantilla se hace con el procedimiento oficial (simulación, respaldo y autorización).
+            </span>
             <template v-else-if="flujo.siguiente.accion.tipo === 'plantilla'">
               <select v-model="plantillaElegida" class="max-w-full min-w-0 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 px-3 py-2" data-campo="plantilla-base">
                 <option value="">Elegir plantilla…</option>

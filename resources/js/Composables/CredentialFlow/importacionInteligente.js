@@ -60,6 +60,7 @@ export const DATOS = [
 export const BLOQUEOS = {
   plantilla_faltante: { titulo: "Falta elegir la plantilla", paso: "vista" },
   plantilla_invalida: { titulo: "La plantilla elegida no sirve para certificados oficiales", paso: "vista" },
+  plantilla_archivada: { titulo: "La plantilla elegida está archivada: elige una plantilla vigente", paso: "vista" },
   evento_sin_decision: { titulo: "Falta decidir a qué evento pertenece", paso: "evento", ancla: "evento" },
   evento_invalido: { titulo: "El evento elegido ya no está disponible", paso: "evento", ancla: "evento" },
   evento_sin_nombre: { titulo: "Falta el nombre del evento nuevo", paso: "evento", ancla: "evento" },
@@ -346,7 +347,7 @@ export function crearAsistente(props) {
 
     return (validacion.value?.bloqueos ?? []).filter((b) => BLOQUEOS_PERSONAS.includes(b.codigo) && !(aceptados && b.codigo === "valores_ambiguos_sin_revisar"));
   });
-  const bloqueosVista = computed(() => (validacion.value?.bloqueos ?? []).filter((b) => ["plantilla_faltante", "plantilla_invalida", "datos_del_diseno_incompletos"].includes(b.codigo)));
+  const bloqueosVista = computed(() => (validacion.value?.bloqueos ?? []).filter((b) => ["plantilla_faltante", "plantilla_invalida", "plantilla_archivada", "datos_del_diseno_incompletos"].includes(b.codigo)));
   const etapaLista = computed(() => ({
     subir: !!borrador.value,
     evento: eventoListo.value,

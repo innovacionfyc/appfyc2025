@@ -69,7 +69,8 @@ const datoListo = computed(() => {
 // ── Pasos 3 y 4: plantilla y diseño ───────────────────────────────────────────────────────────────────
 const plantillaId = ref(d.value.plantilla.clon?.id ?? null);
 watch(() => d.value.plantilla.clon?.id, (id) => { if (id && !plantillaId.value) plantillaId.value = id; });
-const candidatas = computed(() => [d.value.plantilla.clon, ...d.value.plantilla.otras].filter(Boolean));
+// Ni archivadas ni variantes QA se ofrecen para reemplazos (el servidor también lo bloquea).
+const candidatas = computed(() => [d.value.plantilla.clon, ...d.value.plantilla.otras].filter((p) => p && !p.archivada && !p.es_qa));
 const plantilla = computed(() => candidatas.value.find((p) => p.id === plantillaId.value) ?? null);
 const fechaTxt = ref("");
 const intensidadTxt = ref("");

@@ -202,6 +202,12 @@ final class ServicioQa
         return false;
     }
 
+    /** ¿La usa alguna base (también eliminada) como plantilla oficial, o tiene ya su propia variante QA? */
+    public static function usoOficial(Plantilla $plantilla): bool
+    {
+        return $plantilla->getAttribute('variante_qa_id') !== null || Lote::withTrashed()->where('plantilla_id', $plantilla->id)->exists();
+    }
+
     private static function normalizar(string $t): string
     {
         return preg_replace('/[^A-Z0-9]+/', ' ', strtoupper(Str::ascii($t))) ?? '';
@@ -210,6 +216,14 @@ final class ServicioQa
     /** @throws InvalidArgumentException si el diseño no lleva la advertencia visible */
     public function designarPlantilla(Plantilla $plantilla, bool $esQa): void
     {
+        if ($plantilla->estaArchivada()) {
+            throw new InvalidArgumentException('La plantilla está archivada: su designación de pruebas internas no se cambia.');
+        }
+        // Una plantilla que ya es OFICIAL (la usa alguna base o tiene su propia variante QA) no se convierte en variante QA: sus bases quedarían emitiendo
+        // certificados oficiales con un diseño de pruebas. Para una variante, se crea una copia (credential-flow:plantilla-variante-qa).
+        if ($esQa && ! $plantilla->esPlantillaQa() && self::usoOficial($plantilla)) {
+            throw new InvalidArgumentException('Esta plantilla ya se usa como plantilla oficial (tiene bases o su propia variante de pruebas): no se puede designar para pruebas internas. Crea una variante QA a partir de ella.');
+        }
         if ($esQa && ! self::tieneAdvertenciaVisible($plantilla)) {
             throw new InvalidArgumentException('El diseño de la plantilla debe incluir, como texto visible, «'.self::ADVERTENCIA.'». Agrégalo en el editor y vuelve a designarla.');
         }
@@ -226,14 +240,28 @@ final class ServicioQa
      */
     public function asignarVariante(Plantilla $plantilla, ?Plantilla $variante): void
     {
+        if ($plantilla->estaArchivada() || $variante?->estaArchivada()) {
+            throw new InvalidArgumentException('Una plantilla archivada no cambia su variante de pruebas internas ni se usa como variante.');
+        }
+        if ($plantilla->esPlantillaQa()) {
+            throw new InvalidArgumentException('Una plantilla de pruebas internas (QA) no es una plantilla oficial: no lleva variante propia.');
+        }
         if ($variante !== null) {
             if ($variante->id === $plantilla->id || ! $variante->es_plantilla_qa || ! self::tieneAdvertenciaVisible($variante)) {
                 throw new InvalidArgumentException('La variante debe ser otra plantilla designada para pruebas internas y con la advertencia visible en su diseño.');
             }
         }
         if ($plantilla->variante_qa_id !== $variante?->id) {
-            $plantilla->update(['variante_qa_id' => $variante?->id]);
-            Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se cambió la variante de pruebas internas de una plantilla', extra: ['plantilla_id' => $plantilla->id, 'variante_id' => $variante?->id]);
+            DB::transaction(function () use ($plantilla, $variante) {
+                // La asociación suma las bases de la oficial a la variante (ProteccionDiseno): se toma el bloqueo COMPARTIDO de la variante, como una base
+                // nueva con su clave foránea, para que su diseño no se guarde a la vez sin ver esta dependencia. La oficial se bloquea en exclusiva (se escribe).
+                Plantilla::query()->lockForUpdate()->find($plantilla->id);
+                if ($variante !== null) {
+                    Plantilla::query()->sharedLock()->find($variante->id);
+                }
+                $plantilla->update(['variante_qa_id' => $variante?->id]);
+                Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se cambió la variante de pruebas internas de una plantilla', extra: ['plantilla_id' => $plantilla->id, 'variante_id' => $variante?->id]);
+            });
         }
     }
 }

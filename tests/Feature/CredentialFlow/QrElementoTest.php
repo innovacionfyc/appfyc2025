@@ -3,6 +3,7 @@
 namespace Tests\Feature\CredentialFlow;
 
 use App\Models\CredentialFlow\Emision;
+use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Emisiones\SnapshotCredencial;
@@ -12,6 +13,8 @@ use App\Support\CredentialFlow\Generacion\GeneracionCredencialException as E;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
+use App\Support\CredentialFlow\Plantillas\DuplicadorPlantilla;
+use App\Support\CredentialFlow\Plantillas\ProteccionDiseno;
 use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\CredentialFlow\Support\InspectorPdf;
@@ -410,8 +413,13 @@ class QrElementoTest extends EmisionesTestCase
         $pdfV1 = \Storage::disk('local')->get($v1->pdf_archivo);
         $hashV1 = $v1->pdf_hash;
 
-        // El administrador agrega el QR a la plantilla y reemite.
-        $this->guardar($p, array_merge($this->textos(), [$this->qr()]))->assertRedirect();
+        // C2: la plantilla ya tiene una emisión, así que su diseño está protegido: el QR no se agrega al original.
+        $this->guardar($p, array_merge($this->textos(), [$this->qr()]))->assertRedirect()->assertSessionHas('error', ProteccionDiseno::MENSAJE);
+        $this->assertNull(collect($p->fresh()->diseno['elements'])->firstWhere('type', 'qr'));
+        // Procedimiento oficial: duplicar, agregar el QR a la copia, pasar la base a la copia (base-cambiar-plantilla) y reemitir.
+        $copia = Plantilla::findOrFail(app(DuplicadorPlantilla::class)->duplicar($p->id, 'Copia con QR')['copia_id']);
+        $this->guardar($copia, array_merge($this->textos(), [$this->qr()]))->assertRedirect()->assertSessionHas('success');
+        Lote::findOrFail($v1->lote_id)->forceFill(['plantilla_id' => $copia->id])->save();
         $v2 = Emision::findOrFail($this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.reemitir', $v1), ['motivo' => 'Ahora con QR'])->assertCreated()->json('emision.id'));
 
         $v1->refresh();

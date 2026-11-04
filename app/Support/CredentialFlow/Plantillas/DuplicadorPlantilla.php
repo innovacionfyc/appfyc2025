@@ -162,6 +162,9 @@ final class DuplicadorPlantilla
         if ((bool) ($origen->es_plantilla_qa ?? false)) {
             throw new DuplicacionException(DuplicacionException::ORIGEN_ES_QA, 'Esa es una plantilla de pruebas internas (QA): no se duplica como plantilla institucional.');
         }
+        if ($origen->estaArchivada()) {
+            throw new DuplicacionException(DuplicacionException::ORIGEN_ARCHIVADA, 'La plantilla original está archivada: no se duplica (copiaría un diseño o fondo retirado). Duplica una plantilla vigente.');
+        }
         $diseno = $origen->diseno;
         if (! is_array($diseno) || (array) ($diseno['elements'] ?? []) === [] || ! isset($diseno['page']['width'], $diseno['page']['height'])) {
             throw new DuplicacionException(DuplicacionException::ORIGEN_SIN_DISENO, 'La plantilla original todavía no tiene un diseño guardado: no hay nada que copiar.');

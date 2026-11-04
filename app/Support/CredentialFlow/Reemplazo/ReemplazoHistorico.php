@@ -294,6 +294,12 @@ final class ReemplazoHistorico
         if ($plantilla === null) {
             throw new ResolucionNoPermitida(ResolucionNoPermitida::PLANTILLA_INVALIDA, 'La plantilla moderna no existe o fue eliminada.');
         }
+        if ($plantilla->estaArchivada()) {
+            throw new ResolucionNoPermitida(ResolucionNoPermitida::PLANTILLA_INVALIDA, 'La plantilla moderna está archivada: elige una plantilla vigente.');
+        }
+        if ($plantilla->esPlantillaQa()) {
+            throw new ResolucionNoPermitida(ResolucionNoPermitida::PLANTILLA_INVALIDA, 'Una plantilla de pruebas internas (QA) no puede usarse para un certificado oficial.');
+        }
         try {
             [$base] = SnapshotCredencial::cargarPlantilla($plantilla);
         } catch (GeneracionCredencialException $e) {
