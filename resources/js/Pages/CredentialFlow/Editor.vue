@@ -18,6 +18,8 @@ const props = defineProps({
   schema: { type: Object, required: true },
   // URL de EJEMPLO del QR (código QA fijo que no existe en la base): solo para la vista del editor, no se guarda.
   qrUrlEjemplo: { type: String, default: "" },
+  // Plantilla en uso (emisiones o varias bases): su diseño se consulta, pero no se guarda sobre el original (el servidor también lo rechaza).
+  proteccion: { type: Object, default: () => ({ protegida: false, motivos: [], mensaje: null }) },
 });
 
 const editor = useDisenoEditor(props.schema);
@@ -38,8 +40,11 @@ const conFuenteHeredada = computed(() => editor.elementos.value.filter((e) => ca
 const renderSeleccionado = computed(() =>
   editor.seleccionado.value ? campos.renderDe(editor.seleccionado.value) : undefined
 );
+// Plantilla archivada: solo consulta (el servidor también rechaza el guardado).
+const archivada = computed(() => !!props.plantilla.archivada);
+const protegida = computed(() => !archivada.value && !!props.proteccion?.protegida);
 const guardarBloqueado = computed(
-  () => editor.conCampoDesconocido.value.length > 0 || conErrorDeFuente.value.length > 0 || conCaracterNoSoportado.value.length > 0
+  () => archivada.value || protegida.value || editor.conCampoDesconocido.value.length > 0 || conErrorDeFuente.value.length > 0 || conCaracterNoSoportado.value.length > 0
 );
 
 // ── PDF de prueba ────────────────────────────────────────────────────────────
@@ -241,6 +246,7 @@ const headerStats = computed(() => [
           :puede-agregar-qr="editor.puedeAgregarQr.value"
           :deshabilitado="!pdfListo"
           :guardar-bloqueado="guardarBloqueado"
+          :motivo-no-guardar="archivada ? 'Plantilla archivada: solo consulta' : protegida ? 'Diseño protegido: duplique la plantilla y edite la copia' : ''"
           :generando="generando"
           :motivo-no-generar="motivoNoGenerar"
           @agregar-texto="editor.agregarTexto"
@@ -251,6 +257,29 @@ const headerStats = computed(() => [
           @guardar="guardar"
           @generar-prueba="generarPrueba"
         />
+
+        <div
+          v-if="archivada"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800 text-[13px] font-semibold"
+          role="status"
+          data-aviso="plantilla-archivada"
+        >
+          <Info class="w-4 h-4 mt-0.5 shrink-0" />
+          Esta plantilla está archivada: se muestra solo para consulta y su diseño no se puede guardar. Para un diseño nuevo, duplica una plantilla vigente.
+        </div>
+
+        <div
+          v-if="protegida"
+          class="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800 text-[13px] font-semibold"
+          role="status"
+          data-aviso="plantilla-protegida"
+        >
+          <Info class="w-4 h-4 mt-0.5 shrink-0" />
+          <div class="space-y-1">
+            <p>{{ proteccion.mensaje }}</p>
+            <p v-for="m in proteccion.motivos" :key="m" class="font-medium">{{ m }}</p>
+          </div>
+        </div>
 
         <div
           v-if="paginas > 1"

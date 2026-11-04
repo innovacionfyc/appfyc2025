@@ -7,6 +7,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use InvalidArgumentException;
 
 /**
@@ -105,6 +106,9 @@ final class ServicioVistaPrevia
         if (! self::plantillaValida($lote->plantilla)) {
             throw new InvalidArgumentException('La plantilla de esta base no tiene un diseño válido.');
         }
+        if ($lote->plantilla->estaArchivada()) {
+            throw new InvalidArgumentException('La plantilla de esta base está archivada: no se confirma. Elige una plantilla vigente.');
+        }
         if (! $this->generada($lote)) {
             throw new InvalidArgumentException('Primero abre la vista previa de un participante con la plantilla actual y revísala.');
         }
@@ -123,6 +127,9 @@ final class ServicioVistaPrevia
         }
         if ($plantilla->es_plantilla_qa ?? false) {
             throw new InvalidArgumentException('Una plantilla de pruebas internas no puede usarse para los certificados oficiales.');
+        }
+        if ($plantilla->estaArchivada()) {
+            throw new InvalidArgumentException('La plantilla elegida está archivada: elige una plantilla vigente.');
         }
         if ($lote->plantilla_id === $plantilla->id) {
             return;
@@ -145,6 +152,7 @@ final class ServicioVistaPrevia
         if (! self::plantillaValida($p)) {
             throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La base no tiene una plantilla válida con diseño guardado. Elige una plantilla antes de emitir.', 409);
         }
+        ArchivoPlantillas::exigirVigente($p);
         if (self::exigida() && ! $this->exentaPorEmisiones($lote) && ! $this->confirmada($lote)) {
             throw new EmisionException(EmisionException::VISTA_PREVIA_PENDIENTE, 'Antes de emitir, revisa la vista previa y confirma la plantilla de esta base.', 409);
         }

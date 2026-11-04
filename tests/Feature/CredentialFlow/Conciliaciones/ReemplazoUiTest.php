@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Reemplazo\CreadorPlantillaReemplazo;
 use App\Support\CredentialFlow\Reemplazo\ReemplazoHistorico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Tests\Feature\CredentialFlow\Support\PngSintetico;
@@ -379,6 +380,31 @@ class ReemplazoUiTest extends ReemplazoTestCase
         $this->emitir(120, $this->datosDe(120, $otra->id))->assertSessionHas('success');
 
         $this->assertSame('reemplazado', $this->cert(120)->estado);
+    }
+
+    public function test_una_variante_qa_no_se_ofrece_ni_se_acepta_como_plantilla_moderna_del_reemplazo(): void
+    {
+        // C2 · Ajuste 3: una plantilla de pruebas internas solo se usa a través de su oficial; nunca para un certificado oficial de reemplazo.
+        if (! Schema::hasColumn('cf_plantillas', 'es_plantilla_qa')) {
+            $this->artisan('migrate', ['--path' => 'database/migrations/2026_10_21_100000_cf_contactos_qa_y_plantilla_qa.php', '--force' => true])->assertExitCode(0);
+        }
+        $oficial = $this->plantillaModerna();
+        $qa = $this->plantillaModerna();
+        $qa->forceFill(['es_plantilla_qa' => true])->save();
+
+        $otras = collect($this->pantalla(120)['plantilla']['otras'])->pluck('id')->all();
+        $this->assertContains($oficial->id, $otras);
+        $this->assertNotContains($qa->id, $otras);
+
+        // Ni la vista previa (ruta) ni el servicio de reemplazo (sin la interfaz) la aceptan.
+        $this->preview(120, $this->datosDe(120, $qa->id))->assertStatus(422);
+        try {
+            $this->reemplazar(120, $qa->id);
+            $this->fail('Debió rechazar la variante QA.');
+        } catch (ResolucionNoPermitida $e) {
+            $this->assertSame(ResolucionNoPermitida::PLANTILLA_INVALIDA, $e->codigo);
+        }
+        $this->assertNotSame('reemplazado', $this->cert(120)->estado);
     }
 
     public function test_no_se_emite_sin_vista_previa_con_vista_previa_vieja_ni_con_el_diseno_sin_confirmar(): void

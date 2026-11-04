@@ -186,6 +186,9 @@ final class VistaPreviaImportacion
         } elseif (($plantilla->es_plantilla_qa ?? false) || ! ServicioVistaPrevia::plantillaValida($plantilla)) {
             $problemas[] = 'La plantilla elegida no tiene un diseño válido para certificados oficiales.';
             $plantilla = null;
+        } elseif ($plantilla->estaArchivada()) {
+            $problemas[] = 'La plantilla elegida está archivada: elige una plantilla vigente.';
+            $plantilla = null;
         } elseif (! Storage::disk(Plantilla::DISCO)->exists($plantilla->rutaPdfEsperada())) {
             $problemas[] = 'La plantilla elegida no tiene su PDF base disponible.';
             $plantilla = null;

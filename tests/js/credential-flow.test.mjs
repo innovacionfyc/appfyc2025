@@ -282,4 +282,26 @@ prueba("MensajesLayout: el toast no llama a clearTimeout desde el template compi
   assert.match(descriptor.scriptSetup.content, /const pausarTimer = \(\) => \{\s*clearTimeout\(timer\);/);
 });
 
+// C2 · Ventana «Archivar plantilla» responsiva (375/390/768 px y escritorio; medida además en el navegador): ancho completo con margen en el móvil,
+// alto limitado a la pantalla visible con desplazamiento vertical interno, nunca horizontal, botones apilados a todo el ancho en el móvil y por encima
+// del botón flotante del menú (z-[100]). El selector de variante de las tarjetas no debe ensanchar la página.
+prueba("C2: la ventana de archivo de plantillas es responsiva y no la tapa el menú móvil", () => {
+  const origen = readFileSync(new URL("../../resources/js/Components/CredentialFlow/ArchivarPlantillaModal.vue", import.meta.url), "utf8");
+  const { descriptor } = parse(origen);
+  const t = descriptor.template.content;
+  const dialogo = t.match(/role="dialog"[\s\S]*?data-modal-archivo-plantilla/)?.[0] ?? "";
+  for (const c of ["w-full", "max-w-lg", "max-h-[calc(100dvh-1.5rem)]", "overflow-y-auto", "overflow-x-hidden", "[overflow-wrap:anywhere]"]) {
+    assert.ok(dialogo.includes(c), `el diálogo lleva ${c}`);
+  }
+  assert.match(t, /class="fixed inset-0 z-\[110\][^"]*p-3/, "capa por encima del menú móvil y margen de 12 px");
+  assert.match(t, /data-botones-archivo/);
+  assert.match(t, /flex flex-col-reverse sm:flex-row[^"]*"\s+data-botones-archivo/, "botones apilados en el móvil");
+  assert.equal((t.match(/w-full sm:w-auto/g) ?? []).length, 2, "los dos botones a todo el ancho en el móvil");
+  assert.match(t, /id="cf-arch-sucesora"[^>]*class="[^"]*min-w-0 max-w-full/, "la sucesora no desborda");
+  assert.match(t, /ref="campoMotivo"/, "el motivo crece para verse completo");
+  assert.match(descriptor.scriptSetup.content, /el\.style\.height = `\$\{el\.scrollHeight\}px`/);
+  const tarjetas = readFileSync(new URL("../../resources/js/Pages/CredentialFlow/Plantillas.vue", import.meta.url), "utf8");
+  assert.match(tarjetas, /data-variante-qa>[\s\S]*?<select class="min-w-0 max-w-full/, "el selector de variante de la tarjeta no ensancha la página");
+});
+
 console.log(`${n} pruebas correctas${process.exitCode ? " (hay fallas)" : ""}`);

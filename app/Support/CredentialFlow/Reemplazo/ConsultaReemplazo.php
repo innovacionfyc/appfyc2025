@@ -102,7 +102,7 @@ final class ConsultaReemplazo
             'plantilla' => [
                 'clon' => $clon === null ? null : $this->infoPlantilla($clon),
                 'puede_preparar' => $clon === null,
-                'otras' => Plantilla::query()->whereNull('origen_legado_sha256')->orderBy('nombre')->limit(30)->get()->map(fn (Plantilla $p) => $this->infoPlantilla($p))->all(),
+                'otras' => Plantilla::query()->vigentes()->oficiales()->whereNull('origen_legado_sha256')->orderBy('nombre')->limit(30)->get()->map(fn (Plantilla $p) => $this->infoPlantilla($p))->all(),
             ],
             'motivo' => ['min' => ResolucionPlantillas::MOTIVO_MIN, 'max' => ResolucionPlantillas::MOTIVO_MAX],
             'rutas' => [
@@ -222,7 +222,7 @@ final class ConsultaReemplazo
         $meta = (array) $p->origen_legado_meta;
 
         return [
-            'id' => (int) $p->id, 'nombre' => $p->nombre, 'es_clon' => $esClon, 'tiene_diseno' => $d !== null,
+            'id' => (int) $p->id, 'nombre' => $p->nombre, 'es_clon' => $esClon, 'tiene_diseno' => $d !== null, 'archivada' => $p->estaArchivada(), 'es_qa' => $p->esPlantillaQa(),
             'diseno_confirmado' => $esClon ? CreadorPlantillaReemplazo::disenoConfirmado($p) : $d !== null,
             'campos_usados' => $campos, 'requiere_fecha' => in_array('fecha', $campos, true), 'requiere_intensidad' => in_array('intensidad_horaria', $campos, true),
             'imprime_evento' => in_array('evento', $campos, true),

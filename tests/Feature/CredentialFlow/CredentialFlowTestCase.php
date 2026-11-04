@@ -47,6 +47,8 @@ abstract class CredentialFlowTestCase extends TestCase
         'database/migrations/2026_10_25_100000_add_modalidad_to_cf_participantes_table.php',
         // Con la tabla de programaciones presente (como en producción) todas las pruebas de emisión pasan también por el candado de la emisión programada.
         'database/migrations/2026_10_27_100000_cf_emisiones_programadas_table.php',
+        // C2: archivo de plantillas (como en producción tras desplegar): todas las pruebas corren con las columnas presentes y ninguna plantilla archivada.
+        'database/migrations/2026_11_04_100000_add_archivo_to_cf_plantillas.php',
     ];
 
     protected function setUp(): void

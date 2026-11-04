@@ -208,7 +208,13 @@ final class ImportadorParticipantes
      */
     public function importar(UploadedFile $archivo, Plantilla $plantilla, string $nombre, ?string $descripcion, array $datosComunes, ?int $eventoId = null, ?string $hashOriginal = null, ?string $nombreOriginal = null, ?array $dobleModalidad = null): Lote
     {
-        $resultado = $this->validar($archivo, $plantilla, $datosComunes, $dobleModalidad);
+        // Última barrera (la validación del formulario y del borrador ya la comprueban): una plantilla archivada no se asigna a una base nueva.
+        $resultado = match (true) {
+            $plantilla->estaArchivada() => ResultadoImportacion::deArchivo(ErrorFila::error(ErrorFila::PLANTILLA_ARCHIVADA, 'La plantilla elegida está archivada: elige una plantilla vigente.')),
+            // Una variante QA solo se usa a través de su plantilla oficial: nunca como plantilla de una base (clásica o importación inteligente).
+            $plantilla->esPlantillaQa() => ResultadoImportacion::deArchivo(ErrorFila::error(ErrorFila::PLANTILLA_QA, 'Una plantilla de pruebas internas (QA) no puede ser la plantilla oficial de una base.')),
+            default => $this->validar($archivo, $plantilla, $datosComunes, $dobleModalidad),
+        };
         if (! $resultado->valido()) {
             throw new ImportacionInvalidaException($resultado);
         }

@@ -94,6 +94,8 @@ class LoteController extends Controller
     public function nuevo(Request $request): Response
     {
         $plantillas = Plantilla::query()
+            ->vigentes()
+            ->oficiales() // una variante QA nunca es la plantilla de una base: sale solo por su asociación con la oficial
             ->whereNotNull('diseno')
             ->latest()
             ->get(['id', 'nombre', 'diseno'])

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CredentialFlow\ArchivoPlantillaController;
 use App\Http\Controllers\CredentialFlow\CasoEspecialController;
 use App\Http\Controllers\CredentialFlow\ConciliacionAccionController;
 use App\Http\Controllers\CredentialFlow\ConciliacionController;
@@ -37,6 +38,12 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::get('/plantillas', [PlantillaController::class, 'index'])->name('plantillas.index');
     Route::post('/plantillas', [PlantillaController::class, 'store'])->middleware('throttle:10,1,cf-plantilla-crear')->name('plantillas.store');
     Route::delete('/plantillas/{plantilla}', [PlantillaController::class, 'destroy'])->middleware('throttle:20,1,cf-plantilla-borrar')->name('plantillas.destroy');
+    // C2: archivo seguro de plantillas (solo super-admin; el servicio vuelve a comprobar el rol). No borra nada.
+    Route::middleware('rol:super-admin')->group(function () {
+        Route::get('/plantillas/{plantilla}/archivo', [ArchivoPlantillaController::class, 'resumen'])->middleware('throttle:60,1,cf-plantilla-archivo-resumen')->name('plantillas.archivo.resumen');
+        Route::post('/plantillas/{plantilla}/archivar', [ArchivoPlantillaController::class, 'archivar'])->middleware('throttle:10,1,cf-plantilla-archivar')->name('plantillas.archivar');
+        Route::post('/plantillas/{plantilla}/restaurar', [ArchivoPlantillaController::class, 'restaurar'])->middleware('throttle:10,1,cf-plantilla-restaurar')->name('plantillas.restaurar');
+    });
 
     // Fase 2: editor visual (el PDF base es privado y solo se sirve por esta ruta autenticada)
     Route::get('/plantillas/{plantilla}/editor', [PlantillaEditorController::class, 'show'])->name('plantillas.editor');

@@ -48,6 +48,12 @@ final class CambioPlantillaEmitida
         if (! ServicioVistaPrevia::plantillaValida($nueva)) {
             $bloqueos[] = 'La plantilla elegida no tiene un diseño guardado.';
         }
+        if ($nueva->estaArchivada()) {
+            $bloqueos[] = 'La plantilla elegida está archivada: el cambio solo se hace a una plantilla vigente.';
+        }
+        if ($variante !== null && $variante->estaArchivada()) {
+            $bloqueos[] = 'La variante de pruebas internas (QA) de la plantilla elegida está archivada.';
+        }
         if ($variante === null) {
             $bloqueos[] = 'La plantilla elegida no tiene su variante de pruebas internas (QA) válida: créala antes (credential-flow:plantilla-variante-qa).';
         }

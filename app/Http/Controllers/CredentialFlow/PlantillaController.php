@@ -8,8 +8,11 @@ use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Services\CredentialFlow\PlantillaService;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Plantillas\ImagenInvalidaException;
+use App\Support\CredentialFlow\Plantillas\ProteccionDiseno;
 use App\Support\CredentialFlow\Qa\ServicioQa;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
@@ -20,9 +23,11 @@ class PlantillaController extends Controller
 {
     public function __construct(private readonly PlantillaService $plantillas) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // La lista principal (y las opciones de variante QA) muestran solo las VIGENTES; las archivadas van aparte, solo para consulta y restauración.
         $plantillas = Plantilla::query()
+            ->vigentes()
             ->latest()
             ->get(['id', 'nombre', 'descripcion', 'nombre_archivo_original', 'diseno', 'created_at', ...(Schema::hasColumn('cf_plantillas', 'es_plantilla_qa') ? ['es_plantilla_qa', 'variante_qa_id'] : [])])
             ->map(fn (Plantilla $p) => [
@@ -32,6 +37,10 @@ class PlantillaController extends Controller
                 'es_plantilla_qa' => (bool) ($p->es_plantilla_qa ?? false),
                 'apta_qa' => ServicioQa::tieneAdvertenciaVisible($p),
                 'variante_qa_id' => $p->variante_qa_id ?? null,
+                // Ya es oficial (bases o variante propia): no se puede designar como QA (el servicio también lo exige).
+                'uso_oficial' => ServicioQa::usoOficial($p),
+                // En uso (emisiones o varias bases): el diseño se consulta, pero se edita una copia (el servidor lo exige al guardar).
+                'diseno_protegido' => ProteccionDiseno::protegida($p),
                 'descripcion' => $p->descripcion,
                 'nombre_archivo_original' => $p->nombre_archivo_original,
                 'elementos' => count($p->diseno['elements'] ?? []),
@@ -44,7 +53,26 @@ class PlantillaController extends Controller
             ->get(['id', 'nombre', 'deleted_at'])
             ->map(fn (Plantilla $p) => ['id' => $p->id, 'nombre' => $p->nombre, 'eliminada_at' => $p->deleted_at?->toIso8601String()]);
 
+        $archivadas = ! ArchivoPlantillas::disponible() ? collect() : Plantilla::query()
+            ->whereNotNull('archivada_at')
+            ->with('sucesora:id,nombre')
+            ->latest('archivada_at')
+            ->get()
+            ->map(fn (Plantilla $p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'es_plantilla_qa' => (bool) ($p->es_plantilla_qa ?? false),
+                'archivada_at' => $p->archivada_at?->toIso8601String(),
+                'motivo' => $p->motivo_archivo,
+                'sucesora' => $p->sucesora ? ['id' => $p->sucesora->id, 'nombre' => $p->sucesora->nombre] : null,
+                'bases' => $p->lotes()->count(),
+                'emisiones' => $p->emisiones()->count(),
+            ]);
+
         return Inertia::render('CredentialFlow/Plantillas', [
+            'archivadas' => $archivadas,
+            // Solo el super-admin ve (y puede usar) archivar y restaurar; las rutas y el servicio también lo exigen.
+            'puede_archivar' => ArchivoPlantillas::disponible() && ArchivoPlantillas::puedeArchivar($request->user()),
             'eliminadas' => $eliminadas,
             'plantillas' => $plantillas,
             'stats' => ['total' => $plantillas->count()],

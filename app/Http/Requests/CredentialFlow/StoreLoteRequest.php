@@ -75,6 +75,10 @@ class StoreLoteRequest extends FormRequest
                 $validator->errors()->add('plantilla_id', 'La plantilla elegida no existe.');
             } elseif (empty($plantilla->diseno['elements'] ?? null)) {
                 $validator->errors()->add('plantilla_id', 'La plantilla no tiene un diseño guardado. Diséñala en el editor antes de crear una base.');
+            } elseif ($plantilla->estaArchivada()) {
+                $validator->errors()->add('plantilla_id', 'La plantilla elegida está archivada: elige una plantilla vigente.');
+            } elseif ($plantilla->esPlantillaQa()) {
+                $validator->errors()->add('plantilla_id', 'Una plantilla de pruebas internas (QA) no puede ser la plantilla oficial de una base: elige la plantilla oficial; su variante QA se usa automáticamente.');
             } else {
                 $this->plantillaResuelta = $plantilla;
             }

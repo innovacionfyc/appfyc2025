@@ -69,6 +69,9 @@ final class EmisionException extends RuntimeException
     /** No hay certificados vigentes desactualizados que reemitir (repetir una reemisión ya hecha no duplica nada). */
     public const SIN_DESACTUALIZADAS = 'SIN_DESACTUALIZADAS';
 
+    /** La plantilla (o la variante QA) con la que se emitiría está archivada: conserva el historial, pero no genera certificados nuevos (ver ArchivoPlantillas). */
+    public const PLANTILLA_ARCHIVADA = 'PLANTILLA_ARCHIVADA';
+
     /** @param  array<int,array<string,mixed>>  $detalles */
     public function __construct(
         public readonly string $codigo,

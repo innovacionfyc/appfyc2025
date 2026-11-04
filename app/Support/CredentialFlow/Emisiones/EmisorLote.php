@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Programacion\EjecucionAutorizada;
 use App\Support\CredentialFlow\Qa\ServicioQa;
@@ -167,6 +168,7 @@ final class EmisorLote
             if ($variante === null) {
                 throw $this->sinVarianteQa();
             }
+            ArchivoPlantillas::exigirVigente($variante, true);
             DatosRequeridos::exigir($lote, $variante, $qa);
             try {
                 $this->prevalidar($lote, $variante, $qa);
@@ -180,6 +182,7 @@ final class EmisorLote
             if (! $plantilla) {
                 throw new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
             }
+            ArchivoPlantillas::exigirVigente($plantilla);
             DatosRequeridos::exigir($lote, $plantilla, $oficiales);
             app(ServicioVistaPrevia::class)->exigir($lote);
             DuplicadosEnEvento::exigir($lote, $oficiales);
@@ -205,6 +208,7 @@ final class EmisorLote
         if (! $plantilla) {
             throw $pruebasInternas ? $this->sinVarianteQa() : new EmisionException(EmisionException::PLANTILLA_NO_DISPONIBLE, 'La plantilla de esta base ya no está disponible.', 409);
         }
+        ArchivoPlantillas::exigirVigente($plantilla, $pruebasInternas);
 
         $pendientes = $this->pendientes($lote, $pruebasInternas);
 
@@ -256,15 +260,17 @@ final class EmisorLote
             }
 
             // 4–5: fase crítica.
-            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pendientes, $snapshots, $generados, $operacion, $usuarioId, $ejecucion, &$movidos) {
+            $emisiones = DB::transaction(function () use ($lote, $plantilla, $pruebasInternas, $pendientes, $snapshots, $generados, $operacion, $usuarioId, $ejecucion, &$movidos) {
                 $loteActual = Lote::lockForUpdate()->find($lote->id);
-                $plantillaActual = Plantilla::find($plantilla->id);
+                // Bloqueo COMPARTIDO de la plantilla hasta el commit: el guardado del diseño (exclusivo) no puede colarse entre esta huella y el insert.
+                $plantillaActual = Plantilla::query()->sharedLock()->find($plantilla->id);
                 $ids = $pendientes->pluck('id')->all();
                 $bloqueados = Participante::whereIn('id', $ids)->lockForUpdate()->get()->keyBy('id');
 
                 if (! $loteActual || ! $plantillaActual || $bloqueados->count() !== count($ids)) {
                     throw $this->cambiaron();
                 }
+                ArchivoPlantillas::exigirVigente($plantillaActual, $pruebasInternas);
                 // Definitivo: con la base bloqueada (programar también la bloquea), una programación creada mientras se generaban los PDF gana y aquí no se emite.
                 CandadoProgramacion::exigirLibre($loteActual->id, $ejecucion);
                 if (Emision::whereIn('participante_id', $ids)->exists()) {
@@ -397,6 +403,7 @@ final class EmisorLote
         if ($plantilla === null) {
             throw $this->sinVarianteQa();
         }
+        ArchivoPlantillas::exigirVigente($plantilla, true);
         $pendientes = $this->pendientes($lote, true);
         DatosRequeridos::exigir($lote, $plantilla, $pendientes);
         try {
