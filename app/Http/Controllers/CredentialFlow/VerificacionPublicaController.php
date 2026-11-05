@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Emision;
 use App\Support\CredentialFlow\Emisiones\CodigoEmision;
 use App\Support\CredentialFlow\Legado\ResultadoVerificacionLegado;
 use App\Support\CredentialFlow\Legado\VerificacionLegado;
+use App\Support\CredentialFlow\Verificacion\ClasificacionEmision;
 use App\Support\CredentialFlow\Verificacion\UrlVerificacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,10 +17,10 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Verificación PÚBLICA de una credencial por su código de emisión (sin login). Lee EXCLUSIVAMENTE cf_emisiones
- * y su datos_snapshot (lo emitido manda; nunca participante, lote ni plantilla vivos). No expone ids, rutas,
- * documento ni el motivo de revocación, y un código con formato inválido o inexistente recibe exactamente la
- * misma respuesta 404 (sin eco del código).
+ * Verificación PÚBLICA de una credencial por su código de emisión (sin login). Los datos mostrados salen EXCLUSIVAMENTE
+ * de cf_emisiones y su datos_snapshot (lo emitido manda); del participante y de la plantilla solo se leen sus marcas de
+ * pruebas internas (ClasificacionEmision), nunca sus datos. No expone ids, rutas, documento ni el motivo de revocación,
+ * y un código con formato inválido o inexistente recibe exactamente la misma respuesta 404 (sin eco del código).
  */
 class VerificacionPublicaController extends Controller
 {
@@ -40,7 +41,7 @@ class VerificacionPublicaController extends Controller
         }
 
         $emision = CodigoEmision::valido($codigo)
-            ? Emision::query()->select(['id', 'codigo', 'estado', 'datos_snapshot', 'emitido_at'])->where('codigo', $codigo)->first()
+            ? Emision::query()->select(['id', 'codigo', 'estado', 'participante_id', 'plantilla_id', 'datos_snapshot', 'emitido_at'])->where('codigo', $codigo)->first()
             : null;
 
         if ($emision === null) {
@@ -56,6 +57,11 @@ class VerificacionPublicaController extends Controller
             'fecha_evento' => (string) ($datos['fecha'] ?? ''),
             'emitida' => $emision->emitido_at?->copy()->timezone('America/Bogota')->locale('es')->translatedFormat('j \d\e F \d\e Y'),
         ];
+
+        // Prueba interna vigente: nunca «Credencial válida»; sin nombre ni intensidad (no acredita nada). La revocada sigue abajo: la revocación prevalece.
+        if ($emision->estado === Emision::EMITIDA && ClasificacionEmision::esPruebaInterna((int) $emision->participante_id, (int) $emision->plantilla_id)) {
+            return $this->vista($request, $comunes + ['estado' => 'prueba_interna']);
+        }
 
         if ($emision->estado === Emision::EMITIDA) {
             return $this->vista($request, $comunes + [

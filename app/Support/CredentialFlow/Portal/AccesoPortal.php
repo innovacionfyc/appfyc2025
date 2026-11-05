@@ -206,10 +206,12 @@ final class AccesoPortal
                 continue;
             }
             $vigente = EmisionesModernas::habilita($f);
+            $prueba = $vigente && $f->prueba_interna;   // la revocación prevalece: una prueba revocada se ve solo como revocada
             $anio = self::anioDe($f->datos['fecha'] ?? null, $f->emitido_at);
             $tarjetas[] = [
                 'id' => $f->emision_id, 'moderno' => true, 'evento' => (string) ($f->datos['evento'] ?? ''), 'anio' => $anio, 'codigo' => $f->codigo, 'descargable' => $vigente, 'enlace_moderno' => null,
-                'tipo' => $vigente ? 'disponible' : 'revocado', 'mensaje' => $vigente ? 'Disponible para descargar.' : 'Certificado revocado.',
+                'tipo' => $vigente ? 'disponible' : 'revocado', 'mensaje' => $prueba ? 'Documento de prueba interna. No acredita asistencia, participación ni formación académica.' : ($vigente ? 'Disponible para descargar.' : 'Certificado revocado.'),
+                'prueba_interna' => $prueba,
                 // Fecha REAL de publicación (emisión) y fecha del evento tal como se imprimió: son cosas distintas.
                 'publicado_at' => self::fechaHora($f->emitido_at ?? null), 'realizado' => is_string($f->datos['fecha'] ?? null) && $f->datos['fecha'] !== '' ? $f->datos['fecha'] : null,
             ];

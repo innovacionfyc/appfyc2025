@@ -178,21 +178,25 @@ class VerificacionPublicaTest extends EmisionesTestCase
         $this->assertSame(preg_replace('/nonce="[^"]+"/', '', $antes), preg_replace('/nonce="[^"]+"/', '', $despues->getContent()));
     }
 
-    public function test_solo_consulta_cf_emisiones(): void
+    public function test_solo_consulta_cf_emisiones_y_las_marcas_qa(): void
     {
         $e = $this->emitida();
-        $tablas = [];
-        DB::listen(function ($q) use (&$tablas) {
+        $ajenas = [];
+        DB::listen(function ($q) use (&$ajenas) {
+            // Del participante y de la plantilla solo se lee su marca de pruebas internas (una columna, por id) o la existencia de esa columna.
+            $sql = strtolower($q->sql);
+            $marca = preg_match('/^select "(es_control_qa|es_plantilla_qa)" from "(cf_participantes|cf_plantillas)" where "id" = \? limit 1$/', $sql) === 1;
+            $esquema = str_contains($sql, 'pragma') || str_contains($sql, 'information_schema') || str_contains($sql, 'sqlite_master');
             foreach (['cf_participantes', 'cf_lotes', 'cf_plantillas', 'usuarios'] as $t) {
-                if (str_contains($q->sql, $t)) {
-                    $tablas[] = $t;
+                if (str_contains($sql, $t) && ! $marca && ! $esquema) {
+                    $ajenas[] = $q->sql;
                 }
             }
         });
 
         $this->publica($e->codigo)->assertOk();
 
-        $this->assertSame([], $tablas, 'La verificación pública no lee datos vivos de participante, lote ni plantilla');
+        $this->assertSame([], $ajenas, 'La verificación pública no lee datos vivos de participante, lote ni plantilla (solo sus marcas QA)');
     }
 
     public function test_cabeceras_noindex_sin_cache_y_csp_estricta(): void
