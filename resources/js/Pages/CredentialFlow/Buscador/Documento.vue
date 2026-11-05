@@ -4,7 +4,7 @@ import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
-import { Search, SearchX, ScanSearch, TriangleAlert, Link2, FlaskConical, Archive, Sparkles, Ban, Info, Lock } from "lucide-vue-next";
+import { Search, SearchX, ScanSearch, TriangleAlert, Link2, FlaskConical, Archive, Sparkles, Ban, Lock, Download, History } from "lucide-vue-next";
 
 // La pantalla llega SIN datos. El resultado vive solo en memoria de este componente: no va en la URL, ni en los props de Inertia (que se guardan en el historial
 // del navegador), ni en almacenamiento local. Al salir de la pantalla se borra.
@@ -12,6 +12,7 @@ const props = defineProps({
   tipos: { type: Array, required: true }, // [{ valor, etiqueta }]
   minimo: { type: Number, required: true },
   limites: { type: Object, required: true }, // { minuto, dia }
+  limitesDescarga: { type: Object, default: () => ({ minuto: 30, dia: 200, minutosToken: 15 }) },
 });
 
 const form = reactive({ documento: "", tipo: "" });
@@ -47,7 +48,48 @@ const limpiar = () => {
   form.tipo = "";
   resultado.value = null;
   error.value = null;
+  avisoDescarga.value = null;
 };
+
+// Descarga (E3): el token es de esta búsqueda y de esta sesión; el servidor revalida el certificado y audita cada intento. Se descarga en segundo plano
+// para que un token vencido o un certificado que cambió muestren el motivo aquí mismo, sin salir de la pantalla.
+const descargando = ref(null);
+const avisoDescarga = ref(null);
+const descargar = async (c) => {
+  if (descargando.value || !c.descarga?.token) return;
+  descargando.value = c.origen + c.id;
+  avisoDescarga.value = null;
+  try {
+    const r = await window.axios.get(route("credential-flow.buscador-documento.descargar", c.descarga.token), { responseType: "blob" });
+    const nombre = /filename="([^"]+)"/.exec(r.headers["content-disposition"] ?? "")?.[1] ?? "certificado.pdf";
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    if (c.seguimiento) {
+      c.seguimiento.panel.total += 1;
+      c.seguimiento.panel.ultima = new Date().toLocaleString("es-CO");
+    }
+  } catch (e) {
+    const estado = e?.response?.status;
+    const texto = e?.response?.data instanceof Blob ? await e.response.data.text().catch(() => "") : "";
+    avisoDescarga.value =
+      estado === 429
+        ? `Llegaste al límite de descargas (${props.limitesDescarga.minuto} por minuto y ${props.limitesDescarga.dia} por día). Espera un momento.`
+        : estado === 404
+          ? "El enlace de descarga venció o pertenece a otra búsqueda. Vuelve a buscar el documento."
+          : estado === 409 && texto
+            ? texto
+            : "No fue posible descargar el certificado. Inténtalo de nuevo.";
+  } finally {
+    descargando.value = null;
+  }
+};
+const fecha = (f) => (f ? String(f).slice(0, 16) : "—");
 onBeforeUnmount(limpiar);
 
 const resumen = computed(() => resultado.value?.resumen ?? null);
@@ -151,9 +193,15 @@ const CAMPO = "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 t
         </div>
       </form>
       <p class="mt-2 px-2 text-[12px] font-semibold text-slate-400">
-        Búsqueda exacta del número completo (mínimo {{ minimo }} caracteres): no se buscan partes del número. Cada búsqueda queda registrada. Límite: {{ limites.minuto }} por minuto y
-        {{ limites.dia }} por día.
+        Búsqueda exacta del número completo (mínimo {{ minimo }} caracteres): no se buscan partes del número. Cada búsqueda y cada descarga quedan registradas. Límite: {{ limites.minuto }} búsquedas por minuto y
+        {{ limites.dia }} por día; {{ limitesDescarga.minuto }} descargas por minuto y {{ limitesDescarga.dia }} por día. Los enlaces de descarga valen {{ limitesDescarga.minutosToken }} minutos y solo para esta búsqueda.
+        Las descargas del panel se cuentan desde que existe este buscador.
       </p>
+
+      <div v-if="avisoDescarga" class="mt-6 flex items-start gap-3 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800" role="alert" data-aviso-descarga>
+        <TriangleAlert class="w-5 h-5 shrink-0 mt-0.5" />
+        <span>{{ avisoDescarga }}</span>
+      </div>
 
       <div v-if="error" class="mt-6 flex items-start gap-3 rounded-[1.5rem] border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700" role="alert" data-error>
         <TriangleAlert class="w-5 h-5 shrink-0 mt-0.5" />
@@ -267,12 +315,27 @@ const CAMPO = "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 t
                   <span v-if="c.conciliacion && c.conciliacion.estado !== 'ok'" :class="['px-2.5 py-1 rounded-full text-[11px] font-bold', TONO[c.conciliacion.tono] ?? TONO.slate]">{{ c.conciliacion.etiqueta }}</span>
                   <span v-if="c.origen === 'historico'" class="text-[11px] font-semibold text-slate-400">{{ c.pdf_congelado ? "PDF generado" : "PDF aún no generado" }}</span>
                   <span v-if="c.reemplazada_por" class="text-[11px] font-semibold text-slate-400">Reemplazada por la emisión #{{ c.reemplazada_por }}</span>
-                  <!-- Descarga: solo un estado informativo. El botón de descarga llega en la siguiente etapa. -->
-                  <span v-if="c.descarga.permitida" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400" data-descarga="pendiente">
-                    <Info class="w-3.5 h-3.5" /> Descarga desde el panel: próximamente
-                  </span>
+                  <!-- Descarga: solo con token de esta búsqueda (el servidor vuelve a comprobar todo antes de entregar). -->
+                  <button
+                    v-if="c.descarga.permitida && c.descarga.token"
+                    type="button"
+                    :disabled="descargando !== null"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-vinotinto text-white text-[12px] font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-descarga="si"
+                    @click="descargar(c)"
+                  >
+                    <Download class="w-3.5 h-3.5" /> {{ descargando === c.origen + c.id ? "Descargando…" : "Descargar PDF" }}
+                  </button>
                   <span v-else class="inline-flex items-start gap-1 text-[11px] font-semibold text-slate-400" data-descarga="no">
                     <Lock class="w-3.5 h-3.5 shrink-0 mt-px" /> {{ motivo(c) }}
+                  </span>
+                  <span v-if="c.seguimiento" class="inline-flex items-start gap-1 text-[11px] font-semibold text-slate-400" data-seguimiento>
+                    <History class="w-3.5 h-3.5 shrink-0 mt-px" />
+                    <span>
+                      Portal: {{ c.seguimiento.portal.total }}<span v-if="c.seguimiento.portal.total"> (última {{ fecha(c.seguimiento.portal.ultima) }})</span><span v-if="c.seguimiento.portal.sistema_anterior"> · {{ c.seguimiento.portal.sistema_anterior }} del sistema anterior</span>
+                      <span v-if="c.seguimiento.correo.total"> · Correo: {{ c.seguimiento.correo.total }}</span>
+                      · Panel: {{ c.seguimiento.panel.total }}<span v-if="c.seguimiento.panel.total"> (última {{ fecha(c.seguimiento.panel.ultima) }})</span>
+                    </span>
                   </span>
                 </div>
               </li>

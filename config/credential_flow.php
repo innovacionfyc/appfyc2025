@@ -181,6 +181,10 @@ return [
         'minimo_caracteres' => 6,
         'limite_por_minuto' => 20,
         'limite_por_dia' => 100,
+        // E3: descarga desde el buscador con un token temporal de la búsqueda (solo en la sesión). Límites por super-admin.
+        'token_minutos' => 15,
+        'descarga_limite_por_minuto' => 30,
+        'descarga_limite_por_dia' => 200,
     ],
 
 ];

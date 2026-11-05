@@ -205,4 +205,7 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
 Route::middleware([BuscadorDocumentoActivo::class, 'auth', 'rol:super-admin', CabecerasAdminSensible::class])->prefix('admin/credential-flow/buscar-documento')->name('credential-flow.buscador-documento.')->group(function () {
     Route::get('/', [BuscadorDocumentoController::class, 'index'])->name('index');
     Route::post('/', [BuscadorDocumentoController::class, 'buscar'])->middleware('throttle:cf-buscador-documento')->name('buscar');
+    // E3: descarga con el token opaco y temporal de la última búsqueda (vive solo en la sesión de quien buscó): ni documento ni id en la URL.
+    Route::get('/descargar/{token}', [BuscadorDocumentoController::class, 'descargar'])->where('token', '[A-Za-z0-9]{40}')
+        ->middleware('throttle:cf-buscador-descarga')->name('descargar');
 });
