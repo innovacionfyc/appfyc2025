@@ -228,6 +228,26 @@ class BuscadorDescargaTest extends PortalTestCase
         $this->assertSame(['ok'], $this->descargasAuditadas()->pluck('metadata.resultado')->all(), 'solo la descarga GET real');
     }
 
+    public function test_metodos_distintos_de_get_no_entregan_archivo_ni_cuentan_como_descarga(): void
+    {
+        $e = $this->emitido($this->loteCon(0), 'ANA UNO PRUEBA', 'C.C. 1.000.001');
+        $token = $this->registro($this->buscar('1000001'), 'moderno', $e->id)['descarga']['token'];
+        $url = route('credential-flow.buscador-documento.descargar', $token);
+
+        $pdf = AlmacenEmisiones::leerVerificado($e->fresh());
+        foreach (['HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as $metodo) {
+            $r = $this->actingAs($this->superAdmin())->call($metodo, $url);
+            $this->assertSame(405, $r->status(), $metodo);
+            $this->assertStringNotContainsString('application/pdf', (string) $r->headers->get('Content-Type'), $metodo);
+            $this->assertStringStartsNotWith('%PDF', (string) $r->getContent(), $metodo);
+            $this->assertStringNotContainsString($pdf, (string) $r->getContent(), $metodo.': no entrega los bytes del certificado');
+        }
+        $this->assertCount(0, $this->descargasAuditadas(), 'ningún intento con otro método se registra como descarga');
+        // El token sigue sirviendo para el GET legítimo.
+        $this->descargar($token)->assertOk();
+        $this->assertSame(['ok'], $this->descargasAuditadas()->pluck('metadata.resultado')->all());
+    }
+
     public function test_limites_por_minuto_y_por_dia_por_super_admin(): void
     {
         config(['credential_flow.buscador_documento.descarga_limite_por_minuto' => 2, 'credential_flow.buscador_documento.descarga_limite_por_dia' => 3]);
