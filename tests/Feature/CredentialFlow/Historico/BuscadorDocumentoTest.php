@@ -189,7 +189,10 @@ class BuscadorDocumentoTest extends PortalTestCase
         $p = $this->emitido($lote->fresh(), 'ANA UNO PRUEBA', 'C.C. 1.000.001', 'Presencial');
         $v = $this->emitido($lote->fresh(), 'ANA UNO PRUEBA', 'C.C. 1.000.001', 'Virtual');
         $qa = $this->emitido($this->loteCon(0), 'ANA UNO PRUEBA', 'C.C. 1.000.001');
-        Participante::query()->whereKey($qa->participante_id)->update(['es_control_qa' => true]);
+        // QA por el documento emitido (marcador institucional en su diseño congelado), no por la marca viva del participante.
+        $d = $qa->diseno_snapshot;
+        $d['elements'][] = ['type' => 'text', 'field' => null, 'text' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'x' => 10, 'y' => 10, 'width' => 300, 'height' => 20];
+        DB::table('cf_emisiones')->where('id', $qa->id)->update(['diseno_snapshot' => json_encode($d)]);
 
         $r = $this->buscar('1000001')->assertOk()->json('resultado');
         $this->assertArrayNotHasKey('documento_huella', $r);

@@ -72,6 +72,8 @@ const MOTIVO = {
   IDENTIDAD_AMBIGUA: "Identidad ambigua por tipo de documento: requiere revisión.",
   VERSION_REEMPLAZADA: "Versión anterior: la reemplazó una versión nueva.",
   REVOCADA: "Certificado revocado.",
+  PRUEBA_INTERNA: "Prueba interna (QA): se muestra, pero no se descarga desde el buscador.",
+  CLASIFICACION_NO_DISPONIBLE: "No se pudo confirmar la naturaleza de este documento: la descarga está bloqueada.",
   REVOCADO: "Certificado revocado.",
   REEMPLAZADO: "Reemplazado por un certificado nuevo.",
   REVISION_DOCUMENTO: "Documento en revisión.",
@@ -232,6 +234,9 @@ const CAMPO = "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 t
                     </span>
                     <span v-if="c.qa" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-[11px] font-bold text-violet-700" data-qa>
                       <FlaskConical class="w-3.5 h-3.5" /> QA · sin validez académica
+                    </span>
+                    <span v-if="c.clasificacion === 'indeterminada'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-[11px] font-bold text-amber-700" data-clasificacion-no-disponible>
+                      <TriangleAlert class="w-3.5 h-3.5" /> Clasificación no disponible
                     </span>
                   </div>
                   <p class="mt-1.5 text-sm font-bold text-slate-800 break-words">{{ c.evento?.nombre || "Evento sin nombre" }}</p>

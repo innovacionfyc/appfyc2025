@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Portal\FamiliaDocumento;
 use App\Support\CredentialFlow\Portal\Hmac;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use App\Support\CredentialFlow\Portal\VinculosIdentidadModerna;
+use App\Support\CredentialFlow\Verificacion\ClasificacionEmision;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -29,8 +30,11 @@ use Illuminate\Support\Facades\DB;
  *  - Cada participación moderna es un registro propio (la doble modalidad de un evento son dos certificados) con TODAS sus versiones.
  *  - Con `tipo`, solo se listan los registros de ese tipo o sin tipo registrado; los demás solo se cuentan (`otros_tipos`).
  *
- * `descarga.permitida` anticipa la regla del panel (E3) sin ejecutar nada: modernos solo la versión vigente; históricos solo el canónico vigente, conciliado,
- * elegible y con PDF YA congelado. Revocados, reemplazados, duplicados y excluidos se muestran, pero no se descargan.
+ * `descarga.permitida` es la regla del panel (E3): modernos solo la versión vigente OFICIAL; históricos solo el canónico vigente, conciliado, elegible y con PDF
+ * YA congelado. Revocados, reemplazados, duplicados, excluidos, pruebas internas (QA) y certificados sin clasificación se muestran, pero no se descargan.
+ *
+ * QA: se decide por el DOCUMENTO EMITIDO (cf_emisiones.diseno_snapshot, ClasificacionEmision), igual que la verificación pública; nunca por la marca viva
+ * del participante, que puede cambiar después de emitir.
  */
 final class ConsultaPorDocumento
 {
@@ -48,6 +52,10 @@ final class ConsultaPorDocumento
     public const VERSION_REEMPLAZADA = 'VERSION_REEMPLAZADA';
 
     public const REVOCADA = 'REVOCADA';
+
+    public const PRUEBA_INTERNA = 'PRUEBA_INTERNA';
+
+    public const CLASIFICACION_NO_DISPONIBLE = 'CLASIFICACION_NO_DISPONIBLE';
 
     public const VIGENTE = 'vigente';
 
@@ -211,6 +219,7 @@ final class ConsultaPorDocumento
             'reemplazado_por_emision_id' => $c->reemplazado_por_emision_id === null ? null : (int) $c->reemplazado_por_emision_id,
             'qa' => false,
             'sin_validez_academica' => false,
+            'clasificacion' => 'historico',
             'excluido' => $excluido,
             'descarga' => ['permitida' => $motivo === null, 'motivo' => $motivo],
         ];
@@ -226,11 +235,15 @@ final class ConsultaPorDocumento
             $e->estado === Emision::REVOCADA => self::REVOCADO,
             default => self::VIGENTE,
         };
-        $qa = (bool) $p->es_control_qa;
+        // Naturaleza del documento emitido (no la marca viva del participante). La revocación y el reemplazo prevalecen como motivo.
+        $clasificacion = ClasificacionEmision::deDiseno($e->getRawOriginal('diseno_snapshot'));
+        $qa = $clasificacion === ClasificacionEmision::PRUEBA_INTERNA;
         $motivo = match (true) {
             $excluido => self::IDENTIDAD_AMBIGUA,
             $estado === self::REEMPLAZADO => self::VERSION_REEMPLAZADA,
             $estado === self::REVOCADO => self::REVOCADA,
+            $clasificacion === ClasificacionEmision::INDETERMINADA => self::CLASIFICACION_NO_DISPONIBLE,
+            $qa => self::PRUEBA_INTERNA,
             default => null,
         };
 
@@ -255,6 +268,7 @@ final class ConsultaPorDocumento
             'reemplaza_historico' => $reemplazaHistorico,
             'qa' => $qa,
             'sin_validez_academica' => $qa,
+            'clasificacion' => $clasificacion,
             'excluido' => $excluido,
             'descarga' => ['permitida' => $motivo === null, 'motivo' => $motivo],
         ];

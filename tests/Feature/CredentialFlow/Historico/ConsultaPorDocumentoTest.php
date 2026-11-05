@@ -203,15 +203,59 @@ class ConsultaPorDocumentoTest extends PortalTestCase
         $this->assertSame([$this->idEvento('Curso Gamma')], $certs->pluck('evento.id')->unique()->values()->all());
     }
 
-    public function test_registros_qa_se_marcan_sin_validez_academica(): void
+    /** El DOCUMENTO emitido pasa a llevar el marcador institucional de prueba interna (como lo imprime la variante QA). */
+    private function conMarcadorQa(Emision $e): Emision
     {
-        $e = $this->emitido($this->lote(), 'CONTACTO QA FICTICIO', 'C.C. 9.400.001');
-        Participante::query()->whereKey($e->participante_id)->update(['es_control_qa' => true]);
+        $d = $e->diseno_snapshot;
+        $d['elements'][] = ['type' => 'text', 'field' => null, 'text' => 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA', 'x' => 10, 'y' => 10, 'width' => 300, 'height' => 20];
+        DB::table('cf_emisiones')->where('id', $e->id)->update(['diseno_snapshot' => json_encode($d)]);
+
+        return $e->fresh();
+    }
+
+    public function test_qa_se_decide_por_el_documento_emitido_y_no_se_descarga(): void
+    {
+        $e = $this->conMarcadorQa($this->emitido($this->lote(), 'CONTACTO QA FICTICIO', 'C.C. 9.400.001'));
 
         $r = $this->consultar('9400001');
         $c = $this->registro($r, 'moderno', $e->id);
-        $this->assertSame([true, true], [$c['qa'], $c['sin_validez_academica']]);
+        $this->assertSame([true, true, 'prueba_interna'], [$c['qa'], $c['sin_validez_academica'], $c['clasificacion']]);
         $this->assertSame(1, $r['resumen']['qa']);
+        $this->assertSame([false, ConsultaPorDocumento::PRUEBA_INTERNA], [$c['descarga']['permitida'], $c['descarga']['motivo']]);
+        // Quitarle después la marca al participante no cambia lo que se emitió.
+        $this->assertSame(0, Participante::query()->whereKey($e->participante_id)->where('es_control_qa', true)->count());
+    }
+
+    public function test_un_oficial_sigue_oficial_aunque_despues_se_marque_qa_a_su_participante(): void
+    {
+        $e = $this->emitido($this->lote(), 'PERSONA OFICIAL FICTICIA', 'C.C. 9.400.002');
+        Participante::query()->whereKey($e->participante_id)->update(['es_control_qa' => true]);
+
+        $r = $this->consultar('9400002');
+        $c = $this->registro($r, 'moderno', $e->id);
+        $this->assertSame([false, false, 'oficial'], [$c['qa'], $c['sin_validez_academica'], $c['clasificacion']]);
+        $this->assertSame(0, $r['resumen']['qa']);
+        $this->assertSame([true, null], [$c['descarga']['permitida'], $c['descarga']['motivo']]);
+    }
+
+    public function test_un_diseno_emitido_danado_bloquea_la_descarga_sin_afirmar_nada(): void
+    {
+        $e = $this->emitido($this->lote(), 'PERSONA DANADA FICTICIA', 'C.C. 9.400.003');
+        DB::table('cf_emisiones')->where('id', $e->id)->update(['diseno_snapshot' => '{"elements":"no-es-lista"}']);
+
+        $c = $this->registro($this->consultar('9400003'), 'moderno', $e->id);
+        $this->assertSame(['indeterminada', false], [$c['clasificacion'], $c['qa']]);
+        $this->assertSame([false, ConsultaPorDocumento::CLASIFICACION_NO_DISPONIBLE], [$c['descarga']['permitida'], $c['descarga']['motivo']]);
+    }
+
+    public function test_un_qa_revocado_se_ve_revocado_y_tampoco_se_descarga(): void
+    {
+        $e = $this->conMarcadorQa($this->emitido($this->lote(), 'CONTACTO QA FICTICIO', 'C.C. 9.400.004'));
+        $this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.revocar', $e), ['motivo' => 'Revocación ficticia'])->assertOk();
+
+        $c = $this->registro($this->consultar('9400004'), 'moderno', $e->id);
+        $this->assertSame([ConsultaPorDocumento::REVOCADO, true], [$c['estado'], $c['qa']]);
+        $this->assertSame([false, ConsultaPorDocumento::REVOCADA], [$c['descarga']['permitida'], $c['descarga']['motivo']]);
     }
 
     // ── Identidad ────────────────────────────────────────────────────────────
