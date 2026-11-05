@@ -53,6 +53,17 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute((int) config('credential_flow.portal.limite_descarga_por_minuto'))->by('cf-portal-desc:'.$request->ip())->response($limitada),
         ]);
 
+        // Buscador administrativo por documento: límites por ADMINISTRADOR (no por IP), por minuto y por día.
+        RateLimiter::for('cf-buscador-documento', fn (Request $request) => [
+            Limit::perMinute((int) config('credential_flow.buscador_documento.limite_por_minuto'))->by('cf-bd-min:'.$request->user()?->getAuthIdentifier()),
+            Limit::perDay((int) config('credential_flow.buscador_documento.limite_por_dia'))->by('cf-bd-dia:'.$request->user()?->getAuthIdentifier()),
+        ]);
+        // Descargas desde el buscador (E3): límites propios por ADMINISTRADOR, por minuto y por día.
+        RateLimiter::for('cf-buscador-descarga', fn (Request $request) => [
+            Limit::perMinute((int) config('credential_flow.buscador_documento.descarga_limite_por_minuto'))->by('cf-bdd-min:'.$request->user()?->getAuthIdentifier()),
+            Limit::perDay((int) config('credential_flow.buscador_documento.descarga_limite_por_dia'))->by('cf-bdd-dia:'.$request->user()?->getAuthIdentifier()),
+        ]);
+
         // Interacciones anónimas del podcast: límite por IP y, si existe, por visitante (cookie).
         RateLimiter::for('podcast-reacciones', function (Request $request) {
             $limites = [Limit::perMinute(30)->by('ip:'.$request->ip())];

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Middleware\BuscadorDocumentoActivo;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IniciarSesionPortal;
 use App\Http\Middleware\PortalHabilitado;
 use App\Http\Middleware\VerificarRol;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -27,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(before: StartSession::class, prepend: IniciarSesionPortal::class);
         // Interruptor maestro del portal (11C.1): corre antes que la sesión del portal, así apagado no se crea sesión ni desafío OTP ni envío.
         $middleware->prependToPriorityList(before: IniciarSesionPortal::class, prepend: PortalHabilitado::class);
+        // Interruptor del buscador por documento: corre antes que la autenticación, así apagado responde 404 también sin sesión (no revela que la ruta existe).
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: BuscadorDocumentoActivo::class);
 
         $middleware->alias([
             'rol' => VerificarRol::class,

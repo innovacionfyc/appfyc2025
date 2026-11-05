@@ -173,4 +173,18 @@ return [
         'fin' => 99999,
     ],
 
+    // Buscador ADMINISTRATIVO de certificados por número de documento (solo super-admin). APAGADO por defecto: con el interruptor apagado sus rutas responden
+    // 404 a cualquiera. Búsqueda exacta (nunca parcial) con un mínimo de caracteres del número: en producción (2026-11-02) el documento más corto tiene 6, así
+    // que 6 no deja fuera a nadie. Límites por administrador; cada búsqueda queda en Movimientos con el HMAC del número, nunca la cédula en claro.
+    'buscador_documento' => [
+        'activo' => (bool) env('CREDENTIAL_FLOW_BUSCADOR_DOCUMENTO', false),
+        'minimo_caracteres' => 6,
+        'limite_por_minuto' => 20,
+        'limite_por_dia' => 100,
+        // E3: descarga desde el buscador con un token temporal de la búsqueda (solo en la sesión). Límites por super-admin.
+        'token_minutos' => 15,
+        'descarga_limite_por_minuto' => 30,
+        'descarga_limite_por_dia' => 200,
+    ],
+
 ];

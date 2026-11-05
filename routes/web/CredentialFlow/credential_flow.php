@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CredentialFlow\ArchivoPlantillaController;
+use App\Http\Controllers\CredentialFlow\BuscadorDocumentoController;
 use App\Http\Controllers\CredentialFlow\CasoEspecialController;
 use App\Http\Controllers\CredentialFlow\ConciliacionAccionController;
 use App\Http\Controllers\CredentialFlow\ConciliacionController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\CredentialFlow\ProgramacionController;
 use App\Http\Controllers\CredentialFlow\QaContactosController;
 use App\Http\Controllers\CredentialFlow\QaController;
 use App\Http\Controllers\CredentialFlow\ReemplazoController;
+use App\Http\Middleware\BuscadorDocumentoActivo;
 use App\Http\Middleware\CabecerasAdminSensible;
 use App\Http\Middleware\ImportacionInteligenteActiva;
 use Illuminate\Support\Facades\Route;
@@ -195,4 +197,15 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::delete('/lotes/{lote}/definitivamente', [EliminacionDefinitivaController::class, 'lote'])->withTrashed()->middleware('throttle:10,1,cf-eliminacion')->name('lotes.destroy-definitivo');
     Route::get('/plantillas/{plantilla}/eliminacion-definitiva', [EliminacionDefinitivaController::class, 'resumenPlantilla'])->withTrashed()->name('plantillas.eliminacion.resumen');
     Route::delete('/plantillas/{plantilla}/definitivamente', [EliminacionDefinitivaController::class, 'plantilla'])->withTrashed()->middleware('throttle:10,1,cf-eliminacion')->name('plantillas.destroy-definitivo');
+});
+
+// Buscador administrativo de certificados por número de documento. APAGADO por defecto (`credential_flow.buscador_documento.activo`): el interruptor va PRIMERO,
+// así que apagado responde 404 a cualquiera (con o sin sesión). Encendido: sesión y rol super-admin (cualquier otro rol, 403). La pantalla se abre sin datos; la
+// búsqueda es un POST (CSRF del grupo web) con el documento en el cuerpo y su PROPIO límite por administrador (por minuto y por día).
+Route::middleware([BuscadorDocumentoActivo::class, 'auth', 'rol:super-admin', CabecerasAdminSensible::class])->prefix('admin/credential-flow/buscar-documento')->name('credential-flow.buscador-documento.')->group(function () {
+    Route::get('/', [BuscadorDocumentoController::class, 'index'])->name('index');
+    Route::post('/', [BuscadorDocumentoController::class, 'buscar'])->middleware('throttle:cf-buscador-documento')->name('buscar');
+    // E3: descarga con el token opaco y temporal de la última búsqueda (vive solo en la sesión de quien buscó): ni documento ni id en la URL.
+    Route::get('/descargar/{token}', [BuscadorDocumentoController::class, 'descargar'])->where('token', '[A-Za-z0-9]{40}')
+        ->middleware('throttle:cf-buscador-descarga')->name('descargar');
 });

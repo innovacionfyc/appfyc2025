@@ -1,13 +1,19 @@
 <script setup>
+import { computed } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
-import { LayoutTemplate, Users, Sparkles, History, Archive, Mail, ClipboardList, ArrowRight } from "lucide-vue-next";
+import { LayoutTemplate, Users, Sparkles, History, Archive, Mail, ClipboardList, ArrowRight, ScanSearch } from "lucide-vue-next";
+
+const props = defineProps({
+  // Solo con el interruptor del buscador encendido y para super-admin.
+  buscadorDocumento: { type: Boolean, default: false },
+});
 
 // Los pasos del módulo. Plantillas y Bases de participantes tienen su propia pantalla; Generación e Historial no:
 // se hacen dentro de cada base, así que esas tarjetas llevan a la lista de bases y lo dicen.
-const pasos = [
+const PASOS = [
   {
     titulo: "Plantillas",
     descripcion: "Prepara el diseño que usarás para tus certificados.",
@@ -65,6 +71,23 @@ const pasos = [
     acento: "text-emerald-700 bg-emerald-50",
   },
 ];
+
+// El buscador por documento va al final y solo cuando está habilitado para este usuario (super-admin con el interruptor encendido).
+const pasos = computed(() => [
+  ...PASOS,
+  ...(props.buscadorDocumento
+    ? [
+        {
+          titulo: "Buscar por documento",
+          descripcion: "Encuentra todos los certificados de una persona por su número de documento: históricos y nuevos, con su estado. Queda registrado.",
+          ruta: "credential-flow.buscador-documento.index",
+          accion: "Abrir buscador",
+          icono: ScanSearch,
+          acento: "text-indigo-700 bg-indigo-50",
+        },
+      ]
+    : []),
+]);
 </script>
 
 <template>
