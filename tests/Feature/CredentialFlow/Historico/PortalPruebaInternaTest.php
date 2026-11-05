@@ -6,7 +6,6 @@ use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
-use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Qa\ServicioQa;
@@ -93,11 +92,14 @@ class PortalPruebaInternaTest extends PortalTestCase
 
     public function test_un_qa_historico_con_plantilla_normal_tambien_se_marca(): void
     {
-        // Emitido como si fuera real con la plantilla normal y marcado QA después (como las bases 9-13).
-        $lote = app(ImportadorParticipantes::class)->importar(UploadedFile::fake()->createWithContent('base.csv', "nombre_completo,documento,correo\nQA HISTORICO,9.400.001,hist@example.test\n"), $this->plantillaLista(), 'Base antigua', null, self::COMUNES);
+        // Como las bases 9-13: plantilla normal (no designada QA) con el aviso impreso como texto fijo; el participante no estaba marcado al emitir.
+        $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
+        $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), $campos, array_keys($campos));
+        $els[] = $this->elemento(['text' => self::ADVERTENCIA, 'y' => 400, 'fontSize' => 14]);
+        $lote = app(ImportadorParticipantes::class)->importar(UploadedFile::fake()->createWithContent('base.csv', "nombre_completo,documento,correo\nQA HISTORICO,9.400.001,hist@example.test\n"), $this->plantillaLista($els), 'Base antigua', null, self::COMUNES);
         $e = $this->emitir($lote, '9400001');
-        app(ServicioEventos::class)->marcarParticipantesQa($lote, [$e->participante_id], true);
         $this->assertFalse((bool) Plantilla::find($e->plantilla_id)->es_plantilla_qa);
+        $this->assertFalse((bool) Participante::find($e->participante_id)->es_control_qa);
 
         $this->assertSame(['disponible+prueba'], $this->tarjetas($this->panel('9.400.001', 'hist@example.test')));
     }

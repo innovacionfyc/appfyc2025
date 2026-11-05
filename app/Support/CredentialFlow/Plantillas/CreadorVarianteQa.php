@@ -95,7 +95,7 @@ final class CreadorVarianteQa
         $conAdvertencia = false;
         $prefijo = false;
         foreach ($elementos as $i => $el) {
-            if (($el['type'] ?? null) === DisenoSchema::TIPO_TEXTO && str_contains(mb_strtoupper((string) ($el['text'] ?? '')), 'PRUEBA INTERNA')) {
+            if (ServicioQa::esMarcadorQa($el)) {
                 $conAdvertencia = true;
             }
             if (($el['field'] ?? null) === 'documento' && trim((string) ($el['prefix'] ?? '')) === '') {

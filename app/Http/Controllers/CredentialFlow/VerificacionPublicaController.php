@@ -17,9 +17,9 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Verificación PÚBLICA de una credencial por su código de emisión (sin login). Los datos mostrados salen EXCLUSIVAMENTE
- * de cf_emisiones y su datos_snapshot (lo emitido manda); del participante y de la plantilla solo se leen sus marcas de
- * pruebas internas (ClasificacionEmision), nunca sus datos. No expone ids, rutas, documento ni el motivo de revocación,
+ * Verificación PÚBLICA de una credencial por su código de emisión (sin login). Lee EXCLUSIVAMENTE cf_emisiones
+ * y sus snapshots (lo emitido manda; nunca participante, lote ni plantilla vivos): la naturaleza oficial o de prueba
+ * interna sale del diseño congelado (ClasificacionEmision). No expone ids, rutas, documento ni el motivo de revocación,
  * y un código con formato inválido o inexistente recibe exactamente la misma respuesta 404 (sin eco del código).
  */
 class VerificacionPublicaController extends Controller
@@ -41,7 +41,7 @@ class VerificacionPublicaController extends Controller
         }
 
         $emision = CodigoEmision::valido($codigo)
-            ? Emision::query()->select(['id', 'codigo', 'estado', 'participante_id', 'plantilla_id', 'datos_snapshot', 'emitido_at'])->where('codigo', $codigo)->first()
+            ? Emision::query()->select(['id', 'codigo', 'estado', 'datos_snapshot', 'diseno_snapshot', 'emitido_at'])->where('codigo', $codigo)->first()
             : null;
 
         if ($emision === null) {
@@ -58,9 +58,16 @@ class VerificacionPublicaController extends Controller
             'emitida' => $emision->emitido_at?->copy()->timezone('America/Bogota')->locale('es')->translatedFormat('j \d\e F \d\e Y'),
         ];
 
-        // Prueba interna vigente: nunca «Credencial válida»; sin nombre ni intensidad (no acredita nada). La revocada sigue abajo: la revocación prevalece.
-        if ($emision->estado === Emision::EMITIDA && ClasificacionEmision::esPruebaInterna((int) $emision->participante_id, (int) $emision->plantilla_id)) {
+        // Vigente: su naturaleza la dice el documento emitido. Prueba interna: nunca «Credencial válida», sin nombre ni intensidad. Diseño ilegible: no se
+        // afirma nada (sin datos personales). La revocada sigue abajo y no depende del diseño: la revocación prevalece.
+        $clase = $emision->estado === Emision::EMITIDA ? ClasificacionEmision::deDiseno($emision->getRawOriginal('diseno_snapshot')) : null;
+        if ($clase === ClasificacionEmision::PRUEBA_INTERNA) {
             return $this->vista($request, $comunes + ['estado' => 'prueba_interna']);
+        }
+        if ($clase === ClasificacionEmision::INDETERMINADA) {
+            Log::warning('Credential Flow: el diseño emitido de una credencial no se puede leer; la verificación pública no la confirma.', ['emision' => $emision->id]);
+
+            return $this->vista($request, ['codigo' => $emision->codigo, 'estado' => 'no_verificable']);
         }
 
         if ($emision->estado === Emision::EMITIDA) {

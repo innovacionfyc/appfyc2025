@@ -6,7 +6,6 @@ use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
-use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Support\Facades\DB;
@@ -14,15 +13,17 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Testing\TestResponse;
 
 /**
- * Verificación pública de las PRUEBAS INTERNAS (QA). Una emisión es de prueba interna por relaciones estructuradas, nunca por textos: su participante está
- * marcado como contacto de control (`es_control_qa`) o se generó con una plantilla de pruebas internas (`es_plantilla_qa`). La revocación prevalece sobre
- * todo. Las oficiales vigentes no cambian. Datos 100 % sintéticos.
+ * Verificación pública de las PRUEBAS INTERNAS (QA). La naturaleza de una emisión se decide por el DOCUMENTO EMITIDO: su diseño congelado
+ * (cf_emisiones.diseno_snapshot) lleva o no el marcador institucional, un elemento de texto fijo cuyo texto es exactamente «PRUEBA INTERNA — SIN VALIDEZ
+ * ACADÉMICA». Las marcas vivas del participante o de la plantilla no cambian retroactivamente la clasificación. La revocación prevalece. Datos sintéticos.
  */
 class VerificacionPublicaQaTest extends EmisionesTestCase
 {
     private const ADVERTENCIA = 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA';
 
     private const EXPLICACION = 'Este documento fue generado exclusivamente para validar el funcionamiento del sistema. No acredita asistencia, participación ni formación académica.';
+
+    private const CAMPOS = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria'];
 
     protected function setUp(): void
     {
@@ -60,6 +61,17 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         return [$lote->fresh(), $institucional, $variante];
     }
 
+    /** Plantilla con los cinco campos y, además, los elementos indicados (para probar qué cuenta como marcador y qué no). */
+    private function plantillaCon(array ...$extra): Plantilla
+    {
+        $els = array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 60 + $i * 60]), self::CAMPOS, array_keys(self::CAMPOS));
+        foreach ($extra as $i => $e) {
+            $els[] = $this->elemento($e + ['y' => 400 + $i * 30, 'fontSize' => 14]);
+        }
+
+        return $this->plantillaLista($els);
+    }
+
     private function oficialDe(Lote $lote): Participante
     {
         return Participante::where('lote_id', $lote->id)->where('es_control_qa', false)->orderBy('id')->firstOrFail();
@@ -75,6 +87,19 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->emitirPor($lote, $p)->assertCreated();
 
         return Emision::where('participante_id', $p->id)->where('estado', Emision::EMITIDA)->firstOrFail();
+    }
+
+    private function oficialCon(Plantilla $plantilla): array
+    {
+        $lote = $this->loteCon(1, $plantilla);
+        $p = $lote->participantes()->firstOrFail();
+
+        return [$this->emitir($lote, $p), $p];
+    }
+
+    private function reemitir(Emision $e): Emision
+    {
+        return Emision::findOrFail($this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.reemitir', $e), ['motivo' => 'Corrección de prueba'])->assertCreated()->json('emision.id'));
     }
 
     private function revocar(Emision $e): void
@@ -103,7 +128,7 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->assertSame('prueba_interna', $this->estado($r));
         $html = $r->getContent();
         $this->assertStringNotContainsString('Credencial válida', $html);
-        $this->assertStringNotContainsString($p->nombre_completo, $html, 'Sin el nombre del contacto');
+        $this->assertStringNotContainsString($p->nombre_completo, $html, 'Sin el nombre');
         $this->assertStringNotContainsString('QA SINTÉTICO', $html);
         $this->assertStringNotContainsString((string) $p->documento, $html);
         $this->assertStringNotContainsString('7000000', $html);
@@ -116,7 +141,13 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->assertStringNotContainsString('<script', $html);
     }
 
-    // ── A. Oficial vigente: idéntica a la actual ───────────────────────────────
+    private function assertValida(TestResponse $r, Participante $p): void
+    {
+        $this->assertSame('valida', $this->estado($r->assertOk()->assertSee('Credencial válida')->assertSee($p->nombre_completo)));
+        $this->assertStringNotContainsString('No acredita asistencia', $r->getContent());
+    }
+
+    // ── Oficial vigente: idéntica a la actual ─────────────────────────────────
 
     public function test_oficial_vigente_sigue_siendo_credencial_valida_con_sus_datos(): void
     {
@@ -124,17 +155,16 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $p = $this->oficialDe($lote);
         $e = $this->emitir($lote, $p);
 
-        $r = $this->publica($e->codigo)->assertOk();
+        $r = $this->publica($e->codigo);
 
-        $this->assertSame('valida', $this->estado($r));
-        $r->assertSee('Credencial válida')->assertSee($p->nombre_completo)->assertSee('CONGRESO DE FINANZAS')->assertSee('30 horas')->assertSee($e->codigo);
+        $this->assertValida($r, $p);
+        $r->assertSee('CONGRESO DE FINANZAS')->assertSee('30 horas')->assertSee($e->codigo);
         $this->assertStringNotContainsString('PRUEBA INTERNA', $r->getContent());
-        $this->assertStringNotContainsString('No acredita', $r->getContent());
     }
 
-    // ── B. Prueba interna vigente ─────────────────────────────────────────────
+    // ── E. Variantes QA modernas (#20 y #22) ──────────────────────────────────
 
-    public function test_qa_vigente_con_la_variante_de_su_familia_es_prueba_interna(): void
+    public function test_e_qa_vigente_con_la_variante_de_su_familia_es_prueba_interna(): void
     {
         [$lote, , $variante] = $this->familia();
         $qa = $this->qaDe($lote);
@@ -144,7 +174,7 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->assertPruebaInterna($this->publica($e->codigo), $e, $qa);
     }
 
-    public function test_qa_vigente_de_otra_familia_que_ademas_es_la_plantilla_qa_por_omision_es_prueba_interna(): void
+    public function test_e_qa_vigente_de_otra_familia_que_ademas_es_la_plantilla_qa_por_omision_es_prueba_interna(): void
     {
         $this->familia();
         [$lote, , $variante] = $this->familia();   // la variante más reciente: también es la plantilla QA por omisión (como #22)
@@ -155,71 +185,125 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->assertPruebaInterna($this->publica($e->codigo), $e, $qa);
     }
 
-    public function test_qa_historico_emitido_con_plantilla_no_qa_hoy_archivada_es_prueba_interna_por_su_participante(): void
-    {
-        // Como las bases 9-13: se emitió con una plantilla normal antes de existir la marca QA; después se marcó al contacto y se archivó la plantilla.
-        $lote = $this->loteCon(1);
-        $p = $lote->participantes()->firstOrFail();
-        $e = $this->emitir($lote, $p);
-        app(ServicioEventos::class)->marcarParticipantesQa($lote, [$p->id], true);
-        Plantilla::whereKey($lote->plantilla_id)->update(['archivada_at' => now(), 'motivo_archivo' => 'Prueba de archivo']);
-        $this->assertFalse((bool) Plantilla::find($e->plantilla_id)->es_plantilla_qa);
+    // ── A, B, C. Las marcas vivas no cambian la naturaleza de lo ya emitido ────
 
-        $this->assertPruebaInterna($this->publica($e->codigo), $e, $p->fresh());
+    public function test_a_un_oficial_emitido_sigue_oficial_aunque_despues_se_marque_qa_a_su_participante(): void
+    {
+        [$lote] = $this->familia();
+        $p = $this->oficialDe($lote);
+        $e = $this->emitir($lote, $p);
+
+        // Con el comando real (marcar contactos de control después de emitir sigue siendo una operación válida).
+        DB::table('cf_participantes')->where('id', $p->id)->update(['correo' => 'real1@example.test', 'correo_normalizado' => 'real1@example.test']);
+        $this->artisan('credential-flow:qa-participantes', ['lote' => $lote->id, '--correo' => ['real1@example.test'], '--ejecutar' => true])->assertExitCode(0);
+        $this->assertTrue((bool) $p->fresh()->es_control_qa);
+
+        $this->assertValida($this->publica($e->codigo), $p);
     }
 
-    public function test_basta_una_de_las_dos_marcas_estructuradas_para_seguir_siendo_prueba_interna(): void
+    public function test_b_un_qa_emitido_sigue_qa_aunque_despues_se_quite_la_marca_de_su_participante(): void
+    {
+        [$lote] = $this->familia();
+        $qa = $this->qaDe($lote);
+        $e = $this->emitir($lote, $qa);
+
+        $this->artisan('credential-flow:qa-participantes', ['lote' => $lote->id, '--correo' => ['qa1@example.test'], '--quitar' => true, '--ejecutar' => true])->assertExitCode(0);
+        $this->assertFalse((bool) $qa->fresh()->es_control_qa);
+
+        $this->assertPruebaInterna($this->publica($e->codigo), $e, $qa);
+    }
+
+    public function test_c_un_qa_emitido_sigue_qa_aunque_cambie_la_designacion_de_su_plantilla(): void
     {
         [$lote, , $variante] = $this->familia();
         $qa = $this->qaDe($lote);
         $e = $this->emitir($lote, $qa);
 
-        // Se quita la marca del contacto: la plantilla con la que se generó sigue siendo de pruebas.
-        app(ServicioEventos::class)->marcarParticipantesQa($lote, [$qa->id], false);
-        $this->assertSame('prueba_interna', $this->estado($this->publica($e->codigo)));
+        // La pantalla ya no lo permite (ProteccionMarcasQaTest); aquí se simula un cambio directo, y además sin la marca del participante.
+        DB::table('cf_plantillas')->where('id', $variante->id)->update(['es_plantilla_qa' => false]);
+        DB::table('cf_participantes')->where('id', $qa->id)->update(['es_control_qa' => false]);
 
-        // Y al revés: la plantilla deja de estar designada, el contacto vuelve a estar marcado.
-        app(ServicioEventos::class)->marcarParticipantesQa($lote, [$qa->id], true);
-        Plantilla::whereKey($variante->id)->update(['es_plantilla_qa' => false]);
-        $this->assertSame('prueba_interna', $this->estado($this->publica($e->codigo)));
+        $this->assertPruebaInterna($this->publica($e->codigo), $e, $qa);
     }
 
-    public function test_el_nombre_de_la_plantilla_o_del_evento_no_convierte_en_prueba_a_una_oficial(): void
+    // ── D. Históricas con plantilla normal (como #9–#12) ──────────────────────
+
+    public function test_d_una_qa_historica_de_plantilla_normal_con_el_marcador_impreso_es_prueba_interna_aunque_se_archive(): void
+    {
+        // Como las bases 9–13: plantilla NO designada QA, con el aviso como texto fijo; participante sin marca al emitir; después se archiva la plantilla.
+        $plantilla = $this->plantillaCon(['text' => self::ADVERTENCIA], ['text' => 'Este documento no acredita asistencia ni participación.']);
+        [$e, $p] = $this->oficialCon($plantilla);
+        Plantilla::whereKey($plantilla->id)->update(['archivada_at' => now(), 'motivo_archivo' => 'Prueba de archivo']);
+        $this->assertFalse((bool) Plantilla::find($e->plantilla_id)->es_plantilla_qa);
+        $this->assertFalse((bool) $p->fresh()->es_control_qa);
+
+        $this->assertPruebaInterna($this->publica($e->codigo), $e, $p);
+    }
+
+    public function test_d_el_marcador_se_reconoce_sin_importar_mayusculas_tildes_ni_puntuacion(): void
+    {
+        foreach (['prueba interna - sin validez academica', '  PRUEBA INTERNA – SIN VALIDEZ ACADÉMICA.  ', 'Prueba Interna — Sin Validez Académica'] as $texto) {
+            [$e, $p] = $this->oficialCon($this->plantillaCon(['text' => $texto]));
+            $this->assertSame('prueba_interna', $this->estado($this->publica($e->codigo)), $texto);
+        }
+    }
+
+    // ── F, G. Ningún texto libre ni dato variable convierte una oficial en prueba ─
+
+    public function test_f_el_nombre_del_evento_de_la_base_o_de_la_plantilla_no_convierte_en_prueba_a_una_oficial(): void
     {
         $plantilla = $this->plantillaLista();
-        $plantilla->update(['nombre' => 'PRUEBA INTERNA QA — '.self::ADVERTENCIA]);
+        $plantilla->update(['nombre' => self::ADVERTENCIA]);
         $lote = $this->loteCon(1, $plantilla);
-        $lote->update(['nombre' => 'QA PRUEBA', 'datos_comunes' => ['evento' => 'PRUEBA QA DEL EVENTO', 'fecha' => '17 de septiembre de 2026', 'intensidad_horaria' => '30 horas']]);
-        $e = $this->emitir($lote, $lote->participantes()->firstOrFail());
+        $lote->update(['nombre' => 'QA '.self::ADVERTENCIA, 'datos_comunes' => ['evento' => self::ADVERTENCIA, 'fecha' => '17 de septiembre de 2026', 'intensidad_horaria' => '30 horas']]);
+        $p = $lote->participantes()->firstOrFail();
+        $p->update(['nombre_completo' => 'PRUEBA INTERNA SIN VALIDEZ ACADEMICA']);
+        $e = $this->emitir($lote, $p);
 
-        $this->assertSame('valida', $this->estado($this->publica($e->codigo)->assertOk()->assertSee('Credencial válida')));
+        $this->assertValida($this->publica($e->codigo), $p->fresh());
     }
 
-    // ── C. Revocadas: la revocación prevalece ─────────────────────────────────
+    public function test_g_textos_libres_que_no_son_el_marcador_institucional_no_convierten_en_prueba_a_una_oficial(): void
+    {
+        $casos = [
+            'solo «PRUEBA INTERNA»' => ['text' => 'PRUEBA INTERNA'],
+            'frase dentro de un texto más largo' => ['text' => 'Taller de PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA 2026'],
+            'frase partida' => ['text' => 'PRUEBA INTERNA — SIN VALIDEZ'],
+            'en un campo dinámico (no es texto fijo)' => ['field' => 'evento', 'text' => self::ADVERTENCIA, 'y' => 450],
+            'como «Texto antes» de un campo' => ['field' => 'intensidad_horaria', 'prefix' => self::ADVERTENCIA.' ', 'y' => 480],
+        ];
+        foreach ($casos as $caso => $el) {
+            [$e, $p] = $this->oficialCon($this->plantillaCon($el));
+            $this->assertSame('valida', $this->estado($this->publica($e->codigo)), $caso);
+        }
+    }
 
-    public function test_qa_revocado_muestra_solo_la_revocacion_sin_datos_personales(): void
+    // ── H. Revocadas: la revocación prevalece ─────────────────────────────────
+
+    public function test_h_qa_revocado_muestra_solo_la_revocacion_sin_datos_personales(): void
     {
         [$lote] = $this->familia();
         $qa = $this->qaDe($lote);
         $e = $this->emitir($lote, $qa);
         $this->revocar($e);
+        DB::table('cf_participantes')->where('id', $qa->id)->update(['es_control_qa' => false]);
 
         $r = $this->publica($e->codigo)->assertOk();
 
         $this->assertSame('revocada', $this->estado($r));
         $r->assertSee('Credencial revocada')->assertSee('CONGRESO DE FINANZAS')->assertSee($e->codigo);
-        $html = $r->getContent();
         foreach (['Credencial válida', 'PRUEBA INTERNA', $qa->nombre_completo, (string) $qa->documento, 'QWERTY', '30 horas', '@example.test'] as $nunca) {
-            $this->assertStringNotContainsString($nunca, $html);
+            $this->assertStringNotContainsString($nunca, $r->getContent());
         }
     }
 
-    public function test_oficial_revocado_conserva_la_respuesta_de_revocacion(): void
+    public function test_h_oficial_revocado_conserva_la_respuesta_de_revocacion_aunque_cambie_su_marca(): void
     {
         [$lote] = $this->familia();
         $p = $this->oficialDe($lote);
         $e = $this->emitir($lote, $p);
         $this->revocar($e);
+        DB::table('cf_participantes')->where('id', $p->id)->update(['es_control_qa' => true]);
 
         $r = $this->publica($e->codigo)->assertOk()->assertSee('Credencial revocada')->assertSee('Esta credencial ya no es válida. Si recibió una versión más reciente, verifique esa.');
 
@@ -228,9 +312,59 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         $this->assertStringNotContainsString($p->nombre_completo, $r->getContent());
     }
 
+    // ── I. Reemisiones y reemplazos ───────────────────────────────────────────
+
+    public function test_i_en_una_cadena_qa_la_anterior_queda_revocada_y_la_nueva_es_prueba_por_su_propio_documento(): void
+    {
+        [$lote] = $this->familia();
+        $qa = $this->qaDe($lote);
+        $v1 = $this->emitir($lote, $qa);
+        $v2 = $this->reemitir($v1);
+        $this->assertSame($v1->id, $v2->reemplaza_id);
+
+        $this->assertSame('revocada', $this->estado($this->publica($v1->codigo)));
+        $this->assertPruebaInterna($this->publica($v2->codigo), $v2, $qa);
+    }
+
+    public function test_i_en_una_cadena_oficial_la_nueva_version_sigue_siendo_valida(): void
+    {
+        [$lote] = $this->familia();
+        $p = $this->oficialDe($lote);
+        $v1 = $this->emitir($lote, $p);
+        $v2 = $this->reemitir($v1);
+
+        $this->assertSame('revocada', $this->estado($this->publica($v1->codigo)));
+        $this->assertValida($this->publica($v2->codigo), $p);
+    }
+
+    // ── J. Snapshot ausente o dañado: nunca «válida», nunca error 500 ─────────
+
+    public function test_j_un_diseno_emitido_ausente_o_danado_no_afirma_validez_ni_rompe_la_pagina(): void
+    {
+        [$lote] = $this->familia();
+        $p = $this->oficialDe($lote);
+        $e = $this->emitir($lote, $p);
+
+        foreach (['{', 'null', '[]', '{}', '{"elements":"x"}', '{"elements":[]}', '{"elements":{"a":{"type":"text"}}}', '{"elements":[1,2]}'] as $danado) {
+            DB::table('cf_emisiones')->where('id', $e->id)->update(['diseno_snapshot' => $danado]);
+
+            $r = $this->publica($e->codigo)->assertOk();
+
+            $this->assertSame('no_verificable', $this->estado($r), $danado);
+            $r->assertSee('Verificación no disponible')->assertSee($e->codigo);
+            foreach (['Credencial válida', 'PRUEBA INTERNA', $p->nombre_completo, '30 horas'] as $nunca) {
+                $this->assertStringNotContainsString($nunca, $r->getContent(), $danado);
+            }
+        }
+
+        // Revocada con el diseño dañado: la revocación no depende del diseño.
+        $this->revocar($e);
+        $this->assertSame('revocada', $this->estado($this->publica($e->codigo)));
+    }
+
     // ── Códigos inexistentes e inválidos ──────────────────────────────────────
 
-    public function test_codigo_inexistente_e_invalido_siguen_siendo_404_sin_eco_aunque_existan_pruebas(): void
+    public function test_codigo_inexistente_e_invalido_siguen_siendo_404_sin_eco(): void
     {
         [$lote] = $this->familia();
         $this->emitir($lote, $this->qaDe($lote));
@@ -243,50 +377,25 @@ class VerificacionPublicaQaTest extends EmisionesTestCase
         }
     }
 
-    // ── Cadenas de reemplazo ──────────────────────────────────────────────────
+    // ── Solo lo emitido: ninguna consulta a participante, base ni plantilla ───
 
-    public function test_en_una_cadena_qa_la_version_anterior_es_revocada_y_la_vigente_es_prueba_interna(): void
-    {
-        [$lote] = $this->familia();
-        $qa = $this->qaDe($lote);
-        $v1 = $this->emitir($lote, $qa);
-        $v2 = Emision::findOrFail($this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.reemitir', $v1), ['motivo' => 'Corrección de prueba'])->assertCreated()->json('emision.id'));
-        $this->assertSame($v1->id, $v2->reemplaza_id);
-
-        $this->assertSame('revocada', $this->estado($this->publica($v1->codigo)));
-        $this->assertPruebaInterna($this->publica($v2->codigo), $v2, $qa);
-    }
-
-    public function test_en_una_cadena_oficial_la_version_vigente_sigue_siendo_valida(): void
-    {
-        [$lote] = $this->familia();
-        $p = $this->oficialDe($lote);
-        $v1 = $this->emitir($lote, $p);
-        $v2 = Emision::findOrFail($this->actingAs($this->admin())->postJson(route('credential-flow.emisiones.reemitir', $v1), ['motivo' => 'Corrección de datos'])->assertCreated()->json('emision.id'));
-
-        $this->assertSame('revocada', $this->estado($this->publica($v1->codigo)));
-        $this->assertSame('valida', $this->estado($this->publica($v2->codigo)->assertSee('Credencial válida')->assertSee($p->nombre_completo)));
-    }
-
-    public function test_para_clasificar_solo_lee_las_dos_marcas_qa_y_nunca_datos_vivos(): void
+    public function test_para_clasificar_solo_lee_la_emision(): void
     {
         [$lote] = $this->familia();
         $e = $this->emitir($lote, $this->qaDe($lote));
-        $consultas = [];
-        DB::listen(function ($q) use (&$consultas) {
-            $sql = strtolower($q->sql);
-            if (! str_contains($sql, 'pragma') && ! str_contains($sql, 'sqlite_master') && ! str_contains($sql, 'information_schema') && (str_contains($sql, 'cf_participantes') || str_contains($sql, 'cf_plantillas') || str_contains($sql, 'cf_lotes') || str_contains($sql, 'usuarios'))) {
-                $consultas[] = $sql;
+        $ajenas = [];
+        DB::listen(function ($q) use (&$ajenas) {
+            foreach (['cf_participantes', 'cf_lotes', 'cf_plantillas', 'usuarios'] as $t) {
+                if (str_contains($q->sql, $t)) {
+                    $ajenas[] = $t;
+                }
             }
         });
 
         $this->publica($e->codigo)->assertOk();
 
-        // La marca del participante basta: no hace falta consultar la plantilla.
-        $this->assertSame(['select "es_control_qa" from "cf_participantes" where "id" = ? limit 1'], $consultas);
+        $this->assertSame([], $ajenas);
     }
-
-    // ── Cabeceras: la prueba interna lleva las mismas protecciones que la oficial ─
 
     public function test_la_prueba_interna_lleva_las_mismas_cabeceras_de_seguridad_que_la_oficial(): void
     {

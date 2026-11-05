@@ -58,7 +58,7 @@ final class EmisionesModernas
 
         // Por participante: la emisión vigente o, si no la hay, la última (revocada).
         $emisiones = [];
-        foreach (DB::table('cf_emisiones')->whereIn('participante_id', $ids)->orderBy('id')->get(['id', 'codigo', 'estado', 'participante_id', 'plantilla_id', 'datos_snapshot', 'emitido_at']) as $e) {
+        foreach (DB::table('cf_emisiones')->whereIn('participante_id', $ids)->orderBy('id')->get(['id', 'codigo', 'estado', 'participante_id', 'datos_snapshot', 'diseno_snapshot', 'emitido_at']) as $e) {
             $actual = $emisiones[$e->participante_id] ?? null;
             if ($actual === null || $actual->estado !== Emision::EMITIDA) {
                 $emisiones[$e->participante_id] = $e;
@@ -91,8 +91,8 @@ final class EmisionesModernas
                 'correos' => $propios,
                 'datos' => is_array($e->datos_snapshot) ? $e->datos_snapshot : (json_decode((string) $e->datos_snapshot, true) ?: []),
                 'emitido_at' => $e->emitido_at,
-                // Prueba interna (QA) por relaciones estructuradas, igual que la verificación pública: la tarjeta lo dice; la descarga no cambia.
-                'prueba_interna' => ClasificacionEmision::esPruebaInterna((int) $p->id, (int) $e->plantilla_id),
+                // Prueba interna (QA) por su documento emitido, igual que la verificación pública: la tarjeta lo dice; la descarga no cambia.
+                'prueba_interna' => ClasificacionEmision::deDiseno($e->diseno_snapshot) === ClasificacionEmision::PRUEBA_INTERNA,
             ];
         })->values();
     }
