@@ -72,7 +72,10 @@ const descargar = async (c) => {
     setTimeout(() => URL.revokeObjectURL(url), 30000);
     if (c.seguimiento) {
       c.seguimiento.panel.total += 1;
-      c.seguimiento.panel.ultima = new Date().toLocaleString("es-CO");
+      const d = new Date();
+      const dos = (n) => String(n).padStart(2, "0");
+      // Mismo formato que el servidor (AAAA-MM-DD HH:MM).
+      c.seguimiento.panel.ultima = `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())} ${dos(d.getHours())}:${dos(d.getMinutes())}`;
     }
   } catch (e) {
     const estado = e?.response?.status;
