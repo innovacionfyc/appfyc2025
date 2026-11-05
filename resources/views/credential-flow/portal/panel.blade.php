@@ -187,7 +187,7 @@
                     <p class="separador" data-separador="historicos">Certificados históricos · sin fecha de publicación registrada</p>
                 @endif
                 @php $grupoAnterior = $sinFecha; @endphp
-                <article class="cert" data-certificado="{{ $t['tipo'] }}"@if (! empty($t['moderno'])) data-moderno @endif @if (! $sinFecha) data-publicado="{{ substr($t['publicado_at'], 0, 10) }}" @endif>
+                <article class="cert" data-certificado="{{ $t['tipo'] }}"@if (! empty($t['moderno'])) data-moderno @endif @if (! empty($t['prueba_interna'])) data-prueba-interna @endif @if (! $sinFecha) data-publicado="{{ substr($t['publicado_at'], 0, 10) }}" @endif>
                     <div class="cert-info">
                         <h2>{{ $t['evento'] }}</h2>
                         <p class="cert-fechas">
@@ -198,11 +198,12 @@
                         </p>
                         <div class="cert-meta">
                             <span class="insignia {{ $clase($t['tipo']) }}">{{ $etiqueta($t['tipo']) }}</span>
+                            @if (! empty($t['prueba_interna']))<span class="insignia mal" data-insignia="prueba-interna">PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA</span>@endif
                             @if ($enc === 'respondida')<span class="insignia neutra" data-encuesta="respondida">Encuesta respondida</span>@endif
                             @if ($t['codigo'] !== null)<span class="suave">Código del certificado: {{ $t['codigo'] }}</span>@endif
                             @if (! empty($t['estado_emision']))<span class="suave">Estado: {{ $t['estado_emision'] }}</span>@endif
                         </div>
-                        <p class="suave cert-msg {{ $t['tipo'] === 'disponible' ? 'solo-lector' : '' }}">{{ $t['mensaje'] }}</p>
+                        <p class="suave cert-msg {{ $t['tipo'] === 'disponible' && empty($t['prueba_interna']) ? 'solo-lector' : '' }}">{{ $t['mensaje'] }}</p>
                     </div>
                     <div class="cert-acciones">
                         @if ($t['descargable'])

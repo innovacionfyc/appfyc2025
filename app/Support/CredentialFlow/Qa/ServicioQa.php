@@ -188,18 +188,27 @@ final class ServicioQa
 
     /**
      * La advertencia «PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA» debe ir DENTRO DEL DISEÑO como texto visible (no basta con el nombre de la plantilla): así sale
-     * impresa en cada PDF generado. Se compara sin mayúsculas ni tildes.
+     * impresa en cada PDF generado. Es el MISMO marcador con el que la verificación pública reconoce después el documento emitido (esMarcadorQa).
      */
     public static function tieneAdvertenciaVisible(Plantilla $plantilla): bool
     {
-        $esperado = self::normalizar(self::ADVERTENCIA);
         foreach ((array) ($plantilla->diseno['elements'] ?? []) as $el) {
-            if (($el['type'] ?? null) === 'text' && is_string($el['text'] ?? null) && str_contains(self::normalizar($el['text']), $esperado)) {
+            if (self::esMarcadorQa($el)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Marcador institucional de pruebas internas dentro de un diseño: un elemento de TEXTO FIJO (sin campo dinámico) cuyo texto COMPLETO es la advertencia.
+     * Se compara sin mayúsculas, tildes ni puntuación. La advertencia dentro de un texto más largo, en un campo dinámico o en su «Texto antes» no cuenta.
+     */
+    public static function esMarcadorQa(mixed $elemento): bool
+    {
+        return is_array($elemento) && ($elemento['type'] ?? null) === 'text' && ($elemento['field'] ?? null) === null
+            && is_string($elemento['text'] ?? null) && trim(self::normalizar($elemento['text'])) === trim(self::normalizar(self::ADVERTENCIA));
     }
 
     /** ¿La usa alguna base (también eliminada) como plantilla oficial, o tiene ya su propia variante QA? */
@@ -225,7 +234,11 @@ final class ServicioQa
             throw new InvalidArgumentException('Esta plantilla ya se usa como plantilla oficial (tiene bases o su propia variante de pruebas): no se puede designar para pruebas internas. Crea una variante QA a partir de ella.');
         }
         if ($esQa && ! self::tieneAdvertenciaVisible($plantilla)) {
-            throw new InvalidArgumentException('El diseño de la plantilla debe incluir, como texto visible, «'.self::ADVERTENCIA.'». Agrégalo en el editor y vuelve a designarla.');
+            throw new InvalidArgumentException('El diseño de la plantilla debe incluir, como un texto propio y visible, exactamente «'.self::ADVERTENCIA.'». Agrégalo en el editor y vuelve a designarla.');
+        }
+        // Una plantilla de pruebas que ya generó certificados conserva su designación: sus bases dejarían de poder emitir pruebas. Se retira archivándola.
+        if (! $esQa && $plantilla->esPlantillaQa() && DB::table('cf_emisiones')->where('plantilla_id', $plantilla->id)->exists()) {
+            throw new InvalidArgumentException('Esta plantilla de pruebas internas ya generó certificados: su designación no se quita (sus bases dejarían de poder emitir pruebas). Para retirarla, archívala con el procedimiento oficial.');
         }
         if ($plantilla->es_plantilla_qa !== $esQa) {
             $plantilla->update(['es_plantilla_qa' => $esQa]);

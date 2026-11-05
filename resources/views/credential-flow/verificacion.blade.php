@@ -52,6 +52,26 @@
                 <div><dt>Emitida por</dt><dd>{{ $entidad }}</dd></div>
                 <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
             </dl>
+        @elseif ($estado === 'prueba_interna')
+            <div class="estado aviso" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 12v14M24 32v4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+                <div><h1>PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA</h1><p>Este documento fue generado exclusivamente para validar el funcionamiento del sistema. No acredita asistencia, participación ni formación académica.</p></div>
+            </div>
+            <dl>
+                <div><dt>Evento</dt><dd data-dato="evento">{{ $evento }}</dd></div>
+                @if (($fecha_evento ?? '') !== '')<div><dt>Fecha del evento</dt><dd data-dato="fecha-evento">{{ $fecha_evento }}</dd></div>@endif
+                <div><dt>Fecha de emisión</dt><dd data-dato="emitida">{{ $emitida }}</dd></div>
+                <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
+            </dl>
+        @elseif ($estado === 'no_verificable')
+            <div class="estado aviso" role="status">
+                <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 12v14M24 32v4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+                <div><h1>Verificación no disponible</h1><p>No es posible confirmar esta credencial en este momento.</p></div>
+            </div>
+            <dl>
+                <div><dt>Código de verificación</dt><dd class="codigo" data-dato="codigo">{{ $codigo }}</dd></div>
+            </dl>
+            <p class="nota">Comuníquese con la entidad emisora ({{ $entidad }}) para confirmar su validez.</p>
         @elseif ($estado === 'revocada')
             <div class="estado revocada" role="status">
                 <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="4"/><path d="M16 16l16 16M32 16L16 32" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
