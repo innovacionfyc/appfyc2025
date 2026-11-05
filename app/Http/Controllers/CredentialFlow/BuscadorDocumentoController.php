@@ -92,6 +92,10 @@ class BuscadorDocumentoController extends Controller
     /** E3: entrega el PDF de un certificado de la última búsqueda, por su token. Revalida, verifica el SHA-256 y audita SIEMPRE (también lo que no se entrega). */
     public function descargar(Request $request, string $token): HttpResponse
     {
+        // Laravel acepta HEAD en una ruta GET: HEAD no entrega el archivo, así que ni se sirve ni cuenta (ni se audita) como descarga.
+        if ($request->isMethod('HEAD')) {
+            return response('', 405, ['Allow' => 'GET', 'Cache-Control' => 'private, no-store']);
+        }
         $t = $this->descargas->resolver($request->session(), $token, $request->user()->getAuthIdentifier());
         if ($t === null) {
             $this->auditarDescarga(null, DescargasBuscador::TOKEN_INVALIDO);

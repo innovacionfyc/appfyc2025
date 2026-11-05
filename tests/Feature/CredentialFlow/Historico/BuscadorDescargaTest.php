@@ -220,9 +220,12 @@ class BuscadorDescargaTest extends PortalTestCase
         foreach ([$this->admin(), $this->comercial()] as $u) {
             $this->actingAs($u)->get($url)->assertForbidden();
         }
+        // HEAD no entrega el archivo: no cuenta como descarga ni se audita como tal.
+        $this->actingAs($this->superAdmin())->get($url)->assertOk();
+        $this->actingAs($this->superAdmin())->call('HEAD', $url)->assertStatus(405);
         config(['credential_flow.buscador_documento.activo' => false]);
         $this->actingAs($this->superAdmin())->get($url)->assertNotFound();
-        $this->assertCount(0, $this->descargasAuditadas());
+        $this->assertSame(['ok'], $this->descargasAuditadas()->pluck('metadata.resultado')->all(), 'solo la descarga GET real');
     }
 
     public function test_limites_por_minuto_y_por_dia_por_super_admin(): void
