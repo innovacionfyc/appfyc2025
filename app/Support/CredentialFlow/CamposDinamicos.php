@@ -37,6 +37,12 @@ final class CamposDinamicos
      */
     public const COMUNES_OPCIONALES = ['modalidad', 'texto_certificacion', 'texto_complementario', 'ciudad'];
 
+    /**
+     * Campos DERIVADOS: no se escriben en ninguna parte; se componen al generar a partir de otros datos (ver Participantes\ModalidadCiudad). Como los
+     * opcionales, solo entran al snapshot de una emisión cuando el diseño los imprime, así que un diseño anterior no cambia.
+     */
+    public const DERIVADOS = ['modalidad_ciudad'];
+
     private const CAMPOS = [
         'nombre_completo' => [
             'etiqueta' => 'Nombre completo',
@@ -109,6 +115,15 @@ final class CamposDinamicos
             'tipo' => 'string',
             'preview' => 'BOGOTÁ D.C.',
             'maxLongitud' => 80,
+            'multilinea' => false,
+            'formato' => self::FORMATO_LITERAL,
+        ],
+        // DERIVADO: modalidad de la persona (o la general de la base) + «, » + ciudad de la base, en una línea. Largo = modalidad + separador + ciudad.
+        'modalidad_ciudad' => [
+            'etiqueta' => 'Modalidad y ciudad',
+            'tipo' => 'string',
+            'preview' => 'Virtual-Sincrónico y Remoto, BOGOTÁ D.C.',
+            'maxLongitud' => 202,
             'multilinea' => false,
             'formato' => self::FORMATO_LITERAL,
         ],

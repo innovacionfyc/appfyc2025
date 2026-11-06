@@ -31,7 +31,7 @@ final class DatosRequeridos
     {
         $catalogo = CamposDinamicos::todos();
         $faltan = [];
-        foreach (DisenoSchema::camposUsados($diseno) as $campo) {
+        foreach (self::requeridos($diseno) as $campo) {
             if ($campo === 'modalidad' && $modalidadDeTodos) {
                 continue;
             }
@@ -40,7 +40,23 @@ final class DatosRequeridos
             }
         }
 
-        return $faltan;
+        return array_values(array_unique($faltan));
+    }
+
+    /**
+     * Datos de la base que el diseño necesita: los que imprime y, por cada campo derivado, el dato del que depende. «Modalidad y ciudad» exige la modalidad
+     * (de la persona o la general); la ciudad es opcional (sin ella se imprime solo la modalidad).
+     *
+     * @return list<string>
+     */
+    private static function requeridos(array $diseno): array
+    {
+        $usados = DisenoSchema::camposUsados($diseno);
+        if (in_array('modalidad_ciudad', $usados, true)) {
+            $usados[] = 'modalidad';
+        }
+
+        return array_values(array_unique($usados));
     }
 
     /**
@@ -51,7 +67,7 @@ final class DatosRequeridos
      */
     public static function sinModalidad(array $diseno, Lote $lote, iterable $participantes): array
     {
-        if (! in_array('modalidad', DisenoSchema::camposUsados($diseno), true) || trim((string) (($lote->datos_comunes ?? [])['modalidad'] ?? '')) !== '') {
+        if (! in_array('modalidad', self::requeridos($diseno), true) || trim((string) (($lote->datos_comunes ?? [])['modalidad'] ?? '')) !== '') {
             return [];
         }
         $sin = [];
