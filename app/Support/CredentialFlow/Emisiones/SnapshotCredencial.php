@@ -81,7 +81,7 @@ final readonly class SnapshotCredencial
         // Los datos opcionales de la base (modalidad, ciudad, textos…) entran al snapshot SOLO si este diseño los imprime: un diseño anterior produce
         // exactamente el mismo snapshot que antes, aunque la base tenga esos datos escritos.
         $usados = DisenoSchema::camposUsados($diseno);
-        foreach (CamposDinamicos::COMUNES_OPCIONALES as $opcional) {
+        foreach ([...CamposDinamicos::COMUNES_OPCIONALES, ...CamposDinamicos::DERIVADOS] as $opcional) {
             if (! in_array($opcional, $usados, true)) {
                 unset($datos[$opcional]);
             }

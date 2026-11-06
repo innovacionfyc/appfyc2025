@@ -29,6 +29,7 @@ final readonly class DatosCredencial
             'texto_certificacion' => 'Texto de certificación aprobado por el administrador para este evento.',
             'texto_complementario' => 'Texto complementario aprobado por el administrador para este evento.',
             'ciudad' => 'BOGOTÁ D.C.',
+            'modalidad_ciudad' => 'Virtual-Sincrónico y Remoto, BOGOTÁ D.C.',   // la composición de los dos ejemplos anteriores
         ]);
     }
 

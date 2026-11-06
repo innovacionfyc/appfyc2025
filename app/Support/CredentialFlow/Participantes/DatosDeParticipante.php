@@ -37,6 +37,11 @@ final class DatosDeParticipante
         if (($modalidad = self::modalidadPropia($participante)) !== null) {
             $datos['modalidad'] = $modalidad;
         }
+        // Campo derivado «modalidad_ciudad»: la modalidad ya resuelta (la propia manda) + la ciudad de la base. Solo existe si hay modalidad; el snapshot lo
+        // descarta cuando el diseño no lo imprime (SnapshotCredencial), así que no cambia nada en las plantillas que no lo usan.
+        if (($compuesta = ModalidadCiudad::componer($datos['modalidad'] ?? null, $datos['ciudad'] ?? null)) !== null) {
+            $datos['modalidad_ciudad'] = $compuesta;
+        }
 
         return DatosCredencial::fromArray($datos);
     }

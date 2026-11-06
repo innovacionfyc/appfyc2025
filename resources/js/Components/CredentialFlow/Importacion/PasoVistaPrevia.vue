@@ -27,6 +27,8 @@ const fechaSeLee = computed(() => (vp.value?.campos ?? []).find((c) => c.clave =
 const plantillaElegida = computed(() => plantillas.find((p) => String(p.id) === String(plantillaActual.value)) ?? null);
 const COMUNES = ["fecha", "intensidad_horaria", "modalidad", "ciudad", "texto_certificacion", "texto_complementario"];
 async function revisarFaltante(c) {
+  // «Modalidad y ciudad» se compone de la modalidad (de la persona o la general): si falta, se revisa la modalidad.
+  if (c.clave === "modalidad_ciudad") return a.irADato("modalidad");
   if (COMUNES.includes(c.clave)) return a.irADato(c.clave);
   if (c.clave === "evento") return a.irA("evento");
   if (await a.irA("personas")) a.verPersonas("faltan");

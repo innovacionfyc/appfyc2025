@@ -272,6 +272,23 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $this->assertNotContains(X::MODALIDAD, $textos);
     }
 
+    public function test_la_vista_previa_compone_modalidad_y_ciudad_si_la_plantilla_lo_imprime(): void
+    {
+        $plantilla = $this->plantillaCon(['modalidad_ciudad']);
+        $id = $this->analizar();
+        $this->decidir($id, ['plantilla_id' => $plantilla->id, 'participantes' => ['15' => ['tipo_documento' => 'cc']], 'datos_comunes' => ['modalidad' => 'Virtual sincrónico', 'ciudad' => 'Cali']]);
+
+        $this->assertContains('Virtual sincrónico, Cali', $this->textos($this->pdfVista($id, 15)->assertOk()));
+        $campo = collect($this->vista($id, 15)->assertOk()->json('vista_previa.campos'))->firstWhere('clave', 'modalidad_ciudad');
+        $this->assertSame(['Virtual sincrónico, Cali', true, false], [$campo['valor'], $campo['se_imprime'], $campo['falta']]);
+
+        // Sin ciudad: solo la modalidad, sin coma sobrante.
+        $this->decidir($id, ['plantilla_id' => $plantilla->id, 'participantes' => ['15' => ['tipo_documento' => 'cc']], 'datos_comunes' => ['modalidad' => 'Virtual sincrónico', 'ciudad' => null]]);
+        $textos = $this->textos($this->pdfVista($id, 15)->assertOk());
+        $this->assertContains('Virtual sincrónico', $textos);
+        $this->assertEmpty(array_filter($textos, fn ($t) => str_contains($t, 'sincrónico,')));
+    }
+
     public function test_nombres_largos_y_textos_de_varias_lineas_se_pueden_revisar(): void
     {
         $largo = 'MARÍA DEL ROSARIO DE LOS ÁNGELES FERNÁNDEZ DE LA TORRE Y VILLALOBOS';

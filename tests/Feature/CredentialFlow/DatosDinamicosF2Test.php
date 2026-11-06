@@ -323,13 +323,14 @@ class DatosDinamicosF2Test extends EmisionesTestCase
         $plantilla = $this->plantillaLista();
 
         $this->actingAs($this->admin())->get(route('credential-flow.plantillas.editor', $plantilla))->assertInertia(fn ($page) => $page
-            ->has('schema.campos', 9)
+            ->has('schema.campos', 10)
             ->where('schema.campos.5.key', 'modalidad')
             ->where('schema.campos.5.etiqueta', 'Modalidad')
             ->where('schema.campos.5.maxLongitud', 120)
             ->where('schema.campos.6.key', 'texto_certificacion')
             ->where('schema.campos.7.key', 'texto_complementario')
-            ->where('schema.campos.8.key', 'ciudad'));
+            ->where('schema.campos.8.key', 'ciudad')
+            ->where('schema.campos.9.key', 'modalidad_ciudad'));
     }
 
     public function test_el_editor_guarda_los_campos_nuevos_con_prefijo_sufijo_y_varias_lineas(): void

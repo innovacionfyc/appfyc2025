@@ -13,6 +13,7 @@ use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
+use App\Support\CredentialFlow\Participantes\ModalidadCiudad;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\Storage;
 final class VistaPreviaImportacion
 {
     /** Orden en que se listan los datos del certificado. */
-    private const CLAVES = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria', 'modalidad', 'ciudad', 'texto_certificacion', 'texto_complementario'];
+    private const CLAVES = ['nombre_completo', 'documento', 'evento', 'fecha', 'intensidad_horaria', 'modalidad', 'ciudad', 'modalidad_ciudad', 'texto_certificacion', 'texto_complementario'];
 
     /**
      * @return array<string,mixed>
@@ -177,6 +178,10 @@ final class VistaPreviaImportacion
             if ($tipo === null) {
                 $avisos[] = 'El tipo de documento de esta persona está por confirmar: el certificado oficial no se podrá emitir hasta confirmarlo.';
             }
+        }
+        // «Modalidad y ciudad»: la misma composición que el certificado oficial (DatosDeParticipante), con la modalidad ya resuelta para esta persona.
+        if (($compuesta = ModalidadCiudad::componer($datos['modalidad'] ?? null, $datos['ciudad'] ?? null)) !== null) {
+            $datos['modalidad_ciudad'] = $compuesta;
         }
 
         // Plantilla.
