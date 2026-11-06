@@ -304,4 +304,24 @@ prueba("C2: la ventana de archivo de plantillas es responsiva y no la tapa el me
   assert.match(tarjetas, /data-variante-qa>[\s\S]*?<select class="min-w-0 max-w-full/, "el selector de variante de la tarjeta no ensancha la página");
 });
 
+// Campo «Evento» de «Editar base» y «Nueva base»: FormInput recorta lo que se escribe a su `max` (y pone maxlength), así que ese límite debe ser el MISMO
+// que admite el servidor (CamposDinamicos: maxLongitud del evento, 255). Con 200, un nombre oficial de 205 caracteres quedaba cortado al tocar el campo.
+prueba("Evento: el formulario de la base admite el mismo largo que el servidor (255)", () => {
+  const catalogo = readFileSync(new URL("../../app/Support/CredentialFlow/CamposDinamicos.php", import.meta.url), "utf8");
+  const max = Number(catalogo.match(/'evento' => \[[\s\S]*?'maxLongitud' => (\d+)/)?.[1]);
+  assert.equal(max, 255, "el catálogo del servidor admite 255 caracteres en el evento");
+  for (const ruta of ["../../resources/js/Components/CredentialFlow/Lotes/LoteEditModal.vue", "../../resources/js/Pages/CredentialFlow/Lotes/Nuevo.vue"]) {
+    const { descriptor } = parse(readFileSync(new URL(ruta, import.meta.url), "utf8"));
+    const campos = descriptor.template.content.match(/<FormInput[^>]*v-model="form\.evento"[^>]*>/g) ?? [];
+    assert.ok(campos.length >= 1, `${ruta}: tiene el campo Evento`);
+    for (const c of campos) {
+      assert.equal(Number(c.match(/:max="(\d+)"/)?.[1]), max, `${ruta}: el campo Evento permite ${max} caracteres`);
+    }
+    // Un título de 205 caracteres cabe completo (FormInput solo recorta lo que pasa de `max`).
+    const titulo = "SEMINARIO DE ACTUALIZACIÓN EN HERRAMIENTAS PARA LA GESTIÓN INTEGRAL DE RIESGOS — RIESGOS DE GESTIÓN, RIESGOS FISCALES, RIESGOS PARA LA INTEGRIDAD PÚBLICA- SIGRIP DEBIDA DILIGENCIA Y FUNCIÓN DE CUMPLIMIENTO";
+    assert.equal(titulo.length, 205);
+    assert.equal(titulo.slice(0, Number(campos[0].match(/:max="(\d+)"/)?.[1])), titulo, `${ruta}: un título de 205 caracteres no se recorta`);
+  }
+});
+
 console.log(`${n} pruebas correctas${process.exitCode ? " (hay fallas)" : ""}`);

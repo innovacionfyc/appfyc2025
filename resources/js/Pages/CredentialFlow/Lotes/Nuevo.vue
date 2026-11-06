@@ -243,7 +243,7 @@ const headerStats = computed(() => [
               <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Evento</p>
               <p class="text-sm font-extrabold text-slate-800 break-words">{{ eventoElegido.nombre }}</p>
             </div>
-            <FormInput v-else v-model="form.evento" label="Evento" type="text" icon="event" placeholder="Nombre del evento" :max="200" :required="true" :activeColor="COLOR" :error="errores.evento" @clearError="limpiarError('evento')" />
+            <FormInput v-else v-model="form.evento" label="Evento" type="text" icon="event" placeholder="Nombre del evento" :max="255" :required="true" :activeColor="COLOR" :error="errores.evento" @clearError="limpiarError('evento')" />
             <FormInput v-model="form.fecha" label="Fecha" type="text" icon="calendar_month" placeholder="29 de septiembre de 2026" :max="80" :required="true" :activeColor="COLOR" :error="errores.fecha" @clearError="limpiarError('fecha')" />
             <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria" type="text" icon="schedule" placeholder="16 horas" :max="30" :required="true" :activeColor="COLOR" :error="errores.intensidad_horaria" @clearError="limpiarError('intensidad_horaria')" />
           </div>

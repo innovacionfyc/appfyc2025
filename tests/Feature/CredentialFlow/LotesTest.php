@@ -6,6 +6,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -366,6 +367,39 @@ class LotesTest extends CredentialFlowTestCase
         $this->assertNotSame($otra->id, $lote->plantilla_id);
 
         $this->actingAs($this->admin())->put(route('credential-flow.lotes.update', $lote), ['nombre' => 'X', 'evento' => '', 'fecha' => 'f', 'intensidad_horaria' => 'i'])->assertSessionHasErrors('evento');
+    }
+
+    /**
+     * El evento admite hasta 255 caracteres (CamposDinamicos: maxLongitud). Un nombre oficial largo (205 caracteres, como el de un seminario real) se edita y
+     * se conserva COMPLETO: ni el servidor ni el formulario lo recortan. Más de 255 se rechaza y el dato guardado no cambia.
+     */
+    public function test_editar_lote_conserva_un_evento_de_205_caracteres_y_rechaza_mas_de_255(): void
+    {
+        $lote = $this->loteConParticipantes(1);
+        $largo = 'SEMINARIO DE ACTUALIZACIÓN EN HERRAMIENTAS PARA LA GESTIÓN INTEGRAL DE RIESGOS — RIESGOS DE GESTIÓN, RIESGOS FISCALES, RIESGOS PARA LA INTEGRIDAD PÚBLICA- SIGRIP DEBIDA DILIGENCIA Y FUNCIÓN DE CUMPLIMIENTO';
+        $this->assertSame(205, mb_strlen($largo));
+        $this->assertSame(255, CamposDinamicos::todos()['evento']['maxLongitud']);
+
+        $this->actingAs($this->admin())->put(route('credential-flow.lotes.update', $lote), [
+            'nombre' => 'Lote de prueba', 'evento' => $largo, 'fecha' => '5 y 6 de noviembre de 2026', 'intensidad_horaria' => '18 horas',
+        ])->assertSessionHasNoErrors();
+        $lote->refresh();
+        $this->assertSame($largo, $lote->datos_comunes['evento'], 'el evento de 205 caracteres se guarda completo, sin truncar');
+        $this->assertSame('18 horas', $lote->datos_comunes['intensidad_horaria']);
+
+        // 255 exactos todavía caben.
+        $limite = mb_substr(str_repeat('EVENTO LARGO ', 30), 0, 255);
+        $this->actingAs($this->admin())->put(route('credential-flow.lotes.update', $lote), [
+            'nombre' => 'Lote de prueba', 'evento' => $limite, 'fecha' => '5 y 6 de noviembre de 2026', 'intensidad_horaria' => '18 horas',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(255, mb_strlen($lote->fresh()->datos_comunes['evento']));
+
+        // 256 se rechaza y no se guarda nada.
+        $antes = $lote->fresh()->datos_comunes;
+        $this->actingAs($this->admin())->put(route('credential-flow.lotes.update', $lote), [
+            'nombre' => 'Lote de prueba', 'evento' => $limite.'X', 'fecha' => '5 y 6 de noviembre de 2026', 'intensidad_horaria' => '18 horas',
+        ])->assertSessionHasErrors('evento');
+        $this->assertSame($antes, $lote->fresh()->datos_comunes, 'un evento de más de 255 caracteres no modifica la base');
     }
 
     public function test_eliminar_lote_es_soft_delete_y_oculta_a_sus_participantes(): void

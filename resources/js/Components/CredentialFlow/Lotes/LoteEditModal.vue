@@ -69,7 +69,7 @@ const submit = () => {
             <div class="flex-grow overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
               <FormInput v-model="form.nombre" label="Nombre de la base" type="text" icon="badge" :max="200" :required="true" :activeColor="COLOR" :error="form.errors.nombre" @clearError="form.clearErrors('nombre')" />
               <FormInput v-model="form.descripcion" label="Descripción (opcional)" type="text" icon="notes" :max="1000" :activeColor="COLOR" :error="form.errors.descripcion" @clearError="form.clearErrors('descripcion')" />
-              <FormInput v-model="form.evento" label="Evento" type="text" icon="event" :max="200" :required="true" :activeColor="COLOR" :error="form.errors.evento" @clearError="form.clearErrors('evento')" />
+              <FormInput v-model="form.evento" label="Evento" type="text" icon="event" :max="255" :required="true" :activeColor="COLOR" :error="form.errors.evento" @clearError="form.clearErrors('evento')" />
               <div class="grid gap-5 sm:grid-cols-2">
                 <FormInput v-model="form.fecha" label="Fecha" type="text" icon="calendar_month" :max="80" :required="true" :activeColor="COLOR" :error="form.errors.fecha" @clearError="form.clearErrors('fecha')" />
                 <FormInput v-model="form.intensidad_horaria" label="Intensidad horaria" type="text" icon="schedule" :max="30" :required="true" :activeColor="COLOR" :error="form.errors.intensidad_horaria" @clearError="form.clearErrors('intensidad_horaria')" />
