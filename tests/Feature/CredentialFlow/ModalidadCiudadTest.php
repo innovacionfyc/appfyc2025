@@ -136,7 +136,42 @@ class ModalidadCiudadTest extends EmisionesTestCase
             'coma final en la modalidad' => ['Presencial,', 'Bogotá', 'Presencial, Bogotá'],
             'separador inicial en la ciudad' => ['Presencial', ', Bogotá', 'Presencial, Bogotá'],
             'la ciudad conserva su punto final' => ['Presencial', 'Bogotá D.C.', 'Presencial, Bogotá D.C.'],
+
+            // Sufijos administrativos reconocidos explícitamente (D.C., D.T. y C., D.T.C.H.): la modalidad que ya nombra la ciudad no la repite.
+            'sufijo D.C.: la modalidad ya dice Bogotá' => ['Presencial, Bogotá', 'Bogotá D.C.', 'Presencial, Bogotá'],
+            'sufijo D.C. escrito «dc» en la modalidad' => ['Virtual - bogota dc', 'Bogotá D.C.', 'Virtual - bogota dc'],
+            'sufijo D.C.: sin la ciudad en la modalidad se agrega completa' => ['Presencial', 'Bogotá D.C.', 'Presencial, Bogotá D.C.'],
+            'sufijo D.C. sin puntos en la ciudad' => ['Presencial, Bogotá', 'Bogotá DC', 'Presencial, Bogotá'],
+            'sufijo D.T. y C.' => ['Presencial, Cartagena', 'Cartagena D.T. y C.', 'Presencial, Cartagena'],
+            'sufijo D.T. y C. con nombre compuesto' => ['Presencial en Cartagena de Indias', 'Cartagena de Indias D.T. y C.', 'Presencial en Cartagena de Indias'],
+            'sufijo D.T.C.H.' => ['Presencial, Santa Marta', 'Santa Marta D.T.C.H.', 'Presencial, Santa Marta'],
+            'la modalidad conserva su texto original (mayúsculas y puntos)' => ['PRESENCIAL — bogotá', 'Bogotá D.C.', 'PRESENCIAL — bogotá'],
+            'ciudad sin sufijo: se agrega' => ['Virtual', 'Cali', 'Virtual, Cali'],
+
+            // Negativos obligatorios: no hay equivalencias geográficas arbitrarias.
+            'Bogotano no es Bogotá (con sufijo)' => ['Presencial Bogotano', 'Bogotá D.C.', 'Presencial Bogotano, Bogotá D.C.'],
+            'Santa Marta no es Santa Rosa de Cabal' => ['Presencial, Santa Marta', 'Santa Rosa de Cabal', 'Presencial, Santa Marta, Santa Rosa de Cabal'],
+            'San José no es San José del Guaviare' => ['Presencial, San José', 'San José del Guaviare', 'Presencial, San José, San José del Guaviare'],
+            'Cali no es automáticamente Santiago de Cali' => ['Presencial, Cali', 'Santiago de Cali', 'Presencial, Cali, Santiago de Cali'],
+            'Medellín no es Bogotá D.C.' => ['Presencial, Medellín', 'Bogotá D.C.', 'Presencial, Medellín, Bogotá D.C.'],
+            'conector «y» respetado: San Andrés no es San Andrés y Providencia' => ['Presencial, San Andrés', 'San Andrés y Providencia', 'Presencial, San Andrés, San Andrés y Providencia'],
+            'conector «y» respetado: el nombre completo sí se reconoce' => ['Presencial, San Andrés y Providencia', 'San Andrés y Providencia', 'Presencial, San Andrés y Providencia'],
+            'conector «de»: Cartagena no se confunde con «Cartagena de Indias» sin sufijo' => ['Presencial, Cartagena', 'Cartagena de Indias', 'Presencial, Cartagena, Cartagena de Indias'],
+            'solo la sigla en la modalidad no equivale a la ciudad' => ['Presencial D.C.', 'Bogotá D.C.', 'Presencial D.C., Bogotá D.C.'],
+            'una sigla no reconocida no se quita' => ['Presencial, Neiva', 'Neiva H.', 'Presencial, Neiva, Neiva H.'],
+            'la sigla sola como ciudad no se trata como sufijo' => ['Presencial', 'D.C.', 'Presencial, D.C.'],
         ];
+    }
+
+    public function test_con_sufijo_administrativo_la_modalidad_individual_se_conserva_y_la_ciudad_no_se_duplica(): void
+    {
+        $lote = $this->base($this->plantilla(), ['modalidad' => 'Híbrido', 'ciudad' => 'Bogotá D.C.'], ['Presencial, Bogotá' => 1, 'Virtual' => 1], false);
+        [$conCiudad, $sinCiudad] = $lote->participantes()->orderBy('id')->get()->all();
+
+        $this->assertSame('Presencial, Bogotá', DatosDeParticipante::para($conCiudad, $lote)->todos()['modalidad_ciudad']);
+        $this->assertSame('Virtual, Bogotá D.C.', DatosDeParticipante::para($sinCiudad, $lote)->todos()['modalidad_ciudad']);
+        $this->assertSame(['Presencial, Bogotá', 'Virtual'], [$conCiudad->fresh()->modalidad, $sinCiudad->fresh()->modalidad], 'las modalidades del Excel no cambian');
+        $this->assertSame('Bogotá D.C.', $lote->fresh()->datos_comunes['ciudad']);
     }
 
     #[DataProvider('casos')]
