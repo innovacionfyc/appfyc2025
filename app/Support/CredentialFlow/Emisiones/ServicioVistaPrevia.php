@@ -109,6 +109,9 @@ final class ServicioVistaPrevia
         if ($lote->plantilla->estaArchivada()) {
             throw new InvalidArgumentException('La plantilla de esta base está archivada: no se confirma. Elige una plantilla vigente.');
         }
+        if (DatosRequeridos::faltaCiudad($lote->plantilla->diseno, $lote->datos_comunes ?? [])) {
+            throw new InvalidArgumentException(DatosRequeridos::MENSAJE_CIUDAD);
+        }
         if (! $this->generada($lote)) {
             throw new InvalidArgumentException('Primero abre la vista previa de un participante con la plantilla actual y revísala.');
         }

@@ -4,6 +4,7 @@ namespace App\Support\CredentialFlow\Emisiones;
 
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use Illuminate\Support\Facades\Schema;
 
@@ -103,6 +104,10 @@ final class FlujoDeBase
             $sinModalidad = DatosRequeridos::sinModalidad($lote->plantilla->diseno, $lote, $porEmitir);
             $conPropia = $porEmitir->isNotEmpty() && count($sinModalidad) < $porEmitir->count();
             $datosDelDiseno = DatosRequeridos::faltantes($lote->plantilla->diseno, $lote->datos_comunes ?? [], $conPropia);
+            if (DatosRequeridos::faltaCiudad($lote->plantilla->diseno, $lote->datos_comunes ?? [])) {
+                $faltan[] = DatosRequeridos::MENSAJE_CIUDAD;
+                $datosDelDiseno = array_values(array_diff($datosDelDiseno, [CamposDinamicos::todos()['ciudad']['etiqueta']]));
+            }
             if ($datosDelDiseno !== []) {
                 $faltan[] = 'Completar en «Editar base» lo que imprime la plantilla: '.implode(', ', $datosDelDiseno).'.';
             }

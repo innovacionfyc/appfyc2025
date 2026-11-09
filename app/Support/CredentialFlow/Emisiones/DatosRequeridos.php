@@ -19,6 +19,45 @@ use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
  */
 final class DatosRequeridos
 {
+    /** Lo que ve el administrador cuando la plantilla usa «Modalidad y ciudad» y la base no tiene ciudad (panel, asistente, emisión y programación). */
+    public const MENSAJE_CIUDAD = 'Esta plantilla utiliza «Modalidad y ciudad». Debes indicar la ciudad de la base antes de confirmar o emitir certificados.';
+
+    /**
+     * ¿El diseño exige la ciudad de la base? Solo cuando imprime el campo derivado «modalidad_ciudad» (se mira el DISEÑO, nunca el id de la plantilla; una
+     * variante QA comparte el diseño de su oficial). El campo «ciudad» impreso por separado conserva su regla de siempre.
+     *
+     * @param  array<string,mixed>  $diseno
+     */
+    public static function exigeCiudad(array $diseno): bool
+    {
+        return in_array('modalidad_ciudad', DisenoSchema::camposUsados($diseno), true);
+    }
+
+    /**
+     * ¿Falta la ciudad que este diseño exige? Ausente, vacía o solo espacios cuenta como falta.
+     *
+     * @param  array<string,mixed>  $diseno
+     * @param  array<string,mixed>  $comunes  `cf_lotes.datos_comunes` (o los datos del borrador)
+     */
+    public static function faltaCiudad(array $diseno, array $comunes): bool
+    {
+        return self::exigeCiudad($diseno) && trim((string) ($comunes['ciudad'] ?? '')) === '';
+    }
+
+    /**
+     * Bloquea ANTES de generar nada si el diseño usa «Modalidad y ciudad» y la base no tiene ciudad. La usan todas las emisiones (masiva, individual, QA,
+     * reemisiones, reemplazo y programación).
+     *
+     * @throws EmisionException
+     */
+    public static function exigirCiudad(Lote $lote, Plantilla $plantilla): void
+    {
+        if (is_array($plantilla->diseno) && self::faltaCiudad($plantilla->diseno, $lote->datos_comunes ?? [])) {
+            throw new EmisionException(EmisionException::DATOS_DEL_DISENO_INCOMPLETOS, self::MENSAJE_CIUDAD.' No se emitió ningún certificado.', 422,
+                [['campo' => CamposDinamicos::todos()['ciudad']['etiqueta']]]);
+        }
+    }
+
     /**
      * Etiquetas de los datos opcionales que el diseño imprime y la base no tiene. Con `$modalidadDeTodos` = true (todas las personas consideradas tienen su
      * propia modalidad) la falta de la modalidad general no cuenta.
@@ -44,8 +83,8 @@ final class DatosRequeridos
     }
 
     /**
-     * Datos de la base que el diseño necesita: los que imprime y, por cada campo derivado, el dato del que depende. «Modalidad y ciudad» exige la modalidad
-     * (de la persona o la general); la ciudad es opcional (sin ella se imprime solo la modalidad).
+     * Datos de la base que el diseño necesita: los que imprime y, por cada campo derivado, los datos de los que depende. «Modalidad y ciudad» exige la
+     * modalidad (de la persona o la general) y la ciudad de la base.
      *
      * @return list<string>
      */
@@ -54,6 +93,7 @@ final class DatosRequeridos
         $usados = DisenoSchema::camposUsados($diseno);
         if (in_array('modalidad_ciudad', $usados, true)) {
             $usados[] = 'modalidad';
+            $usados[] = 'ciudad';
         }
 
         return array_values(array_unique($usados));
@@ -91,6 +131,7 @@ final class DatosRequeridos
         if (! is_array($diseno)) {
             return; // el resto de controles ya informan una plantilla sin diseño
         }
+        self::exigirCiudad($lote, $plantilla);
         $lista = $participantes === null ? [] : (is_array($participantes) ? $participantes : iterator_to_array($participantes, false));
         $sin = self::sinModalidad($diseno, $lote, $lista);
         $conPropia = $lista !== [] && count($sin) < count($lista);

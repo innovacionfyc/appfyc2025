@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CredentialFlow;
 
 use App\Models\CredentialFlow\Lote;
+use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Contracts\Validation\Validator;
@@ -69,6 +70,11 @@ class UpdateLoteRequest extends FormRequest
                 if (! $this->exists($campo) && isset($actuales[$campo]) && ! isset($this->comunes[$campo])) {
                     $this->comunes[$campo] = $actuales[$campo];
                 }
+            }
+            // Si la plantilla de la base usa «Modalidad y ciudad», la ciudad no se puede quitar.
+            $plantilla = $lote instanceof Lote ? $lote->plantilla : null;
+            if ($plantilla !== null && is_array($plantilla->diseno) && DatosRequeridos::faltaCiudad($plantilla->diseno, $this->comunes)) {
+                $validator->errors()->add('ciudad', DatosRequeridos::MENSAJE_CIUDAD);
             }
         }];
     }
