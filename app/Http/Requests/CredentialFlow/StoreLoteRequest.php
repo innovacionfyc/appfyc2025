@@ -4,6 +4,7 @@ namespace App\Http\Requests\CredentialFlow;
 
 use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
@@ -106,6 +107,9 @@ class StoreLoteRequest extends FormRequest
                 $validator->errors()->add($campo, $mensaje);
             }
             $this->comunes = $comunes['datos'];
+            if ($this->plantillaResuelta !== null && DatosRequeridos::faltaCiudad($this->plantillaResuelta->diseno, $this->comunes)) {
+                $validator->errors()->add('ciudad', DatosRequeridos::MENSAJE_CIUDAD);
+            }
         }];
     }
 

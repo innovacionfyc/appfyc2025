@@ -135,6 +135,8 @@ final class EmisorCredencial
         }
         // Una plantilla (o variante QA) archivada conserva el historial, pero no genera ninguna emisión nueva ni reemisión.
         ArchivoPlantillas::exigirVigente($plantilla, $esQa);
+        // «Modalidad y ciudad» exige la ciudad de la base: sin ella no se genera nada (individual, QA, reemisión y reemplazo pasan por aquí).
+        DatosRequeridos::exigirCiudad($lote, $plantilla);
 
         // 1–2: snapshot y render en memoria (sin tocar la base ni el disco).
         [$base, $hashPlantilla] = SnapshotCredencial::cargarPlantilla($plantilla);

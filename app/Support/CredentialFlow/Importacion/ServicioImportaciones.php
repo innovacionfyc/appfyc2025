@@ -9,6 +9,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
@@ -363,7 +364,14 @@ final class ServicioImportaciones
         $aImportar = array_values(array_filter($participantes, fn ($p) => ! $p['excluir']));
         $sinModalidad = array_values(array_filter($aImportar, fn ($p) => trim((string) ($p['modalidad'] ?? '')) === '' && ! ($p['modalidad_por_revisar'] ?? false)));   // las «por revisar» tienen su propio bloqueo
         $conPropia = $aImportar !== [] && count($sinModalidad) < count($aImportar);
-        if ($plantilla !== null && ($faltan = DatosRequeridos::faltantes($plantilla->diseno, $finales, $conPropia)) !== []) {
+        $faltan = $plantilla !== null ? DatosRequeridos::faltantes($plantilla->diseno, $finales, $conPropia) : [];
+        if ($plantilla !== null && DatosRequeridos::faltaCiudad($plantilla->diseno, $finales)) {
+            // «Modalidad y ciudad» sin ciudad: su propio mensaje (la ciudad no se repite en el aviso general).
+            $ciudad = CamposDinamicos::todos()['ciudad']['etiqueta'];
+            $bloquear('datos_del_diseno_incompletos', DatosRequeridos::MENSAJE_CIUDAD, ['campos' => [$ciudad]]);
+            $faltan = array_values(array_diff($faltan, [$ciudad]));
+        }
+        if ($faltan !== []) {
             $bloquear('datos_del_diseno_incompletos', 'La plantilla imprime '.implode(', ', array_map(fn ($e) => "«{$e}»", $faltan)).' y el borrador no tiene ese dato.', ['campos' => $faltan]);
         }
         if ($plantilla !== null && RedaccionFecha::requiereRevision((array) $plantilla->diseno, (string) ($finales['fecha'] ?? ''))) {

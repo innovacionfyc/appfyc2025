@@ -308,13 +308,19 @@ class ModalidadCiudadTest extends EmisionesTestCase
         }
     }
 
-    public function test_sin_ciudad_el_pdf_no_lleva_coma_sobrante(): void
+    public function test_sin_ciudad_la_composicion_no_lleva_coma_pero_la_emision_se_bloquea(): void
     {
+        // La composición no cambia (solo la modalidad, sin coma sobrante), pero desde la regla de ciudad obligatoria no se emite sin ciudad.
         $lote = $this->base($this->plantilla(), [], ['Presencial' => 1], false);
-        app(EmisorLote::class)->emitirPendientes($lote, null);
-        $t = $this->textos($this->emisiones($lote, false)->first());
-        $this->assertContains('Presencial', $t);
-        $this->assertEmpty(array_filter($t, fn ($x) => str_contains($x, 'Presencial,')));
+        $this->assertSame('Presencial', DatosDeParticipante::para($lote->participantes()->firstOrFail(), $lote)->todos()['modalidad_ciudad']);
+        try {
+            app(EmisorLote::class)->emitirPendientes($lote, null);
+            $this->fail('debía bloquearse');
+        } catch (EmisionException $e) {
+            $this->assertSame(EmisionException::DATOS_DEL_DISENO_INCOMPLETOS, $e->codigo);
+            $this->assertStringContainsString(DatosRequeridos::MENSAJE_CIUDAD, $e->getMessage());
+        }
+        $this->assertSame(0, Emision::count());
     }
 
     public function test_sin_modalidad_la_emision_se_bloquea_antes_de_generar(): void

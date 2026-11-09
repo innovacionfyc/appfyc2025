@@ -9,6 +9,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -287,6 +288,27 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $textos = $this->textos($this->pdfVista($id, 15)->assertOk());
         $this->assertContains('Virtual sincrónico', $textos);
         $this->assertEmpty(array_filter($textos, fn ($t) => str_contains($t, 'sincrónico,')));
+    }
+
+    public function test_con_modalidad_y_ciudad_el_borrador_no_se_confirma_sin_ciudad(): void
+    {
+        $plantilla = $this->plantillaCon(['modalidad_ciudad']);
+        $id = $this->analizar();
+        foreach (['ausente' => null, 'vacía' => '', 'solo espacios' => '   '] as $caso => $ciudad) {
+            $b = $this->decidir($id, ['plantilla_id' => $plantilla->id, 'datos_comunes' => ['modalidad' => 'Presencial', 'ciudad' => $ciudad]]);
+            $e = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk()->json();
+            $this->assertFalse($e['listo'], $caso);
+            $avisos = collect($e['bloqueos'])->where('codigo', 'datos_del_diseno_incompletos')->values();
+            $this->assertCount(1, $avisos, "{$caso}: un solo aviso, sin repetir la ciudad en el aviso general");
+            $this->assertSame(DatosRequeridos::MENSAJE_CIUDAD, $avisos[0]['mensaje']);
+            $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => $b['version'], 'confirmar' => true])->assertStatus(422);
+            $this->assertSame(0, Lote::count(), "{$caso}: no se creó ninguna base");
+        }
+
+        $b = $this->decidir($id, ['plantilla_id' => $plantilla->id, 'datos_comunes' => ['modalidad' => 'Presencial', 'ciudad' => 'Bogotá']]);
+        $this->assertTrue($b['validacion']['listo']);
+        $r = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => $b['version'], 'confirmar' => true])->assertCreated();
+        $this->assertSame('Bogotá', Lote::findOrFail($r->json('lote_id'))->datos_comunes['ciudad']);
     }
 
     public function test_nombres_largos_y_textos_de_varias_lineas_se_pueden_revisar(): void
