@@ -6,6 +6,7 @@ use App\Http\Controllers\CredentialFlow\CasoEspecialController;
 use App\Http\Controllers\CredentialFlow\ConciliacionAccionController;
 use App\Http\Controllers\CredentialFlow\ConciliacionController;
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
+use App\Http\Controllers\CredentialFlow\DobleModalidadEventoController;
 use App\Http\Controllers\CredentialFlow\EliminacionDefinitivaController;
 use App\Http\Controllers\CredentialFlow\EmisionController;
 use App\Http\Controllers\CredentialFlow\EncuestaComentariosController;
@@ -106,6 +107,11 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/eventos', [EventoCertificacionController::class, 'store'])->middleware('throttle:30,1')->name('eventos.store');
     Route::get('/eventos/{evento}', [EventoCertificacionController::class, 'show'])->name('eventos.show');
     Route::get('/eventos/{evento}/zip', [EventoCertificacionController::class, 'zip'])->middleware('throttle:10,1')->name('eventos.zip');
+    // Doble certificación por modalidad: solo super-admin autoriza o revoca (el servicio vuelve a comprobar el rol). No toca participantes ni certificados.
+    Route::middleware('rol:super-admin')->group(function () {
+        Route::post('/eventos/{evento}/doble-modalidad/autorizar', [DobleModalidadEventoController::class, 'autorizar'])->middleware('throttle:10,1,cf-doble-modalidad')->name('eventos.doble-modalidad.autorizar');
+        Route::post('/eventos/{evento}/doble-modalidad/revocar', [DobleModalidadEventoController::class, 'revocar'])->middleware('throttle:10,1,cf-doble-modalidad')->name('eventos.doble-modalidad.revocar');
+    });
     Route::post('/lotes/{lote}/evento/desde-base', [EventoCertificacionController::class, 'desdeBase'])->middleware('throttle:30,1')->name('lotes.evento.desde-base');
     Route::put('/lotes/{lote}/evento', [EventoCertificacionController::class, 'asociar'])->middleware('throttle:30,1')->name('lotes.evento');
 

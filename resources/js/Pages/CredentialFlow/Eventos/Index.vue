@@ -78,7 +78,10 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="e in eventos" :key="e.id" class="hover:bg-slate-50/60 transition-colors" :data-evento="e.id">
-              <td class="px-6 py-4 font-extrabold text-slate-900 break-words max-w-xs">{{ e.nombre }}</td>
+              <td class="px-6 py-4 font-extrabold text-slate-900 break-words max-w-xs">
+                {{ e.nombre }}
+                <span v-if="e.doble_modalidad" class="ml-1 inline-block align-middle px-2 py-0.5 rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-700" title="Admite una participación por modalidad de la misma persona" data-indicador-doble>Doble modalidad</span>
+              </td>
               <td class="px-4 py-4 text-slate-600 font-semibold"><span class="inline-flex items-center gap-1.5"><CalendarDays class="w-3.5 h-3.5 text-slate-400" />{{ e.fecha_texto ?? e.anio ?? "—" }}</span></td>
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.bases }}</td>
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.reales.participantes }}</td>

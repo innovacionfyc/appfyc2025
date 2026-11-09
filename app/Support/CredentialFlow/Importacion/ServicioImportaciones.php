@@ -506,9 +506,12 @@ final class ServicioImportaciones
      * @param  array<string,mixed>  $comunes
      * @return array<int,string>|null
      */
-    private function dobleModalidad(?EventoCertificacion $evento, array $incluidos, array $comunes): ?array
+    private function dobleModalidad(?EventoCertificacion $evento, array $incluidos, array $comunes, bool $bloquear = false): ?array
     {
-        if (! DobleModalidad::autorizado($evento?->id)) {
+        if ($bloquear && $evento !== null) {
+            EventoCertificacion::query()->whereKey($evento->id)->sharedLock()->first();
+        }
+        if (! DobleModalidad::autorizado($evento?->id, $bloquear)) {
             return null;
         }
         $porLinea = [];
@@ -625,7 +628,9 @@ final class ServicioImportaciones
 
                 $archivo = ArchivoRevisado::crear($plan['incluidos']);
                 $nombreBase = $corr['nombre_base'] ?? Texto::limpiar(mb_substr(($plan['comunes']['evento'] ?? 'Base').' — '.($plan['comunes']['fecha'] ?? ''), 0, 200));
-                $dobleModalidad = $this->dobleModalidad($plan['evento'], $plan['incluidos'], $plan['comunes']);
+                // Se vuelve a leer la autorización CON BLOQUEO del evento: una revocación simultánea espera a esta transacción o esta ve la revocación (y el
+                // importador vuelve a validar con la regla de siempre: todo o nada).
+                $dobleModalidad = $this->dobleModalidad($plan['evento'], $plan['incluidos'], $plan['comunes'], true);
                 $lote = $this->importador->importar($archivo, $plan['plantilla'], $nombreBase, null, $plan['comunes'], $evento?->id, $actual->archivo_hash, $actual->archivo_nombre, $dobleModalidad);
 
                 // Trazabilidad: `fila_origen` pasa de la línea del CSV intermedio a la fila REAL del Excel (correspondencia comprobada; si no cuadra, se deshace todo).
@@ -648,7 +653,8 @@ final class ServicioImportaciones
                 // Auditoría de la excepción: cuántos documentos quedaron con dos participaciones (sin datos personales).
                 $dobles = $dobleModalidad === null ? null : self::documentosConDobleModalidad(Participante::query()->where('lote_id', $lote->id)->where('es_control_qa', false)->get(['documento_clave'])->toArray());
                 Movimiento::registrar(tipo: 'registro', modulo: 'credential-flow', descripcion: 'Se confirmó una importación inteligente y se creó una base (sin emitir certificados)', extra: ['importacion_id' => $actual->id, 'lote_id' => $lote->id]
-                    + ($dobles === null ? [] : ['doble_modalidad' => ['evento_id' => $evento?->id, 'documentos' => $dobles]]));
+                    + ($dobles === null ? [] : ['doble_modalidad' => ['evento_id' => $evento?->id, 'documentos' => $dobles,
+                        'origen' => DobleModalidad::origen($evento?->id), 'autorizacion_id' => $evento === null ? null : DobleModalidad::vigente($evento->id)?->id]]));
 
                 return $lote;
             });

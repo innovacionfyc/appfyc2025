@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CredentialFlow;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\CredentialFlow\Concerns\RespondePdfDeCredencial;
 use App\Http\Requests\CredentialFlow\ParticipanteRequest;
+use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\Movimiento;
@@ -16,6 +17,7 @@ use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Portal\ServicioOtp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /** Alta, edición, eliminación y PDF individual de un participante de un lote. */
@@ -29,6 +31,7 @@ class ParticipanteController extends Controller
     {
         $participante = DB::transaction(function () use ($request, $lote) {
             $p = $lote->participantes()->create($request->datos());
+            $this->confirmarDobleModalidad($lote, $p);
             if ($request->correos() !== null) {
                 $this->correos->guardar($p, $request->correos(), $request->user()?->id);
             }
@@ -51,8 +54,9 @@ class ParticipanteController extends Controller
         $this->pertenece($lote, $participante);
         $claveAnterior = $participante->documento_clave;
         $cambioCorreo = ['cambio' => false, 'retirados' => [], 'agregados' => []];
-        DB::transaction(function () use ($request, $participante, &$cambioCorreo) {
+        DB::transaction(function () use ($request, $lote, $participante, &$cambioCorreo) {
             $participante->update($request->datos());
+            $this->confirmarDobleModalidad($lote, $participante);
             if ($request->correos() !== null) {
                 $cambioCorreo = $this->correos->guardar($participante, $request->correos(), $request->user()?->id);
             }
@@ -139,7 +143,30 @@ class ParticipanteController extends Controller
         $comparte = Participante::query()->where('lote_id', $lote->id)->where('documento_clave', $participante->documento_clave)
             ->where('id', '!=', $participante->id)->where('es_control_qa', false)->exists();
 
-        return $comparte ? ['doble_modalidad' => ['evento_id' => (int) $lote->evento_id]] : [];
+        return $comparte ? ['doble_modalidad' => ['evento_id' => (int) $lote->evento_id, 'origen' => DobleModalidad::origen((int) $lote->evento_id),
+            'autorizacion_id' => DobleModalidad::vigente((int) $lote->evento_id)?->id]] : [];
+    }
+
+    /**
+     * Dentro de la transacción que guarda al participante: si queda compartiendo documento con otra participación real de la base, la autorización del evento
+     * se vuelve a leer CON BLOQUEO (la validación previa pudo ver una autorización que otra sesión revocó entretanto). Si ya no está autorizado, no se guarda.
+     *
+     * @throws ValidationException
+     */
+    private function confirmarDobleModalidad(Lote $lote, Participante $participante): void
+    {
+        if ($participante->es_control_qa || $lote->evento_id === null) {
+            return;
+        }
+        $comparte = Participante::query()->where('lote_id', $lote->id)->where('documento_clave', $participante->documento_clave)
+            ->where('id', '!=', $participante->id)->where('es_control_qa', false)->exists();
+        if (! $comparte) {
+            return;
+        }
+        EventoCertificacion::query()->whereKey($lote->evento_id)->sharedLock()->first();
+        if (! DobleModalidad::autorizado((int) $lote->evento_id, true)) {
+            throw ValidationException::withMessages(['documento' => 'Ya existe un participante con ese documento en esta base.']);
+        }
     }
 
     /** El participante de la URL debe pertenecer al lote de la URL. */

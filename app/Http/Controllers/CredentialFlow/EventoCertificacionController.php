@@ -9,8 +9,10 @@ use App\Models\CredentialFlow\Lote;
 use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Emisiones\GeneradorZip;
 use App\Support\CredentialFlow\Eventos\AsociacionAmbiguaException;
+use App\Support\CredentialFlow\Eventos\AutorizacionesDobleModalidad;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Historico\ConsultaHistorica;
+use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,12 +27,14 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class EventoCertificacionController extends Controller
 {
-    public function __construct(private readonly ServicioEventos $servicio, private readonly GeneradorZip $zip) {}
+    public function __construct(private readonly ServicioEventos $servicio, private readonly GeneradorZip $zip, private readonly AutorizacionesDobleModalidad $autorizaciones) {}
 
     public function index(ConsultaHistorica $historico): Response
     {
         $nativos = EventoCertificacion::query()->where('origen', EventoCertificacion::ORIGEN_CREDENTIAL_FLOW)->orderByDesc('anio')->orderByDesc('id')->get();
-        $eventos = $nativos->map(fn (EventoCertificacion $e) => ['id' => $e->id, 'nombre' => $e->nombre, 'anio' => $e->anio, 'fecha_texto' => $e->fecha_texto] + $this->servicio->resumen($e));
+        $dobles = DobleModalidad::eventosAutorizados();
+        $eventos = $nativos->map(fn (EventoCertificacion $e) => ['id' => $e->id, 'nombre' => $e->nombre, 'anio' => $e->anio, 'fecha_texto' => $e->fecha_texto,
+            'doble_modalidad' => in_array($e->id, $dobles, true)] + $this->servicio->resumen($e));
 
         $sinEvento = Lote::query()->whereNull('evento_id')->withCount('participantes')->latest()->limit(100)->get()->map(function (Lote $l) {
             $propuesta = null;
@@ -92,6 +96,8 @@ class EventoCertificacionController extends Controller
         return Inertia::render('CredentialFlow/Eventos/Show', [
             'evento' => ['id' => $evento->id, 'nombre' => $evento->nombre, 'anio' => $evento->anio, 'fecha_texto' => $evento->fecha_texto] + $this->servicio->resumen($evento),
             'bases' => $bases, 'emisiones' => $emisiones, 'estado' => $estado, 'disponibles' => $disponibles,
+            // Estado para todos los administradores; impacto, bloqueos e historial solo para quien puede gestionarla (super-admin).
+            'doble_modalidad' => $this->autorizaciones->resumen($evento, $request->user()?->loadMissing('perfilOrganizador.rol')),
         ]);
     }
 
@@ -116,7 +122,11 @@ class EventoCertificacionController extends Controller
     {
         $datos = $request->validate(['evento_id' => ['nullable', 'integer']]);
         if (($datos['evento_id'] ?? null) === null) {
-            $this->servicio->desasociar($lote);
+            try {
+                $this->servicio->desasociar($lote);
+            } catch (InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            }
 
             return back()->with('success', 'La base ya no está asociada a ningún evento.');
         }
