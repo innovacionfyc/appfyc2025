@@ -51,6 +51,11 @@ const quitar = (b) => router.put(route("credential-flow.lotes.evento", b.id), { 
         <span class="text-slate-600 break-words">{{ evento.nombre }}</span>
       </nav>
 
+      <div class="mb-4 flex gap-2 text-[13px] font-bold" role="tablist" data-pestanas-evento>
+        <span class="px-4 py-2 rounded-full bg-primary-vinotinto text-white" role="tab" aria-selected="true">Resumen del evento</span>
+        <Link :href="route('credential-flow.eventos.descargas', evento.id)" class="px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50" role="tab" aria-selected="false" data-pestana-descargas>Descargas</Link>
+      </div>
+
       <DashboardHeader :title="evento.nombre" :subtitle="evento.fecha_texto ?? String(evento.anio ?? '')" :stats="headerStats">
         <template #actions>
           <div class="flex flex-wrap items-center gap-3">

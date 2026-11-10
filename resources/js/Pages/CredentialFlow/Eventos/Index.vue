@@ -70,6 +70,7 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
               <th class="text-right font-black px-4 py-4">Bases</th>
               <th class="text-right font-black px-4 py-4">Participantes</th>
               <th class="text-right font-black px-4 py-4">Certificados vigentes</th>
+              <th class="text-right font-black px-4 py-4" title="Certificados vigentes de participantes reales con al menos una descarga registrada en el portal">Con descarga</th>
               <th class="text-right font-black px-4 py-4">Revocados</th>
               <th class="text-right font-black px-4 py-4">Pendientes</th>
               <th class="text-right font-black px-4 py-4">Control (QA)</th>
@@ -86,6 +87,10 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.bases }}</td>
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.reales.participantes }}</td>
               <td class="px-4 py-4 text-right font-black text-emerald-700">{{ e.reales.vigentes }}</td>
+              <td class="px-4 py-4 text-right whitespace-nowrap" data-descargados>
+                <Link :href="route('credential-flow.eventos.descargas', e.id)" class="font-black text-sky-700 hover:underline" :aria-label="`Seguimiento de descargas: ${e.descargados} de ${e.reales.vigentes} certificados vigentes con descarga`">{{ e.descargados }}</Link>
+                <span class="block text-[11px] font-semibold text-slate-400">{{ e.reales.vigentes > 0 ? Math.round((e.descargados * 100) / e.reales.vigentes) : 0 }} %</span>
+              </td>
               <td class="px-4 py-4 text-right font-black text-rose-600">{{ e.reales.revocadas }}</td>
               <td class="px-4 py-4 text-right font-black text-amber-600">{{ e.reales.pendientes }}</td>
               <td class="px-4 py-4 text-right text-slate-500 font-semibold">{{ e.qa.participantes }}</td>

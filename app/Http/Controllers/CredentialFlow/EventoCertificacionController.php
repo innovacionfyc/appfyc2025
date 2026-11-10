@@ -33,8 +33,9 @@ class EventoCertificacionController extends Controller
     {
         $nativos = EventoCertificacion::query()->where('origen', EventoCertificacion::ORIGEN_CREDENTIAL_FLOW)->orderByDesc('anio')->orderByDesc('id')->get();
         $dobles = DobleModalidad::eventosAutorizados();
+        $descargas = $this->descargadosPorEvento($nativos->pluck('id')->all());
         $eventos = $nativos->map(fn (EventoCertificacion $e) => ['id' => $e->id, 'nombre' => $e->nombre, 'anio' => $e->anio, 'fecha_texto' => $e->fecha_texto,
-            'doble_modalidad' => in_array($e->id, $dobles, true)] + $this->servicio->resumen($e));
+            'doble_modalidad' => in_array($e->id, $dobles, true), 'descargados' => (int) ($descargas[$e->id] ?? 0)] + $this->servicio->resumen($e));
 
         $sinEvento = Lote::query()->whereNull('evento_id')->withCount('participantes')->latest()->limit(100)->get()->map(function (Lote $l) {
             $propuesta = null;
@@ -53,6 +54,25 @@ class EventoCertificacionController extends Controller
             'sin_evento' => $sinEvento,
             'historico' => ['eventos' => $r['eventos'], 'certificados' => $r['certificados']],
         ]);
+    }
+
+    /**
+     * Por evento: certificados VIGENTES de participantes reales (el mismo criterio que el contador «vigentes» del listado) cuya versión vigente tiene al
+     * menos una descarga registrada. UNA consulta para todo el listado (nunca una por evento). Solo lee.
+     *
+     * @param  list<int>  $ids
+     * @return array<int,int>
+     */
+    private function descargadosPorEvento(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('cf_emisiones as e')->join('cf_participantes as p', 'p.id', '=', 'e.participante_id')->join('cf_lotes as l', 'l.id', '=', 'e.lote_id')
+            ->whereIn('l.evento_id', $ids)->where('e.estado', Emision::EMITIDA)->where('p.es_control_qa', false)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('cf_descargas as d')->whereColumn('d.emision_id', 'e.id'))
+            ->groupBy('l.evento_id')->selectRaw('l.evento_id, COUNT(*) n')->pluck('n', 'evento_id')->map(fn ($n) => (int) $n)->all();
     }
 
     /** Crea un evento nuevo ANTES de importar sus participantes (sin duplicar el que ya existe) y lleva a su pantalla. */
