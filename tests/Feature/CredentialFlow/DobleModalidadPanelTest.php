@@ -457,6 +457,46 @@ class DobleModalidadPanelTest extends EmisionesTestCase
                 ->has('doble_modalidad.historial', 1)->where('doble_modalidad.historial.0.motivo', self::MOTIVO));
     }
 
+    /** Transición del #637 con datos ficticios: la ficha muestra el estado REAL en los cinco casos. */
+    public function test_la_ficha_muestra_el_estado_real_en_los_cinco_casos_de_transicion(): void
+    {
+        $soloEnv = $this->evento('Evento sintético solo por la variable');
+        $soloBd = $this->evento('Evento sintético solo en base de datos');
+        $ambas = $this->evento('Evento sintético por las dos fuentes');
+        $revocadoConEnv = $this->evento('Evento sintético revocado en base de datos pero en la variable');
+        $ninguna = $this->evento('Evento sintético sin autorización');
+
+        $this->servicio()->autorizar($soloBd, $this->super(), self::MOTIVO);
+        $this->servicio()->autorizar($revocadoConEnv, $this->super(), self::MOTIVO);
+        $this->servicio()->revocar($revocadoConEnv, $this->super(), 'Revocada en el panel antes de entrar en la variable');
+        config(['credential_flow.doble_modalidad.eventos' => implode(',', [$soloEnv->id, $ambas->id, $revocadoConEnv->id])]);
+        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $ambas->id, '--usuario' => $this->superAdmin()->id, '--motivo' => 'Registro sintético de la autorización heredada', '--ejecutar' => true])->assertExitCode(0);
+
+        $esperado = [
+            $soloEnv->id => [true, DobleModalidad::ORIGEN_HEREDADO, []],
+            $soloBd->id => [true, DobleModalidad::ORIGEN_BASE_DE_DATOS, ['vigente']],
+            $ambas->id => [true, DobleModalidad::ORIGEN_AMBOS, ['vigente']],
+            $revocadoConEnv->id => [true, DobleModalidad::ORIGEN_HEREDADO, ['revocada']],
+            $ninguna->id => [false, null, []],
+        ];
+        foreach ($esperado as $id => [$autorizado, $origen, $historial]) {
+            foreach ([$this->admin(), $this->superAdmin()] as $u) {
+                $this->actingAs($u)->get(route('credential-flow.eventos.show', $id))->assertOk()->assertInertia(function (Assert $p) use ($autorizado, $origen, $historial, $u, $id) {
+                    $d = $p->toArray()['props']['doble_modalidad'];
+                    $this->assertSame([$autorizado, $origen], [$d['autorizado'], $d['origen']], "evento {$id}");
+                    if ($u->correo_principal === $this->superAdmin()->correo_principal) {
+                        $this->assertSame($historial, array_column($d['historial'], 'estado'), "evento {$id}");
+                    } else {
+                        $this->assertArrayNotHasKey('historial', $d);
+                    }
+                });
+            }
+        }
+        // El evento revocado en la base de datos pero listado en la variable: ni se revoca otra vez ni se autoriza desde el panel.
+        $this->assertSame(AutorizacionDobleModalidadException::NO_AUTORIZADO, $this->codigo(fn () => $this->servicio()->revocar($revocadoConEnv, $this->super(), self::MOTIVO)));
+        $this->assertContains(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, $this->bloqueos(fn () => $this->servicio()->autorizar($revocadoConEnv, $this->super(), self::MOTIVO)));
+    }
+
     public function test_el_listado_de_eventos_marca_los_autorizados(): void
     {
         $otro = $this->evento('Evento sintético sin autorizar');

@@ -25,6 +25,8 @@ const formatFecha = (iso) => {
 
 const gestiona = computed(() => props.estado.puede_gestionar === true && props.estado.disponible === true);
 const vigenteEnPanel = computed(() => ["base_de_datos", "ambos"].includes(props.estado.origen));
+// Autorizado SOLO por la variable heredada: no se ofrece «Autorizar» (estaría bloqueado) ni «Revocar» (no hay nada en el panel).
+const soloHeredada = computed(() => props.estado.origen === "configuracion_heredada");
 const historial = computed(() => props.estado.historial ?? []);
 
 // ── Ventana de confirmación ──────────────────────────────────────────────────
@@ -38,11 +40,14 @@ const bloqueos = computed(() => (modo.value === "revocar" ? props.estado.bloqueo
 const motivoOk = computed(() => motivo.value.trim().length >= MIN.value && motivo.value.trim().length <= MAX.value);
 const puedeEnviar = computed(() => !!modo.value && bloqueos.value.length === 0 && motivoOk.value && confirmado.value && !enviando.value);
 
+// El foco entra en la ventana al abrirla: así Escape la cierra y el teclado no queda en la página de atrás.
+const ventana = ref(null);
 const abrir = (m) => {
   modo.value = m;
   motivo.value = "";
   confirmado.value = false;
   enviando.value = false;
+  nextTick(() => ventana.value?.focus());
 };
 const cerrar = () => !enviando.value && (modo.value = null);
 
@@ -92,7 +97,7 @@ const enviar = () => {
     </div>
 
     <p v-if="estado.autorizado" class="mt-3 text-[12px] font-semibold text-slate-500" data-origen-doble>
-      Evento {{ ORIGENES[estado.origen] ?? "autorizado" }}<template v-if="estado.desde"> · desde {{ formatFecha(estado.desde) }}</template>.
+      Evento {{ ORIGENES[estado.origen] ?? "autorizado" }}<template v-if="estado.desde"> · desde {{ formatFecha(estado.desde) }}</template>
     </p>
 
     <template v-if="gestiona">
@@ -104,7 +109,10 @@ const enviar = () => {
         <div class="rounded-2xl bg-slate-50 px-2 py-2"><dt class="text-[11px] font-bold text-slate-400">Borradores en revisión</dt><dd class="font-black text-slate-900" data-valor="borradores">{{ estado.impacto.borradores_en_revision }}</dd></div>
       </dl>
 
-      <div class="mt-4 flex flex-wrap items-center gap-2">
+      <p v-if="soloHeredada" class="mt-4 flex items-start gap-1.5 text-[12px] font-semibold text-slate-500" data-nota-heredada>
+        <Info class="w-3.5 h-3.5 mt-0.5 shrink-0" /> Esta autorización viene de la configuración heredada del servidor. Su registro en el historial se hace con el procedimiento de transición; desde aquí no se autoriza ni se revoca.
+      </p>
+      <div v-else class="mt-4 flex flex-wrap items-center gap-2">
         <button v-if="!vigenteEnPanel" type="button" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90" data-accion="autorizar-doble" @click="abrir('autorizar')">
           <ShieldCheck class="w-4 h-4" /> Autorizar…
         </button>
@@ -134,10 +142,12 @@ const enviar = () => {
       <div v-if="modo" class="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4" @keydown.esc="cerrar">
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="cerrar" />
         <div
+          ref="ventana"
+          tabindex="-1"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cf-doble-titulo"
-          class="relative z-50 w-full max-w-lg max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl p-5 sm:p-8 break-words [overflow-wrap:anywhere]"
+          class="relative z-50 w-full max-w-lg focus:outline-none max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl p-5 sm:p-8 break-words [overflow-wrap:anywhere]"
           data-modal-doble-modalidad
         >
           <div class="flex items-start justify-between gap-4">
