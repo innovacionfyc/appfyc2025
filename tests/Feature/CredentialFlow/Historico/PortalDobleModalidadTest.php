@@ -4,6 +4,8 @@ namespace Tests\Feature\CredentialFlow\Historico;
 
 use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
+use App\Support\CredentialFlow\Eventos\AutorizacionesDobleModalidad;
+use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Http\UploadedFile;
@@ -17,10 +19,11 @@ class PortalDobleModalidadTest extends PortalTestCase
 {
     private const COMUNES = ['evento' => 'Seminario sintético de gestión de cartera', 'fecha' => '29 y 30 de octubre de 2026', 'intensidad_horaria' => '18 horas'];
 
-    /** Autoriza el evento (aquí, por la variable heredada; la subclase de base de datos lo hace como un super-admin desde el panel). */
+    /** Autoriza el evento como un super-admin desde el panel (la única fuente: `cf_eventos_doble_modalidad`). */
     protected function autorizarEvento(EventoCertificacion $evento): void
     {
-        config(['credential_flow.doble_modalidad.eventos' => (string) $evento->id]);
+        app(AutorizacionesDobleModalidad::class)->autorizar($evento, $this->superAdmin()->load('perfilOrganizador.rol'), 'Autorización sintética de prueba');
+        $this->assertSame(DobleModalidad::ORIGEN_BASE_DE_DATOS, DobleModalidad::origen($evento->id));
     }
 
     /** Base del evento autorizado: la persona doble (presencial y virtual) y otra persona. Devuelve [participante_id => emisión]. */

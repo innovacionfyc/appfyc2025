@@ -5,6 +5,7 @@ namespace App\Models\CredentialFlow;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use InvalidArgumentException;
 
 /**
  * Una autorización (vigente o revocada) de la doble certificación por modalidad para un evento. Solo la crea y la revoca el servicio
@@ -18,9 +19,20 @@ class AutorizacionDobleModalidad extends Model
 
     public const ORIGEN_PANEL = 'panel';
 
+    /** SOLO HISTÓRICO: registros de la transición desde la antigua variable CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS (p. ej. la autorización #1 del #637). */
     public const ORIGEN_HEREDADA = 'configuracion_heredada';
 
+    /** Orígenes que puede tener una fila guardada. Una autorización NUEVA solo puede ser de origen «panel» (ver booted). */
     public const ORIGENES = [self::ORIGEN_PANEL, self::ORIGEN_HEREDADA];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $a): void {
+            if ($a->origen !== self::ORIGEN_PANEL) {
+                throw new InvalidArgumentException('Una autorización nueva de doble modalidad solo puede tener origen «panel».');
+            }
+        });
+    }
 
     protected $table = 'cf_eventos_doble_modalidad';
 

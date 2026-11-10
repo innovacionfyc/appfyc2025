@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\CredentialFlow;
 
+use App\Models\CredentialFlow\AutorizacionDobleModalidad;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\EmisionProgramada;
 use App\Models\CredentialFlow\EventoCertificacion;
@@ -10,6 +11,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Support\CredentialFlow\Eventos\AutorizacionesDobleModalidad;
 use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Participantes\ErrorFila;
@@ -21,6 +23,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use Tests\Feature\CredentialFlow\Support\InspectorPdf;
 use Tests\Feature\CredentialFlow\Support\XlsxSintetico;
@@ -79,15 +82,20 @@ class DobleModalidadTest extends EmisionesTestCase
             'fecha_texto' => '29 Y 30 DE OCTUBRE DE 2026', 'estado' => EventoCertificacion::ESTADO_ACTIVO, 'origen' => EventoCertificacion::ORIGEN_CREDENTIAL_FLOW]);
     }
 
+    /** Autoriza el evento como un super-admin desde el panel (la única fuente: `cf_eventos_doble_modalidad`). */
     protected function autorizar(?EventoCertificacion $evento = null): void
     {
-        config(['credential_flow.doble_modalidad.eventos' => (string) ($evento ?? $this->evento)->id]);   // el texto de la variable, como en el .env
+        $evento ??= $this->evento;
+        if (DobleModalidad::vigente($evento->id) === null) {
+            app(AutorizacionesDobleModalidad::class)->autorizar($evento, $this->superAdmin()->load('perfilOrganizador.rol'), 'Autorización sintética de prueba');
+        }
+        $this->assertSame(DobleModalidad::ORIGEN_BASE_DE_DATOS, DobleModalidad::origen($evento->id));
     }
 
-    /** De dónde sale la autorización en esta clase de pruebas (la subclase de base de datos lo cambia). */
+    /** De dónde sale la autorización: siempre de la base de datos. */
     protected function origenEsperado(): string
     {
-        return DobleModalidad::ORIGEN_HEREDADO;
+        return DobleModalidad::ORIGEN_BASE_DE_DATOS;
     }
 
     /** Variante de PRUEBA INTERNA del diseño (la programación la exige). */
@@ -236,7 +244,7 @@ class DobleModalidadTest extends EmisionesTestCase
         $mov = Movimiento::where('descripcion', 'like', 'Se confirmó una importación inteligente%')->sole();
         $d = $mov->metadata['doble_modalidad'];
         $this->assertSame([$this->evento->id, 1, $this->origenEsperado()], [$d['evento_id'], $d['documentos'], $d['origen']]);
-        $this->assertSame($this->origenEsperado() !== DobleModalidad::ORIGEN_HEREDADO, $d['autorizacion_id'] !== null, 'la autorización de la base de datos queda citada');
+        $this->assertSame(DobleModalidad::vigente($this->evento->id)->id, $d['autorizacion_id'], 'la autorización de la base de datos queda citada');
     }
 
     public function test_el_nombre_escrito_con_tildes_o_puntuacion_distinta_es_la_misma_persona(): void
@@ -299,12 +307,13 @@ class DobleModalidadTest extends EmisionesTestCase
         $this->assertTrue($this->validar($id)->json('listo'));
         $confirmar = fn () => $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => Importacion::findOrFail($id)->version, 'confirmar' => true]);
 
-        // Validado con autorización, pero retirada antes de confirmar: no se crea la base.
-        config(['credential_flow.doble_modalidad.eventos' => null]);
+        // Otra sesión revoca después de validar (la revocación por el servicio la bloquearía este borrador; aquí se simula la carrera directamente).
+        AutorizacionDobleModalidad::query()->where('vigente_evento_id', $this->evento->id)->update(['estado' => AutorizacionDobleModalidad::REVOCADA, 'vigente_evento_id' => null,
+            'revocada_por' => $this->superAdmin()->id, 'revocada_at' => now(), 'motivo_revocacion' => 'Revocación simultánea simulada']);
         $confirmar()->assertStatus(422);
         $this->assertSame(0, Lote::count());
 
-        // Con autorización, pero alguien cambió la virtual a presencial en el borrador después de validar: tampoco.
+        // Autorizado de nuevo, pero alguien cambió la virtual a presencial en el borrador después de validar: tampoco.
         $this->autorizar();
         $this->corregir($id, ['participantes' => ['8' => ['modalidad' => 'Presencial']]])->assertOk();
         $confirmar()->assertStatus(422);
@@ -359,9 +368,6 @@ class DobleModalidadTest extends EmisionesTestCase
         $this->assertCount(1, $dup);
         $this->assertSame('Documento duplicado: ya aparece en la fila 7.', $dup[0]['mensaje'], 'el mensaje de siempre');
         $this->assertNull(collect($this->validar($id)->json('avisos'))->firstWhere('codigo', 'doble_modalidad_autorizada'));
-
-        config(['credential_flow.doble_modalidad.eventos' => null]);   // variable ausente: desactivado (valor por defecto)
-        $this->assertCount(1, $this->duplicados($id));
     }
 
     public function test_importacion_que_crea_un_evento_nuevo_conserva_la_regla_anterior(): void
@@ -406,7 +412,7 @@ class DobleModalidadTest extends EmisionesTestCase
         $mov = Movimiento::where('descripcion', 'Se editó un participante de un lote de Credential Flow')->latest('id')->first();
         $d = $mov->metadata['doble_modalidad'];
         $this->assertSame([$this->evento->id, $this->origenEsperado()], [$d['evento_id'], $d['origen']]);
-        $this->assertSame($this->origenEsperado() !== DobleModalidad::ORIGEN_HEREDADO, $d['autorizacion_id'] !== null);
+        $this->assertSame(DobleModalidad::vigente($this->evento->id)->id, $d['autorizacion_id']);
     }
 
     public function test_un_cambio_de_modalidad_o_un_alta_que_duplique_se_bloquea(): void
@@ -538,56 +544,72 @@ class DobleModalidadTest extends EmisionesTestCase
         $this->assertSame(52, Emision::where('lote_id', $lote->id)->count());
     }
 
-    // ── 16. Lectura ESTRICTA de CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS ───────
+    // ── 16. La única fuente es la base de datos (la antigua variable ya no se lee) ─
 
-    public function test_la_variable_solo_acepta_ids_decimales_separados_por_comas(): void
+    public function test_volver_a_definir_la_variable_antigua_no_autoriza_ningun_evento(): void
     {
-        $validos = ['636' => [636], '636,637' => [636, 637], '1' => [1], '999999999999999999' => [999999999999999999]];
-        foreach ($validos as $texto => $esperado) {
-            $this->assertSame($esperado, DobleModalidad::interpretar((string) $texto), "«{$texto}» es válido");
+        $id = (string) $this->evento->id;
+        putenv("CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS={$id}");
+        $_ENV['CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'] = $_SERVER['CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'] = $id;
+        try {
+            $config = require config_path('credential_flow.php');
+            $this->assertArrayNotHasKey('doble_modalidad', $config, 'la configuración ya no la lee');
+            config(['credential_flow.doble_modalidad.eventos' => $id]);   // ni aunque alguien la vuelva a poner en la configuración (o en su caché)
+            $this->assertSame([false, null, []], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id), DobleModalidad::eventosAutorizados()]);
+
+            $borrador = $this->borrador($this->pareja());
+            $this->assertCount(1, $this->duplicados($borrador), 'la importación sigue con la regla de siempre');
+        } finally {
+            putenv('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS');
+            unset($_ENV['CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'], $_SERVER['CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS']);
         }
     }
 
-    public function test_cualquier_elemento_invalido_deja_sin_autorizar_a_todos(): void
+    public function test_sin_la_tabla_de_autorizaciones_ningun_evento_esta_autorizado(): void
     {
-        $invalidos = [
-            '6 36', '1e3', '636x', '636;637', '636,,637', '636,636', '0', '-1', '', ' ', '+636', '0636', '636.0', '0x27C', '636 , 637', '636, 637',
-            ' 636', '636 ', "636\n", "636\t", '636,', ',636', ',', '636,valor_invalido', '636,0', '1000000000000000000', '99999999999999999999', '６３６',
-        ];
-        foreach ($invalidos as $texto) {
-            $this->assertSame([], DobleModalidad::interpretar($texto), 'rechaza «'.addcslashes($texto, "\n\t").'»');
-        }
-        // Lo que no es texto (p. ej. env() convierte «true»/«null») tampoco autoriza nada.
-        foreach ([null, true, false, 636, [636], ['636']] as $valor) {
-            $this->assertSame([], DobleModalidad::interpretar($valor));
-        }
+        $this->autorizar();
+        Schema::drop('cf_eventos_doble_modalidad');
+        $this->assertSame([false, null, [], null], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id),
+            DobleModalidad::eventosAutorizados(), DobleModalidad::vigente($this->evento->id)]);
 
-        // A través de la configuración: «636,valor_invalido» no autoriza ni siquiera el 636.
-        config(['credential_flow.doble_modalidad.eventos' => '636,valor_invalido']);
-        $this->assertFalse(DobleModalidad::autorizado(636));
-        config(['credential_flow.doble_modalidad.eventos' => '636,637']);
-        $this->assertSame([true, true, false, false], [DobleModalidad::autorizado(636), DobleModalidad::autorizado(637), DobleModalidad::autorizado(6), DobleModalidad::autorizado(null)]);
+        $borrador = $this->borrador($this->pareja());
+        $this->assertCount(1, $this->duplicados($borrador), 'fallo cerrado: un documento por base');
     }
 
-    public function test_sin_la_variable_ningun_evento_esta_autorizado(): void
+    /** Como la autorización #1 del evento #637: registrada en la transición con origen «configuracion_heredada», sigue valiendo igual que una del panel. */
+    public function test_una_autorizacion_historica_de_origen_heredado_sigue_siendo_valida(): void
     {
-        $this->assertFalse(getenv('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'), 'el entorno de pruebas no la define');
-        $config = require config_path('credential_flow.php');
-        $this->assertNull($config['doble_modalidad']['eventos'], 'variable ausente = null');
-        $this->assertSame([], DobleModalidad::eventosAutorizados());
-        $this->assertFalse(DobleModalidad::autorizado($this->evento->id));
+        DB::table('cf_eventos_doble_modalidad')->insert(['evento_id' => $this->evento->id, 'estado' => AutorizacionDobleModalidad::VIGENTE,
+            'origen' => AutorizacionDobleModalidad::ORIGEN_HEREDADA, 'motivo' => 'Registro histórico sintético de la transición', 'autorizada_por' => $this->superAdmin()->id,
+            'autorizada_at' => now(), 'vigente_evento_id' => $this->evento->id, 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->assertSame([true, DobleModalidad::ORIGEN_BASE_DE_DATOS, AutorizacionDobleModalidad::ORIGEN_HEREDADA, [$this->evento->id]],
+            [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id), DobleModalidad::vigente($this->evento->id)->origen, DobleModalidad::eventosAutorizados()]);
+        $borrador = $this->borrador($this->pareja());
+        $this->assertTrue($this->validar($borrador)->json('listo'));
+        $this->assertCount(2, $this->gemelos($this->confirmar($borrador)), 'la persona queda con sus dos participaciones');
     }
 
-    public function test_la_cache_de_configuracion_no_cambia_el_resultado(): void
+    /** Plantillas universales («Modalidad y ciudad»): cada participación imprime su modalidad con la ciudad de la base, y sin ciudad no se confirma (PR #66). */
+    public function test_plantilla_universal_modalidad_y_ciudad_con_doble_modalidad(): void
     {
-        // `php artisan config:cache` guarda la configuración con var_export y la vuelve a cargar con require: se reproduce ese ida y vuelta.
-        foreach (['636,637' => [636, 637], '6 36' => [], '636,valor_invalido' => []] as $texto => $esperado) {
-            config(['credential_flow.doble_modalidad.eventos' => $texto]);
-            $cacheada = eval('return '.var_export(config('credential_flow'), true).';');
-            config(['credential_flow' => $cacheada]);
-            $this->assertSame($texto, config('credential_flow.doble_modalidad.eventos'), 'se cachea el texto tal cual');
-            $this->assertSame($esperado, DobleModalidad::eventosAutorizados(), "«{$texto}» tras la caché");
-        }
+        $campos = ['nombre_completo', 'documento', 'evento', 'fecha', 'modalidad_ciudad', 'intensidad_horaria'];
+        $this->plantilla = $this->plantillaLista(array_map(fn (string $c, int $i) => $this->elemento(['field' => $c, 'y' => 40 + $i * 50, 'height' => 30, 'fontSize' => 12]), $campos, array_keys($campos)));
+        $this->varianteQa();
+        $this->autorizar();
+        $id = $this->borrador($this->pareja());
+        $this->assertFalse($this->validar($id)->json('listo'), 'sin ciudad no se confirma');
+        $this->corregir($id, ['datos_comunes' => ['ciudad' => 'Bogotá']])->assertOk();
+        $this->assertTrue($this->validar($id)->json('listo'));
+        $lote = $this->confirmar($id);
+        $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated();
+
+        [$presencial, $virtual] = $this->gemelos($lote);
+        $tp = implode(' | ', $this->textos($presencial->emisionVigente()->firstOrFail()));
+        $tv = implode(' | ', $this->textos($virtual->emisionVigente()->firstOrFail()));
+        $this->assertStringContainsString('Presencial, Bogotá', $tp);
+        $this->assertStringContainsString('Virtual, Bogotá', $tv);
+        $this->assertStringNotContainsString('Virtual', $tp);
     }
 
     // ── 15. El criterio entre bases del mismo evento no se amplía ─────────────

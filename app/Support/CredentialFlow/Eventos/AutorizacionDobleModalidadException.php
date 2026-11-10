@@ -19,15 +19,11 @@ final class AutorizacionDobleModalidadException extends RuntimeException
 
     public const NO_AUTORIZADO = 'NO_AUTORIZADO';
 
-    public const NO_HEREDADO = 'NO_HEREDADO';
-
     public const PARTICIPACIONES_DOBLES = 'PARTICIPACIONES_DOBLES';
 
     public const PROGRAMACION_ACTIVA = 'PROGRAMACION_ACTIVA';
 
     public const BORRADOR_EN_REVISION = 'BORRADOR_EN_REVISION';
-
-    public const CONFIGURACION_HEREDADA = 'CONFIGURACION_HEREDADA';
 
     /** @param  list<array{code:string, message:string}>  $bloqueos */
     public function __construct(public readonly string $codigo, string $mensaje, public readonly array $bloqueos = [])
