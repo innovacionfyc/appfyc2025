@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Excepción controlada a «un documento por base»: en un evento AUTORIZADO de forma expresa (autorización vigente en `cf_eventos_doble_modalidad`, que
- * administra un super-admin, o la variable heredada `credential_flow.doble_modalidad.eventos`), una misma persona puede
+ * administra un super-admin desde el panel; es la ÚNICA fuente), una misma persona puede
  * tener una participación por modalidad (p. ej. una presencial y otra virtual), cada una con su certificado. Es la ÚNICA regla que usan el importador y el
  * formulario de participantes, para que nunca difieran.
  *
@@ -26,18 +26,12 @@ final class DobleModalidad
 
     public const OTRO_NOMBRE = 'otro_nombre';
 
-    /** Un id de evento: entero positivo decimal, sin ceros a la izquierda ni signo, de hasta 18 cifras (siempre cabe exacto en un entero de PHP). */
-    private const ID = '/^[1-9][0-9]{0,17}$/D';
-
     public const ORIGEN_BASE_DE_DATOS = 'base_de_datos';
 
-    public const ORIGEN_HEREDADO = 'configuracion_heredada';
-
-    public const ORIGEN_AMBOS = 'ambos';
-
     /**
-     * ¿El evento está autorizado expresamente? Sin evento, nunca. Fuentes: una autorización VIGENTE en `cf_eventos_doble_modalidad` (la administra un
-     * super-admin desde el panel) o, durante la transición, la variable heredada `CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS`. Basta una de las dos.
+     * ¿El evento está autorizado expresamente? Sin evento, nunca. Única fuente: una autorización VIGENTE en `cf_eventos_doble_modalidad` (la administra
+     * un super-admin desde el panel; incluye el registro histórico de origen «configuracion_heredada», p. ej. la autorización #1 del evento #637).
+     * La antigua variable CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS ya no se lee: aunque se vuelva a definir, no autoriza nada.
      *
      * `$bloquear`: lectura con bloqueo compartido de la autorización, para usar DENTRO de una transacción que ya bloqueó la fila del evento (confirmar una
      * importación, guardar un participante, asociar una base). Lee el último estado confirmado aunque la transacción tenga una instantánea anterior.
@@ -48,25 +42,16 @@ final class DobleModalidad
             return false;
         }
 
-        return in_array($eventoId, self::eventosHeredados(), true) || self::enBaseDeDatos($eventoId, $bloquear);
+        return self::enBaseDeDatos($eventoId, $bloquear);
     }
 
-    /** @return list<int> todos los eventos autorizados (base de datos + variable heredada), ordenados y sin repetir (vacío = ninguno) */
+    /** @return list<int> todos los eventos autorizados, ordenados y sin repetir (vacío = ninguno) */
     public static function eventosAutorizados(): array
     {
-        $ids = array_values(array_unique([...self::eventosHeredados(), ...self::eventosEnBaseDeDatos()]));
-        sort($ids);
-
-        return $ids;
+        return self::eventosEnBaseDeDatos();
     }
 
-    /** @return list<int> los eventos autorizados por la variable heredada (vacío = ninguno o variable inválida) */
-    public static function eventosHeredados(): array
-    {
-        return self::interpretar(config('credential_flow.doble_modalidad.eventos'));
-    }
-
-    /** @return list<int> los eventos con una autorización vigente en la base de datos */
+    /** @return list<int> los eventos con una autorización vigente en la base de datos (el índice único garantiza que no se repiten) */
     public static function eventosEnBaseDeDatos(): array
     {
         if (! self::tablaDisponible()) {
@@ -76,21 +61,10 @@ final class DobleModalidad
         return AutorizacionDobleModalidad::query()->whereNotNull('vigente_evento_id')->orderBy('vigente_evento_id')->pluck('vigente_evento_id')->map(fn ($id) => (int) $id)->all();
     }
 
-    /** De dónde sale la autorización del evento: base_de_datos, configuracion_heredada, ambos o null (no autorizado). */
+    /** De dónde sale la autorización del evento: base_de_datos o null (no autorizado). */
     public static function origen(?int $eventoId): ?string
     {
-        if ($eventoId === null || $eventoId <= 0) {
-            return null;
-        }
-        $heredado = in_array($eventoId, self::eventosHeredados(), true);
-        $bd = self::enBaseDeDatos($eventoId);
-
-        return match (true) {
-            $heredado && $bd => self::ORIGEN_AMBOS,
-            $bd => self::ORIGEN_BASE_DE_DATOS,
-            $heredado => self::ORIGEN_HEREDADO,
-            default => null,
-        };
+        return self::autorizado($eventoId) ? self::ORIGEN_BASE_DE_DATOS : null;
     }
 
     /** La autorización VIGENTE en la base de datos (null si no hay o si la tabla aún no existe). */
@@ -108,33 +82,10 @@ final class DobleModalidad
         return self::vigente($eventoId, $bloquear) !== null;
     }
 
-    /** Antes de la migración la tabla no existe: entonces la única fuente es la variable heredada (comportamiento anterior, sin errores). */
+    /** Sin la tabla (antes de su migración) ningún evento está autorizado: fallo cerrado, sin errores. */
     private static function tablaDisponible(): bool
     {
         return Schema::hasTable('cf_eventos_doble_modalidad');
-    }
-
-    /**
-     * Lectura ESTRICTA de `CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS`: ids separados solo por comas («636» o «636,637»). No se recortan ni se toleran espacios,
-     * signos, ceros a la izquierda, decimales, notación científica, sufijos, otros separadores, elementos vacíos, repetidos ni ids de más de 18 cifras: si
-     * CUALQUIER elemento no es válido, no se autoriza NINGÚN evento (fallo cerrado). Cada elemento se valida como texto antes de convertirlo a número.
-     *
-     * @return list<int>
-     */
-    public static function interpretar(mixed $valor): array
-    {
-        if (! is_string($valor) || $valor === '') {
-            return [];
-        }
-        $ids = [];
-        foreach (explode(',', $valor) as $parte) {
-            if (preg_match(self::ID, $parte) !== 1 || in_array($parte, $ids, true)) {
-                return [];
-            }
-            $ids[] = $parte;
-        }
-
-        return array_map('intval', $ids);
     }
 
     /** Modalidad efectiva normalizada (minúsculas, espacios colapsados): la propia de la persona o, si no tiene, la general de la base. Vacía si ninguna. */

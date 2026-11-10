@@ -14,13 +14,16 @@ use App\Support\CredentialFlow\Eventos\AutorizacionesDobleModalidad;
 use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
+use InvalidArgumentException;
 
 /**
  * Autorización de la doble certificación por modalidad desde el panel (AutorizacionesDobleModalidad): solo super-admin, con motivo y confirmación, historial
- * y Movimientos; revocación bloqueada si dejaría datos inconsistentes; transición desde la variable heredada (evento #637) con el comando auditado.
+ * y Movimientos; revocación bloqueada si dejaría datos inconsistentes; registros históricos de origen «configuracion_heredada» (como la autorización #1
+ * del evento #637) que siguen valiendo, aunque ya no se pueden crear nuevos.
  * Datos 100 % sintéticos.
  */
 class DobleModalidadPanelTest extends EmisionesTestCase
@@ -46,7 +49,6 @@ class DobleModalidadPanelTest extends EmisionesTestCase
             'database/migrations/2026_10_21_100000_cf_contactos_qa_y_plantilla_qa.php',
             'database/migrations/2026_10_24_100000_cf_importaciones_table.php',
         ], '--force' => true])->assertExitCode(0);
-        config(['credential_flow.doble_modalidad.eventos' => null]);
         $this->evento = $this->evento('Seminario sintético de doble modalidad');
     }
 
@@ -145,8 +147,9 @@ class DobleModalidadPanelTest extends EmisionesTestCase
 
         $mov = Movimiento::where('descripcion', 'like', 'Se autorizó la doble certificación%')->sole();
         $this->assertSame($this->superAdmin()->id, $mov->user_id);
-        $this->assertSame(['autorizar_doble_modalidad', $this->evento->id, $a->id, 'panel', self::MOTIVO, false],
-            [$mov->metadata['accion'], $mov->metadata['evento_id'], $mov->metadata['autorizacion_id'], $mov->metadata['origen'], $mov->metadata['motivo'], $mov->metadata['heredado_en_configuracion']]);
+        $this->assertSame(['autorizar_doble_modalidad', $this->evento->id, $a->id, 'panel', self::MOTIVO],
+            [$mov->metadata['accion'], $mov->metadata['evento_id'], $mov->metadata['autorizacion_id'], $mov->metadata['origen'], $mov->metadata['motivo']]);
+        $this->assertArrayNotHasKey('heredado_en_configuracion', $mov->metadata, 'la antigua variable ya no existe');
         $this->assertSame(['bases', 'emisiones_vigentes', 'documentos_dobles', 'programaciones_activas', 'borradores_en_revision'], array_keys($mov->metadata['impacto']));
     }
 
@@ -294,89 +297,89 @@ class DobleModalidadPanelTest extends EmisionesTestCase
         $this->assertFalse(DobleModalidad::autorizado($this->evento->id));
     }
 
-    // ── Fuentes de la autorización ────────────────────────────────────────────
+    // ── Fuente de la autorización: solo la base de datos ──────────────────────
 
-    public function test_fuentes_ninguna_base_de_datos_heredada_y_ambas(): void
+    /** Registro histórico de la transición (como la autorización #1 del evento #637), insertado como quedó en producción. */
+    private function historica(EventoCertificacion $evento): int
     {
-        $bd = $this->evento('Evento autorizado en base de datos');
-        $heredado = $this->evento('Evento autorizado por la variable');
-        $ambos = $this->evento('Evento autorizado por las dos fuentes');
-        config(['credential_flow.doble_modalidad.eventos' => $heredado->id.','.$ambos->id]);
+        return DB::table('cf_eventos_doble_modalidad')->insertGetId(['evento_id' => $evento->id, 'estado' => AutorizacionDobleModalidad::VIGENTE,
+            'origen' => AutorizacionDobleModalidad::ORIGEN_HEREDADA, 'motivo' => 'Registro histórico sintético de la transición', 'autorizada_por' => $this->superAdmin()->id,
+            'autorizada_at' => now(), 'vigente_evento_id' => $evento->id, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    public function test_solo_cuenta_la_base_de_datos_y_la_variable_antigua_no_autoriza(): void
+    {
+        $bd = $this->evento('Evento autorizado desde el panel');
+        $historico = $this->evento('Evento con autorización histórica');
+        $enVariable = $this->evento('Evento que solo estaría en la antigua variable');
+        config(['credential_flow.doble_modalidad.eventos' => $enVariable->id.','.$historico->id]);   // ni siquiera se lee
         $this->servicio()->autorizar($bd, $this->super(), self::MOTIVO);
-        $this->servicio()->autorizar($ambos, $this->super(), self::MOTIVO, AutorizacionDobleModalidad::ORIGEN_HEREDADA);
+        $this->historica($historico);
 
         $this->assertSame([false, null], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id)]);
         $this->assertSame([true, DobleModalidad::ORIGEN_BASE_DE_DATOS], [DobleModalidad::autorizado($bd->id), DobleModalidad::origen($bd->id)]);
-        $this->assertSame([true, DobleModalidad::ORIGEN_HEREDADO], [DobleModalidad::autorizado($heredado->id), DobleModalidad::origen($heredado->id)]);
-        $this->assertSame([true, DobleModalidad::ORIGEN_AMBOS], [DobleModalidad::autorizado($ambos->id), DobleModalidad::origen($ambos->id)]);
-        $this->assertSame([$bd->id, $heredado->id, $ambos->id], DobleModalidad::eventosAutorizados());
-        $this->assertSame([$heredado->id, $ambos->id], DobleModalidad::eventosHeredados());
-
-        // Con la variable inválida, la base de datos sigue valiendo y la heredada no autoriza nada (fallo cerrado de siempre).
-        config(['credential_flow.doble_modalidad.eventos' => $heredado->id.', '.$ambos->id]);
-        $this->assertSame([true, false, true], [DobleModalidad::autorizado($bd->id), DobleModalidad::autorizado($heredado->id), DobleModalidad::autorizado($ambos->id)]);
+        $this->assertSame([true, DobleModalidad::ORIGEN_BASE_DE_DATOS], [DobleModalidad::autorizado($historico->id), DobleModalidad::origen($historico->id)]);
+        $this->assertSame([false, null], [DobleModalidad::autorizado($enVariable->id), DobleModalidad::origen($enVariable->id)]);
+        $this->assertSame([$bd->id, $historico->id], DobleModalidad::eventosAutorizados());
     }
 
-    public function test_sin_la_tabla_solo_cuenta_la_configuracion_heredada_y_el_panel_no_escribe(): void
+    public function test_sin_la_tabla_ningun_evento_esta_autorizado_y_el_panel_no_escribe(): void
     {
         Schema::drop('cf_eventos_doble_modalidad');
-        config(['credential_flow.doble_modalidad.eventos' => (string) $this->evento->id]);
-        $this->assertTrue(DobleModalidad::autorizado($this->evento->id));
-        $this->assertSame(DobleModalidad::ORIGEN_HEREDADO, DobleModalidad::origen($this->evento->id));
-        $this->assertNull(DobleModalidad::vigente($this->evento->id));
+        config(['credential_flow.doble_modalidad.eventos' => (string) $this->evento->id]);   // la antigua variable tampoco lo autoriza
+        $this->assertSame([false, null, null, []], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id),
+            DobleModalidad::vigente($this->evento->id), DobleModalidad::eventosAutorizados()]);
         $this->assertSame(AutorizacionDobleModalidadException::NO_DISPONIBLE, $this->codigo(fn () => $this->servicio()->autorizar($this->evento, $this->super(), self::MOTIVO)));
         $this->assertFalse($this->servicio()->resumen($this->evento, $this->super())['disponible']);
         $this->actingAs($this->superAdmin())->get(route('credential-flow.eventos.show', $this->evento))->assertOk();
     }
 
-    // ── Transición del evento heredado (como el #637) ─────────────────────────
-
-    public function test_evento_heredado_con_participaciones_dobles_se_registra_con_el_comando_y_no_se_puede_revocar(): void
+    public function test_no_se_crean_autorizaciones_nuevas_con_origen_heredado(): void
     {
-        config(['credential_flow.doble_modalidad.eventos' => (string) $this->evento->id]);
+        // Ni directamente con el modelo…
+        try {
+            AutorizacionDobleModalidad::create(['evento_id' => $this->evento->id, 'estado' => AutorizacionDobleModalidad::VIGENTE, 'origen' => AutorizacionDobleModalidad::ORIGEN_HEREDADA,
+                'motivo' => self::MOTIVO, 'autorizada_por' => $this->superAdmin()->id, 'autorizada_at' => now(), 'vigente_evento_id' => $this->evento->id]);
+            $this->fail('El modelo no debe crear autorizaciones de origen heredado.');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('solo puede tener origen «panel»', $e->getMessage());
+        }
+        $this->assertSame(0, AutorizacionDobleModalidad::count());
+
+        // …ni con el servicio: siempre «panel», aunque alguien intente pasarle otro origen como cuarto argumento.
+        $r = $this->servicio()->autorizar($this->evento, $this->super(), self::MOTIVO, AutorizacionDobleModalidad::ORIGEN_HEREDADA);
+        $this->assertSame(AutorizacionDobleModalidad::ORIGEN_PANEL, AutorizacionDobleModalidad::findOrFail($r['autorizacion_id'])->origen);
+        $this->assertSame(AutorizacionDobleModalidad::ORIGEN_PANEL, Movimiento::findOrFail($r['movimiento_id'])->metadata['origen']);
+    }
+
+    public function test_el_comando_de_herencia_ya_no_existe(): void
+    {
+        $this->assertArrayNotHasKey('credential-flow:doble-modalidad-heredar', Artisan::all());
+    }
+
+    // ── Evento con autorización histórica y participaciones dobles (como el #637) ─
+
+    public function test_evento_con_autorizacion_historica_y_participaciones_dobles_conserva_su_comportamiento(): void
+    {
+        $id = $this->historica($this->evento);
         $lote = $this->conDobles();
         $antes = $this->huella($lote);
 
-        // Desde el panel no se registra (lo hace el procedimiento de transición) y no hay nada que revocar.
-        $this->assertContains(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, $this->bloqueos(fn () => $this->servicio()->autorizar($this->evento, $this->super(), self::MOTIVO)));
-        $this->assertSame(AutorizacionDobleModalidadException::NO_AUTORIZADO, $this->codigo(fn () => $this->servicio()->revocar($this->evento, $this->super(), self::MOTIVO)));
-
-        // Comando: por defecto solo simula.
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id])->expectsOutputToContain('SIMULACIÓN')->assertExitCode(0);
-        $this->assertSame(0, AutorizacionDobleModalidad::count());
-        // Sin super-admin o sin motivo no escribe.
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id, '--usuario' => $this->admin()->id, '--motivo' => self::MOTIVO, '--ejecutar' => true])->assertExitCode(1);
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id, '--usuario' => $this->superAdmin()->id, '--ejecutar' => true])->assertExitCode(1);
-        $this->assertSame(0, AutorizacionDobleModalidad::count());
-
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id, '--usuario' => $this->superAdmin()->id, '--motivo' => 'Registro de la autorización heredada del servidor', '--ejecutar' => true])
-            ->expectsOutputToContain('REGISTRADA')->assertExitCode(0);
-        $a = AutorizacionDobleModalidad::sole();
-        $this->assertSame(['vigente', AutorizacionDobleModalidad::ORIGEN_HEREDADA, $this->superAdmin()->id], [$a->estado, $a->origen, $a->autorizada_por]);
-        $this->assertSame(DobleModalidad::ORIGEN_AMBOS, DobleModalidad::origen($this->evento->id));
-        $mov = Movimiento::where('descripcion', 'like', 'Se autorizó la doble certificación%')->sole();
-        $this->assertSame([$this->superAdmin()->id, 'configuracion_heredada', true], [$mov->user_id, $mov->metadata['origen'], $mov->metadata['heredado_en_configuracion']]);
-
-        // Repetirlo no duplica.
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id, '--usuario' => $this->superAdmin()->id, '--motivo' => 'Registro repetido por error', '--ejecutar' => true])->assertExitCode(1);
+        $this->assertSame([true, DobleModalidad::ORIGEN_BASE_DE_DATOS, $id], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id),
+            DobleModalidad::vigente($this->evento->id)->id]);
+        // No se duplica: ya tiene una autorización vigente.
+        $this->assertSame([AutorizacionDobleModalidadException::YA_AUTORIZADO], $this->bloqueos(fn () => $this->servicio()->autorizar($this->evento, $this->super(), self::MOTIVO)));
+        // Revocar sigue bloqueado SOLO por la persona con dos participaciones reales.
+        $this->assertSame([AutorizacionDobleModalidadException::PARTICIPACIONES_DOBLES], $this->bloqueos(fn () => $this->servicio()->revocar($this->evento, $this->super(), self::MOTIVO)));
         $this->assertSame(1, AutorizacionDobleModalidad::count());
 
-        // Revocar: bloqueado por las participaciones dobles y por la variable heredada. Al retirar la variable sigue autorizado por la base de datos.
-        $b = $this->bloqueos(fn () => $this->servicio()->revocar($this->evento, $this->super(), self::MOTIVO));
-        $this->assertContains(AutorizacionDobleModalidadException::PARTICIPACIONES_DOBLES, $b);
-        $this->assertContains(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, $b);
-        config(['credential_flow.doble_modalidad.eventos' => null]);
-        $this->assertSame([true, DobleModalidad::ORIGEN_BASE_DE_DATOS], [DobleModalidad::autorizado($this->evento->id), DobleModalidad::origen($this->evento->id)]);
-        $this->assertSame([AutorizacionDobleModalidadException::PARTICIPACIONES_DOBLES], $this->bloqueos(fn () => $this->servicio()->revocar($this->evento, $this->super(), self::MOTIVO)));
-        $this->assertSame($antes, $this->huella($lote), 'la base y sus participaciones no cambian en ningún paso');
-    }
-
-    public function test_el_comando_rechaza_un_evento_que_no_esta_en_la_variable_heredada(): void
-    {
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id])->expectsOutputToContain('NO_HEREDADO')->assertExitCode(1);
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $this->evento->id, '--usuario' => $this->superAdmin()->id, '--motivo' => self::MOTIVO, '--ejecutar' => true])->assertExitCode(1);
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => 999999])->assertExitCode(1);
-        $this->assertSame(0, AutorizacionDobleModalidad::count());
+        // La ficha muestra el estado y conserva el origen histórico en el historial.
+        $this->actingAs($this->superAdmin())->get(route('credential-flow.eventos.show', $this->evento))->assertOk()->assertInertia(fn (Assert $p) => $p
+            ->where('doble_modalidad.autorizado', true)->where('doble_modalidad.origen', DobleModalidad::ORIGEN_BASE_DE_DATOS)
+            ->where('doble_modalidad.historial.0.id', $id)->where('doble_modalidad.historial.0.origen', AutorizacionDobleModalidad::ORIGEN_HEREDADA)
+            ->where('doble_modalidad.historial.0.estado', AutorizacionDobleModalidad::VIGENTE)
+            ->where('doble_modalidad.bloqueos_revocar.0.code', AutorizacionDobleModalidadException::PARTICIPACIONES_DOBLES));
+        $this->assertSame($antes, $this->huella($lote), 'la base y sus participaciones no cambian');
     }
 
     // ── Asociación y desasociación ────────────────────────────────────────────
@@ -457,26 +460,26 @@ class DobleModalidadPanelTest extends EmisionesTestCase
                 ->has('doble_modalidad.historial', 1)->where('doble_modalidad.historial.0.motivo', self::MOTIVO));
     }
 
-    /** Transición del #637 con datos ficticios: la ficha muestra el estado REAL en los cinco casos. */
-    public function test_la_ficha_muestra_el_estado_real_en_los_cinco_casos_de_transicion(): void
+    /** La ficha muestra el estado REAL en cada caso; la antigua variable ya no cuenta para nada. */
+    public function test_la_ficha_muestra_el_estado_real_en_cada_caso(): void
     {
-        $soloEnv = $this->evento('Evento sintético solo por la variable');
-        $soloBd = $this->evento('Evento sintético solo en base de datos');
-        $ambas = $this->evento('Evento sintético por las dos fuentes');
-        $revocadoConEnv = $this->evento('Evento sintético revocado en base de datos pero en la variable');
+        $soloEnv = $this->evento('Evento sintético solo en la antigua variable');
+        $panel = $this->evento('Evento sintético autorizado desde el panel');
+        $historico = $this->evento('Evento sintético con autorización histórica');
+        $revocadoConEnv = $this->evento('Evento sintético revocado en el panel y en la antigua variable');
         $ninguna = $this->evento('Evento sintético sin autorización');
 
-        $this->servicio()->autorizar($soloBd, $this->super(), self::MOTIVO);
+        $this->servicio()->autorizar($panel, $this->super(), self::MOTIVO);
+        $this->historica($historico);
         $this->servicio()->autorizar($revocadoConEnv, $this->super(), self::MOTIVO);
         $this->servicio()->revocar($revocadoConEnv, $this->super(), 'Revocada en el panel antes de entrar en la variable');
-        config(['credential_flow.doble_modalidad.eventos' => implode(',', [$soloEnv->id, $ambas->id, $revocadoConEnv->id])]);
-        $this->artisan('credential-flow:doble-modalidad-heredar', ['evento' => $ambas->id, '--usuario' => $this->superAdmin()->id, '--motivo' => 'Registro sintético de la autorización heredada', '--ejecutar' => true])->assertExitCode(0);
+        config(['credential_flow.doble_modalidad.eventos' => implode(',', [$soloEnv->id, $revocadoConEnv->id])]);   // no se lee
 
         $esperado = [
-            $soloEnv->id => [true, DobleModalidad::ORIGEN_HEREDADO, []],
-            $soloBd->id => [true, DobleModalidad::ORIGEN_BASE_DE_DATOS, ['vigente']],
-            $ambas->id => [true, DobleModalidad::ORIGEN_AMBOS, ['vigente']],
-            $revocadoConEnv->id => [true, DobleModalidad::ORIGEN_HEREDADO, ['revocada']],
+            $soloEnv->id => [false, null, []],
+            $panel->id => [true, DobleModalidad::ORIGEN_BASE_DE_DATOS, ['vigente']],
+            $historico->id => [true, DobleModalidad::ORIGEN_BASE_DE_DATOS, ['vigente']],
+            $revocadoConEnv->id => [false, null, ['revocada']],
             $ninguna->id => [false, null, []],
         ];
         foreach ($esperado as $id => [$autorizado, $origen, $historial]) {
@@ -492,21 +495,24 @@ class DobleModalidadPanelTest extends EmisionesTestCase
                 });
             }
         }
-        // El evento revocado en la base de datos pero listado en la variable: ni se revoca otra vez ni se autoriza desde el panel.
+        // El evento revocado (aunque esté en la antigua variable): no se revoca otra vez y se puede volver a autorizar desde el panel, con una fila nueva.
         $this->assertSame(AutorizacionDobleModalidadException::NO_AUTORIZADO, $this->codigo(fn () => $this->servicio()->revocar($revocadoConEnv, $this->super(), self::MOTIVO)));
-        $this->assertContains(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, $this->bloqueos(fn () => $this->servicio()->autorizar($revocadoConEnv, $this->super(), self::MOTIVO)));
+        $this->servicio()->autorizar($revocadoConEnv, $this->super(), self::MOTIVO);
+        $this->assertSame(['vigente', 'revocada'], AutorizacionDobleModalidad::where('evento_id', $revocadoConEnv->id)->orderByDesc('id')->pluck('estado')->all());
     }
 
     public function test_el_listado_de_eventos_marca_los_autorizados(): void
     {
         $otro = $this->evento('Evento sintético sin autorizar');
-        $heredado = $this->evento('Evento sintético heredado');
-        config(['credential_flow.doble_modalidad.eventos' => (string) $heredado->id]);
+        $soloEnv = $this->evento('Evento sintético solo en la antigua variable');
+        $historico = $this->evento('Evento sintético con autorización histórica');
+        config(['credential_flow.doble_modalidad.eventos' => (string) $soloEnv->id]);   // no se lee
         $this->servicio()->autorizar($this->evento, $this->super(), self::MOTIVO);
+        $this->historica($historico);
 
-        $this->actingAs($this->admin())->get(route('credential-flow.eventos.index'))->assertOk()->assertInertia(function (Assert $p) use ($otro, $heredado) {
+        $this->actingAs($this->admin())->get(route('credential-flow.eventos.index'))->assertOk()->assertInertia(function (Assert $p) use ($otro, $soloEnv, $historico) {
             $marcas = collect($p->toArray()['props']['eventos'])->pluck('doble_modalidad', 'id')->all();
-            $this->assertSame([true, false, true], [$marcas[$this->evento->id], $marcas[$otro->id], $marcas[$heredado->id]]);
+            $this->assertSame([true, false, false, true], [$marcas[$this->evento->id], $marcas[$otro->id], $marcas[$soloEnv->id], $marcas[$historico->id]]);
         });
     }
 }

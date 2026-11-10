@@ -23,7 +23,10 @@ use InvalidArgumentException;
  *  - Solo un SUPER-ADMIN autoriza o revoca, siempre con motivo (las rutas lo exigen y este servicio lo vuelve a comprobar).
  *  - Autorizar no cambia ningún dato: solo permite, desde ese momento, registrar una participación por modalidad del mismo documento en una base del evento.
  *  - Revocar tampoco toca nada, y se BLOQUEA cuando dejaría datos inconsistentes: participaciones dobles reales en alguna base del evento, programaciones
- *    activas o borradores de importación en revisión asociados al evento. Tampoco se revoca un evento que la variable heredada sigue autorizando.
+ *    activas o borradores de importación en revisión asociados al evento.
+ *  - Las autorizaciones nuevas tienen siempre origen «panel». El origen «configuracion_heredada» solo existe en registros históricos (la autorización #1
+ *    del evento #637, de la transición desde la antigua variable CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS, que ya no se lee) y se trata igual que cualquier
+ *    otra autorización vigente.
  *  - Todo queda en el historial (`cf_eventos_doble_modalidad`: nunca se borra) y en Movimientos, sin datos personales.
  *  - Concurrencia: autorizar y revocar bloquean la fila del evento (FOR UPDATE) como PRIMERA lectura de su transacción; confirmar una importación, guardar
  *    un participante y asociar una base bloquean la misma fila (compartido) y releen la autorización con bloqueo, así que nunca se cruzan.
@@ -83,53 +86,44 @@ final class AutorizacionesDobleModalidad
     }
 
     /**
-     * Diagnóstico sin datos personales ni historial (para el comando y la simulación): estado, impacto y bloqueos. No escribe nada.
+     * Diagnóstico sin datos personales ni historial: estado, impacto y bloqueos. No escribe nada.
      *
      * @return array<string,mixed>
      */
-    public function diagnostico(EventoCertificacion $evento, string $origen = AutorizacionDobleModalidad::ORIGEN_PANEL): array
+    public function diagnostico(EventoCertificacion $evento): array
     {
         return self::estado($evento) + [
-            'heredado' => in_array($evento->id, DobleModalidad::eventosHeredados(), true),
             'impacto' => $this->impacto($evento),
-            'bloqueos_autorizar' => $this->bloqueosAutorizar($evento, $origen),
+            'bloqueos_autorizar' => $this->bloqueosAutorizar($evento),
             'bloqueos_revocar' => $this->bloqueosRevocar($evento),
         ];
     }
 
     /**
-     * Autoriza la doble modalidad del evento. `origen` = panel (desde la ficha del evento) o configuracion_heredada (registro auditado de un evento que ya
-     * autorizaba la variable heredada; solo lo usa el comando).
+     * Autoriza la doble modalidad del evento desde el panel (origen «panel», el único posible para una autorización nueva).
      *
      * @return array{autorizacion_id:int, movimiento_id:int}
      *
      * @throws AutorizacionDobleModalidadException
      */
-    public function autorizar(EventoCertificacion $evento, ?Usuario $usuario, string $motivo, string $origen = AutorizacionDobleModalidad::ORIGEN_PANEL): array
+    public function autorizar(EventoCertificacion $evento, ?Usuario $usuario, string $motivo): array
     {
         $motivo = $this->exigirPrevios($usuario, $motivo);
-        if (! in_array($origen, AutorizacionDobleModalidad::ORIGENES, true)) {
-            throw new InvalidArgumentException('Origen de autorización desconocido.');
-        }
 
-        return $this->como($usuario, fn () => DB::transaction(function () use ($evento, $usuario, $motivo, $origen) {
+        return $this->como($usuario, fn () => DB::transaction(function () use ($evento, $usuario, $motivo) {
             $e = $this->bloquearEvento($evento->id);   // primera lectura de la transacción
-            if ($origen === AutorizacionDobleModalidad::ORIGEN_HEREDADA && ! in_array($e->id, DobleModalidad::eventosHeredados(), true)) {
-                throw new AutorizacionDobleModalidadException(AutorizacionDobleModalidadException::NO_HEREDADO,
-                    'Este evento no está en la configuración heredada: autorízalo desde el panel (origen «panel»).');
-            }
-            if (($b = $this->bloqueosAutorizar($e, $origen)) !== []) {
+            if (($b = $this->bloqueosAutorizar($e)) !== []) {
                 throw new AutorizacionDobleModalidadException($b[0]['code'], $b[0]['message'], $b);
             }
 
             $impacto = $this->impacto($e);
             $a = AutorizacionDobleModalidad::create([
-                'evento_id' => $e->id, 'estado' => AutorizacionDobleModalidad::VIGENTE, 'origen' => $origen, 'motivo' => $motivo,
+                'evento_id' => $e->id, 'estado' => AutorizacionDobleModalidad::VIGENTE, 'origen' => AutorizacionDobleModalidad::ORIGEN_PANEL, 'motivo' => $motivo,
                 'autorizada_por' => $usuario->id, 'autorizada_at' => now(), 'vigente_evento_id' => $e->id,
             ]);
             $mov = Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se autorizó la doble certificación por modalidad de un evento', extra: [
-                'accion' => 'autorizar_doble_modalidad', 'evento_id' => $e->id, 'autorizacion_id' => $a->id, 'origen' => $origen, 'motivo' => $motivo,
-                'heredado_en_configuracion' => in_array($e->id, DobleModalidad::eventosHeredados(), true), 'impacto' => $impacto,
+                'accion' => 'autorizar_doble_modalidad', 'evento_id' => $e->id, 'autorizacion_id' => $a->id, 'origen' => AutorizacionDobleModalidad::ORIGEN_PANEL,
+                'motivo' => $motivo, 'impacto' => $impacto,
             ]);
 
             return ['autorizacion_id' => $a->id, 'movimiento_id' => $mov->id];
@@ -224,7 +218,7 @@ final class AutorizacionesDobleModalidad
     }
 
     /** @return list<array{code:string, message:string}> */
-    private function bloqueosAutorizar(EventoCertificacion $evento, string $origen = AutorizacionDobleModalidad::ORIGEN_PANEL): array
+    private function bloqueosAutorizar(EventoCertificacion $evento): array
     {
         $b = [];
         if (! self::disponible()) {
@@ -235,10 +229,6 @@ final class AutorizacionesDobleModalidad
         }
         if (DobleModalidad::vigente($evento->id) !== null) {
             $b[] = self::bloqueo(AutorizacionDobleModalidadException::YA_AUTORIZADO, 'Este evento ya tiene una autorización vigente.');
-        }
-        // Un evento que ya autoriza la configuración heredada se registra con el procedimiento de transición (origen configuracion_heredada), no desde el panel.
-        if ($origen === AutorizacionDobleModalidad::ORIGEN_PANEL && in_array($evento->id, DobleModalidad::eventosHeredados(), true)) {
-            $b[] = self::bloqueo(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, 'La configuración heredada del servidor ya autoriza este evento: su registro se hace con el procedimiento de transición, no desde aquí.');
         }
 
         return $b;
@@ -263,9 +253,6 @@ final class AutorizacionesDobleModalidad
         }
         if (($d = $this->borradoresEnRevision($evento)) !== []) {
             $b[] = self::bloqueo(AutorizacionDobleModalidadException::BORRADOR_EN_REVISION, 'Hay borradores de importación en revisión asociados a este evento (#'.implode(', #', $d).'): confírmalos o recházalos antes de revocar.');
-        }
-        if (in_array($evento->id, DobleModalidad::eventosHeredados(), true)) {
-            $b[] = self::bloqueo(AutorizacionDobleModalidadException::CONFIGURACION_HEREDADA, 'La configuración heredada del servidor también autoriza este evento: revocar aquí no tendría efecto mientras siga en ella.');
         }
 
         return $b;

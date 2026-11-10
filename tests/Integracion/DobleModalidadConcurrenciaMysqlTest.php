@@ -59,7 +59,6 @@ class DobleModalidadConcurrenciaMysqlTest extends TestCase
         config([
             'database.connections.'.self::CONEXION => [...$config, 'database' => $this->base],
             'database.default' => self::CONEXION,
-            'credential_flow.doble_modalidad.eventos' => null,
         ]);
         DB::purge(self::CONEXION);
         // Red de seguridad: lo que sigue BORRA tablas; solo en una base de pruebas.
