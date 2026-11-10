@@ -4,6 +4,7 @@ import { Head, Link, router } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
+import DobleModalidadEvento from "@/Components/CredentialFlow/Eventos/DobleModalidadEvento.vue";
 import { Download, Unlink, ChevronLeft, ChevronRight } from "lucide-vue-next";
 
 const props = defineProps({
@@ -12,6 +13,7 @@ const props = defineProps({
   emisiones: { type: Object, required: true }, // paginador (solo participantes reales)
   estado: { type: String, default: "emitida" },
   disponibles: { type: Array, default: () => [] }, // bases sin evento que se pueden sumar
+  doble_modalidad: { type: Object, default: null }, // estado (todos); impacto, bloqueos e historial solo para super-admin
 });
 
 const headerStats = computed(() => [
@@ -97,6 +99,8 @@ const quitar = (b) => router.put(route("credential-flow.lotes.evento", b.id), { 
           <button type="button" :disabled="!baseElegida" class="px-4 py-2 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold disabled:opacity-40" data-accion="sumar-base" @click="sumar">Sumar</button>
         </div>
       </section>
+
+      <DobleModalidadEvento v-if="doble_modalidad" :evento="evento" :estado="doble_modalidad" />
 
       <section class="mt-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-emisiones-evento>
         <div class="flex flex-wrap items-center justify-between gap-3">

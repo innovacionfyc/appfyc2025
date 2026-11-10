@@ -98,6 +98,9 @@ return [
     // listados, una misma persona puede tener una participación por modalidad en la misma base. No se listan personas ni documentos. Se guarda el TEXTO tal cual
     // (también en la caché de configuración) y lo valida DobleModalidad::interpretar: ids decimales separados SOLO por comas, sin espacios; si algo no es válido,
     // ningún evento queda autorizado.
+    // TRANSICIÓN: la fuente principal es ahora la tabla `cf_eventos_doble_modalidad` (un super-admin autoriza o revoca desde la ficha del evento). Esta
+    // variable se sigue leyendo SOLO como configuración heredada (p. ej. el evento #637) hasta registrarlo con `credential-flow:doble-modalidad-heredar` y
+    // retirarla con su propia autorización.
     'doble_modalidad' => [
         'eventos' => env('CREDENTIAL_FLOW_DOBLE_MODALIDAD_EVENTOS'),
     ],

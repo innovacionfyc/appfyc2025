@@ -17,12 +17,18 @@ class PortalDobleModalidadTest extends PortalTestCase
 {
     private const COMUNES = ['evento' => 'Seminario sintético de gestión de cartera', 'fecha' => '29 y 30 de octubre de 2026', 'intensidad_horaria' => '18 horas'];
 
+    /** Autoriza el evento (aquí, por la variable heredada; la subclase de base de datos lo hace como un super-admin desde el panel). */
+    protected function autorizarEvento(EventoCertificacion $evento): void
+    {
+        config(['credential_flow.doble_modalidad.eventos' => (string) $evento->id]);
+    }
+
     /** Base del evento autorizado: la persona doble (presencial y virtual) y otra persona. Devuelve [participante_id => emisión]. */
     private function baseEmitida(): array
     {
         $evento = EventoCertificacion::create(['nombre' => self::COMUNES['evento'], 'nombre_normalizado' => NombreConservador::normalizar(self::COMUNES['evento']), 'anio' => 2026,
             'fecha_texto' => '29 Y 30 DE OCTUBRE DE 2026', 'estado' => EventoCertificacion::ESTADO_ACTIVO, 'origen' => EventoCertificacion::ORIGEN_CREDENTIAL_FLOW]);
-        config(['credential_flow.doble_modalidad.eventos' => (string) $evento->id]);
+        $this->autorizarEvento($evento);
         $csv = "nombre_completo,documento,correo\nPERSONA DOBLE FICTICIA,9.300.001,doble@example.test\nPersona Doble Ficticia,9.300.001,doble@example.test\nOTRA PERSONA FICTICIA,9.300.002,otra@example.test\n";
         $lote = app(ImportadorParticipantes::class)->importar(UploadedFile::fake()->createWithContent('base.csv', $csv), $this->plantillaLista(), 'Base doble', null, self::COMUNES,
             $evento->id, null, null, [2 => 'presencial', 3 => 'virtual', 4 => 'presencial']);

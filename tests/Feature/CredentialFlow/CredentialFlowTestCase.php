@@ -49,6 +49,8 @@ abstract class CredentialFlowTestCase extends TestCase
         'database/migrations/2026_10_27_100000_cf_emisiones_programadas_table.php',
         // C2: archivo de plantillas (como en producción tras desplegar): todas las pruebas corren con las columnas presentes y ninguna plantilla archivada.
         'database/migrations/2026_11_04_100000_add_archivo_to_cf_plantillas.php',
+        // Doble modalidad administrable desde el panel (como en producción tras desplegar): la tabla existe y está vacía salvo que la prueba autorice algo.
+        'database/migrations/2026_11_10_100000_cf_eventos_doble_modalidad_table.php',
     ];
 
     protected function setUp(): void

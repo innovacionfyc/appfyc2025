@@ -32,15 +32,15 @@ use ZipArchive;
  */
 class DobleModalidadTest extends EmisionesTestCase
 {
-    private const ADVERTENCIA = 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA';
+    protected const ADVERTENCIA = 'PRUEBA INTERNA — SIN VALIDEZ ACADÉMICA';
 
-    private const EVENTO = 'Seminario sintético de gestión de cartera';
+    protected const EVENTO = 'Seminario sintético de gestión de cartera';
 
-    private const DOBLE = 'ANA FICTICIA DOBLE';
+    protected const DOBLE = 'ANA FICTICIA DOBLE';
 
-    private Plantilla $plantilla;
+    protected Plantilla $plantilla;
 
-    private EventoCertificacion $evento;
+    protected EventoCertificacion $evento;
 
     protected function setUp(): void
     {
@@ -73,19 +73,25 @@ class DobleModalidadTest extends EmisionesTestCase
 
     // ── Utilidades ────────────────────────────────────────────────────────────
 
-    private function nuevoEvento(string $nombre): EventoCertificacion
+    protected function nuevoEvento(string $nombre): EventoCertificacion
     {
         return EventoCertificacion::create(['nombre' => $nombre, 'nombre_normalizado' => NombreConservador::normalizar($nombre), 'anio' => 2026,
             'fecha_texto' => '29 Y 30 DE OCTUBRE DE 2026', 'estado' => EventoCertificacion::ESTADO_ACTIVO, 'origen' => EventoCertificacion::ORIGEN_CREDENTIAL_FLOW]);
     }
 
-    private function autorizar(?EventoCertificacion $evento = null): void
+    protected function autorizar(?EventoCertificacion $evento = null): void
     {
         config(['credential_flow.doble_modalidad.eventos' => (string) ($evento ?? $this->evento)->id]);   // el texto de la variable, como en el .env
     }
 
+    /** De dónde sale la autorización en esta clase de pruebas (la subclase de base de datos lo cambia). */
+    protected function origenEsperado(): string
+    {
+        return DobleModalidad::ORIGEN_HEREDADO;
+    }
+
     /** Variante de PRUEBA INTERNA del diseño (la programación la exige). */
-    private function varianteQa(): Plantilla
+    protected function varianteQa(): Plantilla
     {
         $qa = $this->plantillaLista([...$this->plantilla->diseno['elements'], $this->elemento(['type' => 'text', 'text' => self::ADVERTENCIA, 'y' => 380, 'fontSize' => 14])]);
         $this->actingAs($this->admin())->put(route('credential-flow.plantillas.qa', $qa), ['es_plantilla_qa' => true])->assertRedirect();
@@ -99,7 +105,7 @@ class DobleModalidadTest extends EmisionesTestCase
      *
      * @param  list<array{0:string,1:string,2:string}>  $personas  [nombre, número de documento, modalidad]
      */
-    private function excel(array $personas): string
+    protected function excel(array $personas): string
     {
         $c = ['B2' => 'Nombre del Evento', 'D2' => self::EVENTO, 'B3' => 'Fecha del Evento', 'D3' => '29 y 30 de octubre de 2026', 'B4' => 'Intensidad de horas', 'D4' => '18 Horas'];
         foreach (['B' => 'Item', 'C' => 'Tipo de documento', 'D' => 'Número de identificación', 'E' => 'Nombres y Apellidos', 'F' => 'Correo Electrónico', 'G' => 'Modalidad'] as $col => $t) {
@@ -119,13 +125,13 @@ class DobleModalidadTest extends EmisionesTestCase
     }
 
     /** La persona de doble modalidad (presencial y virtual) y una persona más. */
-    private function pareja(string $segundoNombre = self::DOBLE, string $segundaModalidad = 'Virtual'): array
+    protected function pareja(string $segundoNombre = self::DOBLE, string $segundaModalidad = 'Virtual'): array
     {
         return [[self::DOBLE, '5100001', 'Presencial'], [$segundoNombre, '5100001', $segundaModalidad], ['BETO FICTICIO UNO', '5100002', 'Presencial']];
     }
 
     /** Analiza el Excel y deja el borrador decidido: plantilla, evento (asociar o crear) y todas las personas elegibles. */
-    private function borrador(array $personas, ?array $evento = null): int
+    protected function borrador(array $personas, ?array $evento = null): int
     {
         $id = $this->actingAs($this->admin())->post(route('credential-flow.importaciones.analizar'), ['archivo' => UploadedFile::fake()->createWithContent('doble.xlsx', $this->excel($personas))], ['Accept' => 'application/json'])
             ->assertSuccessful()->json('borrador.id');
@@ -143,17 +149,17 @@ class DobleModalidadTest extends EmisionesTestCase
         return $id;
     }
 
-    private function corregir(int $id, array $cambios): TestResponse
+    protected function corregir(int $id, array $cambios): TestResponse
     {
         return $this->actingAs($this->admin())->putJson(route('credential-flow.importaciones.correcciones', $id), ['version' => Importacion::findOrFail($id)->version] + $cambios);
     }
 
-    private function validar(int $id): TestResponse
+    protected function validar(int $id): TestResponse
     {
         return $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.validar', $id))->assertOk();
     }
 
-    private function confirmar(int $id): Lote
+    protected function confirmar(int $id): Lote
     {
         $r = $this->actingAs($this->admin())->postJson(route('credential-flow.importaciones.confirmar', $id), ['version' => Importacion::findOrFail($id)->version, 'confirmar' => true])->assertCreated();
 
@@ -161,13 +167,13 @@ class DobleModalidadTest extends EmisionesTestCase
     }
 
     /** @return list<array<string,mixed>> errores de documento duplicado de la validación */
-    private function duplicados(int $id): array
+    protected function duplicados(int $id): array
     {
         return collect($this->validar($id)->json('bloqueos'))->where('codigo', 'fila_invalida')->where('error', ErrorFila::DOCUMENTO_DUPLICADO)->values()->all();
     }
 
     /** Base ya creada con la pareja (por el asistente, en el evento autorizado), con la variante QA que exige la emisión. */
-    private function baseConPareja(): Lote
+    protected function baseConPareja(): Lote
     {
         $this->varianteQa();
         $this->autorizar();
@@ -178,7 +184,7 @@ class DobleModalidadTest extends EmisionesTestCase
     }
 
     /** @return array{0:Participante,1:Participante} la participación presencial y la virtual */
-    private function gemelos(Lote $lote): array
+    protected function gemelos(Lote $lote): array
     {
         $dos = $lote->participantes()->where('es_control_qa', false)->where('documento_clave', Texto::claveDocumento('C.C. 5100001'))->orderBy('id')->get();
         $this->assertCount(2, $dos);
@@ -186,18 +192,18 @@ class DobleModalidadTest extends EmisionesTestCase
         return [$dos->firstWhere('modalidad', 'Presencial'), $dos->firstWhere('modalidad', 'Virtual')];
     }
 
-    private function editar(Lote $lote, Participante $p, array $campos): TestResponse
+    protected function editar(Lote $lote, Participante $p, array $campos): TestResponse
     {
         return $this->actingAs($this->admin())->from(route('credential-flow.lotes.show', $lote))
             ->put(route('credential-flow.participantes.update', [$lote, $p]), ['nombre_completo' => $p->nombre_completo, 'documento' => $p->documento] + $campos);
     }
 
-    private function textos(Emision $e): array
+    protected function textos(Emision $e): array
     {
         return array_column((new InspectorPdf($this->actingAs($this->admin())->get(route('credential-flow.emisiones.descargar', $e))->assertOk()->getContent()))->textos(), 'texto');
     }
 
-    private function zip(string $url): array
+    protected function zip(string $url): array
     {
         $z = new ZipArchive;
         $this->assertTrue($z->open($this->actingAs($this->admin())->get($url)->assertOk()->baseResponse->getFile()->getPathname()));
@@ -228,7 +234,9 @@ class DobleModalidadTest extends EmisionesTestCase
 
         // Auditoría de la excepción, sin datos personales.
         $mov = Movimiento::where('descripcion', 'like', 'Se confirmó una importación inteligente%')->sole();
-        $this->assertSame(['evento_id' => $this->evento->id, 'documentos' => 1], $mov->metadata['doble_modalidad']);
+        $d = $mov->metadata['doble_modalidad'];
+        $this->assertSame([$this->evento->id, 1, $this->origenEsperado()], [$d['evento_id'], $d['documentos'], $d['origen']]);
+        $this->assertSame($this->origenEsperado() !== DobleModalidad::ORIGEN_HEREDADO, $d['autorizacion_id'] !== null, 'la autorización de la base de datos queda citada');
     }
 
     public function test_el_nombre_escrito_con_tildes_o_puntuacion_distinta_es_la_misma_persona(): void
@@ -241,7 +249,7 @@ class DobleModalidadTest extends EmisionesTestCase
     // ── 1b. Correspondencia fila ↔ modalidad: nunca se cruza ──────────────────
 
     /** @return array<int,?string> modalidad de cada participante real por su fila del Excel */
-    private function modalidadPorFila(Lote $lote): array
+    protected function modalidadPorFila(Lote $lote): array
     {
         return $lote->participantes()->where('es_control_qa', false)->orderBy('fila_origen')->pluck('modalidad', 'fila_origen')->all();
     }
@@ -396,7 +404,9 @@ class DobleModalidadTest extends EmisionesTestCase
         $this->assertSame(['Presencial', 'Virtual'], [$presencial->fresh()->modalidad, $virtual->fresh()->modalidad]);
 
         $mov = Movimiento::where('descripcion', 'Se editó un participante de un lote de Credential Flow')->latest('id')->first();
-        $this->assertSame(['evento_id' => $this->evento->id], $mov->metadata['doble_modalidad']);
+        $d = $mov->metadata['doble_modalidad'];
+        $this->assertSame([$this->evento->id, $this->origenEsperado()], [$d['evento_id'], $d['origen']]);
+        $this->assertSame($this->origenEsperado() !== DobleModalidad::ORIGEN_HEREDADO, $d['autorizacion_id'] !== null);
     }
 
     public function test_un_cambio_de_modalidad_o_un_alta_que_duplique_se_bloquea(): void

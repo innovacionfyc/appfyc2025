@@ -170,25 +170,43 @@ final class ServicioEventos
         return $evento;
     }
 
-    /** Asocia (o cambia) la base a un evento NATIVO existente. Solo toca `cf_lotes.evento_id`. */
+    /**
+     * Asocia (o cambia) la base a un evento NATIVO existente. Solo toca `cf_lotes.evento_id`. Una base con participaciones dobles (doble modalidad) solo puede
+     * pasar a otro evento autorizado (AutorizacionesDobleModalidad::exigirDestinoDeBase).
+     *
+     * @throws InvalidArgumentException
+     */
     public function asociar(Lote $lote, EventoCertificacion $evento): void
     {
         if ($evento->origen !== EventoCertificacion::ORIGEN_CREDENTIAL_FLOW) {
             throw new InvalidArgumentException('Solo se pueden asociar bases a eventos creados en Credential Flow.');
         }
-        if ((int) $lote->evento_id !== (int) $evento->id) {
+        if ((int) $lote->evento_id === (int) $evento->id) {
+            return;
+        }
+        DB::transaction(function () use ($lote, $evento) {
+            AutorizacionesDobleModalidad::exigirDestinoDeBase($lote, $evento);
             $lote->update(['evento_id' => $evento->id]);
             Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se asoció una base a un evento de certificación', extra: ['evento_id' => $evento->id, 'lote_id' => $lote->id]);
-        }
+        });
     }
 
+    /**
+     * Quita la base de su evento. Una base con participaciones dobles (doble modalidad) no se desasocia: fuera de un evento autorizado no se podrían administrar.
+     *
+     * @throws InvalidArgumentException
+     */
     public function desasociar(Lote $lote): void
     {
-        if ($lote->evento_id !== null) {
+        if ($lote->evento_id === null) {
+            return;
+        }
+        DB::transaction(function () use ($lote) {
+            AutorizacionesDobleModalidad::exigirDestinoDeBase($lote, null);
             $anterior = $lote->evento_id;
             $lote->update(['evento_id' => null]);
             Movimiento::registrar(tipo: 'actualizacion', modulo: 'credential-flow', descripcion: 'Se quitó la asociación de una base con su evento', extra: ['evento_id' => $anterior, 'lote_id' => $lote->id]);
-        }
+        });
     }
 
     /**
