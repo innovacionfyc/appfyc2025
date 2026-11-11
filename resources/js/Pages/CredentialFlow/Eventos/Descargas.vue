@@ -173,7 +173,7 @@ const ultima = (r) => (r.tipo === "moderno" ? r.descargas.vigente.ultima : [r.de
       </section>
 
       <!-- Filtros -->
-      <form class="mt-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-filtros-descargas @submit.prevent="consultar()">
+      <form class="mt-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-filtros-descargas @submit.prevent="consultar()">
         <label class="text-[12px] font-bold text-slate-500">Tipo
           <select v-model="f.tipo" class="mt-1 w-full rounded-xl border-slate-200 text-sm" data-filtro="tipo"><option value="">Todos</option><option value="moderno">Nuevos</option><option value="historico">Históricos</option></select>
         </label>
@@ -201,7 +201,7 @@ const ultima = (r) => (r.tipo === "moderno" ? r.descargas.vigente.ultima : [r.de
         <label class="text-[12px] font-bold text-slate-500">Descargas hasta
           <input v-model="f.hasta" type="date" class="mt-1 w-full rounded-xl border-slate-200 text-sm" data-filtro="hasta" />
         </label>
-        <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+        <div class="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-4">
           <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90" data-accion="filtrar"><Search class="w-4 h-4" /> Filtrar</button>
           <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50" data-accion="limpiar" @click="limpiar"><X class="w-4 h-4" /> Limpiar</button>
           <p class="ml-auto text-[12px] font-semibold text-slate-400">{{ c(listado.total, "certificado", "certificados") }}</p>
