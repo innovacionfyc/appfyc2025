@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
+use App\Support\CredentialFlow\Descargas\SeguimientoDescargasEvento;
 use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Emisiones\GeneradorZip;
 use App\Support\CredentialFlow\Eventos\AsociacionAmbiguaException;
@@ -29,12 +30,14 @@ class EventoCertificacionController extends Controller
 {
     public function __construct(private readonly ServicioEventos $servicio, private readonly GeneradorZip $zip, private readonly AutorizacionesDobleModalidad $autorizaciones) {}
 
-    public function index(ConsultaHistorica $historico): Response
+    public function index(ConsultaHistorica $historico, SeguimientoDescargasEvento $seguimiento): Response
     {
         $nativos = EventoCertificacion::query()->where('origen', EventoCertificacion::ORIGEN_CREDENTIAL_FLOW)->orderByDesc('anio')->orderByDesc('id')->get();
         $dobles = DobleModalidad::eventosAutorizados();
+        // Descargas con el MISMO criterio que la pestaña «Descargas» (documento emitido), no con la marca del participante.
+        $descargas = $seguimiento->indicadoresPorEvento($nativos->pluck('id')->all());
         $eventos = $nativos->map(fn (EventoCertificacion $e) => ['id' => $e->id, 'nombre' => $e->nombre, 'anio' => $e->anio, 'fecha_texto' => $e->fecha_texto,
-            'doble_modalidad' => in_array($e->id, $dobles, true)] + $this->servicio->resumen($e));
+            'doble_modalidad' => in_array($e->id, $dobles, true), 'descargas' => $descargas[$e->id] ?? ['vigentes' => 0, 'con_descarga' => 0, 'distintas' => 0]] + $this->servicio->resumen($e));
 
         $sinEvento = Lote::query()->whereNull('evento_id')->withCount('participantes')->latest()->limit(100)->get()->map(function (Lote $l) {
             $propuesta = null;

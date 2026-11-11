@@ -1,5 +1,5 @@
 <script setup>
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import NavHistorico from "@/Components/CredentialFlow/Historico/NavHistorico.vue";
@@ -86,6 +86,9 @@ const tarjetas = [
             </p>
             <p class="mt-1 text-[12px] font-semibold text-slate-400">Solo certificados de este evento histórico. Los certificados nuevos se descargan desde Eventos.</p>
           </div>
+          <Link :href="route('credential-flow.eventos.descargas', evento.id)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all" data-pestana-descargas>
+            Seguimiento de descargas
+          </Link>
           <a v-if="descarga.disponibles > 0" :href="route('credential-flow.historico.eventos.zip', evento.id)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary-vinotinto text-white text-sm font-bold hover:opacity-90 transition-all" data-accion="zip-historico">
             <Download class="w-4 h-4" /> Descargar ZIP histórico
           </a>

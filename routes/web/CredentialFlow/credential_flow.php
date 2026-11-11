@@ -14,6 +14,7 @@ use App\Http\Controllers\CredentialFlow\EncuestaExportController;
 use App\Http\Controllers\CredentialFlow\EncuestaInformeController;
 use App\Http\Controllers\CredentialFlow\EnvioController;
 use App\Http\Controllers\CredentialFlow\EventoCertificacionController;
+use App\Http\Controllers\CredentialFlow\EventoDescargasController;
 use App\Http\Controllers\CredentialFlow\FlujoLoteController;
 use App\Http\Controllers\CredentialFlow\HistoricoController;
 use App\Http\Controllers\CredentialFlow\HistoricoPdfController;
@@ -107,6 +108,8 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::post('/eventos', [EventoCertificacionController::class, 'store'])->middleware('throttle:30,1')->name('eventos.store');
     Route::get('/eventos/{evento}', [EventoCertificacionController::class, 'show'])->name('eventos.show');
     Route::get('/eventos/{evento}/zip', [EventoCertificacionController::class, 'zip'])->middleware('throttle:10,1')->name('eventos.zip');
+    // Seguimiento de descargas del evento (moderno o histórico): SOLO LECTURA. Documento completo y búsqueda exacta solo para super-admin (en el controlador).
+    Route::get('/eventos/{evento}/descargas', [EventoDescargasController::class, 'show'])->whereNumber('evento')->middleware(['throttle:60,1', CabecerasAdminSensible::class])->name('eventos.descargas');
     // Doble certificación por modalidad: solo super-admin autoriza o revoca (el servicio vuelve a comprobar el rol). No toca participantes ni certificados.
     Route::middleware('rol:super-admin')->group(function () {
         Route::post('/eventos/{evento}/doble-modalidad/autorizar', [DobleModalidadEventoController::class, 'autorizar'])->middleware('throttle:10,1,cf-doble-modalidad')->name('eventos.doble-modalidad.autorizar');
