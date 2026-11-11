@@ -23,6 +23,16 @@ const headerStats = computed(() => [
   { label: "Bases sin evento", value: props.sin_evento.length, icon: "groups", color: "text-amber-600", bg: "bg-amber-50" },
 ]);
 
+// Porcentaje con el MISMO criterio que la pestaña «Descargas»: certificados oficiales vigentes según el documento emitido.
+// Si su base difiere de la columna «Certificados vigentes» (que cuenta por la marca del participante), se muestra explícitamente («de N»).
+const pct = (e) => (e.descargas.vigentes > 0 ? Math.round((e.descargas.con_descarga * 100) / e.descargas.vigentes) : 0);
+const difiere = (e) => e.descargas.vigentes !== e.reales.vigentes;
+const etiqueta = (e) => `Seguimiento de descargas: ${e.descargas.con_descarga} de ${e.descargas.vigentes} certificados oficiales vigentes con descarga`;
+const nota = (e) =>
+  difiere(e)
+    ? `Porcentaje sobre ${e.descargas.vigentes} certificados oficiales vigentes según el documento emitido (igual que la pestaña Descargas). La columna de vigentes cuenta por la marca del participante.`
+    : null;
+
 const asociar = (base, datos = {}) => router.post(route("credential-flow.lotes.evento.desde-base", base.id), datos, { preserveScroll: true });
 const unirAlElegido = (base) => elegido[base.id] && asociar(base, { evento_id: elegido[base.id] });
 const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
@@ -70,7 +80,8 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
               <th class="text-right font-black px-4 py-4">Bases</th>
               <th class="text-right font-black px-4 py-4">Participantes</th>
               <th class="text-right font-black px-4 py-4">Certificados vigentes</th>
-              <th class="text-right font-black px-4 py-4" title="Certificados vigentes de participantes reales con al menos una descarga registrada en el portal">Con descarga</th>
+              <!-- Columna propia solo con espacio (xl); debajo, el mismo dato va en la celda de vigentes para no ensanchar la tabla. -->
+              <th class="hidden xl:table-cell text-right font-black px-4 py-4" title="Certificados oficiales vigentes (según el documento emitido) con al menos una descarga registrada en el portal">Con descarga</th>
               <th class="text-right font-black px-4 py-4">Revocados</th>
               <th class="text-right font-black px-4 py-4">Pendientes</th>
               <th class="text-right font-black px-4 py-4">Control (QA)</th>
@@ -86,10 +97,16 @@ const confirmarNuevo = (base) => asociar(base, { crear_nuevo: true });
               <td class="px-4 py-4 text-slate-600 font-semibold"><span class="inline-flex items-center gap-1.5"><CalendarDays class="w-3.5 h-3.5 text-slate-400" />{{ e.fecha_texto ?? e.anio ?? "—" }}</span></td>
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.bases }}</td>
               <td class="px-4 py-4 text-right font-black text-slate-900">{{ e.reales.participantes }}</td>
-              <td class="px-4 py-4 text-right font-black text-emerald-700">{{ e.reales.vigentes }}</td>
-              <td class="px-4 py-4 text-right whitespace-nowrap" data-descargados>
-                <Link :href="route('credential-flow.eventos.descargas', e.id)" class="font-black text-sky-700 hover:underline" :aria-label="`Seguimiento de descargas: ${e.descargados} de ${e.reales.vigentes} certificados vigentes con descarga`">{{ e.descargados }}</Link>
-                <span class="block text-[11px] font-semibold text-slate-400">{{ e.reales.vigentes > 0 ? Math.round((e.descargados * 100) / e.reales.vigentes) : 0 }} %</span>
+              <td class="px-4 py-4 text-right">
+                <span class="font-black text-emerald-700">{{ e.reales.vigentes }}</span>
+                <span class="xl:hidden mt-1 block whitespace-nowrap text-[11px] font-semibold text-slate-400" data-descargados-compacto>
+                  <Link :href="route('credential-flow.eventos.descargas', e.id)" class="font-bold text-sky-700 hover:underline" :aria-label="etiqueta(e)">{{ e.descargas.con_descarga }} con descarga</Link>
+                  <span class="block" :title="nota(e)">{{ pct(e) }} %<template v-if="difiere(e)"> de {{ e.descargas.vigentes }}</template></span>
+                </span>
+              </td>
+              <td class="hidden xl:table-cell px-4 py-4 text-right whitespace-nowrap" data-descargados>
+                <Link :href="route('credential-flow.eventos.descargas', e.id)" class="font-black text-sky-700 hover:underline" :aria-label="etiqueta(e)">{{ e.descargas.con_descarga }}</Link>
+                <span class="block text-[11px] font-semibold text-slate-400" :title="nota(e)">{{ pct(e) }} %<template v-if="difiere(e)"> de {{ e.descargas.vigentes }}</template></span>
               </td>
               <td class="px-4 py-4 text-right font-black text-rose-600">{{ e.reales.revocadas }}</td>
               <td class="px-4 py-4 text-right font-black text-amber-600">{{ e.reales.pendientes }}</td>

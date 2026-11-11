@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\EventoCertificacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Support\CredentialFlow\Descargas\SeguimientoDescargasEvento;
+use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Support\Facades\DB;
@@ -374,6 +375,117 @@ class SeguimientoDescargasEventoTest extends EmisionesTestCase
         $this->descarga(['emision_id' => $em->id], '2026-11-01 10:00:00');
         $this->descarga(['emision_id' => $em->id], '2026-11-02 10:00:00');
         $this->actingAs($this->admin())->get(route('credential-flow.eventos.index'))->assertOk()->assertInertia(fn (Assert $a) => $a
-            ->where('eventos.0.id', $e->id)->where('eventos.0.descargados', 1)->where('eventos.0.reales.vigentes', 2));
+            ->where('eventos.0.id', $e->id)->where('eventos.0.descargas.con_descarga', 1)->where('eventos.0.descargas.vigentes', 2)->where('eventos.0.reales.vigentes', 2));
+    }
+
+    // ── Coherencia listado ↔ pestaña (criterio QA único: el documento emitido) ──
+
+    /** @return array<string,mixed> fila del evento en el listado de eventos */
+    private function filaListado(EventoCertificacion $e): array
+    {
+        $out = null;
+        $this->actingAs($this->admin())->get(route('credential-flow.eventos.index'))->assertOk()->assertInertia(function (Assert $p) use (&$out, $e) {
+            $out = collect($p->toArray()['props']['eventos'])->firstWhere('id', $e->id);
+        });
+
+        return $out;
+    }
+
+    /** @return array{0:int,1:int} [vigentes oficiales, con descarga] según la pestaña */
+    private function segunPestana(EventoCertificacion $e): array
+    {
+        $o = $this->props($e)['resumen']['modernos']['oficial'];
+
+        return [$o['vigentes'], $o['con_descarga']];
+    }
+
+    public function test_listado_y_pestana_dan_el_mismo_porcentaje_cuando_marca_y_documento_coinciden(): void
+    {
+        $e = $this->evento('Seminario sintético coherente');
+        $l = $this->base($e);
+        $reales = collect([1, 2, 3])->map(fn ($i) => $this->emitir($l, $this->persona($l, "REAL COHERENTE $i", 'C.C. 74000'.$i)));
+        $qa = $this->emitir($l, $this->persona($l, 'QA COHERENTE', 'C.C. 8400001'));
+        Participante::whereKey($qa->participante_id)->update(['es_control_qa' => true]);
+        $this->comoQa($qa);
+        $this->descarga(['emision_id' => $reales[0]->id], '2026-11-01 10:00:00');
+        $this->descarga(['emision_id' => $reales[1]->id], '2026-11-01 11:00:00');
+        $this->descarga(['emision_id' => $qa->id], '2026-11-01 12:00:00');
+
+        $f = $this->filaListado($e);
+        $this->assertSame([3, 2], [$f['descargas']['vigentes'], $f['descargas']['con_descarga']]);
+        $this->assertSame($this->segunPestana($e), [$f['descargas']['vigentes'], $f['descargas']['con_descarga']]);
+        $this->assertSame(3, $f['reales']['vigentes'], 'mismo denominador que la columna de vigentes');
+        $this->assertSame(0, $f['descargas']['distintas']);
+    }
+
+    public function test_si_la_marca_no_coincide_con_el_documento_el_listado_usa_el_documento_igual_que_la_pestana(): void
+    {
+        $e = $this->evento('Seminario sintético discrepante');
+        $l = $this->base($e);
+        // A: certificado OFICIAL emitido y descargado; después se marcó al participante como control (QA). Sigue siendo oficial.
+        $a = $this->emitir($l, $this->persona($l, 'ANA OFICIAL MARCADA', 'C.C. 7500001'));
+        $this->descarga(['emision_id' => $a->id], '2026-11-01 10:00:00');
+        $this->emitir($l, $this->persona($l, 'BETO OFICIAL', 'C.C. 7500002'));
+        $this->emitir($l, $this->persona($l, 'CARO OFICIAL', 'C.C. 7500003'));
+        app(ServicioEventos::class)->marcarParticipantesQa($l, [$a->participante_id], true);
+
+        $f = $this->filaListado($e);
+        $this->assertSame([3, 1, 1], [$f['descargas']['vigentes'], $f['descargas']['con_descarga'], $f['descargas']['distintas']]);
+        $this->assertSame($this->segunPestana($e), [$f['descargas']['vigentes'], $f['descargas']['con_descarga']]);
+        $this->assertSame(2, $f['reales']['vigentes'], 'la columna de vigentes (marca del participante) no cambia: el denominador distinto se informa aparte');
+
+        // B: documento de PRUEBA INTERNA descargado cuyo participante perdió la marca: no cuenta como oficial descargado.
+        $b = $this->emitir($l, $this->persona($l, 'QA SIN MARCA', 'C.C. 8500001'));
+        $this->comoQa($b);
+        $this->descarga(['emision_id' => $b->id], '2026-11-02 10:00:00');
+
+        $f = $this->filaListado($e);
+        $this->assertSame([3, 1, 2], [$f['descargas']['vigentes'], $f['descargas']['con_descarga'], $f['descargas']['distintas']]);
+        $this->assertSame($this->segunPestana($e), [$f['descargas']['vigentes'], $f['descargas']['con_descarga']]);
+        $this->assertSame(3, $f['reales']['vigentes']);
+        $this->assertSame(2, $this->props($e)['resumen']['clasificacion_distinta_a_marca'], 'la pestaña avisa de las mismas discrepancias');
+        $this->assertTrue(DB::table('cf_participantes')->where('id', $a->participante_id)->value('es_control_qa') == true, 'no se reclasifica a nadie');
+    }
+
+    public function test_el_rango_de_fechas_limita_las_filas_pero_no_los_contadores(): void
+    {
+        $e = $this->evento('Seminario sintético de rango');
+        $l = $this->base($e);
+        $a = $this->emitir($l, $this->persona($l, 'ANA RANGO', 'C.C. 7600001'));
+        $b = $this->emitir($l, $this->persona($l, 'BETO RANGO', 'C.C. 7600002'));
+        $this->descarga(['emision_id' => $a->id], '2026-10-01 10:00:00');
+        $this->descarga(['emision_id' => $a->id], '2026-11-05 10:00:00');
+        $this->descarga(['emision_id' => $b->id], '2026-10-02 10:00:00');
+
+        $todo = $this->props($e);
+        $rango = $this->props($e, ['desde' => '2026-11-01', 'hasta' => '2026-11-30']);
+        $this->assertSame([2, 1], [$todo['listado']['total'], $rango['listado']['total']], 'el rango limita las FILAS');
+        $this->assertSame($todo['resumen'], $rango['resumen'], 'los indicadores del evento no dependen del rango');
+        $fila = $rango['listado']['items'][0];
+        $this->assertSame([$a->participante_id, 2, '2026-10-01 10:00:00'], [$fila['participacion_id'], $fila['descargas']['vigente']['solicitudes'], $fila['descargas']['vigente']['primera']],
+            'los contadores de la fila siguen siendo totales del certificado');
+    }
+
+    public function test_los_indicadores_del_listado_no_crecen_en_consultas_con_los_eventos(): void
+    {
+        $contar = function (int $eventos): int {
+            $ids = [];
+            for ($k = 1; $k <= $eventos; $k++) {
+                $e = $this->evento("Seminario sintético de listado $eventos-$k");
+                $l = $this->base($e);
+                $em = $this->emitir($l, $this->persona($l, "PERSONA LISTADO $eventos $k", 'C.C. '.(5_000_000 + $eventos * 100 + $k)));
+                $this->descarga(['emision_id' => $em->id], '2026-11-01 10:00:00');
+                $ids[] = $e->id;
+            }
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $r = $this->servicio()->indicadoresPorEvento($ids);
+            $q = count(DB::getQueryLog());
+            DB::disableQueryLog();
+            $this->assertSame($eventos, collect($r)->sum('con_descarga'));
+
+            return $q;
+        };
+        $this->assertSame($contar(1), $contar(4), 'mismas consultas con 1 o con 4 eventos (sin N+1)');
     }
 }

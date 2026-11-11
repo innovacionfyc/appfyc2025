@@ -134,9 +134,10 @@ const ultima = (r) => (r.tipo === "moderno" ? r.descargas.vigente.ultima : [r.de
           <h2 class="text-sm font-extrabold text-slate-700">Pruebas internas (QA)</h2>
           <p class="mt-3 text-sm font-semibold text-slate-600">{{ c(qa.vigentes, "vigente", "vigentes") }} · {{ n(qa.con_descarga) }} con descarga · {{ c(qa.solicitudes_vigentes, "solicitud", "solicitudes") }}</p>
           <p class="mt-2 text-[12px] font-semibold text-slate-400">No suman a las cifras oficiales.</p>
-          <p v-if="ind.participaciones" class="mt-3 text-[12px] font-semibold text-amber-700">{{ n(ind.participaciones) }} certificados sin clasificar (diseño no legible): fuera de las cifras oficiales.</p>
+          <p v-if="ind.participaciones" class="mt-3 text-[12px] font-semibold text-amber-700">{{ c(ind.participaciones, "certificado", "certificados") }} sin clasificar (diseño no legible): fuera de las cifras oficiales.</p>
           <p v-if="resumen.clasificacion_distinta_a_marca" class="mt-3 text-[12px] font-semibold text-amber-700" data-aviso-clasificacion>
-            {{ n(resumen.clasificacion_distinta_a_marca) }} certificados cuya marca de participante de control no coincide con el documento emitido; se clasifican por el documento emitido.
+            {{ c(resumen.clasificacion_distinta_a_marca, "certificado cuya", "certificados cuya") }} marca de participante de control no coincide con el documento emitido; se clasifican por el
+            documento emitido, igual que el porcentaje del listado de eventos. Por eso la columna «Certificados vigentes» del listado (que cuenta por la marca) puede no coincidir.
           </p>
         </div>
       </section>
@@ -205,6 +206,10 @@ const ultima = (r) => (r.tipo === "moderno" ? r.descargas.vigente.ultima : [r.de
           <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50" data-accion="limpiar" @click="limpiar"><X class="w-4 h-4" /> Limpiar</button>
           <p class="ml-auto text-[12px] font-semibold text-slate-400">{{ c(listado.total, "certificado", "certificados") }}</p>
         </div>
+        <p v-if="filtros.desde || filtros.hasta" class="sm:col-span-2 lg:col-span-4 text-[12px] font-semibold text-amber-700" data-aviso-rango>
+          El rango de fechas solo limita qué certificados se listan: los que tienen al menos una descarga en ese rango (de cualquier versión). Las solicitudes, la
+          primera y la última descarga de cada fila, y los indicadores de arriba, siguen siendo totales del certificado y del evento, no del rango.
+        </p>
       </form>
 
       <!-- Listado -->

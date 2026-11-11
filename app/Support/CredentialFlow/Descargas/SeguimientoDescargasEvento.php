@@ -172,6 +172,43 @@ final class SeguimientoDescargasEvento
         return Lote::withTrashed()->where('evento_id', $evento->id)->orderBy('id')->get(['id', 'nombre'])->map(fn (Lote $l) => ['id' => (int) $l->id, 'nombre' => (string) $l->nombre])->all();
     }
 
+    /**
+     * Indicadores del LISTADO de eventos con el MISMO criterio que la pestaña (`resumen()['modernos']['oficial']`): certificados vigentes cuyo documento
+     * emitido es OFICIAL (ClasificacionEmision, igual que la verificación pública y el buscador) y cuántos de ellos tienen al menos una descarga en su
+     * versión vigente. `distintas`: vigentes cuya marca viva de participante de control no coincide con el documento emitido (por eso el denominador puede
+     * diferir de la columna «Certificados vigentes», que cuenta por la marca). Consultas fijas para todo el listado: una + una por bloque de diseños.
+     *
+     * @param  list<int>  $eventoIds
+     * @return array<int, array{vigentes:int, con_descarga:int, distintas:int}>
+     */
+    public function indicadoresPorEvento(array $eventoIds): array
+    {
+        if ($eventoIds === []) {
+            return [];
+        }
+        $vigentes = DB::table('cf_emisiones as e')->join('cf_lotes as l', 'l.id', '=', 'e.lote_id')->leftJoin('cf_participantes as p', 'p.id', '=', 'e.participante_id')
+            ->whereIn('l.evento_id', $eventoIds)->where('e.estado', Emision::EMITIDA)
+            ->selectRaw('e.id, l.evento_id, p.es_control_qa, EXISTS (SELECT 1 FROM cf_descargas d WHERE d.emision_id = e.id) AS descargada')->get();
+        $clases = $this->clasificar($vigentes->pluck('id')->all());
+
+        $salida = [];
+        foreach ($vigentes as $v) {
+            $r = &$salida[(int) $v->evento_id];
+            $r ??= ['vigentes' => 0, 'con_descarga' => 0, 'distintas' => 0];
+            $clase = $clases[(int) $v->id] ?? ClasificacionEmision::INDETERMINADA;
+            if ($clase === ClasificacionEmision::OFICIAL) {
+                $r['vigentes']++;
+                $r['con_descarga'] += (bool) $v->descargada ? 1 : 0;
+            }
+            if ($v->es_control_qa !== null && $clase !== ClasificacionEmision::INDETERMINADA && ($clase === ClasificacionEmision::PRUEBA_INTERNA) !== (bool) $v->es_control_qa) {
+                $r['distintas']++;
+            }
+            unset($r);
+        }
+
+        return $salida;
+    }
+
     // ── Modernos ──────────────────────────────────────────────────────────────
 
     /** @return list<array<string,mixed>> */
