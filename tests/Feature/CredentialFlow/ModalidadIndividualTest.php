@@ -11,6 +11,7 @@ use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\FlujoDeBase;
 use App\Support\CredentialFlow\Emisiones\ServicioVistaPrevia;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use App\Support\CredentialFlow\Qa\AdministradorContactosQa;
@@ -216,7 +217,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $ejemplos = collect($vista->json('vista_previa.una_por_modalidad'));
         $this->assertSame(['Presencial', 'Virtual'], $ejemplos->pluck('modalidad')->all());
         $pdfVirtual = $this->actingAs($this->admin())->get(route('credential-flow.importaciones.vista-previa.pdf', $id).'?fila='.$ejemplos[1]['fila'])->assertOk()->getContent();
-        $this->assertContains('Virtual', $this->textos($pdfVirtual));
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $this->textos($pdfVirtual));
         $this->assertSame(0, Lote::count(), 'revisar y previsualizar no crea nada');
 
         // Una sola base; cada persona conserva su modalidad; la base NO inventa una general.
@@ -233,10 +234,11 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 10);
         foreach ($reales as $p) {
             $e = Emision::where('participante_id', $p->id)->firstOrFail();
-            $this->assertSame($p->modalidad, $e->datos_snapshot['modalidad']);
+            $impresa = ModalidadImpresa::esVirtual($p->modalidad) ? ModalidadImpresa::VIRTUAL : $p->modalidad;
+            $this->assertSame($impresa, $e->datos_snapshot['modalidad']);
             $textos = $this->textos($this->pdfDe($e));
-            $this->assertContains($p->modalidad, $textos);
-            $this->assertNotContains($p->modalidad === 'Virtual' ? 'Presencial' : 'Virtual', $textos);
+            $this->assertContains($impresa, $textos);
+            $this->assertNotContains($p->modalidad === 'Virtual' ? 'Presencial' : ModalidadImpresa::VIRTUAL, $textos);
         }
     }
 
@@ -269,7 +271,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
             $e = Emision::whereIn('participante_id', $qa->where('modalidad', $m)->pluck('id'))->firstOrFail();
             $textos = $this->textos($this->pdfDe($e));
             $this->assertContains(self::ADVERTENCIA, $textos);
-            $this->assertContains($m, $textos);
+            $this->assertContains($m === 'Virtual' ? ModalidadImpresa::VIRTUAL : $m, $textos);
         }
 
         // Oficiales: los 10 reales con la plantilla institucional, sin advertencia.
@@ -322,7 +324,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 2);
 
         $porNombre = fn (string $n) => Emision::where('participante_id', $lote->participantes()->where('nombre_completo', $n)->value('id'))->firstOrFail()->datos_snapshot['modalidad'];
-        $this->assertSame('Virtual', $porNombre('ANA UNO'), 'la propia gana a la general');
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $porNombre('ANA UNO'), 'la propia gana a la general (virtual: redacción oficial)');
         $this->assertSame('Presencial', $porNombre('BETO DOS'), 'sin la suya, la general de la base');
     }
 
@@ -345,7 +347,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $lote = $this->confirmar($id);
         $this->assertSame('Virtual', $lote->participantes()->where('fila_origen', 11)->value('modalidad'));
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 10);
-        $this->assertSame(['Presencial' => 7, 'Virtual' => 3], Emision::query()->get()->filter(fn ($e) => ! Participante::find($e->participante_id)->es_control_qa)->countBy(fn ($e) => $e->datos_snapshot['modalidad'])->sortKeys()->all());
+        $this->assertSame(['Presencial' => 7, ModalidadImpresa::VIRTUAL => 3], Emision::query()->get()->filter(fn ($e) => ! Participante::find($e->participante_id)->es_control_qa)->countBy(fn ($e) => $e->datos_snapshot['modalidad'])->sortKeys()->all());
     }
 
     public function test_en_una_base_mixta_sin_modalidad_general_no_se_emite_a_quien_le_falta(): void
@@ -466,7 +468,7 @@ class ModalidadIndividualTest extends EmisionesTestCase
         $lote = $this->base([['Ana Uno', 'C.C. 1.111', null], ['Beto Dos', 'C.C. 2.222', null]], null, ['modalidad' => 'Virtual-Sincrónico y Remoto']);
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 2);
         foreach (Emision::all() as $e) {
-            $this->assertSame('Virtual-Sincrónico y Remoto', $e->datos_snapshot['modalidad']);
+            $this->assertSame(ModalidadImpresa::VIRTUAL, $e->datos_snapshot['modalidad'], 'la general virtual también se imprime con la redacción oficial');
         }
 
         // Una base cuya plantilla no imprime la modalidad no exige nada nuevo y su snapshot no la incluye.

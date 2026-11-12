@@ -13,7 +13,7 @@ use App\Support\CredentialFlow\Generacion\GeneracionCredencialException;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
-use App\Support\CredentialFlow\Participantes\ModalidadCiudad;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Support\Facades\DB;
@@ -179,9 +179,14 @@ final class VistaPreviaImportacion
                 $avisos[] = 'El tipo de documento de esta persona está por confirmar: el certificado oficial no se podrá emitir hasta confirmarlo.';
             }
         }
-        // «Modalidad y ciudad»: la misma composición que el certificado oficial (DatosDeParticipante), con la modalidad ya resuelta para esta persona.
-        if (($compuesta = ModalidadCiudad::componer($datos['modalidad'] ?? null, $datos['ciudad'] ?? null)) !== null) {
-            $datos['modalidad_ciudad'] = $compuesta;
+        // Modalidad impresa y «Modalidad y ciudad»: la misma regla que el certificado oficial (DatosDeParticipante → ModalidadImpresa), con la modalidad ya
+        // resuelta para esta persona (una participación virtual dice «Virtual -Sincrónico y Remoto», sin ciudad).
+        $impresa = ModalidadImpresa::resolver($datos['modalidad'] ?? null, $datos['ciudad'] ?? null);
+        if (isset($datos['modalidad'])) {
+            $datos['modalidad'] = $impresa['modalidad'];
+        }
+        if ($impresa['modalidad_ciudad'] !== null) {
+            $datos['modalidad_ciudad'] = $impresa['modalidad_ciudad'];
         }
 
         // Plantilla.

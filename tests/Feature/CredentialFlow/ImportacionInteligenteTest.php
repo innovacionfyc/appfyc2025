@@ -10,6 +10,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\Importacion\ServicioImportaciones;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Portal\NombreConservador;
@@ -616,7 +617,7 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $p = $lote->participantes()->first();
         $r = $this->actingAs($this->admin())->get(route('credential-flow.participantes.pdf', [$lote, $p]))->assertOk();
         $textos = array_column((new InspectorPdf($r->getContent()))->textos(), 'texto');
-        $this->assertContains(X::MODALIDAD, $textos);
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $textos, 'el dato aprobado se guarda literal; una modalidad virtual se imprime con la redacción oficial');
     }
 
     public function test_si_la_plantilla_imprime_un_dato_que_el_excel_no_trae_se_bloquea(): void

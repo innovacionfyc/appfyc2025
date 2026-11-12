@@ -8,6 +8,7 @@ use App\Models\CredentialFlow\Importacion;
 use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Http\UploadedFile;
@@ -188,7 +189,7 @@ class ImportadorFase2Test extends EmisionesTestCase
         $this->actingAs($this->admin())->postJson(route('credential-flow.lotes.emitir', $lote))->assertCreated()->assertJsonPath('resultado.total', 39)->assertJsonPath('qa.total', 16);
         $virtual = Emision::where('participante_id', $reales->firstWhere('fila_origen', 9)->id)->firstOrFail();
         $textos = array_column((new InspectorPdf($this->actingAs($this->admin())->get(route('credential-flow.emisiones.descargar', $virtual))->getContent()))->textos(), 'texto');
-        $this->assertContains('Virtual', $textos);
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $textos, 'participación virtual: redacción oficial');
         $this->assertContains('C.C. 52.000.009', $textos);
         $this->assertContains('22 y 23 de octubre de 2026', $textos);
     }

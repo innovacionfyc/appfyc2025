@@ -9,6 +9,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Plantilla;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Generacion\RedaccionFecha;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use App\Support\CredentialFlow\Qa\ServicioQa;
@@ -154,14 +155,15 @@ class Fase3FechasQaTest extends EmisionesTestCase
         foreach (['Presencial', 'Virtual'] as $m) {
             $oficial = $this->textos($this->emisionDe($lote, $m, false));
             $this->assertContains('realizado los días 22 y 23 de octubre de 2026', $oficial, "oficial {$m}");
-            $this->assertContains($m, $oficial);
+            $impresa = $m === 'Virtual' ? ModalidadImpresa::VIRTUAL : $m;
+            $this->assertContains($impresa, $oficial);
             $this->assertNotContains(self::ADVERTENCIA, $oficial);
 
             $qa = $this->emisionDe($lote, $m, true);
             $this->assertSame($v->id, $qa->plantilla_id, 'la prueba sale con la variante de SU plantilla');
             $this->assertContains('realizado los días 22 y 23 de octubre de 2026', $this->textos($qa), "QA {$m}: misma regla que el oficial");
             $this->assertContains(self::ADVERTENCIA, $this->textos($qa));
-            $this->assertContains($m, $this->textos($qa));
+            $this->assertContains($impresa, $this->textos($qa));
         }
         $this->assertSame($disenoAntes, $p->fresh()->diseno, 'el diseño de la plantilla no se modifica');
         $this->assertSame('realizado el día ', collect($v->fresh()->diseno['elements'])->firstWhere('field', 'fecha')['prefix'], 'ni el de la variante');

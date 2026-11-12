@@ -10,6 +10,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Support\CredentialFlow\Emisiones\DatosRequeridos;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -219,7 +220,7 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $campos = collect($v['campos'])->keyBy('clave');
         $this->assertSame('PERSONA 01 PRUEBA', $campos['nombre_completo']['valor']);
         $this->assertSame('1000001', $campos['documento']['valor'], 'sin tipo confirmado no se supone C.C.');
-        $this->assertSame(X::MODALIDAD, $campos['modalidad']['valor'], 'modalidad literal');
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $campos['modalidad']['valor'], 'modalidad virtual: redacción oficial');
         $this->assertSame('16 de octubre de 2026', $campos['fecha']['valor']);
         $this->assertNull($campos['ciudad']['valor']);
         $this->assertNull($campos['nombre_completo']['se_imprime'], 'sin plantilla no se sabe qué imprime');
@@ -279,15 +280,15 @@ class ImportacionAsistenteTest extends EmisionesTestCase
         $id = $this->analizar();
         $this->decidir($id, ['plantilla_id' => $plantilla->id, 'participantes' => ['15' => ['tipo_documento' => 'cc']], 'datos_comunes' => ['modalidad' => 'Virtual sincrónico', 'ciudad' => 'Cali']]);
 
-        $this->assertContains('Virtual sincrónico, Cali', $this->textos($this->pdfVista($id, 15)->assertOk()));
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $this->textos($this->pdfVista($id, 15)->assertOk()), 'virtual: redacción oficial sin ciudad');
         $campo = collect($this->vista($id, 15)->assertOk()->json('vista_previa.campos'))->firstWhere('clave', 'modalidad_ciudad');
-        $this->assertSame(['Virtual sincrónico, Cali', true, false], [$campo['valor'], $campo['se_imprime'], $campo['falta']]);
+        $this->assertSame([ModalidadImpresa::VIRTUAL, true, false], [$campo['valor'], $campo['se_imprime'], $campo['falta']]);
 
         // Sin ciudad: solo la modalidad, sin coma sobrante.
         $this->decidir($id, ['plantilla_id' => $plantilla->id, 'participantes' => ['15' => ['tipo_documento' => 'cc']], 'datos_comunes' => ['modalidad' => 'Virtual sincrónico', 'ciudad' => null]]);
         $textos = $this->textos($this->pdfVista($id, 15)->assertOk());
-        $this->assertContains('Virtual sincrónico', $textos);
-        $this->assertEmpty(array_filter($textos, fn ($t) => str_contains($t, 'sincrónico,')));
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $textos);
+        $this->assertEmpty(array_filter($textos, fn ($t) => str_contains($t, 'sincrónico,') || str_contains($t, 'Remoto,')));
     }
 
     public function test_con_modalidad_y_ciudad_el_borrador_no_se_confirma_sin_ciudad(): void

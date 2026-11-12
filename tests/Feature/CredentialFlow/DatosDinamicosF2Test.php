@@ -15,6 +15,7 @@ use App\Support\CredentialFlow\Generacion\DatosCredencial;
 use App\Support\CredentialFlow\Generacion\GeneracionCredencialException as E;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\ValidadorDatosComunes;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\CredentialFlow\Support\InspectorPdf;
@@ -147,7 +148,7 @@ class DatosDinamicosF2Test extends EmisionesTestCase
 
         $datos = DatosDeParticipante::para($p, $lote)->todos();
 
-        $this->assertSame(self::MODALIDAD, $datos['modalidad']);
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $datos['modalidad'], 'participación virtual: redacción oficial (el dato de la base no cambia)');
         $this->assertSame(self::TEXTO, $datos['texto_certificacion']);
         $this->assertArrayNotHasKey('ciudad', $datos, 'un dato vacío no se entrega');
         $this->assertArrayNotHasKey('texto_complementario', $datos);
@@ -195,7 +196,7 @@ class DatosDinamicosF2Test extends EmisionesTestCase
         [, $hash] = SnapshotCredencial::cargarPlantilla($nueva);
         $s = SnapshotCredencial::capturar($lote->participantes()->first(), $lote, $nueva, $hash);
 
-        $this->assertSame(self::MODALIDAD, $s->datos['modalidad']);
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $s->datos['modalidad']);
         $this->assertSame(self::TEXTO, $s->datos['texto_certificacion']);
         $this->assertArrayNotHasKey('ciudad', $s->datos, 'la base tiene ciudad pero este diseño no la imprime');
         $this->assertArrayNotHasKey('texto_complementario', $s->datos);
@@ -277,10 +278,10 @@ class DatosDinamicosF2Test extends EmisionesTestCase
 
         $emision = Emision::where('lote_id', $lote->id)->firstOrFail();
         $textos = $this->textosDelPdf($emision);
-        $this->assertContains(self::MODALIDAD, $textos, 'la modalidad confirmada se imprime tal cual');
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $textos, 'una modalidad virtual se imprime con la redacción oficial');
         $this->assertContains('Se certifica la asistencia al módulo.', $textos);
         $this->assertContains('La intensidad horaria fue de cinco horas.', $textos);
-        $this->assertSame(self::MODALIDAD, $emision->datos_snapshot['modalidad']);
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $emision->datos_snapshot['modalidad']);
     }
 
     public function test_la_vista_previa_del_participante_usa_los_datos_de_la_base(): void

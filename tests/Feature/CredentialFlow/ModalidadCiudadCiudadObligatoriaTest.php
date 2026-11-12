@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Emisiones\EmisionException;
 use App\Support\CredentialFlow\Emisiones\EmisorCredencial;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\ReemisorBase;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -151,7 +152,7 @@ class ModalidadCiudadCiudadObligatoriaTest extends ProgramacionTestCase
         $lote = $this->baseCiudad($this->plantilla(), 'Bogotá');
         app(EmisorLote::class)->emitirTodo($lote, $this->admin()->id);
         $lineas = Emision::query()->where('lote_id', $lote->id)->get()->map(fn (Emision $e) => $e->datos_snapshot['modalidad_ciudad'])->countBy()->sortKeys()->all();
-        $this->assertSame(['Presencial, Bogotá' => 3, 'Virtual, Bogotá' => 3], $lineas, '1 oficial + 2 QA por modalidad');
+        $this->assertSame(['Presencial, Bogotá' => 3, ModalidadImpresa::VIRTUAL => 3], $lineas, '1 oficial + 2 QA por modalidad; la virtual sin ciudad');
     }
 
     // ── D. Emisión, reemisión y QA individuales ───────────────────────────────

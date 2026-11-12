@@ -29,6 +29,7 @@ class CredentialFlowBaseReemitir extends Command
         {--motivo= : Por qué se reemite (10 a 500 caracteres; queda en cada versión reemplazada)}
         {--usuario= : Id del administrador que autoriza (rol super-admin o admin)}
         {--plan= : Huella que mostró la simulación (obligatoria para ejecutar)}
+        {--solo-virtuales : Solo las participaciones VIRTUALES desactualizadas que aún no imprimen «Virtual -Sincrónico y Remoto» (nunca presenciales ni híbridas)}
         {--ejecutar : Reemite de verdad (sin esta opción solo simula)}';
 
     protected $description = 'Reemite en masa, con autorización, los certificados vigentes desactualizados de una base; por defecto solo simula';
@@ -48,7 +49,8 @@ class CredentialFlowBaseReemitir extends Command
             return self::FAILURE;
         }
 
-        $planes = $this->simular($reemisor, $lote, $grupos);
+        $seleccion = $this->option('solo-virtuales') ? ReemisorBase::SOLO_VIRTUALES : null;
+        $planes = $this->simular($reemisor, $lote, $grupos, $seleccion);
         $huella = self::huella($planes);
         $bloqueados = array_filter($planes, fn (array $p) => $p['bloqueo'] !== null);
         $total = array_sum(array_column($planes, 'a_reemitir'));
@@ -77,9 +79,9 @@ class CredentialFlowBaseReemitir extends Command
         try {
             $usuario = AdministradorAutorizado::exigir($this->option('usuario'));
 
-            return AdministradorAutorizado::corregir($usuario, $lote->id, function () use ($reemisor, $lote, $grupos, $usuario) {
+            return AdministradorAutorizado::corregir($usuario, $lote->id, function () use ($reemisor, $lote, $grupos, $usuario, $seleccion) {
                 // Con la base reservada se vuelve a planear TODO: si algo cambió desde la simulación (u otro administrador actuó), no se reemite nada.
-                $planes = array_map(fn (string $g) => $reemisor->planear($lote->fresh(), $g), $grupos);
+                $planes = array_map(fn (string $g) => $reemisor->planear($lote->fresh(), $g, $seleccion), $grupos);
                 if (! hash_equals(self::huella($planes), (string) $this->option('plan'))) {
                     throw new EmisionException(EmisionException::PLAN_DESACTUALIZADO, 'Los certificados, la base o la plantilla cambiaron desde la simulación. No se reemitió nada: vuelve a simular.', 409);
                 }
@@ -100,7 +102,7 @@ class CredentialFlowBaseReemitir extends Command
                         continue;
                     }
                     try {
-                        $r = $reemisor->reemitir($lote->fresh(), $p['grupo'], $p['huella'], (string) $this->option('motivo'), $usuario->id);
+                        $r = $reemisor->reemitir($lote->fresh(), $p['grupo'], $p['huella'], (string) $this->option('motivo'), $usuario->id, $seleccion);
                     } catch (Throwable $e) {
                         if ($hechos === 0) {
                             throw $e;   // no se reemitió nada en ningún grupo: es un error, no un resultado parcial
@@ -147,17 +149,21 @@ class CredentialFlowBaseReemitir extends Command
      * @param  array<int,string>  $grupos
      * @return array<int,array<string,mixed>>
      */
-    private function simular(ReemisorBase $reemisor, Lote $lote, array $grupos): array
+    private function simular(ReemisorBase $reemisor, Lote $lote, array $grupos, ?string $seleccion = null): array
     {
-        $this->line(($this->option('ejecutar') ? 'PLAN' : 'SIMULACIÓN (no se escribió nada)').": base #{$lote->id} «{$lote->nombre}»");
+        $this->line(($this->option('ejecutar') ? 'PLAN' : 'SIMULACIÓN (no se escribió nada)').": base #{$lote->id} «{$lote->nombre}»"
+            .($seleccion === ReemisorBase::SOLO_VIRTUALES ? ' · SOLO VIRTUALES (nunca presenciales ni híbridas)' : ''));
         $planes = [];
         foreach ($grupos as $g) {
-            $p = $reemisor->planear($lote, $g);
+            $p = $reemisor->planear($lote, $g, $seleccion);
             $planes[] = $p;
             $motivos = implode(', ', array_map(fn ($k, $v) => "{$k} {$v}", array_keys($p['motivos']), $p['motivos']));
             $this->line(sprintf('  %-9s plantilla %s · vigentes %d · desactualizados %d (%s) · a reemitir ahora %d%s', strtoupper($g),
                 $p['plantilla'] ? "#{$p['plantilla']['id']} «{$p['plantilla']['nombre']}»" : 'NINGUNA', $p['vigentes'], $p['desactualizadas'], $motivos, $p['a_reemitir'],
                 $p['desactualizadas'] > $p['a_reemitir'] ? ' (límite '.ReemisorBase::LIMITE.' por operación: repetir después)' : ''));
+            if (isset($p['excluidas'])) {
+                $this->line("    fuera de la selección: {$p['excluidas']['presenciales']} no virtuales (presenciales/híbridas) · {$p['excluidas']['ya_correctas']} virtuales que ya imprimen la redacción oficial");
+            }
             if ($p['bloqueo'] !== null) {
                 $this->error("    Bloqueo {$p['bloqueo']['code']}: {$p['bloqueo']['message']}");
                 $this->detalles($p['bloqueo']['detalles']);
