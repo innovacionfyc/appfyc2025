@@ -5,6 +5,7 @@ namespace App\Support\CredentialFlow\Generacion;
 use App\Support\CredentialFlow\CamposDinamicos;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\FuentesCredential;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 
 /**
  * Convierte el diseño guardado + los datos en un plan de dibujo validado. No sabe nada de TCPDF.
@@ -81,8 +82,11 @@ final class PlanificadorTexto
         if ($campo === 'fecha') {
             $prefijo = RedaccionFecha::prefijo($prefijo, $datos->valor('fecha'));
         }
+        // La redacción oficial de la modalidad virtual se imprime exacta: sin el prefijo ni el sufijo (p. ej. «, Bogotá») del elemento. Solo con el valor
+        // oficial exacto, así que los datos congelados anteriores («Virtual», «Virtual, Bogotá»…) se dibujan igual que cuando se emitieron.
+        $sinAfijos = $dinamico && ModalidadImpresa::sinAfijos((string) $campo, $datos->valor((string) $campo));
         $contenido = $dinamico
-            ? $prefijo.$datos->valor((string) $campo).(string) ($el['suffix'] ?? '')
+            ? ($sinAfijos ? $datos->valor((string) $campo) : $prefijo.$datos->valor((string) $campo).(string) ($el['suffix'] ?? ''))
             : (string) ($el['text'] ?? '');
         if ($multilinea) {
             $nfc = \Normalizer::normalize($contenido, \Normalizer::FORM_C);

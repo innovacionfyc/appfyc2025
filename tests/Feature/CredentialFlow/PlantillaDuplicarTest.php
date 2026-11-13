@@ -8,6 +8,7 @@ use App\Models\Movimiento;
 use App\Support\CredentialFlow\DisenoSchema;
 use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\CredentialFlow\Support\InspectorPdf;
@@ -171,7 +172,7 @@ class PlantillaDuplicarTest extends EmisionesTestCase
         $copia = $copia->fresh();
         $this->assertContains('modalidad', DisenoSchema::camposUsados($copia->diseno));
         $textos = array_column((new InspectorPdf(GeneradorCredencialPdf::generar($copia, $datos)))->textos(), 'texto');
-        $this->assertContains('Virtual-Sincrónico y Remoto', $textos);
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $textos);
         $this->assertNotContains('Modalidad virtual', $textos, 'el texto fijo ya no se repite junto al valor dinámico');
         $this->assertSame($estadoOrigen, $this->estado($origen), 'el diseño del original sigue intacto');
     }

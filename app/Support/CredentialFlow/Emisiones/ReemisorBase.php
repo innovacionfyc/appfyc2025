@@ -12,6 +12,7 @@ use App\Support\CredentialFlow\Generacion\GeneradorCredencialPdf;
 use App\Support\CredentialFlow\Generacion\PlanificadorQr;
 use App\Support\CredentialFlow\Generacion\PlanificadorTexto;
 use App\Support\CredentialFlow\LogSeguro;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Plantillas\ArchivoPlantillas;
 use App\Support\CredentialFlow\Programacion\CandadoProgramacion;
 use App\Support\CredentialFlow\Qa\ServicioQa;
@@ -50,6 +51,12 @@ final class ReemisorBase
 
     public const MOTIVO_MAX = 500;
 
+    /**
+     * Selección opcional: reemitir SOLO las participaciones VIRTUALES desactualizadas (modalidad efectiva de cada una, ModalidadImpresa) cuyo certificado aún
+     * no imprime la redacción oficial. Nunca toma presenciales ni híbridas. Sin selección (null) todo funciona exactamente como siempre (misma huella).
+     */
+    public const SOLO_VIRTUALES = 'virtuales';
+
     public function __construct(private readonly ServicioVistaPrevia $vistaPrevia, private readonly ServicioQa $qa) {}
 
     /**
@@ -57,11 +64,14 @@ final class ReemisorBase
      * pendiente, variante QA faltante, datos o PDF que no se pueden generar, PDF anteriores dañados…).
      *
      * @return array{grupo:string, plantilla:?array{id:int, nombre:string}, vigentes:int, desactualizadas:int, a_reemitir:int, motivos:array<string,int>,
-     *               emisiones:array<int,int>, bloqueo:?array{code:string, message:string, detalles:array<int,array<string,mixed>>}, huella:string}
+     *               emisiones:array<int,int>, bloqueo:?array{code:string, message:string, detalles:array<int,array<string,mixed>>}, huella:string,
+     *               excluidas?:array{presenciales:int, ya_correctas:int}}
      */
-    public function planear(Lote $lote, string $grupo): array
+    public function planear(Lote $lote, string $grupo, ?string $seleccion = null): array
     {
         $this->exigirGrupo($grupo);
+        $this->exigirSeleccion($seleccion);
+        $excluidas = ['presenciales' => 0, 'ya_correctas' => 0];
         $plantilla = $this->plantillaDe($lote, $grupo);
         $vigentes = $this->vigentes($lote, $grupo);
 
@@ -73,6 +83,11 @@ final class ReemisorBase
                 [, $hashBase] = SnapshotCredencial::cargarPlantilla($plantilla);
                 foreach ($vigentes as $emision) {
                     $razones = $this->razones($emision, $lote, $plantilla, $hashBase);
+                    if ($razones !== [] && $seleccion === self::SOLO_VIRTUALES && ($fuera = $this->fueraDeSeleccion($emision, $lote)) !== null) {
+                        $excluidas[$fuera]++;
+
+                        continue;
+                    }
                     foreach ($razones as $r) {
                         $motivos[$r]++;
                     }
@@ -96,7 +111,7 @@ final class ReemisorBase
 
         $ids = array_map(fn (Emision $e) => $e->id, $aReemitir);
 
-        return [
+        $plan = [
             'grupo' => $grupo,
             'plantilla' => $plantilla === null ? null : ['id' => $plantilla->id, 'nombre' => (string) $plantilla->nombre],
             'vigentes' => $vigentes->count(),
@@ -106,11 +121,19 @@ final class ReemisorBase
             'emisiones' => $ids,
             'bloqueo' => $bloqueo,
             // Lo que el administrador revisó: base y su plantilla, plantilla del grupo (diseño + PDF base) y CADA certificado a reemplazar (id + huella de su PDF).
+            // Con selección, la huella también la incluye (una simulación sin selección no sirve para ejecutar la selectiva, ni al revés); sin ella, es la de siempre.
             'huella' => hash('sha256', json_encode([
                 $lote->id, (int) $lote->plantilla_id, $grupo, $plantilla?->id, $plantilla && ServicioVistaPrevia::plantillaValida($plantilla) ? ServicioVistaPrevia::huella($plantilla) : null,
                 array_map(fn (Emision $e) => [$e->id, $e->pdf_hash], $aReemitir),
+                ...($seleccion === null ? [] : [['seleccion' => $seleccion]]),
             ], JSON_THROW_ON_ERROR)),
         ];
+        if ($seleccion !== null) {
+            // Cuántas desactualizadas quedaron fuera: no virtuales (presenciales/híbridas) y virtuales que ya imprimen la redacción oficial.
+            $plan['excluidas'] = $excluidas;
+        }
+
+        return $plan;
     }
 
     /**
@@ -121,10 +144,10 @@ final class ReemisorBase
      *
      * @throws EmisionException|GeneracionCredencialException
      */
-    public function reemitir(Lote $lote, string $grupo, string $huellaSimulada, string $motivo, ?int $usuarioId): array
+    public function reemitir(Lote $lote, string $grupo, string $huellaSimulada, string $motivo, ?int $usuarioId, ?string $seleccion = null): array
     {
         $motivo = $this->exigirMotivo($motivo);
-        $plan = $this->planear($lote, $grupo);
+        $plan = $this->planear($lote, $grupo, $seleccion);
         if (! hash_equals($plan['huella'], $huellaSimulada)) {
             throw $this->planCambio();
         }
@@ -266,7 +289,7 @@ final class ReemisorBase
             'operacion' => $operacion,
             'total' => count($reemplazos),
             'reemplazos' => $reemplazos,
-            'restantes' => $this->planear($lote->fresh(), $grupo)['desactualizadas'],
+            'restantes' => $this->planear($lote->fresh(), $grupo, $seleccion)['desactualizadas'],
             'integridad' => $integridad,
         ];
     }
@@ -391,6 +414,28 @@ final class ReemisorBase
         }
 
         return [$base, $snapshots];
+    }
+
+    private function exigirSeleccion(?string $seleccion): void
+    {
+        if ($seleccion !== null && $seleccion !== self::SOLO_VIRTUALES) {
+            throw new EmisionException('SELECCION_INVALIDA', 'La selección de la reemisión debe ser «virtuales» o ninguna.', 422);
+        }
+    }
+
+    /**
+     * Por qué una emisión desactualizada NO entra en la reemisión «solo virtuales» (null = sí entra): «presenciales» si la modalidad efectiva de su
+     * participación (la propia o, si no tiene, la general de la base) no es virtual; «ya_correctas» si su certificado ya imprime la redacción oficial.
+     */
+    private function fueraDeSeleccion(Emision $emision, Lote $lote): ?string
+    {
+        $p = Participante::withTrashed()->find($emision->participante_id);
+        $propia = trim((string) ($p?->modalidad ?? ''));
+        if (! ModalidadImpresa::esVirtual($propia !== '' ? $propia : (string) (($lote->datos_comunes ?? [])['modalidad'] ?? ''))) {
+            return 'presenciales';
+        }
+
+        return ModalidadImpresa::imprimeOficial((array) $emision->diseno_snapshot, (array) $emision->datos_snapshot) ? 'ya_correctas' : null;
     }
 
     private function exigirGrupo(string $grupo): void

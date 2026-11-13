@@ -16,6 +16,7 @@ use App\Support\CredentialFlow\Eventos\ServicioEventos;
 use App\Support\CredentialFlow\Participantes\DobleModalidad;
 use App\Support\CredentialFlow\Participantes\ErrorFila;
 use App\Support\CredentialFlow\Participantes\ImportadorParticipantes;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Portal\NombreConservador;
 use App\Support\CredentialFlow\Programacion\ServicioProgramacion;
@@ -456,10 +457,10 @@ class DobleModalidadTest extends EmisionesTestCase
         $this->assertNotSame($ep->codigo, $ev->codigo);
         $this->assertNotSame($ep->pdf_archivo, $ev->pdf_archivo);
         $this->assertSame(DB::table('cf_emisiones')->count(), DB::table('cf_emisiones')->distinct()->count('codigo'));
-        $this->assertSame(['Presencial', 'Virtual'], [$ep->datos_snapshot['modalidad'], $ev->datos_snapshot['modalidad']]);
+        $this->assertSame(['Presencial', ModalidadImpresa::VIRTUAL], [$ep->datos_snapshot['modalidad'], $ev->datos_snapshot['modalidad']]);
         $this->assertContains('Presencial', $this->textos($ep));
         $this->assertNotContains('Virtual', $this->textos($ep));
-        $this->assertContains('Virtual', $this->textos($ev));
+        $this->assertContains(ModalidadImpresa::VIRTUAL, $this->textos($ev));
         // Exactamente un vigente por participante.
         $this->assertSame([1, 1], [Emision::where('participante_id', $presencial->id)->where('estado', Emision::EMITIDA)->count(), Emision::where('participante_id', $virtual->id)->where('estado', Emision::EMITIDA)->count()]);
     }
@@ -608,7 +609,8 @@ class DobleModalidadTest extends EmisionesTestCase
         $tp = implode(' | ', $this->textos($presencial->emisionVigente()->firstOrFail()));
         $tv = implode(' | ', $this->textos($virtual->emisionVigente()->firstOrFail()));
         $this->assertStringContainsString('Presencial, Bogotá', $tp);
-        $this->assertStringContainsString('Virtual, Bogotá', $tv);
+        $this->assertStringContainsString(ModalidadImpresa::VIRTUAL, $tv);
+        $this->assertStringNotContainsString('Virtual, Bogotá', $tv, 'la participación virtual no lleva ciudad');
         $this->assertStringNotContainsString('Virtual', $tp);
     }
 

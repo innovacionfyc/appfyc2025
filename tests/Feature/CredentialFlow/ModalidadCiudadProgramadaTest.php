@@ -5,6 +5,7 @@ namespace Tests\Feature\CredentialFlow;
 use App\Models\CredentialFlow\Emision;
 use App\Models\CredentialFlow\EmisionProgramada;
 use App\Support\CredentialFlow\DisenoSchema;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -48,6 +49,6 @@ class ModalidadCiudadProgramadaTest extends ProgramacionTestCase
 
             return $e->datos_snapshot['modalidad_ciudad'];
         })->countBy()->sortKeys()->all();
-        $this->assertSame(['Presencial, Bogotá' => 3, 'Virtual sincrónico, Bogotá' => 3, 'Virtual, Bogotá' => 3], $lineas, '1 oficial + 2 QA por modalidad');
+        $this->assertSame(['Presencial, Bogotá' => 3, ModalidadImpresa::VIRTUAL => 6], $lineas, '1 oficial + 2 QA por modalidad; las dos grafías virtuales con la redacción oficial');
     }
 }

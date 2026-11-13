@@ -14,6 +14,7 @@ use App\Support\CredentialFlow\Emisiones\ReemisorBase;
 use App\Support\CredentialFlow\Emisiones\SnapshotCredencial;
 use App\Support\CredentialFlow\Participantes\DatosDeParticipante;
 use App\Support\CredentialFlow\Participantes\ModalidadCiudad;
+use App\Support\CredentialFlow\Participantes\ModalidadImpresa;
 use App\Support\CredentialFlow\Participantes\Texto;
 use App\Support\CredentialFlow\Qa\ServicioQa;
 use Illuminate\Support\Collection;
@@ -169,7 +170,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
         [$conCiudad, $sinCiudad] = $lote->participantes()->orderBy('id')->get()->all();
 
         $this->assertSame('Presencial, Bogotá', DatosDeParticipante::para($conCiudad, $lote)->todos()['modalidad_ciudad']);
-        $this->assertSame('Virtual, Bogotá D.C.', DatosDeParticipante::para($sinCiudad, $lote)->todos()['modalidad_ciudad']);
+        $this->assertSame(ModalidadImpresa::VIRTUAL, DatosDeParticipante::para($sinCiudad, $lote)->todos()['modalidad_ciudad'], 'virtual: sin ciudad');
         $this->assertSame(['Presencial, Bogotá', 'Virtual'], [$conCiudad->fresh()->modalidad, $sinCiudad->fresh()->modalidad], 'las modalidades del Excel no cambian');
         $this->assertSame('Bogotá D.C.', $lote->fresh()->datos_comunes['ciudad']);
     }
@@ -222,7 +223,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
         [$propia, $sin] = $lote->participantes()->orderBy('id')->get()->all();
 
         $d = DatosDeParticipante::para($propia, $lote)->todos();
-        $this->assertSame(['Virtual sincrónico', 'Cali', 'Virtual sincrónico, Cali'], [$d['modalidad'], $d['ciudad'], $d['modalidad_ciudad']]);
+        $this->assertSame([ModalidadImpresa::VIRTUAL, 'Cali', ModalidadImpresa::VIRTUAL], [$d['modalidad'], $d['ciudad'], $d['modalidad_ciudad']], 'virtual: redacción oficial sin ciudad');
         $this->assertSame('Híbrido, Cali', DatosDeParticipante::para($sin, $lote)->todos()['modalidad_ciudad'], 'sin modalidad propia usa la general');
         $this->assertSame('Virtual sincrónico', $propia->fresh()->modalidad, 'la modalidad importada no se toca');
     }
@@ -256,7 +257,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
         [, $hash] = SnapshotCredencial::cargarPlantilla($nueva);
         $s = SnapshotCredencial::capturar($lote->participantes()->first(), $lote, $nueva, $hash);
 
-        $this->assertSame('Virtual, Bogotá', $s->datos['modalidad_ciudad']);
+        $this->assertSame(ModalidadImpresa::VIRTUAL, $s->datos['modalidad_ciudad']);
         $this->assertArrayNotHasKey('modalidad', $s->datos, 'el diseño no imprime «modalidad» sola');
         $this->assertArrayNotHasKey('ciudad', $s->datos);
     }
@@ -287,7 +288,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
         $porLinea = [];
         foreach ($this->emisiones($lote, false) as $e) {
             $t = $this->textos($e);
-            $this->assertSame($e->datos_snapshot['modalidad_ciudad'], collect($t)->first(fn ($x) => str_contains($x, ', Bogotá')));
+            $this->assertContains($e->datos_snapshot['modalidad_ciudad'], $t);
             $this->assertNotContains(self::MARCADOR, $t);
             $this->assertContains('por su asistencia al', $t);
             $this->assertContains('realizado los días 5 y 6 de noviembre de 2026', $t);
@@ -296,7 +297,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
             $porLinea[$e->datos_snapshot['modalidad_ciudad']] = ($porLinea[$e->datos_snapshot['modalidad_ciudad']] ?? 0) + 1;
         }
         ksort($porLinea);
-        $this->assertSame(['Presencial, Bogotá' => 2, 'Virtual sincrónico, Bogotá' => 1, 'Virtual, Bogotá' => 1], $porLinea, 'ninguna toma «Híbrido» ni se normaliza');
+        $this->assertSame(['Presencial, Bogotá' => 2, ModalidadImpresa::VIRTUAL => 2], $porLinea, 'ninguna toma «Híbrido»; las virtuales con la redacción oficial y sin ciudad');
 
         $qa = $this->emisiones($lote, true);
         $this->assertCount(6, $qa, '2 contactos QA × 3 modalidades presentes');
@@ -304,7 +305,9 @@ class ModalidadCiudadTest extends EmisionesTestCase
             $t = $this->textos($e);
             $this->assertContains(self::MARCADOR, $t);
             $this->assertContains($e->datos_snapshot['modalidad_ciudad'], $t);
-            $this->assertStringEndsWith(', Bogotá', $e->datos_snapshot['modalidad_ciudad']);
+            if ($e->datos_snapshot['modalidad_ciudad'] !== ModalidadImpresa::VIRTUAL) {
+                $this->assertStringEndsWith(', Bogotá', $e->datos_snapshot['modalidad_ciudad']);
+            }
         }
     }
 
@@ -341,7 +344,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
         $lote = $this->base($this->plantilla(), ['modalidad' => 'Presencial', 'ciudad' => 'Medellín'], ['Virtual' => 1], false);
         $p = $lote->participantes()->first();
         $r = $this->actingAs($this->admin())->get(route('credential-flow.participantes.pdf', [$lote, $p]))->assertOk();
-        $this->assertContains('Virtual, Medellín', array_column((new InspectorPdf($r->getContent()))->textos(), 'texto'));
+        $this->assertContains(ModalidadImpresa::VIRTUAL, array_column((new InspectorPdf($r->getContent()))->textos(), 'texto'), 'virtual: redacción oficial sin ciudad');
     }
 
     // ── Reemisión ─────────────────────────────────────────────────────────────
@@ -374,7 +377,7 @@ class ModalidadCiudadTest extends EmisionesTestCase
             $this->assertSame($bytes, Storage::disk('local')->get($e->pdf_archivo), 'el PDF anterior se conserva intacto');
             $v2 = Emision::query()->where('participante_id', $e->participante_id)->where('estado', Emision::EMITIDA)->sole();
             $this->assertSame($nueva->id, $v2->plantilla_id);
-            $linea = collect($textosV1)->first(fn ($x) => str_ends_with($x, ', Bogotá'));
+            $linea = collect($textosV1)->first(fn ($x) => str_ends_with($x, ', Bogotá') || $x === ModalidadImpresa::VIRTUAL);
             $this->assertSame($linea, $v2->datos_snapshot['modalidad_ciudad'], 'la misma línea impresa, ahora compuesta por el campo dinámico');
             $this->assertContains($linea, $this->textos($v2));
         }

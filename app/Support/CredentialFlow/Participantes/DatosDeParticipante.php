@@ -37,10 +37,15 @@ final class DatosDeParticipante
         if (($modalidad = self::modalidadPropia($participante)) !== null) {
             $datos['modalidad'] = $modalidad;
         }
-        // Campo derivado «modalidad_ciudad»: la modalidad ya resuelta (la propia manda) + la ciudad de la base. Solo existe si hay modalidad; el snapshot lo
-        // descarta cuando el diseño no lo imprime (SnapshotCredencial), así que no cambia nada en las plantillas que no lo usan.
-        if (($compuesta = ModalidadCiudad::componer($datos['modalidad'] ?? null, $datos['ciudad'] ?? null)) !== null) {
-            $datos['modalidad_ciudad'] = $compuesta;
+        // Modalidad impresa (regla única, ModalidadImpresa): una participación VIRTUAL dice siempre «Virtual -Sincrónico y Remoto», sin ciudad; las demás
+        // conservan su texto. Campo derivado «modalidad_ciudad»: la modalidad ya resuelta (la propia manda) + la ciudad de la base. Solo existe si hay
+        // modalidad; el snapshot lo descarta cuando el diseño no lo imprime (SnapshotCredencial), así que no cambia nada en las plantillas que no lo usan.
+        $impresa = ModalidadImpresa::resolver($datos['modalidad'] ?? null, $datos['ciudad'] ?? null);
+        if (isset($datos['modalidad'])) {
+            $datos['modalidad'] = $impresa['modalidad'];
+        }
+        if ($impresa['modalidad_ciudad'] !== null) {
+            $datos['modalidad_ciudad'] = $impresa['modalidad_ciudad'];
         }
 
         return DatosCredencial::fromArray($datos);
