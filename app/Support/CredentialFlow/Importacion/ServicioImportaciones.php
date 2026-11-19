@@ -375,7 +375,7 @@ final class ServicioImportaciones
             $bloquear('datos_del_diseno_incompletos', 'La plantilla imprime '.implode(', ', array_map(fn ($e) => "«{$e}»", $faltan)).' y el borrador no tiene ese dato.', ['campos' => $faltan]);
         }
         if ($plantilla !== null && RedaccionFecha::requiereRevision((array) $plantilla->diseno, (string) ($finales['fecha'] ?? ''))) {
-            $bloquear('fecha_sin_dias_claros', 'No podemos saber si la fecha es de un día o de varios, y la plantilla escribe «el día» o «los días» antes de la fecha. Escríbela como «16 de octubre de 2026» o «22 y 23 de octubre de 2026».', ['campo' => 'fecha']);
+            $bloquear('fecha_sin_dias_claros', 'No podemos saber si la fecha es de un día o de varios, y la plantilla escribe «el día» o «los días» antes de la fecha. '.RedaccionFecha::COMO_ESCRIBIRLA, ['campo' => 'fecha']);
         }
         if ($plantilla !== null && $conPropia && $sinModalidad !== [] && trim((string) ($finales['modalidad'] ?? '')) === '' && in_array('modalidad', DisenoSchema::camposUsados($plantilla->diseno), true)) {
             $n = count($sinModalidad);

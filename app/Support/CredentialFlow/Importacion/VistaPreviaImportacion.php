@@ -216,7 +216,7 @@ final class VistaPreviaImportacion
             if ($clave === 'fecha' && $plantilla !== null && $valor !== null) {
                 $campo['se_lee'] = RedaccionFecha::textoImpreso((array) $plantilla->diseno, (string) $valor);
                 if (RedaccionFecha::requiereRevision((array) $plantilla->diseno, (string) $valor)) {
-                    $problemas[] = 'No podemos saber si la fecha es de un día o de varios: escríbela como «16 de octubre de 2026» o «22 y 23 de octubre de 2026».';
+                    $problemas[] = 'No podemos saber si la fecha es de un día o de varios. '.RedaccionFecha::COMO_ESCRIBIRLA;
                 }
             }
             $campos[] = $campo;
