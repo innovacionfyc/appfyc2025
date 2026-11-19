@@ -5,6 +5,9 @@ namespace App\Support\CredentialFlow\Generacion;
 /**
  * «realizado el día 16 de octubre de 2026» / «realizado los días 22 y 23 de octubre de 2026»: el singular o el plural lo decide la FECHA, no la plantilla.
  *
+ * Reconoce un día, dos días, rangos y varias sesiones no consecutivas de uno o varios meses, con el mes detrás o delante del día
+ * («Septiembre 2, 9, 16, Octubre 14 y 11 de noviembre de 2026»); la fecha escrita se imprime siempre tal cual.
+ *
  * Solo se ajusta un prefijo que TERMINA en «el día» o «los días» (con o sin «realizado», con o sin tilde, en mayúsculas o minúsculas). Cualquier otra
  * redacción (por ejemplo «Fecha: ») se respeta tal cual. La fecha nunca se modifica: si no se puede saber con certeza cuántos días nombra, el prefijo de la
  * plantilla queda como está. Si la fecha ya trae su propia redacción («los días 22 y 23…»), el prefijo no la repite.
@@ -15,6 +18,12 @@ final class RedaccionFecha
 {
     private const MESES = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre';
 
+    /** Cómo escribir una fecha que se pueda leer con certeza (mensaje del asistente cuando no se reconoce). */
+    public const COMO_ESCRIBIRLA = 'Escríbela con el año, por ejemplo «16 de octubre de 2026», «22 y 23 de octubre de 2026», «16 al 18 de octubre de 2026» o, si son varias sesiones, «2, 9 y 16 de septiembre, 14 de octubre y 11 de noviembre de 2026». Revisa también que cada día exista y no se repita.';
+
+    private const NUMERO_MES = ['enero' => 1, 'febrero' => 2, 'marzo' => 3, 'abril' => 4, 'mayo' => 5, 'junio' => 6, 'julio' => 7, 'agosto' => 8,
+        'septiembre' => 9, 'setiembre' => 9, 'octubre' => 10, 'noviembre' => 11, 'diciembre' => 12];
+
     /** «el día» / «los días» al final del prefijo (grupo 1), con el espacio que lo separa de la fecha (grupo 2). */
     private const FINAL_DEL_PREFIJO = '/\b(el\s+d[ií]a|los\s+d[ií]as)(\s*)$/iu';
 
@@ -24,7 +33,8 @@ final class RedaccionFecha
     /**
      * Cuántos días nombra la fecha, o null si no se puede saber con certeza (formato no reconocido). Reconoce lo que escribe el importador y sus
      * variantes habituales: «16 de octubre de 2026», «22 y 23 de octubre de 2026», «1, 2 y 3 de octubre de 2026»,
-     * «30 de septiembre de 2026 y 1 de octubre de 2026», «30 de septiembre y 1 de octubre de 2026» y rangos «16 al 18 de octubre de 2026».
+     * «30 de septiembre de 2026 y 1 de octubre de 2026», «30 de septiembre y 1 de octubre de 2026», rangos «16 al 18 de octubre de 2026» y
+     * varias sesiones no consecutivas de uno o varios meses, con el mes detrás o delante del día (ver sesiones()).
      */
     public static function dias(string $fecha): ?int
     {
@@ -39,22 +49,126 @@ final class RedaccionFecha
             return $desde >= 1 && $hasta <= 31 && $hasta > $desde ? $hasta - $desde + 1 : null;
         }
 
-        // Uno o varios grupos «días de mes [de año]» separados por «,» o «y»; el último lleva el año.
-        $dias = '\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})*';
-        $grupo = $dias.'\s+de\s+(?:'.$mes.')';
-        if (preg_match('/^'.$grupo.'(?:\s+(?:de|del)\s+\d{4})?(?:\s*(?:,|y)\s*'.$grupo.'(?:\s+(?:de|del)\s+\d{4})?)*$/u', $t) !== 1
-            || preg_match('/(?:de|del)\s+\d{4}$/u', $t) !== 1) {
-            return null;
+        $sesiones = self::sesiones($fecha);
+
+        return $sesiones === null ? null : count($sesiones);
+    }
+
+    /**
+     * Fechas reales (año, mes, día) que nombra un texto de una o varias sesiones, en orden de escritura; null si no se pueden saber con certeza.
+     * Admite grupos «2, 9 y 16 de septiembre» (día delante) y «Septiembre 2, 9, 16» (mes delante), combinados con «,» o «y», con el año al final
+     * de un grupo o del texto («… 14 de octubre y 11 de noviembre de 2026»). En «Octubre 14 y 11 de noviembre» (la única lectura posible) el 14
+     * es de octubre y el 11 de noviembre; si hay más de una lectura («Octubre 14, 15 y 16 de noviembre») no se elige ninguna.
+     * Devuelve null (nunca adivina) si falta el año, si un grupo no tiene días, si hay
+     * palabras o signos desconocidos («/», paréntesis, «por confirmar»…), si un día no existe en su mes o si una sesión se repite.
+     *
+     * @return list<array{0:int,1:int,2:int}>|null
+     */
+    public static function sesiones(string $fecha): ?array
+    {
+        $t = self::normalizar($fecha);
+        $meses = self::NUMERO_MES;
+        $numMes = fn (string $w) => $meses[$w];
+        if ($t === '' || preg_match_all('/\d+|[a-z]+|,/u', $t, $m) === false || trim((string) preg_replace('/\d+|[a-z]+|,/u', '', $t)) !== '') {
+            return null;   // signos que no forman parte de una fecha escrita («/», «(», «-»…)
         }
-        $sinAnios = preg_replace('/\b\d{4}\b/u', '', $t) ?? $t;
-        preg_match_all('/\b\d{1,2}\b/u', $sinAnios, $numeros);
-        foreach ($numeros[0] as $n) {
-            if ((int) $n < 1 || (int) $n > 31) {
+        $tok = $m[0];
+        $grupos = [];        // [mes, [días], año|null]
+        $pendientes = [];    // días leídos que aún no tienen mes
+        $abierto = null;     // índice del grupo «Mes d, d…» que todavía admite días
+        $sep = true;         // ¿se puede leer un día ahora? (al inicio, tras «,» / «y» o justo después del mes)
+        for ($i = 0, $n = count($tok); $i < $n; $i++) {
+            $w = $tok[$i];
+            if (preg_match('/^\d{1,2}$/', $w) === 1) {
+                if (! $sep) {
+                    return null;
+                }
+                $pendientes[] = (int) $w;
+                $sep = false;
+            } elseif ($w === ',' || $w === 'y') {
+                if ($sep) {
+                    return null;   // separador sin un día, mes o año delante («, 2…», «2, , 9»)
+                }
+                $sep = true;
+            } elseif (isset($meses[$w])) {
+                // «Mes d, d…» (mes delante): los días pendientes eran del grupo abierto anterior.
+                if (! $sep) {
+                    return null;   // «… 16 Octubre» o «… de 2026 Octubre»: falta «,» o «y» entre los grupos
+                }
+                if ($pendientes !== []) {
+                    if ($abierto === null) {
+                        return null;
+                    }
+                    array_push($grupos[$abierto][1], ...$pendientes);
+                    $pendientes = [];
+                }
+                $grupos[] = [$numMes($w), [], null];
+                $abierto = count($grupos) - 1;
+                $sep = true;
+                if (! isset($tok[$i + 1]) || preg_match('/^\d{1,2}$/', $tok[$i + 1]) !== 1) {
+                    return null;   // «Septiembre y octubre», «Octubre de 2026»: un mes sin días
+                }
+            } elseif ($w === 'de' || $w === 'del') {
+                $sig = $tok[$i + 1] ?? '';
+                if (isset($meses[$sig])) {
+                    // «… d y d de mes» (mes detrás). Con un grupo «Mes d…» abierto, solo el último día pendiente es del mes que sigue.
+                    if ($pendientes === [] || $w === 'del') {
+                        return null;
+                    }
+                    if ($abierto !== null) {
+                        // Solo hay UNA lectura razonable con exactamente dos días («Octubre 14 y 11 de noviembre»: uno de cada mes). Con uno, el
+                        // primer mes queda sin días; con tres o más («Octubre 14, 15 y 16 de noviembre») hay varias: se pide revisar.
+                        if (count($pendientes) !== 2) {
+                            return null;
+                        }
+                        $ultimo = array_pop($pendientes);
+                        array_push($grupos[$abierto][1], ...$pendientes);
+                        $pendientes = [$ultimo];
+                    }
+                    $grupos[] = [$numMes($sig), $pendientes, null];
+                    $pendientes = [];
+                    $abierto = null;
+                    $i++;
+                    $sep = false;
+                } elseif (preg_match('/^\d{4}$/', $sig) === 1) {
+                    // «… de 2026»: el año es de todos los grupos anteriores que aún no lo tienen.
+                    if ($pendientes !== []) {
+                        if ($abierto === null) {
+                            return null;
+                        }
+                        array_push($grupos[$abierto][1], ...$pendientes);
+                        $pendientes = [];
+                    }
+                    foreach ($grupos as $g => $grupo) {
+                        $grupos[$g][2] ??= (int) $sig;
+                    }
+                    $abierto = null;
+                    $i++;
+                    $sep = false;
+                } else {
+                    return null;
+                }
+            } else {
+                return null;   // número de 3+ cifras sin «de», o palabra que no es de una fecha
+            }
+        }
+        if ($pendientes !== [] || $grupos === [] || preg_match('/^\d{4}$/', (string) end($tok)) !== 1) {
+            return null;   // días sin mes o texto que no termina en el año
+        }
+        $fechas = [];
+        foreach ($grupos as [$mesN, $dias, $anio]) {
+            if ($dias === [] || $anio === null) {
                 return null;
+            }
+            foreach ($dias as $d) {
+                if (! checkdate($mesN, $d, $anio)) {
+                    return null;
+                }
+                $fechas[] = [$anio, $mesN, $d];
             }
         }
 
-        return count($numeros[0]) >= 1 ? count($numeros[0]) : null;
+        return count(array_unique(array_map('serialize', $fechas))) === count($fechas) ? $fechas : null;
     }
 
     /** ¿El prefijo termina en «el día» / «los días»? Solo entonces la redacción depende de la fecha. */

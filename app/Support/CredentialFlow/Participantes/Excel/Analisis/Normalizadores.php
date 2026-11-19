@@ -3,6 +3,7 @@
 namespace App\Support\CredentialFlow\Participantes\Excel\Analisis;
 
 use App\Models\CredentialFlow\Correo;
+use App\Support\CredentialFlow\Generacion\RedaccionFecha;
 use App\Support\CredentialFlow\Participantes\Excel\CeldaLeida;
 use App\Support\CredentialFlow\Participantes\Texto;
 
@@ -446,6 +447,14 @@ final class Normalizadores
 
             return [$fechas, $motivos];
         }
+        // Varias sesiones de meses distintos, con el mes delante o detrás («Septiembre 2, 9, 16, Octubre 14 y 11 de noviembre de 2026»): las lee la
+        // misma regla que decide «el día» / «los días». Si no se puede saber con certeza, no se propone ninguna fecha (nunca una inventada).
+        if (preg_match_all('/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/u', $n, $mm) > 0
+            && count(array_unique(str_replace('setiembre', 'septiembre', $mm[1]))) > 1) {
+            $sesiones = RedaccionFecha::sesiones($t);
+
+            return $sesiones === null ? [[], ['varias_sesiones_no_reconocidas']] : [$sesiones, $motivos];
+        }
         // 16 y 17 de octubre de 2026 / 16, 17 y 18 de octubre / 16 al 18 de octubre de 2026
         if (preg_match('/\b(\d{1,2}(?:\s*(?:,|y|e|al|a|-)\s*\d{1,2})+)\s+de\s+('.$mes.')\.?(?:\s+(?:de|del)?\s*(\d{4}))?/u', $n, $m) === 1) {
             preg_match_all('/\d{1,2}/', $m[1], $dias);
@@ -511,6 +520,25 @@ final class Normalizadores
             return implode(', ', $dias).' y '.$ultimo.' de '.self::MESES_TEXTO[$fechas[0][1]].' de '.$fechas[0][0];
         }
 
-        return implode(' y ', $partes);
+        // Varios meses con un día cada uno: como siempre («30 de septiembre de 2026 y 1 de octubre de 2026»). Si algún mes tiene varias sesiones, un
+        // grupo por mes y el año una sola vez por año («2, 9 y 16 de septiembre, 14 de octubre y 11 de noviembre de 2026»).
+        $grupos = [];
+        foreach ($fechas as [$a, $m, $d]) {
+            $grupos[$a.'-'.$m] ??= ['a' => $a, 'm' => $m, 'd' => []];
+            $grupos["{$a}-{$m}"]['d'][] = (string) $d;
+        }
+        $grupos = array_values($grupos);
+        if (count($grupos) === count($fechas)) {
+            return implode(' y ', $partes);
+        }
+        $textos = [];
+        foreach ($grupos as $i => $g) {
+            $ultimo = array_pop($g['d']);
+            $textos[] = ($g['d'] === [] ? $ultimo : implode(', ', $g['d']).' y '.$ultimo).' de '.self::MESES_TEXTO[$g['m']]
+                .(! isset($grupos[$i + 1]) || $grupos[$i + 1]['a'] !== $g['a'] ? ' de '.$g['a'] : '');
+        }
+        $ultimo = array_pop($textos);
+
+        return implode(', ', $textos).' y '.$ultimo;
     }
 }
