@@ -57,8 +57,9 @@ final class RedaccionFecha
     /**
      * Fechas reales (año, mes, día) que nombra un texto de una o varias sesiones, en orden de escritura; null si no se pueden saber con certeza.
      * Admite grupos «2, 9 y 16 de septiembre» (día delante) y «Septiembre 2, 9, 16» (mes delante), combinados con «,» o «y», con el año al final
-     * de un grupo o del texto («… 14 de octubre y 11 de noviembre de 2026»). En «Octubre 14 y 11 de noviembre» el último número antes de «de
-     * noviembre» es de noviembre y los anteriores, de octubre. Devuelve null (nunca adivina) si falta el año, si un grupo no tiene días, si hay
+     * de un grupo o del texto («… 14 de octubre y 11 de noviembre de 2026»). En «Octubre 14 y 11 de noviembre» (la única lectura posible) el 14
+     * es de octubre y el 11 de noviembre; si hay más de una lectura («Octubre 14, 15 y 16 de noviembre») no se elige ninguna.
+     * Devuelve null (nunca adivina) si falta el año, si un grupo no tiene días, si hay
      * palabras o signos desconocidos («/», paréntesis, «por confirmar»…), si un día no existe en su mes o si una sesión se repite.
      *
      * @return list<array{0:int,1:int,2:int}>|null
@@ -115,6 +116,11 @@ final class RedaccionFecha
                         return null;
                     }
                     if ($abierto !== null) {
+                        // Solo hay UNA lectura razonable con exactamente dos días («Octubre 14 y 11 de noviembre»: uno de cada mes). Con uno, el
+                        // primer mes queda sin días; con tres o más («Octubre 14, 15 y 16 de noviembre») hay varias: se pide revisar.
+                        if (count($pendientes) !== 2) {
+                            return null;
+                        }
                         $ultimo = array_pop($pendientes);
                         array_push($grupos[$abierto][1], ...$pendientes);
                         $pendientes = [$ultimo];

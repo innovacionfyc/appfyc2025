@@ -86,6 +86,11 @@ class FechasMultisesionTest extends EmisionesTestCase
             '2, 2 de septiembre de 2026', '2 de septiembre de 2026 y 2 de septiembre de 2026',    // sesiones repetidas
             'Septiembre y octubre de 2026', 'Septiembre 2, 9, 16, Octubre 14 y 11 de noviembre de 2026 (por confirmar)',
             'Septiembre 2, 9, 16, 2026',
+            // Ambiguas entre meses: más de una lectura razonable de qué días son de cada mes → se pide revisar, nunca se elige una.
+            'Octubre 14, 15 y 16 de noviembre de 2026',                                           // ¿14 y 15 de octubre, o solo el 14?
+            'Septiembre 2, 9, 16 de octubre de 2026',                                             // ¿el 16 es de septiembre o de octubre?
+            'Octubre 14 de noviembre de 2026',                                                    // octubre sin ningún día
+            'Septiembre 2, 9, 16, Octubre 14, 21 y 11 de noviembre de 2026',
         ] as $fecha) {
             $this->assertNull(RedaccionFecha::dias($fecha), "«{$fecha}» no debe contarse");
         }
