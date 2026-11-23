@@ -267,6 +267,9 @@ const deshacerEliminacion = () => {
 };
 
 const obtenerPrecioPrincipal = (evento) => {
+  // Tarifa única del módulo: solo su precio, sin indicar la modalidad (se muestra aparte).
+  if (evento.tipo_evento === "MODULO")
+    return { etiqueta: "Módulo", valor: evento.precio_modulo };
   if (evento.precio_jornada > 0)
     return { etiqueta: "Jornada", valor: evento.precio_jornada };
   if (evento.precio_diplomado > 0)

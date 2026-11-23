@@ -216,6 +216,7 @@ class SemDuplaMysqlTest extends TestCase
         return [
             'SEMINARIO' => ['SEMINARIO', ['precio_seminario' => 500000, 'modalidad' => 'Presencial', 'ubicacion' => 'Bogotá']],
             'JORNADA' => ['JORNADA', ['precio_jornada' => 200000]],
+            'MODULO' => ['MODULO', ['precio_modulo' => 480000, 'modalidad' => 'Virtual']],
             'CNG_DUPLA' => ['CNG_DUPLA', ['precio_cng' => 900000, 'precio_cng_virtual' => 600000, 'modalidad' => 'Híbrido']],
             'MOD_DUPLA' => ['MOD_DUPLA', ['precio_modulo' => 300000, 'precio_modulo_virtual' => 250000]],
             'SEM_DUPLA' => ['SEM_DUPLA', [
@@ -441,6 +442,103 @@ class SemDuplaMysqlTest extends TestCase
         $this->assertSame('638000.00', (string) $jorMod->precio_jornada);
         $this->assertSame('755000.00', (string) $jorMod->precio_modulo);
         $this->assertSame('0.00', (string) $jorMod->precio_jornada_virtual);
+    }
+
+    // ── MODULO: tarifa única ─────────────────────────────────────────
+
+    public function test_modulo_guarda_una_sola_tarifa_con_la_modalidad_elegida(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        foreach (['Virtual', 'Presencial', 'Híbrido'] as $modalidad) {
+            $evento = $this->crearEventoPorHttp('MODULO', ['precio_modulo' => 480000, 'modalidad' => $modalidad]);
+
+            $this->assertSame('MODULO', $evento->tipo_evento);
+            $this->assertSame($modalidad, $evento->modalidad, 'la modalidad se elige libremente');
+            $this->assertSame('480000.00', (string) $evento->precio_modulo);
+            $this->assertNull($evento->ubicacion, 'no exige sede');
+        }
+
+        $this->editarPorHttp($evento, 'MODULO', ['precio_modulo' => 481000, 'modalidad' => 'Virtual'])->assertSessionHasNoErrors();
+        $evento->refresh();
+        $this->assertSame('481000.00', (string) $evento->precio_modulo, 'al editar recupera y guarda su precio');
+        $this->assertSame('Virtual', $evento->modalidad);
+    }
+
+    public function test_modulo_deja_en_cero_las_demas_tarifas_aunque_lleguen_con_importe(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $evento = $this->crearEventoPorHttp('MODULO', [
+            'precio_modulo' => 480000, 'precio_jornada' => 990000, 'precio_modulo_virtual' => 120000, 'precio_jornada_virtual' => 1,
+        ]);
+
+        $this->assertSame('480000.00', (string) $evento->precio_modulo);
+        foreach (['precio_jornada', 'precio_modulo_virtual', 'precio_jornada_virtual', 'precio_seminario', 'precio_cng'] as $campo) {
+            $this->assertSame('0.00', (string) $evento->{$campo}, "{$campo} no se publica en un módulo");
+        }
+    }
+
+    public function test_pasar_de_jor_mod_a_modulo_retira_la_tarifa_de_jornada_y_conserva_lo_demas(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $evento = $this->crearEventoPorHttp('JOR_MOD', [
+            'precio_jornada' => 638000, 'precio_modulo' => 455000, 'modalidad' => 'Virtual',
+            'modo_evento' => 'Jornada virtual de prueba',
+        ]);
+        $antes = $evento->only(['slug', 'titulo', 'modalidad', 'fecha_hora_inicio', 'fecha_hora_fin', 'url_formulario_inscripcion', 'url_folleto', 'estado_id']);
+
+        // El formulario envía la tarifa de jornada que tenía cargada; el servidor la retira igualmente.
+        $this->editarPorHttp($evento, 'MODULO', [
+            'precio_jornada' => 638000, 'precio_modulo' => 455000, 'modalidad' => 'Virtual',
+            'modo_evento' => 'Jornada virtual de prueba', 'titulo' => $evento->titulo,
+        ])->assertSessionHasNoErrors();
+
+        $evento->refresh();
+        $this->assertSame('MODULO', $evento->tipo_evento);
+        $this->assertSame('455000.00', (string) $evento->precio_modulo);
+        $this->assertSame('0.00', (string) $evento->precio_jornada);
+        $this->assertSame($antes, $evento->only(array_keys($antes)), 'slug, título, modalidad, fechas, folleto y formulario externo se conservan');
+    }
+
+    public static function moduloInvalidos(): array
+    {
+        return [
+            'sin tarifa' => [['precio_modulo' => ''], 'Ingresa el precio del módulo.'],
+            'tarifa en 0' => [['precio_modulo' => 0], 'El precio del módulo debe ser mayor que 0.'],
+            'tarifa negativa' => [['precio_modulo' => -5], 'El precio del módulo debe ser mayor que 0.'],
+        ];
+    }
+
+    #[DataProvider('moduloInvalidos')]
+    public function test_modulo_exige_su_tarifa(array $cambios, string $mensaje): void
+    {
+        $this->iniciarTransaccionHttp();
+        $antes = Evento::withTrashed()->count();
+
+        $datos = $this->datosEvento('MODULO', ['precio_jornada' => 400000, ...$cambios]);
+        $datos['url_folleto'] = UploadedFile::fake()->create('folleto.pdf', 10, 'application/pdf');
+
+        $this->from('/admin/eventos/data')->post(route('eventos.store'), $datos)
+            ->assertSessionHasErrors(['precio_modulo' => $mensaje]);
+        $this->assertSame($antes, Evento::withTrashed()->count());
+    }
+
+    public function test_jor_mod_mod_dupla_y_jornada_conservan_sus_tarifas(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        $jorMod = $this->crearEventoPorHttp('JOR_MOD', ['precio_jornada' => 638000, 'precio_modulo' => 455000, 'modalidad' => 'Virtual']);
+        $this->assertSame('638000.00', (string) $jorMod->precio_jornada);
+        $this->assertSame('455000.00', (string) $jorMod->precio_modulo);
+
+        $modDupla = $this->crearEventoPorHttp('MOD_DUPLA', ['precio_modulo' => 300000, 'precio_modulo_virtual' => 250000]);
+        $this->assertSame('300000.00', (string) $modDupla->precio_modulo);
+        $this->assertSame('250000.00', (string) $modDupla->precio_modulo_virtual);
+
+        $jornada = $this->crearEventoPorHttp('JORNADA', ['precio_jornada' => 200000, 'precio_modulo' => 0]);
+        $this->assertSame('200000.00', (string) $jornada->precio_jornada);
     }
 
     // ── Migración: JOR_DUPLA ─────────────────────────────────────────
