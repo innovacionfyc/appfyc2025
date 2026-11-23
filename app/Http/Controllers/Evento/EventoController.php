@@ -53,6 +53,61 @@ class EventoController extends Controller
         ],
     ];
 
+    /**
+     * Tipos de tarifa única: una sola tarifa obligatoria y mayor que 0, y modalidad libre. Al
+     * guardar, las demás tarifas quedan en 0 para que la página pública muestre solo la suya.
+     * Cada precio indica cómo se nombra en los mensajes de validación.
+     */
+    private const TARIFA_UNICA = [
+        'MODULO' => ['precio_modulo' => 'del módulo'],
+    ];
+
+    private const CAMPOS_PRECIO = [
+        'precio_jornada', 'precio_jornada_presencial', 'precio_jornada_virtual',
+        'precio_seminario', 'precio_seminario_presencial', 'precio_seminario_streaming',
+        'precio_modulo', 'precio_modulo_virtual', 'precio_cng', 'precio_cng_virtual',
+        'precio_curso_intensivo_hibrido', 'precio_curso_intensivo_virtual',
+        'precio_diplomado_hibrido', 'precio_diplomado_virtual',
+    ];
+
+    private function tarifaUnica(Request $request): ?array
+    {
+        return self::TARIFA_UNICA[$request->input('tipo_evento')] ?? null;
+    }
+
+    private function reglasTarifaUnica(Request $request): array
+    {
+        return array_map(fn () => 'required|numeric|gt:0', $this->tarifaUnica($request) ?? []);
+    }
+
+    private function mensajesTarifaUnica(Request $request): array
+    {
+        $mensajes = [];
+        foreach ($this->tarifaUnica($request) ?? [] as $campo => $nombre) {
+            $mensajes["{$campo}.required"] = "Ingresa el precio {$nombre}.";
+            $mensajes["{$campo}.gt"] = "El precio {$nombre} debe ser mayor que 0.";
+        }
+
+        return $mensajes;
+    }
+
+    /**
+     * En los tipos de tarifa única, las tarifas que no son la suya se guardan en 0.
+     */
+    private function retirarOtrasTarifas(Request $request, array $validated): array
+    {
+        $tarifa = $this->tarifaUnica($request);
+        if ($tarifa === null) {
+            return $validated;
+        }
+
+        foreach (array_diff(self::CAMPOS_PRECIO, array_keys($tarifa)) as $campo) {
+            $validated[$campo] = 0;
+        }
+
+        return $validated;
+    }
+
     private function duplaHibrida(Request $request): ?array
     {
         return self::DUPLAS_HIBRIDAS[$request->input('tipo_evento')] ?? null;
@@ -254,6 +309,7 @@ class EventoController extends Controller
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
                 ...$this->reglasDuplasHibridas($request),
+                ...$this->reglasTarifaUnica($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -271,7 +327,9 @@ class EventoController extends Controller
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request)]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request), ...$this->mensajesTarifaUnica($request)]);
+
+            $validated = $this->retirarOtrasTarifas($request, $validated);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';
@@ -390,6 +448,7 @@ class EventoController extends Controller
                 'precio_diplomado_hibrido' => 'nullable|numeric|min:0',
                 'precio_diplomado_virtual' => 'nullable|numeric|min:0',
                 ...$this->reglasDuplasHibridas($request),
+                ...$this->reglasTarifaUnica($request),
 
                 'tiene_oferta_valor' => 'boolean',
                 'oferta_valor' => 'nullable|required_if:tiene_oferta_valor,true|string|max:255',
@@ -408,7 +467,9 @@ class EventoController extends Controller
                 'estilo_expertos' => 'nullable|string',
                 'estilo_card' => 'nullable|string',
                 'estilo_plantilla' => 'nullable|string',
-            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request)]);
+            ], [...self::MENSAJES_URL_INSCRIPCION, ...$this->mensajesDuplasHibridas($request), ...$this->mensajesTarifaUnica($request)]);
+
+            $validated = $this->retirarOtrasTarifas($request, $validated);
 
             $modo = strtolower($validated['modo_evento'] ?? '');
             $modoSlug = 'evt';

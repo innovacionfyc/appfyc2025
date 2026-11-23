@@ -25,6 +25,7 @@ import BtnSecundario from "@/Components/Shared/buttons/btnSecundario.vue";
 import RevealSection from "@/Components/RevealSection.vue";
 import MensajesLayout from "@/Layouts/MensajesLayout.vue";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
+import { tarifasVisibles, etiquetaTarifaUnica } from "@/Composables/Eventos/tarifasEvento.js";
 import FormProvicionalModal from "@/Components/Formularios/FormProvicionalModal.vue";
 
 const { props } = usePage();
@@ -301,26 +302,8 @@ const layoutConfig = computed(() => {
   };
 });
 
-const preciosVisibles = computed(() => {
-  const mapaPrecios = [
-    { label: "Jornada Completa", value: parseFloat(evento?.precio_jornada) || 0 },
-    { label: "Jornada Presencial", value: parseFloat(evento?.precio_jornada_presencial) || 0 },
-    { label: "Jornada Virtual", value: parseFloat(evento?.precio_jornada_virtual) || 0 },
-    { label: "Seminario", value: parseFloat(evento?.precio_seminario) || 0 },
-    { label: "Seminario Presencial", value: parseFloat(evento?.precio_seminario_presencial) || 0 },
-    { label: "Seminario Streaming", value: parseFloat(evento?.precio_seminario_streaming) || 0 },
-    { label: "Módulo Presencial", value: parseFloat(evento?.precio_modulo) || 0 },
-    { label: "Módulo Virtual", value: parseFloat(evento?.precio_modulo_virtual) || 0 },
-    { label: "Congreso Presencial", value: parseFloat(evento?.precio_cng) || 0 },
-    { label: "Congreso Virtual", value: parseFloat(evento?.precio_cng_virtual) || 0 },
-    { label: "Curso Intensivo Híbrido", value: parseFloat(evento?.precio_curso_intensivo_hibrido) || 0 },
-    { label: "Curso Intensivo Virtual", value: parseFloat(evento?.precio_curso_intensivo_virtual) || 0 },
-    { label: "Diplomado Híbrido", value: parseFloat(evento?.precio_diplomado_hibrido) || 0 },
-    { label: "Diplomado Virtual", value: parseFloat(evento?.precio_diplomado_virtual) || 0 },
-  ];
-
-  return mapaPrecios.filter((item) => item.value > 0);
-});
+const preciosVisibles = computed(() => tarifasVisibles(evento));
+const etiquetaPrecioUnico = computed(() => etiquetaTarifaUnica(evento));
 
 const selectedSpeaker = ref(null);
 
@@ -832,6 +815,7 @@ const closeSpeakerModal = () => {
                           v-else-if="preciosVisibles.length === 1"
                           class="flex flex-col py-2"
                         >
+                          <p v-if="etiquetaPrecioUnico" class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">{{ etiquetaPrecioUnico }}</p>
                           <p class="text-white text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
@@ -941,6 +925,7 @@ const closeSpeakerModal = () => {
                           </div>
                         </div>
                         <div v-else-if="preciosVisibles.length === 1" class="text-center py-1">
+                          <p v-if="etiquetaPrecioUnico" class="text-[10px] text-white/70 font-black uppercase tracking-widest mb-1">{{ etiquetaPrecioUnico }}</p>
                           <p class="text-white text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
@@ -1049,6 +1034,7 @@ const closeSpeakerModal = () => {
                           v-else-if="preciosVisibles.length === 1"
                           class="flex flex-col py-2"
                         >
+                          <p v-if="etiquetaPrecioUnico" class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">{{ etiquetaPrecioUnico }}</p>
                           <p class="text-slate-800 text-4xl font-black">
                             {{ formatPrice(preciosVisibles[0].value) }}
                           </p>
@@ -1182,6 +1168,7 @@ const closeSpeakerModal = () => {
                           </div>
                         </div>
                         <div v-else-if="preciosVisibles.length === 1" class="flex flex-col py-2">
+                          <p v-if="etiquetaPrecioUnico" class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">{{ etiquetaPrecioUnico }}</p>
                           <p
                             class="text-white text-4xl font-black"
                             :style="{

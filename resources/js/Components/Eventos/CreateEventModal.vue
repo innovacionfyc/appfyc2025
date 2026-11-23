@@ -584,7 +584,7 @@ const toggleSubtemas = (modulo) => {
     type="select"
     v-model="form.tipo_evento"
     :options="[
-      'SEMINARIO', 'JORNADA', 'MODULO', 'MODULO_VIRTUAL', 'CNG', 'CNG_VIRTUAL',
+      'SEMINARIO', 'JORNADA', { value: 'MODULO', label: 'MODULO · Módulo' }, 'MODULO_VIRTUAL', 'CNG', 'CNG_VIRTUAL',
       'CURSO_INTENSIVO_VIRTUAL', 'CURSO_INTENSIVO_HIBRIDO', 'DIPLOMADO_VIRTUAL',
       'DIPLOMADO_HIBRIDO', 'CI_CNG', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA', 'CUR_DUPLA',
       'CNG_DUPLA', 'MOD_DUPLA', 'SEM_DUPLA',
@@ -645,7 +645,8 @@ const toggleSubtemas = (modulo) => {
 
       <FormInput
         v-if="camposPrecioActivos.includes('precio_modulo')"
-        label="Precio Módulo (Presencial)" type="number" v-model="form.precio_modulo"
+        :label="form.tipo_evento === 'MODULO' ? 'Precio módulo' : 'Precio Módulo (Presencial)'"
+        type="number" v-model="form.precio_modulo"
         icon="payments" :error="form.errors.precio_modulo" required
       />
 
