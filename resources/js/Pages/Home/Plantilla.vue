@@ -335,7 +335,7 @@ const closeSpeakerModal = () => {
       </div>
 
       <div
-        class="fixed z-[55] pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.68,-0.55,0.27,1.55)]"
+        class="hidden md:block fixed z-[55] pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.68,-0.55,0.27,1.55)]"
         :class="[
           isScrolled
             ? '-bottom-14 right-0 w-40 md:w-[295px] rotate-[-10deg] -translate-x-2'
@@ -1229,6 +1229,11 @@ const closeSpeakerModal = () => {
                   </div>
                 </template>
               </div>
+            </div>
+
+            <!-- Búho decorativo en móvil: en su propio espacio al final, sin tapar contenido. -->
+            <div class="md:hidden flex justify-center pt-2" aria-hidden="true">
+              <img src="/images/buho_fyc.png" alt="" class="w-40 h-auto drop-shadow-2xl rotate-[-10deg]" loading="lazy" />
             </div>
           </div>
         </SectionPlantilla>
