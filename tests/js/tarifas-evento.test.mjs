@@ -1,7 +1,7 @@
 // Pruebas de las tarifas que muestra la página pública de un evento, con Node puro:
 //   node tests/js/tarifas-evento.test.mjs
 import assert from "node:assert/strict";
-import { tarifasVisibles, etiquetaTarifaUnica } from "../../resources/js/Composables/Eventos/tarifasEvento.js";
+import { tarifasVisibles, etiquetaTarifaUnica, moduloSinModalidad } from "../../resources/js/Composables/Eventos/tarifasEvento.js";
 
 let n = 0;
 const prueba = (nombre, fn) => {
@@ -42,13 +42,39 @@ prueba("MODULO sin importe se muestra como gratuito (sin tarifas)", () => {
   assert.equal(etiquetaTarifaUnica(e), null);
 });
 
-prueba("JOR_MOD conserva «Jornada Completa» y «Módulo Presencial»", () => {
-  const e = evento("JOR_MOD", { precio_jornada: "400000.00", precio_modulo: "450000.00" });
+prueba("JOR_MOD presencial o híbrido conserva «Jornada Completa» y «Módulo Presencial»", () => {
+  for (const modalidad of ["Presencial", "Híbrido"]) {
+    const e = evento("JOR_MOD", { precio_jornada: "400000.00", precio_modulo: "450000.00" }, modalidad);
+    assert.deepEqual(tarifasVisibles(e), [
+      { label: "Jornada Completa", value: 400000 },
+      { label: "Módulo Presencial", value: 450000 },
+    ]);
+    assert.equal(etiquetaTarifaUnica(e), null);
+  }
+});
+
+prueba("JOR_MOD virtual muestra «Jornada Completa» y «Módulo», en ese orden y con sus importes", () => {
+  const e = evento("JOR_MOD", { precio_jornada: "410000.00", precio_modulo: "460000.00" }, "Virtual");
   assert.deepEqual(tarifasVisibles(e), [
-    { label: "Jornada Completa", value: 400000 },
-    { label: "Módulo Presencial", value: 450000 },
+    { label: "Jornada Completa", value: 410000 },
+    { label: "Módulo", value: 460000 },
   ]);
   assert.equal(etiquetaTarifaUnica(e), null);
+});
+
+prueba("El precio del módulo se nombra sin modalidad solo en MODULO y en JOR_MOD virtual", () => {
+  assert.equal(moduloSinModalidad("MODULO", "Presencial"), true);
+  assert.equal(moduloSinModalidad("MODULO", "Virtual"), true);
+  assert.equal(moduloSinModalidad("JOR_MOD", "Virtual"), true);
+  assert.equal(moduloSinModalidad("JOR_MOD", "Presencial"), false);
+  assert.equal(moduloSinModalidad("JOR_MOD", "Híbrido"), false);
+  assert.equal(moduloSinModalidad("MOD_DUPLA", "Virtual"), false);
+  assert.equal(moduloSinModalidad("CUR_CNG_MOD_DUPLA", "Virtual"), false);
+});
+
+prueba("MOD_DUPLA virtual conserva «Módulo Presencial» y «Módulo Virtual»", () => {
+  const e = evento("MOD_DUPLA", { precio_modulo: "300000.00", precio_modulo_virtual: "250000.00" }, "Virtual");
+  assert.deepEqual(tarifasVisibles(e).map((t) => t.label), ["Módulo Presencial", "Módulo Virtual"]);
 });
 
 prueba("JOR_DUPLA conserva «Jornada Presencial» y «Jornada Virtual»", () => {

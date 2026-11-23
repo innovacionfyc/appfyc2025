@@ -26,12 +26,22 @@ const TARIFA_UNICA = {
 
 const importe = (evento, campo) => parseFloat(evento?.[campo]) || 0;
 
+// El precio del módulo se nombra «Módulo», sin modalidad, en el tipo de tarifa única MODULO y en la jornada con
+// módulo (JOR_MOD) cuando el evento es virtual: ahí el módulo no es presencial. En las demás combinaciones conserva
+// su etiqueta habitual («Módulo Presencial»).
+export function moduloSinModalidad(tipo, modalidad) {
+  return tipo === "MODULO" || (tipo === "JOR_MOD" && modalidad === "Virtual");
+}
+
+const etiqueta = (evento, { label, campo }) =>
+  campo === "precio_modulo" && moduloSinModalidad(evento?.tipo_evento, evento?.modalidad) ? "Módulo" : label;
+
 export function tarifasVisibles(evento) {
   const unica = TARIFA_UNICA[evento?.tipo_evento];
   const tarifas = unica ? [unica] : TARIFAS;
 
   return tarifas
-    .map(({ label, campo }) => ({ label, value: importe(evento, campo) }))
+    .map((tarifa) => ({ label: etiqueta(evento, tarifa), value: importe(evento, tarifa.campo) }))
     .filter((item) => item.value > 0);
 }
 

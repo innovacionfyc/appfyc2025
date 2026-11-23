@@ -18,6 +18,7 @@ import {
 } from "lucide-vue-next";
 import BaseStepperModal from "../Modales/BaseStepperModal.vue";
 import FormInput from "../Shared/inputs/FormInput.vue";
+import { moduloSinModalidad } from "@/Composables/Eventos/tarifasEvento.js";
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -645,7 +646,7 @@ const toggleSubtemas = (modulo) => {
 
       <FormInput
         v-if="camposPrecioActivos.includes('precio_modulo')"
-        :label="form.tipo_evento === 'MODULO' ? 'Precio módulo' : 'Precio Módulo (Presencial)'"
+        :label="moduloSinModalidad(form.tipo_evento, form.modalidad) ? 'Precio módulo' : 'Precio Módulo (Presencial)'"
         type="number" v-model="form.precio_modulo"
         icon="payments" :error="form.errors.precio_modulo" required
       />
