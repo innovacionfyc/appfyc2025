@@ -296,7 +296,11 @@ class LoteController extends Controller
             extra: ['lote_id' => $lote->id],
         );
 
-        return back()->with('success', 'La base se actualizó correctamente.');
+        // Guardar solo cambia esta base (nunca el evento compartido ni otras bases) y no reemite: lo emitido conserva su PDF hasta que se corrija aparte.
+        $vigentes = $lote->emisiones()->where('estado', Emision::EMITIDA)->exists();
+
+        return back()->with('success', 'La base se actualizó correctamente.'.($vigentes
+            ? ' Sus certificados vigentes no cambiaron: si quieres que reflejen la corrección, usa «Corregir toda la base».' : ''));
     }
 
     /**

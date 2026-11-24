@@ -5,6 +5,7 @@ use App\Http\Controllers\CredentialFlow\BuscadorDocumentoController;
 use App\Http\Controllers\CredentialFlow\CasoEspecialController;
 use App\Http\Controllers\CredentialFlow\ConciliacionAccionController;
 use App\Http\Controllers\CredentialFlow\ConciliacionController;
+use App\Http\Controllers\CredentialFlow\CorreccionBaseController;
 use App\Http\Controllers\CredentialFlow\CredentialFlowController;
 use App\Http\Controllers\CredentialFlow\DobleModalidadEventoController;
 use App\Http\Controllers\CredentialFlow\EliminacionDefinitivaController;
@@ -68,6 +69,11 @@ Route::middleware(['auth', 'rol:super-admin,admin'])->prefix('admin/credential-f
     Route::put('/lotes/{lote}', [LoteController::class, 'update'])->middleware('throttle:30,1,cf-lote-editar')->name('lotes.update');
     Route::put('/lotes/{lote}/plantilla', [FlujoLoteController::class, 'plantilla'])->middleware('throttle:30,1,cf-lote-plantilla')->name('lotes.plantilla');
     Route::post('/lotes/{lote}/vista-previa/confirmar', [FlujoLoteController::class, 'confirmarVistaPrevia'])->middleware('throttle:30,1,cf-lote-vista-previa')->name('lotes.vista-previa.confirmar');
+    // «Corregir toda la base»: revisar (sin escribir), ver el antes y el después y confirmar la reemisión de oficiales y QA. No envía correos.
+    Route::get('/lotes/{lote}/correccion', [CorreccionBaseController::class, 'plan'])->middleware('throttle:30,1,cf-correccion-plan')->name('lotes.correccion');
+    Route::get('/lotes/{lote}/correccion/{emision}/anterior', [CorreccionBaseController::class, 'anterior'])->middleware('throttle:60,1,cf-correccion-pdf')->name('lotes.correccion.anterior');
+    Route::get('/lotes/{lote}/correccion/{emision}/propuesto', [CorreccionBaseController::class, 'propuesto'])->middleware('throttle:30,1,cf-correccion-propuesto')->name('lotes.correccion.propuesto');
+    Route::post('/lotes/{lote}/correccion', [CorreccionBaseController::class, 'reemitir'])->middleware('throttle:6,1,cf-correccion-reemitir')->name('lotes.correccion.reemitir');
     Route::put('/lotes/{lote}/estado', [LoteController::class, 'estado'])->middleware('throttle:30,1,cf-lote-estado')->name('lotes.estado');
     Route::delete('/lotes/{lote}', [LoteController::class, 'destroy'])->middleware('throttle:20,1,cf-lote-borrar')->name('lotes.destroy');
 
