@@ -9,6 +9,9 @@ const props = defineProps({
   participante: { type: String, default: "" },
   procesando: { type: Boolean, default: false },
   error: { type: Object, default: null },
+  // Al reemitir: el certificado vigente que se reemplaza ({ codigo, version, emitido_at }) y si es una prueba interna (QA).
+  certificado: { type: Object, default: null },
+  esQa: { type: Boolean, default: false },
 });
 const emit = defineEmits(["close", "confirmar"]);
 
@@ -18,8 +21,14 @@ watch(() => props.show, (v) => v && (motivo.value = ""));
 const textos = computed(() =>
   props.modo === "revocar"
     ? { titulo: "Revocar certificado", boton: "Revocar", ayuda: "El certificado dejará de ser válido. Su archivo se conserva en el historial." }
-    : { titulo: "Reemitir certificado", boton: "Reemitir", ayuda: "Se creará una nueva versión con los datos actuales y la versión anterior quedará revocada." }
+    : { titulo: "Reemitir certificado", boton: "Reemitir certificado", ayuda: "Se creará una versión nueva con los datos que la persona tiene ahora (incluidas las correcciones que ya guardaste)." }
 );
+const emitido = computed(() => {
+  const iso = props.certificado?.emitido_at;
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "America/Bogota" }).format(d);
+});
 const largo = computed(() => motivo.value.trim().length);
 const valido = computed(() => largo.value >= 5 && largo.value <= 500);
 
@@ -45,6 +54,14 @@ const confirmar = () => {
         </div>
 
         <p class="mt-4 text-[13px] font-medium text-slate-600">{{ textos.ayuda }}</p>
+
+        <div v-if="modo === 'reemitir' && certificado" class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950" data-certificado-reemplazado>
+          <p class="font-extrabold">Se reemplaza este certificado{{ esQa ? " de prueba interna (QA)" : "" }}:</p>
+          <p class="mt-1 font-semibold">
+            Código <span class="font-mono font-bold" data-codigo-anterior>{{ certificado.codigo }}</span> · versión {{ certificado.version }}<template v-if="emitido"> · emitido el {{ emitido }}</template>
+          </p>
+          <p class="mt-1 font-medium">Ese código quedará <strong>revocado</strong> y el certificado nuevo tendrá otro código. <strong>No se envía ningún correo</strong>: el envío es una decisión aparte.</p>
+        </div>
 
         <label class="mt-4 block text-[11px] font-black uppercase tracking-widest text-slate-400" for="cf-motivo">Motivo (obligatorio)</label>
         <textarea id="cf-motivo" v-model="motivo" rows="3" maxlength="500" class="mt-1 w-full rounded-2xl border-slate-200 text-sm font-medium focus:ring-primary-vinotinto/30 focus:border-primary-vinotinto" placeholder="Cuéntanos el motivo (mínimo 5 caracteres)" data-motivo />

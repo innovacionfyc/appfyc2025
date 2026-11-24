@@ -545,7 +545,7 @@ const confirmarMotivo = async (motivo) => {
       </section>
 
       <p class="mt-4 px-1 text-[12px] font-semibold text-slate-500" data-resumen-emision>
-        {{ resumen.vigentes }} {{ plural(resumen.vigentes, "vigente", "vigentes") }} · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} {{ plural(resumen.revocados, "revocado", "revocados") }}. Los certificados ya emitidos no cambian si luego editas al participante, la base o la plantilla. Para actualizar uno, usa «Reemitir».
+        {{ resumen.vigentes }} {{ plural(resumen.vigentes, "vigente", "vigentes") }} · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} {{ plural(resumen.revocados, "revocado", "revocados") }}. Los certificados ya emitidos no cambian si luego editas al participante, la base o la plantilla. Para corregir uno: «Editar datos» y luego «Reemitir certificado».
       </p>
 
       <!-- Tabla -->
@@ -616,15 +616,15 @@ const confirmarMotivo = async (motivo) => {
                       <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-emerald-50 text-[12px] font-bold text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50" :disabled="generando !== null" :aria-label="`Descargar el certificado de ${p.nombre_completo}`" data-accion="descargar" @click="descargarEmision({ id: p.emision.id, version: p.emision.version })">
                         <FileDown class="w-3.5 h-3.5" /> Descargar
                       </button>
-                      <button type="button" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all disabled:opacity-50" :disabled="enCurso !== null" title="Reemitir" :aria-label="`Reemitir el certificado de ${p.nombre_completo}`" data-accion="reemitir" @click="abrirMotivo('reemitir', p)">
-                        <RefreshCw class="w-4 h-4" />
+                      <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-primary-vinotinto/10 text-[12px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/20 transition-all disabled:opacity-50" :disabled="enCurso !== null" :aria-label="`Reemitir el certificado de ${p.nombre_completo}`" data-accion="reemitir" @click="abrirMotivo('reemitir', p)">
+                        <RefreshCw class="w-3.5 h-3.5" /> Reemitir certificado
                       </button>
                       <button type="button" class="p-2 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50" :disabled="enCurso !== null" title="Revocar" :aria-label="`Revocar el certificado de ${p.nombre_completo}`" data-accion="revocar" @click="abrirMotivo('revocar', p)">
                         <Ban class="w-4 h-4" />
                       </button>
                     </template>
-                    <button type="button" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all" title="Editar" :aria-label="`Editar a ${p.nombre_completo}`" data-accion="editar" @click="abrirEdicion(p)">
-                      <SquarePen class="w-4 h-4" />
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap bg-slate-100 text-[12px] font-bold text-slate-700 hover:bg-slate-200 transition-all" :aria-label="`Editar los datos de ${p.nombre_completo}`" data-accion="editar" @click="abrirEdicion(p)">
+                      <SquarePen class="w-3.5 h-3.5" /> Editar datos
                     </button>
                     <button type="button" class="p-2 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Eliminar" :aria-label="`Eliminar a ${p.nombre_completo}`" data-accion="eliminar" @click="eliminarParticipante(p)">
                       <Trash2 class="w-4 h-4" />
@@ -654,7 +654,7 @@ const confirmarMotivo = async (motivo) => {
   <ParticipanteModal :show="modalParticipante.abierto" :lote-id="lote.id" :participante="modalParticipante.participante" @close="modalParticipante.abierto = false" />
   <LoteEditModal :show="modalLote" :lote="lote" @close="modalLote = false" />
   <EliminarDefinitivamenteModal :show="modalDefinitivo" tipo="base" :nombre="lote.nombre" :resumen-url="route('credential-flow.lotes.eliminacion.resumen', lote.id)" :eliminar-url="route('credential-flow.lotes.destroy-definitivo', lote.id)" @close="modalDefinitivo = false" />
-  <MotivoEmisionModal :show="motivoModal.abierto" :modo="motivoModal.modo" :participante="motivoModal.participante?.nombre_completo ?? ''" :procesando="enCurso !== null" :error="errorEmision" @close="motivoModal.abierto = false" @confirmar="confirmarMotivo" />
+  <MotivoEmisionModal :show="motivoModal.abierto" :modo="motivoModal.modo" :participante="motivoModal.participante?.nombre_completo ?? ''" :certificado="motivoModal.participante?.emision ?? null" :es-qa="motivoModal.participante?.es_control_qa === true" :procesando="enCurso !== null" :error="errorEmision" @close="motivoModal.abierto = false" @confirmar="confirmarMotivo" />
 
   <ConfirmacionesPop
     :is-open="confirmationState.isOpen"

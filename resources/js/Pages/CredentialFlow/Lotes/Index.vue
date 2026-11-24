@@ -5,7 +5,7 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Sidebar from "@/Components/Sidebar/Sidebar.vue";
 import DashboardHeader from "@/Components/Shared/header/DashboardHeader.vue";
 import EliminarDefinitivamenteModal from "@/Components/CredentialFlow/EliminarDefinitivamenteModal.vue";
-import { Plus, Users, LayoutTemplate, CalendarDays, ChevronLeft, ChevronRight, ArrowRight, Trash2 } from "lucide-vue-next";
+import { Plus, Users, LayoutTemplate, CalendarDays, ChevronLeft, ChevronRight, ArrowRight, Trash2, Archive } from "lucide-vue-next";
 import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
@@ -155,14 +155,20 @@ const ir = (url) => url && router.get(url, {}, { preserveScroll: false });
 
       <details v-if="eliminadas.length" class="mt-10 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6" data-bases-eliminadas>
         <summary class="cursor-pointer text-sm font-extrabold text-slate-700">Bases eliminadas anteriormente ({{ eliminadas.length }})</summary>
-        <p class="mt-2 text-[13px] font-medium text-slate-500">Ya no se muestran, pero sus certificados siguen ocupando espacio. Elimínalas definitivamente para liberarlo. Descarga primero lo que quieras conservar.</p>
+        <p class="mt-2 text-[13px] font-medium text-slate-500">Ya no se muestran. Las que nunca emitieron certificados se pueden eliminar definitivamente para liberar espacio (descarga primero lo que quieras conservar). Las que tienen historial se conservan.</p>
         <ul class="mt-4 divide-y divide-slate-100">
           <li v-for="b in eliminadas" :key="b.id" class="flex flex-wrap items-center justify-between gap-3 py-3" :data-eliminada="b.id">
             <div class="min-w-0">
               <p class="font-extrabold text-slate-800 break-words">{{ b.nombre }}</p>
               <p class="text-[12px] font-semibold text-slate-400">{{ b.participantes }} {{ b.participantes === 1 ? "participante" : "participantes" }} · eliminada el {{ formatFecha(b.eliminada_at) }}</p>
+              <p v-if="b.conservada_por_historial" class="mt-1 text-[12px] font-semibold text-slate-500 max-w-xl" data-explicacion-conservada>
+                Sus certificados siguen constando como revocados cuando corresponda. Puedes crear otra base de esta capacitación.
+              </p>
             </div>
-            <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-[12px] font-bold text-rose-600 hover:bg-rose-100 transition-all" data-accion="liberar-espacio" @click="aLiberar = b">
+            <span v-if="b.conservada_por_historial" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-[12px] font-bold text-slate-600" data-conservada-por-historial>
+              <Archive class="w-3.5 h-3.5" /> Conservada por historial
+            </span>
+            <button v-else-if="b.eliminable" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-[12px] font-bold text-rose-600 hover:bg-rose-100 transition-all" data-accion="liberar-espacio" @click="aLiberar = b">
               <Trash2 class="w-3.5 h-3.5" /> Eliminar definitivamente
             </button>
           </li>

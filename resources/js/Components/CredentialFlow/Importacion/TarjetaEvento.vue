@@ -5,6 +5,7 @@
 import { computed } from "vue";
 import { CalendarDays, Info } from "lucide-vue-next";
 import EstadoDato from "./EstadoDato.vue";
+import EventoYaExiste from "./EventoYaExiste.vue";
 import { partirResaltado, useAsistente } from "@/Composables/CredentialFlow/importacionInteligente";
 
 const a = useAsistente();
@@ -97,6 +98,9 @@ function elegir(valor) {
         Confirmo que realmente es una capacitación distinta de la que ya existe.
       </label>
     </div>
+
+    <!-- Si se intentó crear una capacitación que ya existe: la encontrada y «Usar esta capacitación» -->
+    <EventoYaExiste v-if="seleccion === 'crear'" />
 
     <details class="rounded-xl bg-slate-50 px-3 py-2 text-[13px]" data-detalles-evento>
       <summary class="cursor-pointer font-extrabold text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-vinotinto/50 rounded">Ver detalles</summary>

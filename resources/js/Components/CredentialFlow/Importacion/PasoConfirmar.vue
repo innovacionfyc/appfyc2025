@@ -7,6 +7,7 @@ import { computed, ref } from "vue";
 import { Link } from "@inertiajs/vue3";
 import { CircleCheck, CircleAlert, LoaderCircle, ShieldCheck, ArrowRight, Clock3 } from "lucide-vue-next";
 import { BLOQUEOS, DATOS, useAsistente } from "@/Composables/CredentialFlow/importacionInteligente";
+import EventoYaExiste from "./EventoYaExiste.vue";
 
 const a = useAsistente();
 const entiendo = ref(false);
@@ -36,8 +37,7 @@ const textoIr = (g, b) => (b.fila != null ? `Revisar la fila ${b.fila}` : b.camp
 
 const evento = computed(() => {
   const d = a.evento.value?.decision;
-  const c = a.evento.value?.propuesta?.candidatos?.find((x) => x.id === d?.evento_id);
-  if (d?.decision === "asociar") return { ok: true, texto: `Se usará el evento que ya existe: ${c?.nombre ?? "evento elegido"}.` };
+  if (d?.decision === "asociar") return { ok: true, texto: `Se usará el evento que ya existe: ${a.nombreEvento(d.evento_id) ?? "evento elegido"}.` };
   if (d?.decision === "crear") return { ok: true, texto: `Se creará un evento nuevo: ${d.nombre ?? a.evento.value?.propuesta?.nombre_excel ?? ""}.` };
 
   return { ok: false, texto: "Todavía no decidiste a qué evento pertenece." };
@@ -140,6 +140,7 @@ const irAFiltro = async (filtro) => {
                 <Link v-else :href="route('credential-flow.qa.contactos')" class="shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-extrabold text-primary-vinotinto underline-offset-2 hover:underline">Revisar contactos QA</Link>
               </li>
             </ul>
+            <EventoYaExiste v-if="g.codigo === 'evento_ya_existe'" class="mt-2" />
             <button v-if="g.items.length > POR_GRUPO && !abiertos[g.codigo]" type="button" class="mt-1 text-[12px] font-extrabold text-amber-900 underline-offset-2 hover:underline" @click="abiertos[g.codigo] = true">Ver los {{ g.items.length - POR_GRUPO }} restantes</button>
           </li>
         </ul>

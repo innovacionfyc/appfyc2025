@@ -11,6 +11,7 @@ use App\Models\CredentialFlow\Lote;
 use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
+use App\Services\CredentialFlow\EliminacionDefinitivaService;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\FlujoDeBase;
 use App\Support\CredentialFlow\LogSeguro;
@@ -70,17 +71,26 @@ class LoteController extends Controller
             ]);
 
         // Bases eliminadas «normalmente» (ocultas): siguen ocupando espacio hasta que se eliminen definitivamente.
+        $eliminacion = app(EliminacionDefinitivaService::class);
         $eliminadas = Lote::onlyTrashed()
             ->withCount(['participantes as participantes_count' => fn ($q) => $q->withTrashed()])
             ->latest('deleted_at')
             ->limit(50)
             ->get()
-            ->map(fn (Lote $l) => [
-                'id' => $l->id,
-                'nombre' => $l->nombre,
-                'participantes' => $l->participantes_count,
-                'eliminada_at' => $l->deleted_at?->toIso8601String(),
-            ]);
+            ->map(function (Lote $l) use ($eliminacion) {
+                // Con historial (certificados emitidos, descargas o históricos) el servidor no la deja eliminar definitivamente: se presenta como
+                // conservada y no se ofrece el botón. Sin historial, el botón sigue y el servidor vuelve a comprobar todo al usarlo.
+                $motivo = $eliminacion->motivoConservacion($l->id);
+
+                return [
+                    'id' => $l->id,
+                    'nombre' => $l->nombre,
+                    'participantes' => $l->participantes_count,
+                    'eliminada_at' => $l->deleted_at?->toIso8601String(),
+                    'conservada_por_historial' => $motivo !== null,
+                    'eliminable' => $motivo === null,
+                ];
+            });
 
         return Inertia::render('CredentialFlow/Lotes/Index', [
             'lotes' => $lotes->withQueryString(),
@@ -218,7 +228,7 @@ class LoteController extends Controller
 
         $participantes = $lote->participantes()
             ->when($busqueda !== '', fn ($q) => $q->where(fn ($w) => $w->where('nombre_completo', 'like', $like)->orWhere('documento', 'like', $like)))
-            ->with('emisionVigente:id,participante_id,version,codigo')
+            ->with('emisionVigente:id,participante_id,version,codigo,emitido_at')
             ->withCount('emisiones')
             ->orderBy('id')
             ->paginate(self::POR_PAGINA_PARTICIPANTES, ['id', 'nombre_completo', 'documento', 'fila_origen', 'es_control_qa', ...(Schema::hasColumn('cf_participantes', 'correo') ? ['correo', 'correo_estado'] : []), 'elegibilidad', 'intensidad_horaria', ...(Schema::hasColumn('cf_participantes', 'modalidad') ? ['modalidad'] : []), 'elegibilidad_motivo', 'tipo_documento_confirmado'])
@@ -240,7 +250,13 @@ class LoteController extends Controller
                 'correo' => implode('; ', app(CorreosDeParticipante::class)->originalesActuales($p)),
                 'emisiones_count' => $p->emisiones_count,
                 'estado_emision' => $p->emisionVigente ? 'emitida' : ($p->emisiones_count > 0 ? 'revocada' : 'sin_emitir'),
-                'emision' => $p->emisionVigente ? ['id' => $p->emisionVigente->id, 'version' => $p->emisionVigente->version] : null,
+                // El certificado que reemplazaría «Reemitir certificado»: el administrador lo ve antes de confirmar.
+                'emision' => $p->emisionVigente ? [
+                    'id' => $p->emisionVigente->id,
+                    'version' => $p->emisionVigente->version,
+                    'codigo' => $p->emisionVigente->codigo,
+                    'emitido_at' => $p->emisionVigente->emitido_at?->toIso8601String(),
+                ] : null,
             ]);
 
         $resumen = app(EmisorLote::class)->resumen($lote);
