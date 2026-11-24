@@ -434,6 +434,21 @@ class EliminacionDefinitivaService
      *
      * @throws EliminacionException
      */
+    /**
+     * Por qué una base se conserva (no se puede eliminar definitivamente por su historial), o null si el historial no lo impide. Solo lectura.
+     * La eliminación vuelve a comprobarlo todo, con la base bloqueada, al ejecutarse.
+     */
+    public function motivoConservacion(int $loteId): ?string
+    {
+        try {
+            $this->exigirSinHistorial($loteId);
+        } catch (EliminacionException $e) {
+            return $e->getMessage();
+        }
+
+        return null;
+    }
+
     private function exigirSinHistorial(int $loteId): void
     {
         $eventoId = DB::table('cf_lotes')->where('id', $loteId)->value('evento_id');

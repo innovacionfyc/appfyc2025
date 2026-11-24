@@ -77,6 +77,10 @@ class ParticipanteController extends Controller
         );
 
         $mensaje = 'El participante se actualizó correctamente.';
+        // Corregir y reemitir son decisiones separadas: guardar no toca el certificado ya emitido.
+        if ($participante->emisionVigente()->exists()) {
+            $mensaje .= ' Su certificado vigente no cambió: si quieres que refleje la corrección, pulsa «Reemitir certificado».';
+        }
         if ($cambioCorreo['cambio']) {
             $mensaje .= ' El correo se actualizó'.($cambioCorreo['retirados'] !== [] ? ' y se retiró el acceso con el correo anterior.' : '.');
         }

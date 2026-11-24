@@ -880,4 +880,41 @@ class ImportacionInteligenteTest extends EmisionesTestCase
         $props = $this->actingAs($this->admin())->get(route('credential-flow.importaciones.asistente'))->assertOk()->viewData('page')['props'];
         $this->assertNotContains($this->plantilla->id, array_column($props['plantillas'], 'id'));
     }
+
+    // ── «Ese evento ya existe»: mostrar el evento encontrado y usarlo sin perder el progreso ──
+
+    public function test_ese_evento_ya_existe_muestra_los_eventos_encontrados_y_usar_uno_conserva_el_excel_y_el_progreso(): void
+    {
+        // Un segundo evento con el mismo nombre (sin año) para tener dos coincidencias exactas: el administrador elige.
+        $otro = EventoCertificacion::unguarded(fn () => EventoCertificacion::create([
+            'nombre' => X::EVENTO_631, 'nombre_normalizado' => NombreConservador::normalizar(X::EVENTO_631), 'anio' => null,
+            'fecha_texto' => null, 'estado' => EventoCertificacion::ESTADO_ACTIVO, 'origen' => EventoCertificacion::ORIGEN_CREDENTIAL_FLOW,
+        ]));
+        [$id, $v] = $this->borradorListo(null, ['evento' => ['decision' => 'crear', 'nombre' => X::EVENTO_631, 'confirmar_distinto' => true]]);
+
+        $bloqueo = collect($this->validarBorrador($id)->json('bloqueos'))->firstWhere('codigo', 'evento_ya_existe');
+        $this->assertNotNull($bloqueo, 'crear un evento con el nombre exacto de uno existente se bloquea');
+        $this->assertSame([631, $otro->id], array_column($bloqueo['eventos'], 'id'), 'se muestran TODOS los eventos encontrados');
+        $this->assertSame(X::EVENTO_631, $bloqueo['eventos'][0]['nombre']);
+        $this->assertSame('16 DE OCTUBRE DE 2026', $bloqueo['eventos'][0]['fecha']);
+        $this->assertNull($bloqueo['eventos'][1]['fecha']);
+
+        $antes = Importacion::findOrFail($id);
+        $hash = $antes->archivo_hash;
+        $personas = $antes->correcciones['participantes'] ?? null;
+        $eventos = EventoCertificacion::count();
+
+        // «Usar esta capacitación» = asociar el borrador al evento elegido (la misma corrección de siempre).
+        $v = $this->corregir($id, $v, ['evento' => ['decision' => 'asociar', 'evento_id' => $otro->id]])->assertOk()->json('borrador.version');
+
+        $this->assertNotContains('evento_ya_existe', array_column($this->validarBorrador($id)->json('bloqueos'), 'codigo'));
+        $despues = Importacion::findOrFail($id);
+        $this->assertSame($hash, $despues->archivo_hash, 'se conserva el Excel');
+        $this->assertSame($personas, $despues->correcciones['participantes'] ?? null, 'se conserva lo ya revisado de las personas');
+        $this->assertSame('en_revision', $despues->estado);
+
+        $lote = Lote::findOrFail($this->confirmar($id, $v)->assertCreated()->json('lote_id'));
+        $this->assertSame($otro->id, $lote->evento_id, 'la base queda en el evento elegido');
+        $this->assertSame($eventos, EventoCertificacion::count(), 'no se crea ningún evento');
+    }
 }

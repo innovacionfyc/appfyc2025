@@ -4,7 +4,7 @@
 //
 // Nada de lo que hace este archivo crea una base: analizar, corregir, validar y ver la vista previa solo leen o guardan el BORRADOR. La única llamada que crea la base
 // es `confirmar`, y solo la dispara el botón «Crear base de participantes». Aquí nunca se inserta HTML: todo el texto se muestra escapado por Vue.
-import { computed, inject, nextTick, onBeforeUnmount, provide, reactive, ref, watchEffect } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, provide, reactive, ref, watch, watchEffect } from "vue";
 import axios from "axios";
 
 export const PASOS = [
@@ -322,6 +322,18 @@ export function crearAsistente(props) {
   const historial = computed(() => borrador.value?.historial ?? []);
 
   const validacion = computed(() => borrador.value?.validacion ?? null);
+
+  // «Ese evento ya existe»: el servidor devuelve los eventos encontrados. Se recuerdan (id → nombre y fecha) para seguir mostrando su nombre después de
+  // elegir uno, cuando el bloqueo ya desapareció.
+  const eventosConocidos = ref({});
+  const eventosYaExistentes = computed(() => (validacion.value?.bloqueos ?? []).find((b) => b.codigo === "evento_ya_existe")?.eventos ?? []);
+  watch(eventosYaExistentes, (lista) => {
+    if (!lista.length) return;
+    const copia = { ...eventosConocidos.value };
+    for (const e of lista) copia[e.id] = e;
+    eventosConocidos.value = copia;
+  }, { immediate: true });
+  const nombreEvento = (id) => evento.value?.propuesta?.candidatos?.find((c) => c.id === id)?.nombre ?? eventosConocidos.value[id]?.nombre ?? null;
   const plantillaId = computed(() => (edicion.plantilla_id !== undefined ? edicion.plantilla_id : (borrador.value?.plantilla_id ?? null)));
   const confirmados = computed(() => ({ ...(borrador.value?.confirmados ?? {}), ...edicion.confirmados }));
 
@@ -387,6 +399,15 @@ export function crearAsistente(props) {
 
   function decidirEvento(cambios) {
     edicion.evento = { ...(edicion.evento ?? {}), ...cambios };
+  }
+
+  /** «Usar esta capacitación»: asocia el borrador al evento ya registrado y guarda. El Excel y todo lo revisado se conservan (es una corrección más). */
+  async function usarEvento(e) {
+    decidirEvento({ decision: "asociar", evento_id: e.id, nombre: null, confirmar_distinto: false });
+    if (!(await guardar())) return false;
+    hecho.value = `Usarás la capacitación «${e.nombre}». Conservamos tu Excel y todo lo que ya revisaste.`;
+
+    return true;
   }
 
   function elegirPlantilla(id) {
@@ -892,7 +913,7 @@ export function crearAsistente(props) {
     etapaSugerida, irARecomendado, iniciarRevisionMasiva, verPersonas, irADato, personasDesactualizadas, principal, origen, volverAlOrigen,
     seleccion, seleccionadas, esSeleccionable, historial, masiva, puedeAplicarMasiva, razonAplicarMasiva, resumenSeleccion,
     alternarSeleccion, seleccionar, quitarSeleccion, limpiarSeleccion, abrirMasiva, cancelarMasiva, elegirValorMasivo, revisarMasiva, aplicarMasiva, deshacerMasiva,
-    editarFila, restaurarFila, editarDato, confirmarDato, decidirEvento, elegirPlantilla, marcarConfirmacion,
+    editarFila, restaurarFila, editarDato, confirmarDato, decidirEvento, usarEvento, eventosYaExistentes, nombreEvento, elegirPlantilla, marcarConfirmacion,
     analizar, abrir, guardar, recargar, confirmar, descartar, nuevoArchivo, irA,
   };
   provide(claveEstado, store);

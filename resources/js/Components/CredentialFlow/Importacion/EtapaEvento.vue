@@ -9,7 +9,7 @@ const a = useAsistente();
 const d = computed(() => a.evento.value?.decision ?? {});
 const nombre = computed(() => {
   const ev = a.evento.value;
-  if (d.value.decision === "asociar") return ev?.propuesta?.candidatos?.find((c) => c.id === d.value.evento_id)?.nombre ?? "la capacitación elegida";
+  if (d.value.decision === "asociar") return a.nombreEvento(d.value.evento_id) ?? "la capacitación elegida";
 
   return d.value.nombre ?? ev?.propuesta?.nombre_excel ?? "la capacitación nueva";
 });

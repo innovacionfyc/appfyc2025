@@ -321,9 +321,12 @@ final class ServicioImportaciones
             } else {
                 // Se compara el nombre que el administrador quiere CREAR (no necesariamente el del Excel).
                 $paraCrear = $this->proponedor->proponer((string) $nombreEvento, $comunes['fecha']['valor']);
-                $exacto = collect($paraCrear['candidatos'])->contains(fn ($c) => $c['coincidencia'] === 'exacta');
-                if ($exacto) {
-                    $bloquear('evento_ya_existe', 'Ya existe un evento con ese nombre: asocia la base a él en lugar de crear otro.');
+                $exactos = collect($paraCrear['candidatos'])->filter(fn ($c) => $c['coincidencia'] === 'exacta')->values();
+                if ($exactos->isNotEmpty()) {
+                    // Se devuelven los eventos encontrados (todos, si hay varios) para que el administrador elija cuál usar sin perder su progreso.
+                    $bloquear('evento_ya_existe', 'Ya existe un evento con ese nombre: asocia la base a él en lugar de crear otro.', [
+                        'eventos' => $exactos->map(fn ($c) => ['id' => $c['id'], 'nombre' => $c['nombre'], 'fecha' => $c['fecha'], 'anio' => $c['anio']])->all(),
+                    ]);
                 } elseif ($paraCrear['candidatos'] !== [] && ($decision['confirmar_distinto'] ?? false) !== true) {
                     $bloquear('evento_similar_sin_confirmar', 'Hay eventos parecidos: confirma que este es un evento distinto o asócialo a uno existente.');
                 } elseif ($paraCrear['homonimo_historico'] && ($decision['confirmar_distinto'] ?? false) !== true) {
