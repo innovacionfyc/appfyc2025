@@ -12,6 +12,7 @@ use App\Models\CredentialFlow\Participante;
 use App\Models\CredentialFlow\Plantilla;
 use App\Models\Movimiento;
 use App\Services\CredentialFlow\EliminacionDefinitivaService;
+use App\Support\CredentialFlow\Emisiones\CorreccionBase;
 use App\Support\CredentialFlow\Emisiones\EmisorLote;
 use App\Support\CredentialFlow\Emisiones\FlujoDeBase;
 use App\Support\CredentialFlow\LogSeguro;
@@ -278,6 +279,8 @@ class LoteController extends Controller
             ],
             'participantes' => $participantes,
             'filtros' => ['q' => $busqueda],
+            // «Corregir toda la base» solo para el super-admin (las rutas y el servicio también lo exigen).
+            'permisos' => ['corregir_base' => CorreccionBase::puedeUsar($request->user())],
         ]);
     }
 
@@ -299,8 +302,12 @@ class LoteController extends Controller
         // Guardar solo cambia esta base (nunca el evento compartido ni otras bases) y no reemite: lo emitido conserva su PDF hasta que se corrija aparte.
         $vigentes = $lote->emisiones()->where('estado', Emision::EMITIDA)->exists();
 
+        $siguiente = CorreccionBase::puedeUsar($request->user())
+            ? 'usa «Corregir toda la base».'
+            : 'usa «Reemitir certificado» en cada persona o pide a un super-administrador «Corregir toda la base».';
+
         return back()->with('success', 'La base se actualizó correctamente.'.($vigentes
-            ? ' Sus certificados vigentes no cambiaron: si quieres que reflejen la corrección, usa «Corregir toda la base».' : ''));
+            ? ' Sus certificados vigentes no cambiaron: si quieres que reflejen la corrección, '.$siguiente : ''));
     }
 
     /**

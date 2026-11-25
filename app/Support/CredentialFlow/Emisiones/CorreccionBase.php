@@ -18,6 +18,7 @@ use Throwable;
  *  - Primero los oficiales y después QA; cada grupo es su propia operación todo-o-nada. Si fallan los oficiales no se intenta QA (nada cambió); si fallan los QA,
  *    los oficiales quedan hechos (PARCIAL) y QA intacto. Reintentar solo toma lo que sigue desactualizado: nunca duplica versiones.
  *  - Solo trabaja sobre la base elegida (sus datos comunes y sus emisiones). No toca el evento de certificación ni otras bases. No envía correos.
+ *  - Solo el super-admin puede usarla (las rutas lo exigen y `ejecutar` lo vuelve a comprobar). El admin corrige persona por persona («Reemitir certificado»).
  */
 final class CorreccionBase
 {
@@ -27,9 +28,17 @@ final class CorreccionBase
 
     public const SIN_CAMBIOS = 'SIN_CAMBIOS';
 
+    /** Roles que pueden corregir toda una base desde el panel. */
+    public const ROLES = ['super-admin'];
+
     private const GRUPOS = [ReemisorBase::OFICIALES, ReemisorBase::QA];
 
     public function __construct(private readonly ReemisorBase $reemisor) {}
+
+    public static function puedeUsar(?Usuario $usuario): bool
+    {
+        return $usuario !== null && in_array($usuario->loadMissing('perfilOrganizador.rol')->rol, self::ROLES, true);
+    }
 
     /**
      * @return array{grupos:array<string,array<string,mixed>>, total:int, bloqueo:?array<string,mixed>, huella:string}
@@ -69,10 +78,15 @@ final class CorreccionBase
     /**
      * @return array{estado:string, grupos:array<string,array<string,mixed>>, correos_enviados:int}
      *
-     * @throws EmisionException si no se reemitió nada por un error (huella, bloqueo, cerrojo o fallo del primer grupo); `resultado` lleva el detalle por grupo
+     * @throws EmisionException si el usuario no es super-admin (NO_AUTORIZADO, antes de tocar nada) o si otra corrección de la base está en curso
+     * @throws CorreccionBaseException si no se reemitió nada por un error (huella, bloqueo o fallo del primer grupo); `resultado` lleva el detalle por grupo
      */
     public function ejecutar(Lote $lote, string $huella, string $motivo, Usuario $usuario): array
     {
+        if (! self::puedeUsar($usuario)) {
+            throw new EmisionException(EmisionException::NO_AUTORIZADO, 'Solo un super-administrador puede corregir toda la base.', 403);
+        }
+
         return AdministradorAutorizado::corregir($usuario, $lote->id, function () use ($lote, $huella, $motivo, $usuario) {
             $planes = array_map(fn (string $g) => $this->reemisor->planear($lote->fresh(), $g), self::GRUPOS);
             $grupos = [];

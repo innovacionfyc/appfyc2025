@@ -23,7 +23,10 @@ const props = defineProps({
   lote: { type: Object, required: true },
   participantes: { type: Object, required: true }, // paginador de Laravel
   filtros: { type: Object, default: () => ({ q: "" }) },
+  // «Corregir toda la base» es solo del super-admin: el servidor manda el permiso y además lo exige en sus rutas.
+  permisos: { type: Object, default: () => ({ corregir_base: false }) },
 });
+const puedeCorregirBase = computed(() => props.permisos?.corregir_base === true);
 
 const { confirmationState, openConfirmationModal, closeConfirmationModal, handleConfirm } = useConfirmationModal();
 const { generando, error: errorPdf, descargar } = useDescargaPdf();
@@ -484,7 +487,7 @@ const confirmarMotivo = async (motivo) => {
             <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-100 text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-all" data-accion="editar-lote" @click="modalLote = true">
               <SquarePen class="w-4 h-4" /> Editar base
             </button>
-            <button v-if="resumen.vigentes > 0 || resumen.qa?.vigentes > 0" type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto/10 text-[13px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/15 transition-all" data-accion="corregir-base" @click="modalCorregir = true">
+            <button v-if="puedeCorregirBase && (resumen.vigentes > 0 || resumen.qa?.vigentes > 0)" type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-vinotinto/10 text-[13px] font-bold text-primary-vinotinto hover:bg-primary-vinotinto/15 transition-all" data-accion="corregir-base" @click="modalCorregir = true">
               <RefreshCw class="w-4 h-4" /> Corregir toda la base
             </button>
             <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-50 text-[13px] font-bold text-rose-500 hover:bg-rose-100 transition-all" data-accion="eliminar-lote" @click="eliminarLote">
@@ -563,7 +566,7 @@ const confirmarMotivo = async (motivo) => {
       </section>
 
       <p class="mt-4 px-1 text-[12px] font-semibold text-slate-500" data-resumen-emision>
-        {{ resumen.vigentes }} {{ plural(resumen.vigentes, "vigente", "vigentes") }} · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} {{ plural(resumen.revocados, "revocado", "revocados") }}. Los certificados ya emitidos no cambian si luego editas al participante, la base o la plantilla. Para corregir uno: «Editar datos» y luego «Reemitir certificado». Para un dato de toda la base: «Editar base» y luego «Corregir toda la base».
+        {{ resumen.vigentes }} {{ plural(resumen.vigentes, "vigente", "vigentes") }} · {{ resumen.pendientes }} sin emitir · {{ resumen.revocados }} {{ plural(resumen.revocados, "revocado", "revocados") }}. Los certificados ya emitidos no cambian si luego editas al participante, la base o la plantilla. Para corregir uno: «Editar datos» y luego «Reemitir certificado». {{ puedeCorregirBase ? "Para un dato de toda la base: «Editar base» y luego «Corregir toda la base»." : "Para un dato de toda la base: «Editar base» y luego reemite cada certificado, o pide a un super-administrador «Corregir toda la base»." }}
       </p>
 
       <!-- Tabla -->
@@ -671,7 +674,7 @@ const confirmarMotivo = async (motivo) => {
 
   <ParticipanteModal :show="modalParticipante.abierto" :lote-id="lote.id" :participante="modalParticipante.participante" @close="modalParticipante.abierto = false" />
   <LoteEditModal :show="modalLote" :lote="lote" @close="modalLote = false" />
-  <CorregirBaseModal :show="modalCorregir" :lote-id="lote.id" @close="cerrarCorreccion" @editar="editarDesdeCorreccion" @hecho="corregidaConCambios = true" />
+  <CorregirBaseModal v-if="puedeCorregirBase" :show="modalCorregir" :lote-id="lote.id" @close="cerrarCorreccion" @editar="editarDesdeCorreccion" @hecho="corregidaConCambios = true" />
   <EliminarDefinitivamenteModal :show="modalDefinitivo" tipo="base" :nombre="lote.nombre" :resumen-url="route('credential-flow.lotes.eliminacion.resumen', lote.id)" :eliminar-url="route('credential-flow.lotes.destroy-definitivo', lote.id)" @close="modalDefinitivo = false" />
   <MotivoEmisionModal :show="motivoModal.abierto" :modo="motivoModal.modo" :participante="motivoModal.participante?.nombre_completo ?? ''" :certificado="motivoModal.participante?.emision ?? null" :es-qa="motivoModal.participante?.es_control_qa === true" :procesando="enCurso !== null" :error="errorEmision" @close="motivoModal.abierto = false" @confirmar="confirmarMotivo" />
 
