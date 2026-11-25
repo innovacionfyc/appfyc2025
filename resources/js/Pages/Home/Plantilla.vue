@@ -26,6 +26,7 @@ import RevealSection from "@/Components/RevealSection.vue";
 import MensajesLayout from "@/Layouts/MensajesLayout.vue";
 import GuestLayout from "@/Layouts/GuestLayout.vue";
 import { tarifasVisibles, etiquetaTarifaUnica } from "@/Composables/Eventos/tarifasEvento.js";
+import { PUBLICAMENTE_HABLANDO, esSinCosto } from "@/Composables/Eventos/publicamenteHablando.js";
 import FormProvicionalModal from "@/Components/Formularios/FormProvicionalModal.vue";
 
 const { props } = usePage();
@@ -305,6 +306,16 @@ const layoutConfig = computed(() => {
 const preciosVisibles = computed(() => tarifasVisibles(evento));
 const etiquetaPrecioUnico = computed(() => etiquetaTarifaUnica(evento));
 
+// Públicamente Hablando: encuentro sin costo con invitados; su banner es un arte con texto y se muestra completo.
+const esPublicamenteHablando = evento?.tipo_evento === PUBLICAMENTE_HABLANDO;
+const sinCosto = esSinCosto(evento?.tipo_evento);
+const textoBotonInscripcion = esPublicamenteHablando ? "Inscríbase aquí" : "Inscribirme ahora";
+const textoGratuito = sinCosto ? "Sin costo" : "Gratuito";
+const textoInversion = sinCosto ? "Previa inscripción" : "Inversión para esta fecha";
+const tituloEquipo = esPublicamenteHablando ? "Invitados" : "Equipo Académico";
+const tituloTemario = esPublicamenteHablando ? "Descripción" : "Contenido temático";
+const sufijoHorario = esPublicamenteHablando ? " (hora de Colombia)" : "";
+
 const selectedSpeaker = ref(null);
 
 const openSpeakerModal = (speaker) => {
@@ -362,6 +373,7 @@ const closeSpeakerModal = () => {
                   : '/images/default-bg.webp'
               "
               class="w-full h-full object-cover opacity-50 mix-blend-overlay"
+              :class="{ 'blur-2xl scale-110': esPublicamenteHablando }"
               :alt="evento?.titulo"
             />
             <div
@@ -405,7 +417,7 @@ const closeSpeakerModal = () => {
                     color: evento?.area_formacion?.color_hex_principal || '#f97316',
                   }"
                 />
-                {{ formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin) }}
+                {{ formatEventRange(evento?.fecha_hora_inicio, evento?.fecha_hora_fin) }}{{ sufijoHorario }}
               </span>
               <span class="flex items-center gap-2 text-sm md:text-base">
                 <MapPin
@@ -523,7 +535,7 @@ const closeSpeakerModal = () => {
                     >
                       <FileText class="w-5 h-5 md:w-6 md:h-6" />
                     </div>
-                    Contenido temático
+                    {{ tituloTemario }}
                   </h3>
 
                   <div class="flex items-center gap-3 flex-wrap">
@@ -559,8 +571,39 @@ const closeSpeakerModal = () => {
                 <div
                   class="flex-1 overflow-y-visible lg:overflow-y-auto p-6 md:p-8 custom-scroll bg-slate-50/50"
                 >
+                  <div v-if="esPublicamenteHablando" class="w-full flex flex-col gap-6" data-descripcion-edicion>
+                    <!-- El arte trae «Inscríbase aquí»: tocarlo abre el mismo formulario que el botón. -->
+                    <picture
+                      v-if="evento?.imagen_relacionada"
+                      role="button"
+                      tabindex="0"
+                      :aria-label="`${textoBotonInscripcion}: ${evento?.titulo}`"
+                      class="block cursor-pointer"
+                      @click="showModal = true"
+                      @keydown.enter="showModal = true"
+                    >
+                      <source
+                        v-if="evento?.imagen_movil"
+                        media="(max-width: 767px)"
+                        :srcset="'/storage/' + evento.imagen_movil"
+                      />
+                      <img
+                        :src="'/storage/' + evento.imagen_relacionada"
+                        :alt="evento?.titulo"
+                        class="w-full h-auto rounded-3xl border border-slate-200/70 shadow-sm bg-white"
+                      />
+                    </picture>
+                    <p
+                      v-for="(modulo, index) in evento?.contenido_tematico?.modulos || []"
+                      :key="index"
+                      class="text-[16px] md:text-[18px] text-slate-700 leading-relaxed whitespace-pre-line"
+                    >
+                      {{ modulo.tema }}
+                    </p>
+                  </div>
+
                   <div
-                    v-if="evento?.contenido_tematico?.modulos"
+                    v-else-if="evento?.contenido_tematico?.modulos"
                     class="w-full"
                     :class="{
                       'flex flex-col gap-6':
@@ -679,7 +722,7 @@ const closeSpeakerModal = () => {
                       class="w-4 h-4"
                       :style="{ color: evento?.area_formacion?.color_hex_principal }"
                     />
-                    Equipo Académico ({{ evento.conferencistas.length }})
+                    {{ tituloEquipo }} ({{ evento.conferencistas.length }})
                   </h3>
                 </div>
 
@@ -772,7 +815,7 @@ const closeSpeakerModal = () => {
                           <p
                             class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1"
                           >
-                            Inversión para esta fecha
+                            {{ textoInversion }}
                           </p>
                         </div>
                         <div
@@ -826,11 +869,11 @@ const closeSpeakerModal = () => {
                           </p>
                         </div>
                         <div v-else class="flex flex-col py-2">
-                          <p class="text-white text-4xl font-black">Gratuito</p>
+                          <p class="text-white text-4xl font-black">{{ textoGratuito }}</p>
                           <p
                             class="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1"
                           >
-                            Acceso Libre
+                            {{ sinCosto ? "Evento gratuito" : "Acceso Libre" }}
                           </p>
                         </div>
                       </div>
@@ -853,7 +896,7 @@ const closeSpeakerModal = () => {
                         </div>
                         <BtnUniversal
                           @click="showModal = true"
-                          label="Inscribirme ahora"
+                          :label="textoBotonInscripcion"
                           icon="send"
                           icon-position="right"
                           size="lg"
@@ -888,7 +931,7 @@ const closeSpeakerModal = () => {
                           <p
                             class="text-[10px] text-slate-50 font-bold uppercase tracking-widest mt-1"
                           >
-                            Inversión para esta fecha
+                            {{ textoInversion }}
                           </p>
                         </div>
                         
@@ -936,7 +979,7 @@ const closeSpeakerModal = () => {
                           </p>
                         </div>
                         <div v-else class="text-center py-1">
-                          <p class="text-white text-4xl font-black">Gratuito</p>
+                          <p class="text-white text-4xl font-black">{{ textoGratuito }}</p>
                         </div>
                       </div>
 
@@ -952,7 +995,7 @@ const closeSpeakerModal = () => {
                         </div>
                         <BtnUniversal
                           @click="showModal = true"
-                          label="Inscribirme ahora"
+                          :label="textoBotonInscripcion"
                           icon="send"
                           icon-position="right"
                           size="lg"
@@ -987,7 +1030,7 @@ const closeSpeakerModal = () => {
                           <p
                             class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1"
                           >
-                            Inversión para esta fecha
+                            {{ textoInversion }}
                           </p>
                         </div>
                         <div
@@ -1045,7 +1088,7 @@ const closeSpeakerModal = () => {
                           </p>
                         </div>
                         <div v-else class="flex flex-col py-2">
-                          <p class="text-slate-800 text-4xl font-black">Gratuito</p>
+                          <p class="text-slate-800 text-4xl font-black">{{ textoGratuito }}</p>
                         </div>
                       </div>
 
@@ -1067,7 +1110,7 @@ const closeSpeakerModal = () => {
                         </div>
                         <BtnUniversal
                           @click="showModal = true"
-                          label="Inscribirme ahora"
+                          :label="textoBotonInscripcion"
                           icon="send"
                           icon-position="right"
                           size="lg"
@@ -1103,7 +1146,7 @@ const closeSpeakerModal = () => {
                           <p
                             class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1"
                           >
-                            Inversión para esta fecha
+                            {{ textoInversion }}
                           </p>
                         </div>
                         <div
@@ -1194,7 +1237,7 @@ const closeSpeakerModal = () => {
                               }80`,
                             }"
                           >
-                            Gratuito
+                            {{ textoGratuito }}
                           </p>
                         </div>
                       </div>
@@ -1217,7 +1260,7 @@ const closeSpeakerModal = () => {
                         </div>
                         <BtnUniversal
                           @click="showModal = true"
-                          label="Inscribirme ahora"
+                          :label="textoBotonInscripcion"
                           icon="send"
                           icon-position="right"
                           size="lg"

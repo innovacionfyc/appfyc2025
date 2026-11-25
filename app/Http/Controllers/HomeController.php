@@ -32,6 +32,9 @@ class HomeController extends Controller
             'city' => $evento->modalidad === 'Virtual' ? 'Virtual' : ($evento->ubicacion ?? 'Por definir'),
             'imageThumb' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
             'imageBg' => $evento->imagen_relacionada ? '/storage/' . $evento->imagen_relacionada : '/images/default-bg.webp',
+            'imageMobile' => $evento->imagen_movil ? '/storage/' . $evento->imagen_movil : null,
+            // El banner es un arte con título, fecha y llamado a inscribirse: se muestra completo, sin recortes.
+            'arte' => $evento->tipo_evento === Evento::PUBLICAMENTE_HABLANDO && $evento->imagen_relacionada !== null,
             'cta_text' => 'Inscribirme',
             'cta_url' => route('evento.show', $evento->slug),
             'badge' => $evento->modalidad,

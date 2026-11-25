@@ -19,6 +19,12 @@ import {
 import BaseStepperModal from "../Modales/BaseStepperModal.vue";
 import FormInput from "../Shared/inputs/FormInput.vue";
 import { moduloSinModalidad } from "@/Composables/Eventos/tarifasEvento.js";
+import {
+  PUBLICAMENTE_HABLANDO,
+  SERIE_PUBLICAMENTE_HABLANDO,
+  esSinCosto,
+  finPropuesto,
+} from "@/Composables/Eventos/publicamenteHablando.js";
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -36,6 +42,7 @@ const emit = defineEmits(["close", "openDependency", "success"]);
 // --- ESTADOS DE LA VISTA PREVIA ---
 const deviceMode = ref("desktop");
 const previewImageUrl = ref(null);
+const previewMovilUrl = ref(null);
 
 const missingDependencies = computed(() => {
   const missing = [];
@@ -101,6 +108,7 @@ const form = useForm({
   precio_diplomado_virtual: 0,
 
   imagen_relacionada: null,
+  imagen_movil: null,
   url_folleto: null,
   url_formulario_inscripcion: null,
   url_folleto_secundario: null,
@@ -153,6 +161,35 @@ watch(
   () => form.tipo_evento,
   (tipo) => {
     if (DUPLAS_HIBRIDAS.includes(tipo)) form.modalidad = 'Híbrido';
+  }
+);
+
+// Públicamente Hablando: gratuito, una hora propuesta y la serie como línea de formación. Al editar una
+// edición guardada se conservan sus datos; solo se completa lo que esté vacío.
+const esPublicamenteHablando = computed(() => form.tipo_evento === PUBLICAMENTE_HABLANDO);
+const sinCosto = computed(() => esSinCosto(form.tipo_evento));
+
+watch(
+  () => form.tipo_evento,
+  (tipo) => {
+    if (esSinCosto(tipo)) {
+      form.tiene_oferta_valor = false;
+    }
+    if (tipo !== PUBLICAMENTE_HABLANDO) return;
+
+    if (!form.modo_evento) form.modo_evento = SERIE_PUBLICAMENTE_HABLANDO;
+    if (!form.modalidad) form.modalidad = "Virtual";
+    form.fecha_hora_fin = finPropuesto(form.fecha_hora_inicio, form.fecha_hora_fin);
+    if (!form.contenido_tematico?.length) form.contenido_tematico = [{ tema: "", subtemas: [] }];
+  }
+);
+
+watch(
+  () => form.fecha_hora_inicio,
+  (inicio, anterior) => {
+    if (esPublicamenteHablando.value) {
+      form.fecha_hora_fin = finPropuesto(inicio, form.fecha_hora_fin, anterior);
+    }
   }
 );
 const selectedArea = computed(
@@ -280,6 +317,7 @@ const clearForm = () => {
   form.texto_dinamico = "";
 
   form.imagen_relacionada = null;
+  form.imagen_movil = null;
   form.url_folleto = null;
   form.url_folleto_secundario = null;
   form.url_formulario_inscripcion = "";
@@ -287,12 +325,20 @@ const clearForm = () => {
 
   form.clearErrors();
   previewImageUrl.value = null;
+  previewMovilUrl.value = null;
 };
 
 watch(
   () => form.imagen_relacionada,
   (file) => {
     if (file instanceof File) previewImageUrl.value = URL.createObjectURL(file);
+  }
+);
+
+watch(
+  () => form.imagen_movil,
+  (file) => {
+    if (file instanceof File) previewMovilUrl.value = URL.createObjectURL(file);
   }
 );
 
@@ -342,6 +388,7 @@ watch(
         form.organizador_id = evento.organizador_id || null;
 
         form.imagen_relacionada = null;
+        form.imagen_movil = null;
         form.url_folleto = null;
         form.url_folleto_secundario = null;
         form.conferencistas = evento.conferencistas
@@ -372,6 +419,7 @@ watch(
             ? evento.imagen_relacionada
             : `/storage/${evento.imagen_relacionada}`
           : null;
+        previewMovilUrl.value = evento.imagen_movil ? `/storage/${evento.imagen_movil}` : null;
 
         form.defaults();
       } else {
@@ -589,7 +637,8 @@ const toggleSubtemas = (modulo) => {
       'CURSO_INTENSIVO_VIRTUAL', 'CURSO_INTENSIVO_HIBRIDO', 'DIPLOMADO_VIRTUAL',
       'DIPLOMADO_HIBRIDO', 'CI_CNG', 'JOR_MOD', 'CUR_CNG_MOD_DUPLA', 'CUR_DUPLA',
       'CNG_DUPLA', 'MOD_DUPLA', 'SEM_DUPLA',
-      { value: 'JOR_DUPLA', label: 'JOR_DUPLA · Jornada presencial y virtual' }
+      { value: 'JOR_DUPLA', label: 'JOR_DUPLA · Jornada presencial y virtual' },
+      { value: 'PUB_HABLANDO', label: 'PUB_HABLANDO · Públicamente Hablando (sin costo)' }
     ]"
     icon="category"
     :activeColor="selectedArea?.color_hex_principal"
@@ -695,6 +744,18 @@ const toggleSubtemas = (modulo) => {
 
     </div>
   </div>
+
+  <div
+    v-if="sinCosto"
+    class="p-4 border border-emerald-200 rounded-2xl bg-emerald-50/60 text-[12px] text-emerald-800 leading-relaxed"
+    data-sin-costo
+  >
+    <p class="font-bold">Evento sin costo, previa inscripción.</p>
+    <p>
+      Se guarda sin tarifas ni paquetes y no exige sede ni folleto. Se propone una hora de duración: puedes
+      cambiar el inicio y el fin.
+    </p>
+  </div>
 </div>
             </div>
 
@@ -705,7 +766,26 @@ const toggleSubtemas = (modulo) => {
               >
                 {{ form.errors.contenido_tematico }}
               </p>
-              <div class="flex justify-between items-center">
+              <div v-if="esPublicamenteHablando" class="space-y-2" data-descripcion-edicion>
+                <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                  Descripción de la edición
+                </h4>
+                <textarea
+                  v-model="form.contenido_tematico[0].tema"
+                  rows="5"
+                  maxlength="1000"
+                  placeholder="¿De qué trata esta edición? Se muestra en la ficha pública."
+                  class="w-full text-sm border-slate-200 rounded-2xl p-4 text-slate-700 focus:ring-1 focus:ring-slate-300"
+                ></textarea>
+                <p
+                  v-if="form.errors['contenido_tematico.0.tema']"
+                  class="text-[10px] font-bold text-red-500"
+                >
+                  {{ form.errors["contenido_tematico.0.tema"] }}
+                </p>
+              </div>
+
+              <div v-if="!esPublicamenteHablando" class="flex justify-between items-center">
                 <h4
                   class="text-[10px] font-black uppercase text-slate-400 tracking-widest"
                 >
@@ -724,6 +804,7 @@ const toggleSubtemas = (modulo) => {
               </div>
 
               <div
+                v-if="!esPublicamenteHablando"
                 class="max-h-[450px] overflow-y-auto pr-2 custom-scroll space-y-4 py-2"
               >
                 <div
@@ -846,7 +927,7 @@ const toggleSubtemas = (modulo) => {
                 <h4
                   class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
                 >
-                  Expertos Asignados
+                  {{ esPublicamenteHablando ? "Invitados" : "Expertos Asignados" }}
                 </h4>
 
                 <div class="my-3">
@@ -910,12 +991,13 @@ const toggleSubtemas = (modulo) => {
               </div>
 
               <h4
+                v-if="!sinCosto"
                 class="text-[10px] font-black uppercase text-slate-400 tracking-widest pt-2"
               >
                 Oferta de valor
               </h4>
 
-              <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+              <div v-if="!sinCosto" class="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
                 <div class="flex items-center justify-between">
                   <div>
                     <h4
@@ -1258,6 +1340,50 @@ const toggleSubtemas = (modulo) => {
                       </span>
                     </label>
                   </div>
+
+                  <div
+                    class="relative overflow-hidden p-4 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center min-h-[90px] transition-all duration-300 group cursor-pointer"
+                    :class="
+                      previewMovilUrl
+                        ? 'border-emerald-300 bg-emerald-50/30'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                    "
+                    data-banner-movil
+                  >
+                    <img
+                      v-if="previewMovilUrl"
+                      :src="previewMovilUrl"
+                      class="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-multiply"
+                    />
+                    <input
+                      type="file"
+                      @input="form.imagen_movil = $event.target.files[0]"
+                      id="banner-movil-up"
+                      class="hidden"
+                      accept="image/*"
+                    />
+                    <label
+                      for="banner-movil-up"
+                      class="cursor-pointer flex flex-col items-center relative z-10 w-full justify-center text-center"
+                    >
+                      <span
+                        class="text-[11px] font-black uppercase tracking-widest"
+                        :class="previewMovilUrl ? 'text-emerald-700' : 'text-slate-600'"
+                      >
+                        {{
+                          previewMovilUrl
+                            ? "✓ Banner para celular (Click para cambiar)"
+                            : "Subir banner para celular (opcional)"
+                        }}
+                      </span>
+                      <span class="text-[10px] text-slate-400 mt-1">
+                        Versión vertical del arte. Si no se sube, se usa el banner principal.
+                      </span>
+                    </label>
+                    <p v-if="form.errors.imagen_movil" class="text-[10px] font-bold text-red-500 mt-1">
+                      {{ form.errors.imagen_movil }}
+                    </p>
+                  </div>
                 </div>
 
                 <div
@@ -1563,6 +1689,8 @@ const toggleSubtemas = (modulo) => {
                     :label="
                       form.tipo_evento === 'CI_CNG'
                         ? 'Folleto Curso Intensivo'
+                        : sinCosto
+                        ? 'Documento soporte (Folleto, opcional)'
                         : 'Documento soporte (Folleto)'
                     "
                     type="file"
@@ -1574,7 +1702,7 @@ const toggleSubtemas = (modulo) => {
                         : 'Subir PDF descriptivo'
                     "
                     :activeColor="selectedArea.color_hex_principal"
-                    required
+                    :required="!sinCosto"
                     :error="form.errors.url_folleto"
                   />
 
