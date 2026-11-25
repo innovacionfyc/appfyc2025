@@ -68,7 +68,7 @@ function setActive(i) {
   active.value = (i + props.events.length) % props.events.length;
   progressKey.value++;
 
-  nextTick(() => {
+  const centrar = () => {
     if (!rowRef.value) return;
     const activeCard = rowRef.value.children[active.value];
     if (!activeCard) return;
@@ -76,10 +76,16 @@ function setActive(i) {
     const scrollLeft =
       activeCard.offsetLeft - rowRef.value.clientWidth / 2 + activeCard.clientWidth / 2;
     rowRef.value.scrollTo({ left: scrollLeft, behavior: "smooth" });
+  };
+
+  nextTick(() => {
+    centrar();
+    // Las tarjetas cambian de ancho durante 700 ms (las de arte, bastante): se vuelve a centrar al terminar.
+    setTimeout(centrar, 720);
 
     setTimeout(() => {
       isScrolling = false;
-    }, 600);
+    }, 1300);
   });
 }
 
@@ -165,6 +171,22 @@ const shortTitle = computed(() => {
   return title.length > 90 ? title.substring(0, 90) + "..." : title;
 });
 
+// Tarjetas de arte: conservan la proporción del banner (vertical en celular si existe, horizontal en escritorio).
+const claseCardArte = (ev, activa) => {
+  const movil = ev.imageMobile
+    ? activa
+      ? "w-[82vw] max-w-[380px] sm:w-[380px] aspect-[1080/1408]"
+      : "w-[60vw] max-w-[280px] sm:w-[280px] aspect-[1080/1408]"
+    : activa
+    ? "w-[86vw] max-w-[560px] aspect-[2000/960]"
+    : "w-[64vw] max-w-[400px] aspect-[2000/960]";
+  const escritorio = activa
+    ? "lg:w-[600px] 2xl:w-[720px] lg:max-w-none lg:aspect-[2000/960]"
+    : "lg:w-[420px] lg:max-w-none lg:aspect-[2000/960]";
+
+  return ["card-arte self-start", activa ? "card-active" : "card-inactive", movil, escritorio];
+};
+
 const handleCardClick = (ev, index) => {
   if (active.value !== index) {
     setActive(index);
@@ -189,6 +211,7 @@ const handleCardClick = (ev, index) => {
           :key="event.id"
           v-show="index === active"
           class="absolute inset-0 bg-cover bg-center will-change-[opacity,transform]"
+          :class="{ 'blur-2xl scale-110 opacity-20': event.arte }"
           :style="{
             backgroundImage: `url('${event.imageBg}')`,
             zIndex: index === active ? 1 : 0,
@@ -244,7 +267,7 @@ const handleCardClick = (ev, index) => {
               :title="current?.title"
               class="w-full font-black text-white leading-[1.12] lg:leading-[1.05] tracking-tight break-words overflow-hidden line-clamp-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition-all duration-500"
               :class="[
-                current?.title?.length > 60
+                current?.title?.length > 60 || current?.arte
                   ? 'text-[clamp(1.125rem,4vw,2.375rem)] lg:max-w-[30rem]'
                   : 'text-[clamp(1.625rem,6vw,3.75rem)]',
               ]"
@@ -326,21 +349,30 @@ const handleCardClick = (ev, index) => {
             :key="ev.id || i"
             @click="handleCardClick(ev, i)"
             class="relative flex-none rounded-[2rem] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] card-3d-wrapper outline-none snap-center"
-            :class="[
+            :class="ev.arte ? claseCardArte(ev, i === active) : [
               i === active
                 ? 'card-active w-[78vw] max-w-[420px] sm:w-[400px] lg:w-[380px] h-[300px] xs:h-[320px] sm:h-[440px] lg:h-[500px]'
                 : 'card-inactive w-[60vw] max-w-[320px] sm:w-[300px] lg:w-[320px] h-[220px] xs:h-[260px] sm:h-[340px] lg:h-[420px]',
             ]"
+            :aria-label="ev.arte ? `${ev.title}: ${formatEventRange(ev?.fecha_hora_inicio, ev?.fecha_hora_fin)}` : undefined"
           >
+            <!-- Arte con texto (título, fecha, llamado): se muestra completo; en celular, su versión vertical. -->
+            <picture v-if="ev.arte">
+              <source v-if="ev.imageMobile" media="(max-width: 1023px)" :srcset="ev.imageMobile" />
+              <img
+                :src="ev.imageThumb"
+                :alt="ev.title"
+                class="absolute inset-0 h-full w-full object-contain bg-white card-image"
+              />
+            </picture>
             <img
+              v-else
               :src="ev.imageThumb"
               class="absolute inset-0 h-full w-full object-cover transition-all duration-700 card-image"
             />
-            <div class="absolute inset-0 transition-all duration-700 card-overlay"></div>
+            <div v-if="!ev.arte" class="absolute inset-0 transition-all duration-700 card-overlay"></div>
 
-          
-
-            <div class="absolute top-0 inset-x-0 p-6 z-20">
+            <div v-if="!ev.arte" class="absolute top-0 inset-x-0 p-6 z-20">
               <div
                 class="px-2 py-4 rounded-full bg-black/20 backdrop-blur-md border border-white/10"
                 :class="i === active ? 'opacity-100' : 'opacity-0'"
@@ -353,7 +385,7 @@ const handleCardClick = (ev, index) => {
               </div>
             </div>
 
-            <div class="absolute bottom-0 inset-x-0 p-6 z-20">
+            <div v-if="!ev.arte" class="absolute bottom-0 inset-x-0 p-6 z-20">
               <div
                 class="p-4 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10"
                 :class="i === active ? 'opacity-100' : 'opacity-0'"
@@ -758,5 +790,20 @@ section {
   100% {
     opacity: 0.4;
   }
+}
+
+/* Tarjetas de arte: la altura sale de la proporción del banner y la imagen no se amplía, para que el
+   título, la fecha y el llamado se vean completos. Dos clases ganan a las alturas fijas de arriba. */
+.card-arte.card-active,
+.card-arte.card-inactive {
+  height: auto !important;
+}
+
+.card-arte.card-active .card-image {
+  transform: none;
+}
+
+.card-arte.card-active::before {
+  display: none;
 }
 </style>

@@ -12,6 +12,17 @@ class Evento extends Model
 
     protected $table = 'eventos';
 
+    /**
+     * «Públicamente Hablando»: serie de encuentros gratuitos con previa inscripción. Su banner es un arte con
+     * el título, la fecha y el llamado a inscribirse, por eso se muestra completo en la Home.
+     */
+    public const PUBLICAMENTE_HABLANDO = 'PUB_HABLANDO';
+
+    /**
+     * Tipos sin costo: se guardan sin tarifas ni oferta de valor y no exigen folleto.
+     */
+    public const TIPOS_SIN_COSTO = [self::PUBLICAMENTE_HABLANDO];
+
     protected $fillable = [
         'organizador_id',
         'formulario_base_id',
@@ -23,6 +34,7 @@ class Evento extends Model
         'slug',
         'subtitulo',
         'imagen_relacionada',
+        'imagen_movil',
         'modalidad',
         'url_folleto',
         'url_folleto_secundario',

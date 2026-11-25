@@ -18,9 +18,12 @@ use Tests\TestCase;
  * Pruebas de la migración de SEM_DUPLA y de la validación de la URL de inscripción.
  *
  * Necesitan MySQL/MariaDB local (ENUM y SHOW CREATE TABLE no existen en SQLite). Solo se
- * ejecutan si se indica una base local de desarrollo o pruebas:
+ * ejecutan si se indica una base local desechable, y solo este archivo:
  *
- *   TEST_MYSQL_DATABASE=appfyc2025_dev php artisan test tests/Integracion
+ *   TEST_MYSQL_DATABASE=appfyc2025_eventos_test php artisan test tests/Integracion/SemDuplaMysqlTest.php
+ *
+ * No ejecutar la carpeta tests/Integracion completa contra una base con datos: otras pruebas de
+ * esa carpeta migran y eliminan tablas.
  *
  * No alteran datos existentes: la migración se prueba sobre tablas propias que se eliminan al
  * terminar, y las peticiones HTTP se ejecutan dentro de una transacción que se revierte.
@@ -594,7 +597,120 @@ class SemDuplaMysqlTest extends TestCase
         $this->assertTrue(Schema::hasColumns($tabla, ['precio_jornada_presencial', 'precio_jornada_virtual']));
     }
 
+    // ── PUB_HABLANDO: Públicamente Hablando, sin costo ───────────────
+
+    public function test_publicamente_hablando_se_guarda_sin_tarifas_sede_ni_folleto(): void
+    {
+        $this->iniciarTransaccionHttp();
+
+        // Aunque el formulario envíe importes u oferta de valor, una edición sin costo se guarda sin ellos.
+        $datos = $this->datosEvento('PUB_HABLANDO', [
+            'precio_seminario' => 900000, 'precio_jornada' => 638000, 'precio_modulo_virtual' => 1,
+            'tiene_oferta_valor' => true, 'oferta_valor' => '20% de descuento',
+            'fecha_hora_inicio' => '2026-11-27 08:30:00', 'fecha_hora_fin' => '2026-11-27 09:30:00',
+            'imagen_relacionada' => UploadedFile::fake()->image('banner.png', 2000, 960),
+            'imagen_movil' => UploadedFile::fake()->image('banner-movil.jpg', 1080, 1408),
+        ]);
+        $this->from('/admin/eventos/data')->post(route('eventos.store'), $datos)->assertSessionHasNoErrors();
+
+        $evento = Evento::where('titulo', 'PRUEBA INTEGRACION PUB_HABLANDO')->latest('id')->firstOrFail();
+        $this->assertSame('PUB_HABLANDO', $evento->tipo_evento);
+        $this->assertSame('Virtual', $evento->modalidad);
+        $this->assertNull($evento->ubicacion, 'no exige sede física');
+        $this->assertNull($evento->url_folleto, 'no exige folleto');
+        $this->assertFalse((bool) $evento->tiene_oferta_valor);
+        $this->assertNull($evento->oferta_valor);
+        foreach (['precio_seminario', 'precio_jornada', 'precio_modulo_virtual', 'precio_cng', 'precio_jornada_presencial'] as $campo) {
+            $this->assertSame('0.00', (string) $evento->{$campo}, "{$campo} queda en 0");
+        }
+        $this->assertStringContainsString('-pub-', $evento->slug);
+        Storage::disk('public')->assertExists($evento->imagen_relacionada);
+        Storage::disk('public')->assertExists($evento->imagen_movil);
+
+        $movil = $evento->imagen_movil;
+        $this->editarPorHttp($evento, 'PUB_HABLANDO', [
+            'fecha_hora_inicio' => '2027-01-29 08:30:00', 'fecha_hora_fin' => '2027-01-29 09:30:00', 'precio_cng' => 5,
+        ])->assertSessionHasNoErrors();
+        $evento->refresh();
+        $this->assertSame('2027-01-29 08:30:00', (string) $evento->fecha_hora_inicio);
+        $this->assertSame('0.00', (string) $evento->precio_cng);
+        $this->assertSame($movil, $evento->imagen_movil, 'al editar sin subir otro, conserva el banner para celular');
+    }
+
+    public function test_los_tipos_de_pago_siguen_exigiendo_folleto(): void
+    {
+        $this->iniciarTransaccionHttp();
+        $antes = Evento::withTrashed()->count();
+
+        $this->from('/admin/eventos/data')
+            ->post(route('eventos.store'), $this->datosEvento('SEMINARIO', ['precio_seminario' => 900000]))
+            ->assertSessionHasErrors('url_folleto');
+        $this->assertSame($antes, Evento::withTrashed()->count());
+
+        $seminario = $this->crearEventoPorHttp('SEMINARIO', ['precio_seminario' => 900000]);
+        $this->assertSame('900000.00', (string) $seminario->precio_seminario, 'las tarifas de pago no cambian');
+    }
+
+    public function test_migracion_publicamente_hablando_amplia_el_enum_y_anade_el_banner_para_celular(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('JORNADA','JOR_MOD','JOR_DUPLA') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'JORNADA' COMMENT 'tipo'");
+        DB::statement("ALTER TABLE `{$tabla}` ADD `imagen_relacionada` varchar(255) NULL AFTER `precio_seminario`, ADD `titulo` varchar(255) NULL");
+        DB::table($tabla)->insert([['tipo_evento' => 'JOR_MOD', 'imagen_relacionada' => 'eventos/imagenes/a.png', 'titulo' => 'A']]);
+        $antes = $this->atributos($tabla);
+        $filas = DB::table($tabla)->get(['id', 'tipo_evento', 'imagen_relacionada', 'titulo'])->toArray();
+
+        $migracion = $this->migracionPublicamenteHablando($tabla);
+        $migracion->up();
+        $migracion->up();
+
+        $this->assertSame(['JORNADA', 'JOR_MOD', 'JOR_DUPLA', 'PUB_HABLANDO'], $this->valoresEnum($tabla));
+        $this->assertEquals($antes, $this->atributos($tabla));
+        $columnas = array_column(DB::select("SHOW COLUMNS FROM `{$tabla}`"), 'Field');
+        $this->assertSame('imagen_movil', $columnas[array_search('imagen_relacionada', $columnas) + 1]);
+        $this->assertEquals($filas, DB::table($tabla)->get(['id', 'tipo_evento', 'imagen_relacionada', 'titulo'])->toArray());
+        $this->assertNull(DB::table($tabla)->value('imagen_movil'));
+    }
+
+    public function test_migracion_publicamente_hablando_down_protege_ediciones_y_banners(): void
+    {
+        $tabla = $this->crearTablaEventos("ENUM('JORNADA','JOR_DUPLA') NOT NULL DEFAULT 'JORNADA'");
+        DB::statement("ALTER TABLE `{$tabla}` ADD `imagen_relacionada` varchar(255) NULL AFTER `precio_seminario`");
+        $migracion = $this->migracionPublicamenteHablando($tabla);
+        $migracion->up();
+
+        DB::table($tabla)->insert(['tipo_evento' => 'JORNADA', 'imagen_movil' => 'eventos/imagenes/movil.jpg']);
+        try {
+            $migracion->down();
+            $this->fail('down() debía negarse a revertir con banners para celular guardados.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('archivo en imagen_movil', $e->getMessage());
+        }
+
+        DB::table($tabla)->update(['imagen_movil' => null, 'tipo_evento' => 'PUB_HABLANDO', 'deleted_at' => now()]);
+        try {
+            $migracion->down();
+            $this->fail('down() debía negarse a revertir con ediciones en la papelera.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('tipo_evento = PUB_HABLANDO', $e->getMessage());
+        }
+        $this->assertContains('PUB_HABLANDO', $this->valoresEnum($tabla));
+        $this->assertTrue(Schema::hasColumn($tabla, 'imagen_movil'));
+
+        DB::table($tabla)->delete();
+        $migracion->down();
+        $this->assertSame(['JORNADA', 'JOR_DUPLA'], $this->valoresEnum($tabla));
+        $this->assertFalse(Schema::hasColumn($tabla, 'imagen_movil'));
+    }
+
     // ── Utilidades ───────────────────────────────────────────────────
+
+    private function migracionPublicamenteHablando(string $tabla): object
+    {
+        $migracion = require database_path('migrations/2026_11_25_100000_add_publicamente_hablando_to_eventos_table.php');
+        $migracion->tabla = $tabla;
+
+        return $migracion;
+    }
 
     private function migracionJorDupla(string $tabla): object
     {

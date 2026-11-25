@@ -91,11 +91,27 @@ class EventoController extends Controller
         return $mensajes;
     }
 
+    private function esSinCosto(Request $request): bool
+    {
+        return in_array($request->input('tipo_evento'), Evento::TIPOS_SIN_COSTO, true);
+    }
+
     /**
-     * En los tipos de tarifa única, las tarifas que no son la suya se guardan en 0.
+     * En los tipos de tarifa única, las tarifas que no son la suya se guardan en 0. En los tipos
+     * sin costo se guardan en 0 todas, sin oferta de valor.
      */
     private function retirarOtrasTarifas(Request $request, array $validated): array
     {
+        if ($this->esSinCosto($request)) {
+            foreach (self::CAMPOS_PRECIO as $campo) {
+                $validated[$campo] = 0;
+            }
+            $validated['tiene_oferta_valor'] = false;
+            $validated['oferta_valor'] = null;
+
+            return $validated;
+        }
+
         $tarifa = $this->tarifaUnica($request);
         if ($tarifa === null) {
             return $validated;
@@ -246,6 +262,10 @@ class EventoController extends Controller
                     Storage::disk('public')->delete($cleanImage);
                 }
 
+                if ($evento->imagen_movil) {
+                    Storage::disk('public')->delete(str_replace(['/storage/', 'storage/'], '', $evento->imagen_movil));
+                }
+
                 if ($evento->url_folleto) {
                     $cleanFolleto = str_replace(['/storage/', 'storage/'], '', $evento->url_folleto);
                     Storage::disk('public')->delete($cleanFolleto);
@@ -290,6 +310,7 @@ class EventoController extends Controller
                 'subtitulo' => 'nullable|string|max:255',
                 'modo_evento' => 'required|string|max:150',
                 'imagen_relacionada' => 'nullable|file|image',
+                'imagen_movil' => 'nullable|file|image',
                 'url_folleto' => 'nullable|file|mimes:pdf',
                 'url_folleto_secundario' => 'nullable|file|mimes:pdf',
                 'fecha_hora_inicio' => 'required|date',
@@ -349,6 +370,8 @@ class EventoController extends Controller
                 $modoSlug = 'sem';
             } elseif (str_contains($modo, 'taller')) {
                 $modoSlug = 'tll';
+            } elseif ($validated['tipo_evento'] === Evento::PUBLICAMENTE_HABLANDO) {
+                $modoSlug = 'pub';
             } else {
                 $modoSlug = Str::slug(substr($modo, 0, 10));
             }
@@ -369,6 +392,12 @@ class EventoController extends Controller
                     $validated['imagen_relacionada'] = $request->file('imagen_relacionada')->store('eventos/imagenes', 'public');
                 } else {
                     unset($validated['imagen_relacionada']);
+                }
+
+                if ($request->hasFile('imagen_movil')) {
+                    $validated['imagen_movil'] = $request->file('imagen_movil')->store('eventos/imagenes', 'public');
+                } else {
+                    unset($validated['imagen_movil']);
                 }
 
                 if ($request->hasFile('url_folleto')) {
@@ -431,6 +460,7 @@ class EventoController extends Controller
                 'subtitulo' => 'nullable|string|max:255',
                 'modo_evento' => 'required|string|max:150',
                 'imagen_relacionada' => 'nullable|file|image',
+                'imagen_movil' => 'nullable|file|image',
                 'fecha_hora_inicio' => 'required|date',
                 'fecha_hora_fin' => 'required|date|after_or_equal:fecha_hora_inicio',
                 'modalidad' => 'required|string|in:Presencial,Virtual,Híbrido',
@@ -460,7 +490,7 @@ class EventoController extends Controller
                 'contenido_tematico.*.subtemas.*' => 'nullable|string',
                 'color_hex_secundario' => 'nullable|string|max:7',
                 'texto_dinamico' => 'nullable|string',
-                'url_folleto' => 'required|file|mimes:pdf',
+                'url_folleto' => ($this->esSinCosto($request) ? 'nullable' : 'required').'|file|mimes:pdf',
                 'url_folleto_secundario' => 'nullable|file|mimes:pdf',
                 'url_formulario_inscripcion' => 'required|url|max:255',
                 'estilo_temario' => 'nullable|string',
@@ -489,6 +519,8 @@ class EventoController extends Controller
                 $modoSlug = 'sem';
             } elseif (str_contains($modo, 'taller')) {
                 $modoSlug = 'tll';
+            } elseif ($validated['tipo_evento'] === Evento::PUBLICAMENTE_HABLANDO) {
+                $modoSlug = 'pub';
             } else {
                 $modoSlug = Str::slug(substr($modo, 0, 10));
             }
@@ -498,6 +530,7 @@ class EventoController extends Controller
             $slugGenerado = "{$shortUuid}-{$modoSlug}-{$tituloSlug}";
 
             $rutaImagen = null;
+            $rutaImagenMovil = null;
             $rutaFolleto = null;
             $rutaFolleto_secundario = null;
             $eventoOrigen = null;
@@ -522,6 +555,13 @@ class EventoController extends Controller
                 $rutaImagen = $copyServerFile($eventoOrigen->imagen_relacionada, 'eventos/imagenes');
             }
 
+            if ($request->hasFile('imagen_movil')) {
+                $rutaImagenMovil = $request->file('imagen_movil')->store('eventos/imagenes', 'public');
+            } elseif ($request->filled('id_origen_duplicado')) {
+                $eventoOrigen = $eventoOrigen ?? Evento::find($request->id_origen_duplicado);
+                $rutaImagenMovil = $copyServerFile($eventoOrigen->imagen_movil, 'eventos/imagenes');
+            }
+
             if ($request->hasFile('url_folleto')) {
                 $file = $request->file('url_folleto');
                 $originalName = time() . '-' . Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
@@ -540,7 +580,7 @@ class EventoController extends Controller
                 $rutaFolleto_secundario = $copyServerFile($eventoOrigen->url_folleto_secundario, 'eventos/folletos_secundarios');
             }
 
-            $eventoCreado = DB::transaction(function () use ($validated, $rutaImagen, $rutaFolleto, $rutaFolleto_secundario, $slugGenerado) {
+            $eventoCreado = DB::transaction(function () use ($validated, $rutaImagen, $rutaImagenMovil, $rutaFolleto, $rutaFolleto_secundario, $slugGenerado) {
                 $contenido = ContenidoTematico::create([
                     'modulos' => $validated['contenido_tematico'],
                     'alcance' => $validated['subtitulo'] ?? null,
@@ -557,6 +597,7 @@ class EventoController extends Controller
                     'slug' => $slugGenerado,
                     'subtitulo' => $validated['subtitulo'],
                     'imagen_relacionada' => $rutaImagen,
+                    'imagen_movil' => $rutaImagenMovil,
                     'modalidad' => $validated['modalidad'],
                     'url_folleto' => $rutaFolleto,
                     'url_folleto_secundario' => $rutaFolleto_secundario,
